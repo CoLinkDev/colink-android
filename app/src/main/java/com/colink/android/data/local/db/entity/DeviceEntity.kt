@@ -18,6 +18,8 @@ data class DeviceEntity(
     val cloudAvailable: Boolean,
     val lanAvailable: Boolean,
     val activeRoute: String?,
+    val deviceSources: String,
+    val securityState: String,
 ) {
     fun toDomain(): Device =
         Device(
@@ -33,6 +35,11 @@ data class DeviceEntity(
             cloudAvailable = cloudAvailable,
             lanAvailable = lanAvailable,
             activeRoute = activeRoute,
+            deviceSources = deviceSources
+                .split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+            securityState = securityState,
         )
 }
 
@@ -50,4 +57,6 @@ fun Device.toEntity(): DeviceEntity =
         cloudAvailable = cloudAvailable,
         lanAvailable = lanAvailable,
         activeRoute = activeRoute,
+        deviceSources = deviceSources.distinct().joinToString(","),
+        securityState = securityState,
     )

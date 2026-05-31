@@ -1,7 +1,5 @@
 package com.colink.android.ui.navigation
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Cloud
@@ -37,11 +36,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -56,14 +56,12 @@ import com.colink.android.domain.model.CloudStatus
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkService
-import com.colink.android.ui.auth.AuthScreen
+import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.transfers.TransfersScreen
-
-private const val MATERIAL_MOTION_DURATION = 220
 
 private data class TopLevelRoute(
     val route: String,
@@ -87,10 +85,11 @@ fun CoLinkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showAuth by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.authenticated) {
-        if (uiState.authenticated) {
+    LaunchedEffect(uiState.bootstrapping) {
+        if (!uiState.bootstrapping) {
             CoLinkService.start(context)
         }
     }
@@ -103,14 +102,28 @@ fun CoLinkNavGraph(
 
     when {
         uiState.bootstrapping -> LoadingScreen(modifier)
-        !uiState.authenticated -> AuthScreen(modifier)
         else -> {
             MainScaffold(
                 cloudStatus = uiState.cloud.status,
+                authenticated = uiState.authenticated,
+                onLogin = { showAuth = true },
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
                 modifier = modifier,
             )
+            if (showAuth) {
+                AlertDialog(
+                    onDismissRequest = { showAuth = false },
+                    title = { Text("Cloud account") },
+                    text = {
+                        AuthDialogContent(
+                            onAuthenticated = { showAuth = false },
+                        )
+                    },
+                    confirmButton = {},
+                    dismissButton = {},
+                )
+            }
             val request = uiState.pairingRequest
             if (request != null) {
                 AlertDialog(
@@ -140,6 +153,8 @@ fun CoLinkNavGraph(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainScaffold(
     cloudStatus: CloudStatus,
+    authenticated: Boolean,
+    onLogin: () -> Unit,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
     modifier: Modifier = Modifier,
@@ -202,8 +217,15 @@ private fun MainScaffold(
                     )
                 },
                 actions = {
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
+                    IconButton(onClick = if (authenticated) onLogout else onLogin) {
+                        Icon(
+                            imageVector = if (authenticated) {
+                                Icons.AutoMirrored.Filled.Logout
+                            } else {
+                                Icons.AutoMirrored.Filled.Login
+                            },
+                            contentDescription = if (authenticated) "Logout" else "Login",
+                        )
                     }
                 },
             )
@@ -259,4 +281,3 @@ private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
         restoreState = true
     }
 }
-

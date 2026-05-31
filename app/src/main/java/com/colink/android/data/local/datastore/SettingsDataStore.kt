@@ -54,15 +54,12 @@ class SettingsDataStore @Inject constructor(
         dataStore.data.map { preferences ->
             val userId = preferences[DEVICE_USER_ID]
             val deviceId = preferences[DEVICE_ID]
-            val deviceSecret = preferences[DEVICE_SECRET]
             val name = preferences[DEVICE_NAME]
             val type = preferences[DEVICE_TYPE]
             val publicKey = preferences[DEVICE_PUBLIC_KEY]
             val privateKey = preferences[DEVICE_PRIVATE_KEY]
             if (
-                userId == null ||
                 deviceId == null ||
-                deviceSecret == null ||
                 name == null ||
                 type == null ||
                 publicKey == null ||
@@ -70,7 +67,16 @@ class SettingsDataStore @Inject constructor(
             ) {
                 null
             } else {
-                DeviceIdentity(userId, deviceId, deviceSecret, name, type, publicKey, privateKey)
+                DeviceIdentity(
+                    userId = userId?.takeIf { it.isNotBlank() },
+                    deviceId = deviceId,
+                    deviceSecret = preferences[DEVICE_SECRET]?.takeIf { it.isNotBlank() },
+                    name = name,
+                    type = type,
+                    publicKey = publicKey,
+                    privateKey = privateKey,
+                    cloudKeySyncPending = preferences[DEVICE_CLOUD_KEY_SYNC_PENDING] ?: false,
+                )
             }
         }
 
@@ -116,13 +122,14 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun saveDeviceIdentity(identity: DeviceIdentity) {
         dataStore.edit { preferences ->
-            preferences[DEVICE_USER_ID] = identity.userId
+            identity.userId?.let { preferences[DEVICE_USER_ID] = it } ?: preferences.remove(DEVICE_USER_ID)
             preferences[DEVICE_ID] = identity.deviceId
-            preferences[DEVICE_SECRET] = identity.deviceSecret
+            identity.deviceSecret?.let { preferences[DEVICE_SECRET] = it } ?: preferences.remove(DEVICE_SECRET)
             preferences[DEVICE_NAME] = identity.name
             preferences[DEVICE_TYPE] = identity.type
             preferences[DEVICE_PUBLIC_KEY] = identity.publicKey
             preferences[DEVICE_PRIVATE_KEY] = identity.privateKey
+            preferences[DEVICE_CLOUD_KEY_SYNC_PENDING] = identity.cloudKeySyncPending
         }
     }
 
@@ -131,15 +138,18 @@ class SettingsDataStore @Inject constructor(
             preferences.remove(DEVICE_USER_ID)
             preferences.remove(DEVICE_ID)
             preferences.remove(DEVICE_SECRET)
+            preferences.remove(DEVICE_NAME)
             preferences.remove(DEVICE_TYPE)
             preferences.remove(DEVICE_PUBLIC_KEY)
             preferences.remove(DEVICE_PRIVATE_KEY)
+            preferences.remove(DEVICE_CLOUD_KEY_SYNC_PENDING)
         }
     }
 
     companion object {
         private val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
         private val DEVICE_ID = stringPreferencesKey("device_id")
+        private val DEVICE_CLOUD_KEY_SYNC_PENDING = booleanPreferencesKey("device_cloud_key_sync_pending")
         private val DEVICE_NAME = stringPreferencesKey("device_name")
         private val DEVICE_PRIVATE_KEY = stringPreferencesKey("device_private_key")
         private val DEVICE_PUBLIC_KEY = stringPreferencesKey("device_public_key")

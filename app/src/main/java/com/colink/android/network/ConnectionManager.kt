@@ -145,18 +145,20 @@ class ConnectionManager @Inject constructor(
     val cloudState: StateFlow<CloudConnectionState> = _cloudState.asStateFlow()
 
     fun start() {
-        if (connectionJob?.isActive == true) {
-            return
-        }
         ensureNotificationChannel()
         scope.launch {
+            deviceRepository.ensureLocalDeviceIdentity()
             fileTransferRepository.failUnfinished("app restarted")
             if (settingsDataStore.currentSettings().lanDiscovery) {
                 startLan()
             }
+            if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
+                connectionJob = scope.launch { runCloudLoop() }
+            } else if (settingsDataStore.currentSession() == null) {
+                _cloudState.value = CloudConnectionState()
+            }
         }
         startClipboardSync()
-        connectionJob = scope.launch { runCloudLoop() }
     }
 
     fun stop() {
@@ -183,11 +185,32 @@ class ConnectionManager @Inject constructor(
         _cloudState.value = CloudConnectionState()
     }
 
+    fun startCloud() {
+        scope.launch {
+            if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
+                connectionJob = scope.launch { runCloudLoop() }
+            }
+        }
+    }
+
+    fun stopCloud() {
+        connectionJob?.cancel()
+        connectionJob = null
+        cloudWebSocketClient.close()
+        _cloudState.value = CloudConnectionState()
+        scope.launch { deviceRepository.listLocalDevices() }
+    }
+
     fun applySettings(settings: AppSettings) {
         if (settings.lanDiscovery) {
             startLan()
         } else {
             stopLan()
+        }
+        scope.launch {
+            if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
+                connectionJob = scope.launch { runCloudLoop() }
+            }
         }
     }
 
@@ -760,7 +783,9 @@ class ConnectionManager @Inject constructor(
 
     private val lanClientListener =
         object : LanWebSocketClient.Listener {
-            override fun onConnected(deviceId: String) = Unit
+            override fun onConnected(deviceId: String) {
+                scope.launch { deviceRepository.listLocalDevices() }
+            }
 
             override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
                 scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
@@ -891,7 +916,9 @@ class ConnectionManager @Inject constructor(
 
     private val lanListener =
         object : LanWebSocketServer.Listener {
-            override fun onConnected(deviceId: String) = Unit
+            override fun onConnected(deviceId: String) {
+                scope.launch { deviceRepository.listLocalDevices() }
+            }
 
             override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
                 scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
@@ -969,6 +996,11 @@ class ConnectionManager @Inject constructor(
     private suspend fun runCloudLoop() {
         var attempt = 0
         while (scope.isActive) {
+            if (settingsDataStore.currentSession() == null) {
+                _cloudState.value = CloudConnectionState()
+                connectionJob = null
+                return
+            }
             val closed = CompletableDeferred<String?>()
             _cloudState.value =
                 CloudConnectionState(

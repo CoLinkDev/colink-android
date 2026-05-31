@@ -17,8 +17,7 @@ class BootReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             val dataStore = SettingsDataStore(context.applicationContext)
             val settings = dataStore.currentSettings()
-            val session = dataStore.currentSession()
-            if (settings.autoStartOnBoot && session != null) {
+            if (settings.autoStartOnBoot) {
                 CoLinkService.start(context.applicationContext)
             }
             result.finish()

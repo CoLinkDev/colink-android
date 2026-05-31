@@ -11,13 +11,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class DevicesUiState(
     val loading: Boolean = false,
     val message: String? = null,
+    val localDeviceId: String? = null,
 )
 
 @HiltViewModel
@@ -31,16 +32,26 @@ class DevicesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DevicesUiState())
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            val identity = deviceRepository.localDeviceIdentity()
+                ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
+            _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
+        }
+    }
+
     fun refresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true, message = null) }
-            val session = authRepository.currentSession().getOrElse {
-                _uiState.value = DevicesUiState(loading = false, message = it.message)
-                return@launch
-            }
-            val result = deviceRepository.syncDevices(session)
+            val result = authRepository.currentSession()
+                .fold(
+                    onSuccess = { session -> deviceRepository.syncDevices(session) },
+                    onFailure = { deviceRepository.listLocalDevices() },
+                )
+            val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message ?: "Devices refreshed",
+                localDeviceId = identity?.deviceId,
             )
         }
     }
@@ -49,8 +60,10 @@ class DevicesViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.rotateDeviceKey(deviceId)
+            val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message ?: "Device key rotated",
+                localDeviceId = identity?.deviceId,
             )
         }
     }
@@ -59,8 +72,22 @@ class DevicesViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.deleteDevice(deviceId)
+            val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message ?: "Device deleted",
+                localDeviceId = identity?.deviceId,
+            )
+        }
+    }
+
+    fun forgetLanTrust(deviceId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(message = null) }
+            val result = deviceRepository.forgetLanTrust(deviceId)
+            val identity = deviceRepository.localDeviceIdentity()
+            _uiState.value = DevicesUiState(
+                message = result.exceptionOrNull()?.message ?: "LAN trust forgotten",
+                localDeviceId = identity?.deviceId,
             )
         }
     }

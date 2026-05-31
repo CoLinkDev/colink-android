@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.repository.AuthRepository
+import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,12 +19,14 @@ import kotlinx.coroutines.launch
 data class AuthUiState(
     val loading: Boolean = false,
     val error: String? = null,
+    val authenticated: Boolean = false,
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val settingsDataStore: SettingsDataStore,
+    private val connectionManager: ConnectionManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -47,7 +50,13 @@ class AuthViewModel @Inject constructor(
             _uiState.value = AuthUiState(loading = true)
             settingsDataStore.saveServerUrl(serverUrl)
             val result = block()
-            _uiState.value = AuthUiState(error = result.exceptionOrNull()?.message)
+            _uiState.value = AuthUiState(
+                error = result.exceptionOrNull()?.message,
+                authenticated = result.isSuccess,
+            )
+            if (result.isSuccess) {
+                connectionManager.startCloud()
+            }
         }
     }
 

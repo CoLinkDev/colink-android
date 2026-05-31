@@ -13,4 +13,6 @@ data class Device(
     val cloudAvailable: Boolean = online,
     val lanAvailable: Boolean = false,
     val activeRoute: String? = null,
+    val deviceSources: List<String> = emptyList(),
+    val securityState: String = "unverified",
 )

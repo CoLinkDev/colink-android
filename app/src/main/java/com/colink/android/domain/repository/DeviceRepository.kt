@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 interface DeviceRepository {
     val devices: Flow<List<Device>>
 
+    suspend fun ensureLocalDeviceIdentity(): Result<DeviceIdentity>
+
     suspend fun ensureDeviceIdentity(session: Session): Result<DeviceIdentity>
 
     suspend fun localDeviceIdentity(): DeviceIdentity?
@@ -22,9 +24,13 @@ interface DeviceRepository {
 
     suspend fun clearAllLanEndpoints(): Result<Unit>
 
+    suspend fun listLocalDevices(): Result<List<Device>>
+
     suspend fun updateDeviceName(deviceId: String, name: String): Result<Unit>
 
     suspend fun deleteDevice(deviceId: String): Result<Unit>
 
     suspend fun rotateDeviceKey(deviceId: String): Result<Unit>
+
+    suspend fun forgetLanTrust(deviceId: String): Result<Unit>
 }

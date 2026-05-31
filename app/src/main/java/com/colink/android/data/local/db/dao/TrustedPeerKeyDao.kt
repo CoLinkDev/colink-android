@@ -10,6 +10,9 @@ interface TrustedPeerKeyDao {
     @Query("SELECT * FROM trusted_peer_keys WHERE deviceId = :deviceId LIMIT 1")
     suspend fun get(deviceId: String): TrustedPeerKeyEntity?
 
+    @Query("SELECT * FROM trusted_peer_keys ORDER BY name COLLATE NOCASE ASC, deviceId ASC")
+    suspend fun getAll(): List<TrustedPeerKeyEntity>
+
     @Upsert
     suspend fun upsert(record: TrustedPeerKeyEntity)
 

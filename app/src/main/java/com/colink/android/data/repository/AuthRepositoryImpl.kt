@@ -1,13 +1,13 @@
 package com.colink.android.data.repository
 
 import com.colink.android.data.local.datastore.SettingsDataStore
-import com.colink.android.data.local.db.dao.DeviceDao
 import com.colink.android.data.remote.api.AuthApi
 import com.colink.android.data.remote.api.apiEndpoint
 import com.colink.android.data.remote.dto.LoginRequestDto
 import com.colink.android.data.remote.dto.LogoutRequestDto
 import com.colink.android.data.remote.dto.RefreshRequestDto
 import com.colink.android.data.remote.dto.RegisterRequestDto
+import com.colink.android.data.remote.dto.ApiException
 import com.colink.android.data.remote.dto.requireData
 import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.AuthRepository
@@ -17,6 +17,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import retrofit2.HttpException
 
 private const val ACCESS_TOKEN_TTL_MILLIS = 15 * 60 * 1000L
 
@@ -24,7 +25,6 @@ private const val ACCESS_TOKEN_TTL_MILLIS = 15 * 60 * 1000L
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
     private val settingsDataStore: SettingsDataStore,
-    private val deviceDao: DeviceDao,
     private val deviceRepository: DeviceRepository,
 ) : AuthRepository {
     private val refreshMutex = Mutex()
@@ -33,13 +33,32 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun bootstrap(): Result<Unit> =
         runCatching {
-            val session = settingsDataStore.currentSession() ?: return@runCatching
-            val refreshed = refreshIfNeeded(session)
-            deviceRepository.ensureDeviceIdentity(refreshed).getOrThrow()
-            deviceRepository.syncDevices(refreshed).getOrThrow()
-        }.onFailure {
-            settingsDataStore.clearSession()
-            deviceDao.clear()
+            deviceRepository.ensureLocalDeviceIdentity().getOrThrow()
+            val session = settingsDataStore.currentSession()
+            if (session == null) {
+                deviceRepository.listLocalDevices().getOrThrow()
+                return@runCatching
+            }
+            val refreshed = try {
+                refreshIfNeeded(session)
+            } catch (error: Throwable) {
+                if (isAuthError(error)) {
+                    clearCloudSession()
+                } else {
+                    deviceRepository.listLocalDevices().getOrThrow()
+                }
+                return@runCatching
+            }
+            try {
+                deviceRepository.ensureDeviceIdentity(refreshed).getOrThrow()
+                deviceRepository.syncDevices(refreshed).getOrThrow()
+            } catch (error: Throwable) {
+                if (isAuthError(error)) {
+                    clearCloudSession()
+                } else {
+                    deviceRepository.listLocalDevices().getOrThrow()
+                }
+            }
         }
 
     override suspend fun login(identifier: String, password: String): Result<Unit> =
@@ -77,13 +96,18 @@ class AuthRepositoryImpl @Inject constructor(
                 }
             }
             settingsDataStore.clearSession()
-            deviceDao.clear()
+            deviceRepository.listLocalDevices().getOrThrow()
         }
 
     override suspend fun currentSession(): Result<Session> =
-        runCatching {
+        try {
             val session = settingsDataStore.currentSession() ?: error("not logged in")
-            refreshIfNeeded(session)
+            Result.success(refreshIfNeeded(session))
+        } catch (error: Throwable) {
+            if (isAuthError(error)) {
+                clearCloudSession()
+            }
+            Result.failure(error)
         }
 
     private suspend fun refreshIfNeeded(session: Session): Session =
@@ -118,10 +142,24 @@ class AuthRepositoryImpl @Inject constructor(
             refreshToken = refreshToken,
             accessTokenExpiresAt = System.currentTimeMillis() + ACCESS_TOKEN_TTL_MILLIS,
         )
-        settingsDataStore.saveSession(session)
         deviceRepository.ensureDeviceIdentity(session).getOrThrow()
+        settingsDataStore.saveSession(session)
         deviceRepository.syncDevices(session).getOrThrow()
     }
+
+    private suspend fun clearCloudSession() {
+        settingsDataStore.clearSession()
+        deviceRepository.listLocalDevices().getOrThrow()
+    }
+
+    private fun isAuthError(error: Throwable): Boolean =
+        when (error) {
+            is ApiException -> error.code in setOf(1020, 1021, 1030)
+            is HttpException -> error.code() == 401
+            else -> error.message?.equals("unauthorized", ignoreCase = true) == true ||
+                error.message?.equals("invalid refresh token", ignoreCase = true) == true ||
+                error.message?.equals("token revoked", ignoreCase = true) == true
+        }
 
     private fun bearer(token: String): String = "Bearer $token"
 }

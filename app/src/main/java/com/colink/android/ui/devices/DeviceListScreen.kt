@@ -11,13 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +55,7 @@ fun DeviceListScreen(
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var confirmAction by rememberSaveable { mutableStateOf<DeviceAction?>(null) }
+    var confirmAction by remember { mutableStateOf<DeviceAction?>(null) }
 
     SnackbarOnMessage(
         message = uiState.message,
@@ -90,8 +89,10 @@ fun DeviceListScreen(
                 items(devices, key = { it.deviceId }) { device ->
                     DeviceCard(
                         device = device,
+                        isLocalDevice = device.deviceId == uiState.localDeviceId,
                         onRotateKey = { confirmAction = DeviceAction.RotateKey(device.deviceId, device.name) },
                         onDelete = { confirmAction = DeviceAction.Delete(device.deviceId, device.name) },
+                        onForgetTrust = { confirmAction = DeviceAction.ForgetTrust(device.deviceId, device.name) },
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -122,6 +123,17 @@ fun DeviceListScreen(
             },
         )
 
+        is DeviceAction.ForgetTrust -> ConfirmDeviceActionDialog(
+            title = "Forget LAN trust",
+            body = "Forget LAN trust for ${action.deviceName.ifBlank { "this device" }}?",
+            confirmText = "Forget",
+            onDismiss = { confirmAction = null },
+            onConfirm = {
+                viewModel.forgetLanTrust(action.deviceId)
+                confirmAction = null
+            },
+        )
+
         null -> Unit
     }
 }
@@ -130,8 +142,10 @@ fun DeviceListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun DeviceCard(
     device: Device,
+    isLocalDevice: Boolean,
     onRotateKey: () -> Unit,
     onDelete: () -> Unit,
+    onForgetTrust: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -174,6 +188,13 @@ private fun DeviceCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (isLocalDevice) {
+                        BadgeChip(
+                            text = "Local",
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
                     BadgeChip(
                         text = when {
                             device.lanAvailable -> "LAN"
@@ -194,6 +215,9 @@ private fun DeviceCard(
                     device.localIp?.takeIf { it.isNotBlank() }?.let {
                         BadgeChip(text = it)
                     }
+                    if (device.type == "unknown" && device.deviceSources.contains("trusted_peer_key")) {
+                        BadgeChip(text = "Trusted")
+                    }
                 }
             }
             Box {
@@ -204,22 +228,36 @@ private fun DeviceCard(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Rotate key") },
-                        leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
-                        onClick = {
-                            expanded = false
-                            onRotateKey()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete") },
-                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                        onClick = {
-                            expanded = false
-                            onDelete()
-                        },
-                    )
+                    if (isLocalDevice) {
+                        DropdownMenuItem(
+                            text = { Text("Rotate key") },
+                            leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                            onClick = {
+                                expanded = false
+                                onRotateKey()
+                            },
+                        )
+                    }
+                    if (!isLocalDevice && device.deviceSources.contains("cloud")) {
+                        DropdownMenuItem(
+                            text = { Text("Delete") },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                            onClick = {
+                                expanded = false
+                                onDelete()
+                            },
+                        )
+                    }
+                    if (!isLocalDevice && device.type == "unknown" && device.deviceSources.contains("trusted_peer_key")) {
+                        DropdownMenuItem(
+                            text = { Text("Forget trust") },
+                            leadingIcon = { Icon(Icons.Default.LinkOff, contentDescription = null) },
+                            onClick = {
+                                expanded = false
+                                onForgetTrust()
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -261,6 +299,11 @@ private sealed interface DeviceAction {
     ) : DeviceAction
 
     data class RotateKey(
+        override val deviceId: String,
+        override val deviceName: String,
+    ) : DeviceAction
+
+    data class ForgetTrust(
         override val deviceId: String,
         override val deviceName: String,
     ) : DeviceAction
