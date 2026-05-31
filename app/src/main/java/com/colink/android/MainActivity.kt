@@ -6,9 +6,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
@@ -26,11 +27,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotificationPermission()
+        enableEdgeToEdge()
         handleShareIntent(intent)
         setContent {
             CoLinkTheme {
-                CoLinkNavGraph(pendingShareStore = pendingShareStore)
+                CoLinkNavGraph(
+                    pendingShareStore = pendingShareStore,
+                    onRequestNotificationPermission = ::requestNotificationPermission,
+                )
             }
         }
     }

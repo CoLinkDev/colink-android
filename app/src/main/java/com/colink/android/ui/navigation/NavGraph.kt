@@ -1,32 +1,50 @@
 package com.colink.android.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -34,6 +52,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.colink.android.R
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
@@ -45,32 +64,27 @@ import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.transfers.TransfersScreen
 
+private const val MATERIAL_MOTION_DURATION = 220
+
 private data class TopLevelRoute(
     val route: String,
     val label: String,
-    val icon: @Composable () -> Unit,
+    val icon: ImageVector,
 )
 
 private val topLevelRoutes =
     listOf(
-        TopLevelRoute("devices", "Devices") {
-            Icon(Icons.Default.Devices, contentDescription = null)
-        },
-        TopLevelRoute("messages", "Messages") {
-            Icon(Icons.Default.Chat, contentDescription = null)
-        },
-        TopLevelRoute("transfers", "Transfers") {
-            Icon(Icons.Default.SwapHoriz, contentDescription = null)
-        },
-        TopLevelRoute("settings", "Settings") {
-            Icon(Icons.Default.Settings, contentDescription = null)
-        },
+        TopLevelRoute("devices", "Devices", Icons.Default.Devices),
+        TopLevelRoute("messages", "Messages", Icons.AutoMirrored.Filled.Chat),
+        TopLevelRoute("transfers", "Transfers", Icons.Default.SwapHoriz),
+        TopLevelRoute("settings", "Settings", Icons.Default.Settings),
     )
 
 @Composable
 fun CoLinkNavGraph(
     modifier: Modifier = Modifier,
     pendingShareStore: PendingShareStore? = null,
+    onRequestNotificationPermission: () -> Unit = {},
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -79,6 +93,12 @@ fun CoLinkNavGraph(
     LaunchedEffect(uiState.authenticated) {
         if (uiState.authenticated) {
             CoLinkService.start(context)
+        }
+    }
+
+    LaunchedEffect(uiState.authenticated, uiState.notificationsEnabled) {
+        if (uiState.authenticated && uiState.notificationsEnabled) {
+            onRequestNotificationPermission()
         }
     }
 
@@ -96,10 +116,13 @@ fun CoLinkNavGraph(
             if (request != null) {
                 AlertDialog(
                     onDismissRequest = { viewModel.respondPairing(request.requestId, false) },
+                    icon = { Icon(Icons.Default.Devices, contentDescription = null) },
                     title = { Text("LAN pairing") },
-                    text = { Text("${request.name} wants to pair.\nCode: ${request.code}") },
+                    text = {
+                        Text("${request.name} wants to pair with this device.\nCode: ${request.code}")
+                    },
                     confirmButton = {
-                        Button(onClick = { viewModel.respondPairing(request.requestId, true) }) {
+                        TextButton(onClick = { viewModel.respondPairing(request.requestId, true) }) {
                             Text("Accept")
                         }
                     },
@@ -126,38 +149,62 @@ private fun MainScaffold(
     val backStack by navController.currentBackStackEntryAsState()
     val currentDestination = backStack?.destination
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
-        ?: androidx.compose.runtime.remember {
+        ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
         }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(pendingShare) {
         when (pendingShare) {
-            is PendingShare.Text -> navController.navigate("messages")
-            is PendingShare.File -> navController.navigate("transfers")
+            is PendingShare.Text -> navController.navigateTopLevel("messages")
+            is PendingShare.File -> navController.navigateTopLevel("transfers")
             null -> Unit
         }
     }
 
     Scaffold(
         modifier = modifier,
+        contentWindowInsets = WindowInsets(0.dp),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
+                modifier = Modifier.statusBarsPadding(),
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            if (cloudStatus == CloudStatus.Connected) {
-                                Icons.Default.Cloud
-                            } else {
-                                Icons.Default.CloudOff
-                            },
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Image(
+                            painter = painterResource(R.drawable.colink_logo),
                             contentDescription = null,
+                            modifier = Modifier.size(28.dp),
                         )
-                        Text(" CoLink")
+                        Text("CoLink")
                     }
+                },
+                navigationIcon = {
+                    Icon(
+                        imageVector = if (cloudStatus == CloudStatus.Connected) {
+                            Icons.Default.Cloud
+                        } else {
+                            Icons.Default.CloudOff
+                        },
+                        contentDescription = cloudStatus.name,
+                        tint = if (cloudStatus == CloudStatus.Connected) {
+                            MaterialTheme.colorScheme.secondary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(start = 16.dp),
+                    )
                 },
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(Icons.Default.Logout, contentDescription = "Logout")
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
                 },
             )
@@ -169,16 +216,8 @@ private fun MainScaffold(
                         selected = currentDestination
                             ?.hierarchy
                             ?.any { it.route == item.route } == true,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = item.icon,
+                        onClick = { navController.navigateTopLevel(item.route) },
+                        icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
                     )
                 }
@@ -189,11 +228,55 @@ private fun MainScaffold(
             navController = navController,
             startDestination = "devices",
             modifier = Modifier.padding(innerPadding),
+            enterTransition = { materialEnterTransition() },
+            exitTransition = { materialExitTransition() },
+            popEnterTransition = { materialPopEnterTransition() },
+            popExitTransition = { materialPopExitTransition() },
         ) {
-            composable("devices") { DeviceListScreen() }
-            composable("messages") { MessageScreen(pendingShareStore = pendingShareStore) }
-            composable("transfers") { TransfersScreen(pendingShareStore = pendingShareStore) }
-            composable("settings") { SettingsScreen() }
+            composable("devices") { DeviceListScreen(snackbarHostState = snackbarHostState) }
+            composable("messages") {
+                MessageScreen(
+                    snackbarHostState = snackbarHostState,
+                    pendingShareStore = pendingShareStore,
+                )
+            }
+            composable("transfers") {
+                TransfersScreen(
+                    snackbarHostState = snackbarHostState,
+                    pendingShareStore = pendingShareStore,
+                )
+            }
+            composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
         }
     }
 }
+
+private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
+    navigate(route) {
+        popUpTo(graph.startDestinationId) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private fun AnimatedContentTransitionScope<*>.materialEnterTransition(): EnterTransition =
+    fadeIn(animationSpec = tween(MATERIAL_MOTION_DURATION)) +
+        slideIntoContainer(
+            towards = AnimatedContentTransitionScope.SlideDirection.Left,
+            animationSpec = tween(MATERIAL_MOTION_DURATION),
+        )
+
+private fun AnimatedContentTransitionScope<*>.materialExitTransition(): ExitTransition =
+    fadeOut(animationSpec = tween(MATERIAL_MOTION_DURATION))
+
+private fun AnimatedContentTransitionScope<*>.materialPopEnterTransition(): EnterTransition =
+    fadeIn(animationSpec = tween(MATERIAL_MOTION_DURATION)) +
+        slideIntoContainer(
+            towards = AnimatedContentTransitionScope.SlideDirection.Right,
+            animationSpec = tween(MATERIAL_MOTION_DURATION),
+        )
+
+private fun AnimatedContentTransitionScope<*>.materialPopExitTransition(): ExitTransition =
+    fadeOut(animationSpec = tween(MATERIAL_MOTION_DURATION))

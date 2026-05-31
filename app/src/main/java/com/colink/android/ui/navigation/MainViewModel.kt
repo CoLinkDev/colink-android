@@ -7,6 +7,7 @@ import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.lan.LanPairingCoordinator
+import com.colink.android.data.local.datastore.SettingsDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +22,7 @@ data class MainUiState(
     val authenticated: Boolean = false,
     val cloud: CloudConnectionState = CloudConnectionState(),
     val pairingRequest: LanPairingRequest? = null,
+    val notificationsEnabled: Boolean = true,
 )
 
 @HiltViewModel
@@ -28,6 +30,7 @@ class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val connectionManager: ConnectionManager,
     private val pairingCoordinator: LanPairingCoordinator,
+    private val settingsDataStore: SettingsDataStore,
 ) : ViewModel() {
     private val bootstrapping = MutableStateFlow(true)
 
@@ -37,12 +40,14 @@ class MainViewModel @Inject constructor(
             authRepository.session,
             connectionManager.cloudState,
             pairingCoordinator.pendingRequest,
-        ) { loading, session, cloud, pairingRequest ->
+            settingsDataStore.settings,
+        ) { loading, session, cloud, pairingRequest, settings ->
             MainUiState(
                 bootstrapping = loading,
                 authenticated = session != null,
                 cloud = cloud,
                 pairingRequest = pairingRequest,
+                notificationsEnabled = settings.notifications,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 

@@ -16,7 +16,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class TransfersUiState(
+    val working: Boolean = false,
+    val message: String? = null,
+)
 
 @HiltViewModel
 class TransfersViewModel @Inject constructor(
@@ -36,39 +42,49 @@ class TransfersViewModel @Inject constructor(
         emptyList(),
     )
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _uiState = MutableStateFlow(TransfersUiState())
+    val uiState: StateFlow<TransfersUiState> = _uiState.asStateFlow()
 
     fun accept(sessionId: String) {
         viewModelScope.launch {
-            _error.value = connectionManager.acceptFileOffer(sessionId).exceptionOrNull()?.message
+            _uiState.value = TransfersUiState(working = true)
+            val result = connectionManager.acceptFileOffer(sessionId)
+            _uiState.value = TransfersUiState(
+                message = result.exceptionOrNull()?.message ?: "Transfer accepted",
+            )
         }
     }
 
     fun reject(sessionId: String) {
         viewModelScope.launch {
-            _error.value = connectionManager.rejectFileOffer(sessionId).exceptionOrNull()?.message
+            _uiState.value = TransfersUiState(working = true)
+            val result = connectionManager.rejectFileOffer(sessionId)
+            _uiState.value = TransfersUiState(
+                message = result.exceptionOrNull()?.message ?: "Transfer rejected",
+            )
         }
     }
 
     fun send(contentResolver: ContentResolver, targetDeviceId: String?, uri: Uri?) {
         viewModelScope.launch {
             if (targetDeviceId == null || uri == null) {
-                _error.value = "select a device and file"
+                _uiState.value = TransfersUiState(message = "Select a device and file")
                 return@launch
             }
+            _uiState.value = TransfersUiState(working = true)
             val offer = runCatching { buildFileOffer(contentResolver, uri) }.getOrElse {
-                _error.value = it.message
+                _uiState.value = TransfersUiState(message = it.message)
                 return@launch
             }
-            _error.value = connectionManager
+            val result = connectionManager
                 .sendFileOffer(targetDeviceId, offer)
-                .exceptionOrNull()
-                ?.message
+            _uiState.value = TransfersUiState(
+                message = result.exceptionOrNull()?.message ?: "File offer sent",
+            )
         }
     }
 
-    fun clearError() {
-        _error.value = null
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
     }
 }

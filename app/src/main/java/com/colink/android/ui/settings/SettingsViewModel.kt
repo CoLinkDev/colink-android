@@ -9,8 +9,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class SettingsUiState(
+    val saving: Boolean = false,
+    val message: String? = null,
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -24,10 +32,19 @@ class SettingsViewModel @Inject constructor(
             AppSettings(serverUrl = ""),
         )
 
+    private val _uiState = MutableStateFlow(SettingsUiState())
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
     fun save(settings: AppSettings) {
         viewModelScope.launch {
+            _uiState.value = SettingsUiState(saving = true)
             settingsDataStore.saveSettings(settings)
             connectionManager.applySettings(settings)
+            _uiState.value = SettingsUiState(message = "Settings saved")
         }
+    }
+
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
     }
 }

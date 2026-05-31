@@ -14,7 +14,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+data class MessagesUiState(
+    val sending: Boolean = false,
+    val message: String? = null,
+)
 
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
@@ -28,21 +34,24 @@ class MessagesViewModel @Inject constructor(
     val messages: StateFlow<List<TextMessage>> =
         messageRepository.messages.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
+    private val _uiState = MutableStateFlow(MessagesUiState())
+    val uiState: StateFlow<MessagesUiState> = _uiState.asStateFlow()
 
     fun send(targetDeviceId: String?, text: String) {
         viewModelScope.launch {
             if (targetDeviceId == null) {
-                _error.value = "select a target device"
+                _uiState.value = MessagesUiState(message = "Select a target device")
                 return@launch
             }
+            _uiState.value = MessagesUiState(sending = true)
             val result = connectionManager.sendText(targetDeviceId, text)
-            _error.value = result.exceptionOrNull()?.message
+            _uiState.value = MessagesUiState(
+                message = result.exceptionOrNull()?.message ?: "Message sent",
+            )
         }
     }
 
-    fun clearError() {
-        _error.value = null
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
     }
 }

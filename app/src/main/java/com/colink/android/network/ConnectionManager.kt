@@ -1734,7 +1734,7 @@ class ConnectionManager @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.colink_logo)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(pendingIntent)

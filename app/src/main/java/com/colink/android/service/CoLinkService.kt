@@ -75,7 +75,7 @@ class CoLinkService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.colink_logo)
             .setContentTitle(getString(R.string.service_notification_title))
             .setContentText(statusText)
             .setContentIntent(pendingIntent)

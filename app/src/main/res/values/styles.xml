@@ -1,10 +1,12 @@
 <resources>
-    <style name="Theme.CoLink" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.CoLink" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#2563EB</item>
-        <item name="android:navigationBarColor">#FAFAFA</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#FAFAFA</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="colorPrimary">#0B57D0</item>
+        <item name="colorSecondary">#146C43</item>
     </style>
 </resources>
