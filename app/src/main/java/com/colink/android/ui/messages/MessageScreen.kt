@@ -95,6 +95,26 @@ fun MessageScreen(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
+        LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            reverseLayout = true
+        ) {
+            if (messages.isEmpty()) {
+                item {
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        title = "No messages",
+                        body = "Pick a device and send the first message.",
+                    )
+                }
+            } else {
+                items(messages.asReversed(), key = { it.messageId }) { message ->
+                    MessageCard(message = message, modifier = Modifier.animateItem())
+                }
+            }
+        }
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -122,25 +142,6 @@ fun MessageScreen(
                 },
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
-            }
-        }
-
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (messages.isEmpty()) {
-                item {
-                    EmptyState(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        title = "No messages",
-                        body = "Pick a device and send the first message.",
-                    )
-                }
-            } else {
-                items(messages, key = { it.messageId }) { message ->
-                    MessageCard(message = message, modifier = Modifier.animateItem())
-                }
             }
         }
     }

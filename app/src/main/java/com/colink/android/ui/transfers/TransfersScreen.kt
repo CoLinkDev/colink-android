@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -23,6 +26,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -32,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,8 +72,9 @@ fun TransfersScreen(
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val transfers by viewModel.transfers.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pickedFileUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var confirmTransfer by rememberSaveable { mutableStateOf<TransferDecision?>(null) }
+
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching {
@@ -76,24 +83,27 @@ fun TransfersScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 )
             }
-        }
-        viewModel.send(context.contentResolver, selectedDeviceId, uri)
-    }
-
-    LaunchedEffect(devices) {
-        if (selectedDeviceId == null || devices.none { it.deviceId == selectedDeviceId }) {
-            selectedDeviceId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+            pickedFileUri = uri
         }
     }
 
-    LaunchedEffect(pendingShareStore, selectedDeviceId) {
-        if (selectedDeviceId == null) {
-            return@LaunchedEffect
-        }
+    LaunchedEffect(pendingShareStore) {
         val share = pendingShareStore?.consume()
         if (share is PendingShare.File) {
-            viewModel.send(context.contentResolver, selectedDeviceId, share.uri)
+            pickedFileUri = share.uri
         }
+    }
+
+    val uriToSend = pickedFileUri
+    if (uriToSend != null) {
+        SelectDeviceDialog(
+            devices = devices,
+            onDismiss = { pickedFileUri = null },
+            onSelect = { deviceId ->
+                viewModel.send(context.contentResolver, deviceId, uriToSend)
+                pickedFileUri = null
+            }
+        )
     }
 
     SnackbarOnMessage(
@@ -104,10 +114,10 @@ fun TransfersScreen(
 
     ScreenColumn(
         title = "Transfers",
-        subtitle = selectedDeviceName(devices, selectedDeviceId) ?: "Choose a destination before sending",
+        subtitle = "Tap + to select a file and send",
         action = {
             FilledTonalIconButton(
-                enabled = selectedDeviceId != null && !uiState.working,
+                enabled = !uiState.working,
                 onClick = { filePicker.launch(arrayOf("*/*")) },
             ) {
                 Icon(Icons.Default.UploadFile, contentDescription = "Send file")
@@ -115,12 +125,6 @@ fun TransfersScreen(
         },
         modifier = modifier,
     ) {
-        DevicePicker(
-            devices = devices,
-            selectedDeviceId = selectedDeviceId,
-            onSelectedDeviceChange = { selectedDeviceId = it },
-        )
-
         if (uiState.working) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
@@ -134,10 +138,10 @@ fun TransfersScreen(
                     EmptyState(
                         icon = Icons.Default.FolderOff,
                         title = "No transfers",
-                        body = "Choose a device and send a file.",
+                        body = "Tap the + button to select a file to send.",
                         action = {
                             Button(
-                                enabled = selectedDeviceId != null && !uiState.working,
+                                enabled = !uiState.working,
                                 onClick = { filePicker.launch(arrayOf("*/*")) },
                             ) {
                                 Icon(Icons.Default.FileUpload, contentDescription = null)
@@ -302,8 +306,72 @@ private fun ConfirmTransferDialog(
     )
 }
 
-private fun selectedDeviceName(devices: List<Device>, selectedDeviceId: String?): String? =
-    devices.firstOrNull { it.deviceId == selectedDeviceId }?.name?.takeIf { it.isNotBlank() }
+@Composable
+private fun SelectDeviceDialog(
+    devices: List<Device>,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    var selectedId by remember { mutableStateOf(devices.firstOrNull { it.online || it.lanAvailable }?.deviceId) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select destination") },
+        text = {
+            if (devices.isEmpty()) {
+                Text("No devices available.")
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(devices) { device ->
+                        val available = device.online || device.lanAvailable
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = available) { selectedId = device.deviceId }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedId == device.deviceId,
+                                onClick = { selectedId = device.deviceId },
+                                enabled = available
+                            )
+                            Column {
+                                Text(device.name.ifBlank { "Unnamed device" }, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    when {
+                                        device.lanAvailable -> "LAN Available"
+                                        device.online -> "Cloud Available"
+                                        else -> "Offline"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { selectedId?.let { onSelect(it) } },
+                enabled = selectedId != null
+            ) {
+                Text("Send")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
 
 private fun statusLabel(status: String): String =
     status.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }

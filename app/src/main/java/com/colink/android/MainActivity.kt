@@ -13,6 +13,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import com.colink.android.ui.navigation.CoLinkNavGraph
 import com.colink.android.ui.theme.CoLinkTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -31,10 +33,12 @@ class MainActivity : ComponentActivity() {
         handleShareIntent(intent)
         setContent {
             CoLinkTheme {
-                CoLinkNavGraph(
-                    pendingShareStore = pendingShareStore,
-                    onRequestNotificationPermission = ::requestNotificationPermission,
-                )
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    CoLinkNavGraph(
+                        pendingShareStore = pendingShareStore,
+                        onRequestNotificationPermission = ::requestNotificationPermission,
+                    )
+                }
             }
         }
     }

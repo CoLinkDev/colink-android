@@ -43,7 +43,7 @@ fun ScreenColumn(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ScreenHeader(title = title, subtitle = subtitle, action = action)
@@ -171,7 +171,7 @@ fun RefreshableList(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(bottom = 96.dp),
+    contentPadding: PaddingValues = PaddingValues(bottom = 16.dp),
     content: LazyListScope.() -> Unit,
 ) {
     PullToRefreshBox(

@@ -1,6 +1,7 @@
 package com.colink.android.ui.devices
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -195,29 +196,31 @@ private fun DeviceCard(
                     }
                 }
             }
-            IconButton(onClick = { expanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "Device actions")
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Rotate key") },
-                    leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
-                    onClick = {
-                        expanded = false
-                        onRotateKey()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Delete") },
-                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
-                    onClick = {
-                        expanded = false
-                        onDelete()
-                    },
-                )
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Device actions")
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rotate key") },
+                        leadingIcon = { Icon(Icons.Default.VpnKey, contentDescription = null) },
+                        onClick = {
+                            expanded = false
+                            onRotateKey()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete") },
+                        leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
+                        onClick = {
+                            expanded = false
+                            onDelete()
+                        },
+                    )
+                }
             }
         }
     }

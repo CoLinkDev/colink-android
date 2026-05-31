@@ -1,6 +1,5 @@
 package com.colink.android.ui.navigation
 
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.tween
@@ -228,10 +227,10 @@ private fun MainScaffold(
             navController = navController,
             startDestination = "devices",
             modifier = Modifier.padding(innerPadding),
-            enterTransition = { materialEnterTransition() },
-            exitTransition = { materialExitTransition() },
-            popEnterTransition = { materialPopEnterTransition() },
-            popExitTransition = { materialPopExitTransition() },
+            enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
+            exitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
+            popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
         ) {
             composable("devices") { DeviceListScreen(snackbarHostState = snackbarHostState) }
             composable("messages") {
@@ -261,22 +260,3 @@ private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
     }
 }
 
-private fun AnimatedContentTransitionScope<*>.materialEnterTransition(): EnterTransition =
-    fadeIn(animationSpec = tween(MATERIAL_MOTION_DURATION)) +
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Left,
-            animationSpec = tween(MATERIAL_MOTION_DURATION),
-        )
-
-private fun AnimatedContentTransitionScope<*>.materialExitTransition(): ExitTransition =
-    fadeOut(animationSpec = tween(MATERIAL_MOTION_DURATION))
-
-private fun AnimatedContentTransitionScope<*>.materialPopEnterTransition(): EnterTransition =
-    fadeIn(animationSpec = tween(MATERIAL_MOTION_DURATION)) +
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Right,
-            animationSpec = tween(MATERIAL_MOTION_DURATION),
-        )
-
-private fun AnimatedContentTransitionScope<*>.materialPopExitTransition(): ExitTransition =
-    fadeOut(animationSpec = tween(MATERIAL_MOTION_DURATION))
