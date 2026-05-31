@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">CoLink</string>
+    <string name="service_channel_name">CoLink connection</string>
+    <string name="service_notification_title">CoLink</string>
+</resources>
