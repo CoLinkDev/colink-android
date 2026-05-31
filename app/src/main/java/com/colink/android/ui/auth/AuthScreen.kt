@@ -17,6 +17,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -34,13 +35,21 @@ fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     var registerMode by rememberSaveable { mutableStateOf(false) }
+    var serverUrl by rememberSaveable { mutableStateOf("") }
     var identifier by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
     var localError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(settings.serverUrl) {
+        if (serverUrl.isBlank()) {
+            serverUrl = settings.serverUrl
+        }
+    }
 
     Column(
         modifier = modifier
@@ -52,6 +61,17 @@ fun AuthScreen(
         Text("CoLink", style = MaterialTheme.typography.headlineMedium)
         Text("Connect this Android device to your account.")
         Spacer(Modifier.height(24.dp))
+
+        OutlinedTextField(
+            value = serverUrl,
+            onValueChange = { serverUrl = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Server URL") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            singleLine = true,
+        )
+
+        Spacer(Modifier.height(16.dp))
 
         TabRow(selectedTabIndex = if (registerMode) 1 else 0) {
             Tab(
@@ -137,14 +157,19 @@ fun AuthScreen(
         Button(
             onClick = {
                 localError = null
+                val normalizedServerUrl = serverUrl.trim()
+                if (normalizedServerUrl.isBlank()) {
+                    localError = "server URL is required"
+                    return@Button
+                }
                 if (registerMode) {
                     if (password != confirmPassword) {
                         localError = "passwords do not match"
                     } else {
-                        viewModel.register(email, username, password)
+                        viewModel.register(normalizedServerUrl, email, username, password)
                     }
                 } else {
-                    viewModel.login(identifier, password)
+                    viewModel.login(normalizedServerUrl, identifier, password)
                 }
             },
             enabled = !uiState.loading,

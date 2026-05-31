@@ -82,13 +82,17 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun saveSettings(settings: AppSettings) {
         dataStore.edit { preferences ->
-            preferences[SERVER_URL] = settings.serverUrl.trim().trimEnd('/').ifBlank {
-                BuildConfig.SERVER_BASE_URL
-            }
+            preferences[SERVER_URL] = normalizeServerUrl(settings.serverUrl)
             preferences[AUTO_START_ON_BOOT] = settings.autoStartOnBoot
             preferences[LAN_DISCOVERY] = settings.lanDiscovery
             preferences[NOTIFICATIONS] = settings.notifications
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
+        }
+    }
+
+    suspend fun saveServerUrl(serverUrl: String) {
+        dataStore.edit { preferences ->
+            preferences[SERVER_URL] = normalizeServerUrl(serverUrl)
         }
     }
 
@@ -150,5 +154,16 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_ACCESS_TOKEN = stringPreferencesKey("session_access_token")
         private val SESSION_REFRESH_TOKEN = stringPreferencesKey("session_refresh_token")
         private val SESSION_USER_ID = stringPreferencesKey("session_user_id")
+
+        private fun normalizeServerUrl(serverUrl: String): String {
+            val trimmed = serverUrl.trim().trimEnd('/').ifBlank {
+                return BuildConfig.SERVER_BASE_URL
+            }
+            return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                trimmed
+            } else {
+                "http://$trimmed"
+            }
+        }
     }
 }
