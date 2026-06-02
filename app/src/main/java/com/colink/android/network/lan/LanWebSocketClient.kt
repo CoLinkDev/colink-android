@@ -64,7 +64,7 @@ class LanWebSocketClient @Inject constructor(
                 private var peerPublicKey: String? = null
                 private var crypto: LanSessionCrypto? = null
                 private var requestProof: HandshakeProofPayload? = null
-                private var trustAfterAccept = false
+                private var pairingRequestId: String? = null
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     val proof = handshake.buildProof(identity)
@@ -81,17 +81,20 @@ class LanWebSocketClient @Inject constructor(
                         runCatching {
                             handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
                         }.onFailure {
+                            failPairing(it.message ?: "LAN protocol error")
                             webSocket.close(1002, it.message ?: "LAN protocol error")
                         }
                     }
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    failPairing(reason.ifBlank { "LAN connection closed" })
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    failPairing(t.message ?: "LAN connection failed")
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
@@ -132,7 +135,7 @@ class LanWebSocketClient @Inject constructor(
                             if (trust == LanTrustState.Unknown) {
                                 require(allowPairing) { "LAN device key is not trusted" }
                                 val localProof = requireNotNull(requestProof) { "LAN request proof missing" }
-                                val accepted = pairingCoordinator.request(
+                                val decision = pairingCoordinator.request(
                                     deviceId = proof.deviceId,
                                     name = proof.name,
                                     publicKey = proof.publicKey,
@@ -144,8 +147,11 @@ class LanWebSocketClient @Inject constructor(
                                     ),
                                     reason = "unknown_device",
                                 )
-                                require(accepted) { "user cancelled LAN pairing" }
-                                trustAfterAccept = true
+                                pairingRequestId = decision.requestId
+                                if (!decision.accepted) {
+                                    pairingRequestId = null
+                                    error("user cancelled LAN pairing")
+                                }
                             }
                             peerId = proof.deviceId
                             peerName = proof.name
@@ -165,6 +171,7 @@ class LanWebSocketClient @Inject constructor(
                                 }
                                 listener.onKeyChanged(id, name)
                             }
+                            failPairing(rejection.reason)
                             webSocket.close(1008, rejection.reason)
                         }
 
@@ -177,16 +184,6 @@ class LanWebSocketClient @Inject constructor(
                                 "LAN handshake confirmation device mismatch"
                             }
                             val peerId = requireNotNull(peerId) { "LAN peer proof missing" }
-                            if (trustAfterAccept) {
-                                lanTrustStore.trust(
-                                    deviceId = peerId,
-                                    name = requireNotNull(peerName) { "LAN peer proof missing" },
-                                    publicKey = requireNotNull(peerPublicKey) {
-                                        "LAN peer proof missing"
-                                    },
-                                )
-                                trustAfterAccept = false
-                            }
                             peers[peerId] = ClientPeerConnection(webSocket, null)
                             sendPeerMessage(
                                 webSocket = webSocket,
@@ -219,6 +216,17 @@ class LanWebSocketClient @Inject constructor(
                                 localIsInitiator = true,
                             )
                             val peerId = requireNotNull(peerId) { "LAN peer proof missing" }
+                            pairingRequestId?.let { requestId ->
+                                lanTrustStore.trust(
+                                    deviceId = peerId,
+                                    name = requireNotNull(peerName) { "LAN peer proof missing" },
+                                    publicKey = requireNotNull(peerPublicKey) {
+                                        "LAN peer proof missing"
+                                    },
+                                )
+                                pairingCoordinator.complete(requestId)
+                                pairingRequestId = null
+                            }
                             peers[peerId] = ClientPeerConnection(webSocket, crypto)
                             listener.onConnected(peerId)
                         }
@@ -234,6 +242,13 @@ class LanWebSocketClient @Inject constructor(
                                 message = sessionCrypto.decrypt(payload),
                             )
                         }
+                    }
+                }
+
+                private fun failPairing(reason: String) {
+                    pairingRequestId?.let { requestId ->
+                        pairingCoordinator.fail(requestId, reason)
+                        pairingRequestId = null
                     }
                 }
             },

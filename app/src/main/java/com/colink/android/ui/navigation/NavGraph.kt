@@ -127,19 +127,46 @@ fun CoLinkNavGraph(
             val request = uiState.pairingRequest
             if (request != null) {
                 AlertDialog(
-                    onDismissRequest = { viewModel.respondPairing(request.requestId, false) },
+                    onDismissRequest = {
+                        if (request.error != null) {
+                            viewModel.clearPairing(request.requestId)
+                        } else if (!request.waiting) {
+                            viewModel.respondPairing(request.requestId, false)
+                        }
+                    },
                     icon = { Icon(Icons.Default.Devices, contentDescription = null) },
                     title = { Text("LAN pairing") },
                     text = {
-                        Text("${request.name} wants to pair with this device.\nCode: ${request.code}")
+                        val deviceName = request.name.ifBlank { request.deviceId }
+                        val body = when {
+                            request.error != null ->
+                                "$deviceName wants to pair with this device.\nCode: ${request.code}\n\n${request.error}"
+                            request.waiting ->
+                                "$deviceName wants to pair with this device.\nCode: ${request.code}\n\nWaiting for the other device..."
+                            else ->
+                                "$deviceName wants to pair with this device.\nCode: ${request.code}"
+                        }
+                        Text(body)
                     },
                     confirmButton = {
-                        TextButton(onClick = { viewModel.respondPairing(request.requestId, true) }) {
-                            Text("Accept")
+                        TextButton(
+                            enabled = !request.waiting,
+                            onClick = {
+                                if (request.error != null) {
+                                    viewModel.clearPairing(request.requestId)
+                                } else {
+                                    viewModel.respondPairing(request.requestId, true)
+                                }
+                            },
+                        ) {
+                            Text(if (request.error != null) "Close" else if (request.waiting) "Waiting" else "Accept")
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { viewModel.respondPairing(request.requestId, false) }) {
+                        TextButton(
+                            enabled = !request.waiting && request.error == null,
+                            onClick = { viewModel.respondPairing(request.requestId, false) },
+                        ) {
                             Text("Reject")
                         }
                     },

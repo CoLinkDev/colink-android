@@ -23,6 +23,7 @@ class NsdDiscovery @Inject constructor(
         serviceName: String,
         port: Int,
         deviceId: String,
+        deviceName: String,
     ): NsdServiceInfo =
         NsdServiceInfo().apply {
             this.serviceName = serviceName
@@ -30,16 +31,20 @@ class NsdDiscovery @Inject constructor(
             this.port = port
             setAttribute("deviceId", deviceId)
             setAttribute("version", "1")
+            deviceName.trim().takeIf { it.isNotEmpty() && it.length <= 200 }?.let {
+                setAttribute("name", it)
+            }
         }
 
     fun start(
         serviceName: String,
         port: Int,
         deviceId: String,
+        deviceName: String,
         listener: Listener,
     ) {
         stop()
-        registerService(serviceInfo(serviceName, port, deviceId))
+        registerService(serviceInfo(serviceName, port, deviceId, deviceName))
         discover(listener)
     }
 
@@ -91,9 +96,14 @@ class NsdDiscovery @Inject constructor(
                             if (version != "1") {
                                 return
                             }
+                            val name = serviceInfo.attributes["name"]
+                                ?.decodeToString()
+                                ?.trim()
+                                .orEmpty()
                             val hostAddress = resolvedHostAddress(serviceInfo) ?: return
                             listener.onServiceResolved(
                                 deviceId = deviceId,
+                                name = name,
                                 ip = hostAddress,
                                 port = serviceInfo.port,
                             )
@@ -140,7 +150,7 @@ class NsdDiscovery @Inject constructor(
         }
 
     interface Listener {
-        fun onServiceResolved(deviceId: String, ip: String, port: Int)
+        fun onServiceResolved(deviceId: String, name: String, ip: String, port: Int)
 
         fun onServiceLost(deviceId: String)
     }

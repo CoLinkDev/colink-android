@@ -136,6 +136,7 @@ class ConnectionManager @Inject constructor(
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val swimEndpoints = ConcurrentHashMap<String, LanEndpoint>()
+    private val swimNames = ConcurrentHashMap<String, String>()
     private val swimMembers = ConcurrentHashMap<String, MemberRecord>()
     private val gossipQueue = ArrayDeque<SwimGossip>()
     private val swimLock = Any()
@@ -183,6 +184,7 @@ class ConnectionManager @Inject constructor(
         ackSignals.values.forEach { it.complete(Unit) }
         ackSignals.clear()
         swimEndpoints.clear()
+        swimNames.clear()
         swimMembers.clear()
         _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
@@ -237,7 +239,9 @@ class ConnectionManager @Inject constructor(
         lanWebSocketServer.stop()
         nsdDiscovery.stop()
         swimEndpoints.clear()
+        swimNames.clear()
         swimMembers.clear()
+        _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
             gossipQueue.clear()
             probeCursor = 0
@@ -552,6 +556,12 @@ class ConnectionManager @Inject constructor(
                 allowPairing = true,
                 listener = lanClientListener,
             )
+        }
+    }
+
+    fun refreshLanPairingCandidate(deviceId: String) {
+        scope.launch {
+            refreshPairingCandidate(deviceId)
         }
     }
 
@@ -1012,6 +1022,7 @@ class ConnectionManager @Inject constructor(
                 serviceName = "colink-${identity.deviceId.take(8)}",
                 port = com.colink.android.network.lan.LAN_PORT,
                 deviceId = identity.deviceId,
+                deviceName = identity.name,
                 listener = nsdListener,
             )
         }
@@ -1019,13 +1030,15 @@ class ConnectionManager @Inject constructor(
 
     private val nsdListener =
         object : NsdDiscovery.Listener {
-            override fun onServiceResolved(deviceId: String, ip: String, port: Int) {
+            override fun onServiceResolved(deviceId: String, name: String, ip: String, port: Int) {
                 scope.launch {
                     val identity = deviceRepository.localDeviceIdentity() ?: return@launch
                     if (deviceId == identity.deviceId) {
                         return@launch
                     }
                     swimEndpoints[deviceId] = LanEndpoint(ip, port)
+                    name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
+                    refreshPairingCandidate(deviceId)
                     val response = lanSwimClient.ping(
                         identity = identity,
                         ip = ip,
@@ -1564,11 +1577,15 @@ class ConnectionManager @Inject constructor(
             removePairingCandidate(deviceId)
             return
         }
+        val name = swimNames[deviceId]
+            ?.takeIf { it.isNotBlank() }
+            ?: deviceId
         val candidates = _lanPairingCandidates.value
             .filterNot { it.deviceId == deviceId }
             .plus(
                 LanPairingCandidate(
                     deviceId = deviceId,
+                    name = name,
                     ip = endpoint.ip,
                     port = endpoint.port,
                     state = state.wireValue,
@@ -1583,23 +1600,17 @@ class ConnectionManager @Inject constructor(
             .filterNot { it.deviceId == deviceId }
     }
 
+    private suspend fun refreshPairingCandidate(deviceId: String) {
+        val state = swimMembers[deviceId]?.state ?: return
+        val endpoint = swimEndpoints[deviceId] ?: return
+        updatePairingCandidate(deviceId, endpoint, state)
+    }
+
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
         deviceRepository.clearLanEndpoint(deviceId)
         lanWebSocketClient.disconnect(deviceId)
-        removePairingCandidate(deviceId)
-        swimEndpoints[deviceId]?.let { endpoint ->
-            _lanPairingCandidates.value = _lanPairingCandidates.value
-                .filterNot { it.deviceId == deviceId }
-                .plus(
-                    LanPairingCandidate(
-                        deviceId = deviceId,
-                        ip = endpoint.ip,
-                        port = endpoint.port,
-                        state = MemberState.Alive.wireValue,
-                    ),
-                )
-                .sortedBy { it.deviceId }
-        }
+        name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
+        refreshPairingCandidate(deviceId)
         notifyEvent(
             title = "LAN key changed",
             text = "${name.ifBlank { deviceId }} needs LAN pairing again",

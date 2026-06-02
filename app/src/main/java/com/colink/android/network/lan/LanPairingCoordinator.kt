@@ -17,13 +17,18 @@ class LanPairingCoordinator @Inject constructor() {
     private val _pendingRequest = MutableStateFlow<LanPairingRequest?>(null)
     val pendingRequest: StateFlow<LanPairingRequest?> = _pendingRequest.asStateFlow()
 
+    data class Decision(
+        val requestId: String,
+        val accepted: Boolean,
+    )
+
     suspend fun request(
         deviceId: String,
         name: String,
         publicKey: String,
         code: String,
         reason: String,
-    ): Boolean {
+    ): Decision {
         val requestId = UUID.randomUUID().toString()
         val decision = CompletableDeferred<Boolean>()
         pendingDecisions[requestId] = decision
@@ -35,16 +40,42 @@ class LanPairingCoordinator @Inject constructor() {
             reason = reason,
             publicKey = publicKey,
         )
-        val accepted = withTimeoutOrNull(60_000) { decision.await() } ?: false
+        val accepted = withTimeoutOrNull(60_000) { decision.await() }
         pendingDecisions.remove(requestId)
-        if (_pendingRequest.value?.requestId == requestId) {
-            _pendingRequest.value = null
+        if (accepted == null) {
+            fail(requestId, "LAN pairing timed out")
+            return Decision(requestId, false)
         }
-        return accepted
+        if (!accepted) {
+            clear(requestId)
+        }
+        return Decision(requestId, accepted)
     }
 
     fun respond(requestId: String, accepted: Boolean) {
         pendingDecisions.remove(requestId)?.complete(accepted)
+        if (accepted) {
+            val current = _pendingRequest.value
+            if (current?.requestId == requestId) {
+                _pendingRequest.value = current.copy(waiting = true, error = null)
+            }
+        } else {
+            clear(requestId)
+        }
+    }
+
+    fun complete(requestId: String) {
+        clear(requestId)
+    }
+
+    fun fail(requestId: String, reason: String) {
+        val current = _pendingRequest.value
+        if (current?.requestId == requestId) {
+            _pendingRequest.value = current.copy(waiting = false, error = reason)
+        }
+    }
+
+    fun clear(requestId: String) {
         if (_pendingRequest.value?.requestId == requestId) {
             _pendingRequest.value = null
         }

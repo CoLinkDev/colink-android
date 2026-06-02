@@ -94,6 +94,9 @@ class DevicesViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.forgetLanTrust(deviceId)
+            if (result.isSuccess) {
+                connectionManager.refreshLanPairingCandidate(deviceId)
+            }
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message ?: "LAN trust forgotten",

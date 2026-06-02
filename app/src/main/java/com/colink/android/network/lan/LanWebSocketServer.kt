@@ -127,6 +127,13 @@ class LanWebSocketServer @Inject constructor(
     private suspend fun handlePeer(session: DefaultWebSocketServerSession) {
         var connectedPeerId: String? = null
         var crypto: LanSessionCrypto? = null
+        var pairingRequestId: String? = null
+        fun failPairing(reason: String) {
+            pairingRequestId?.let { requestId ->
+                pairingCoordinator.fail(requestId, reason)
+                pairingRequestId = null
+            }
+        }
         try {
             val identity = settingsDataStore.currentDeviceIdentity()
                 ?: return session.close()
@@ -164,7 +171,7 @@ class LanWebSocketServer @Inject constructor(
             session.sendPeerMessage("handshake.v1.exchange", exchangeProof)
 
             if (trust == LanTrustState.Unknown) {
-                val accepted = pairingCoordinator.request(
+                val decision = pairingCoordinator.request(
                     deviceId = proof.deviceId,
                     name = proof.name,
                     publicKey = proof.publicKey,
@@ -176,14 +183,15 @@ class LanWebSocketServer @Inject constructor(
                     ),
                     reason = "unknown_device",
                 )
-                if (!accepted) {
+                pairingRequestId = decision.requestId
+                if (!decision.accepted) {
+                    pairingRequestId = null
                     session.sendPeerMessage(
                         "handshake.v1.reject",
                         HandshakeRejectPayload("user_rejected"),
                     )
                     return session.close()
                 }
-                lanTrustStore.trust(proof.deviceId, proof.name, proof.publicKey)
             }
 
             session.sendPeerMessage(
@@ -198,8 +206,13 @@ class LanWebSocketServer @Inject constructor(
                 ),
             )
 
-            val negotiationEnvelope = session.readPeerEnvelope() ?: return session.close()
+            val negotiationEnvelope = session.readPeerEnvelope()
+            if (negotiationEnvelope == null) {
+                failPairing("LAN connection ended")
+                return session.close()
+            }
             if (negotiationEnvelope.type != "business.v1.negotiate") {
+                failPairing("invalid LAN encryption negotiation type")
                 return session.close()
             }
             val negotiation = json.decodeFromJsonElement(
@@ -212,6 +225,7 @@ class LanWebSocketServer @Inject constructor(
                 localIsInitiator = false,
             )
             if (suite == null) {
+                failPairing("no compatible LAN encryption suite")
                 return session.close()
             }
 
@@ -222,6 +236,11 @@ class LanWebSocketServer @Inject constructor(
                 peerPublicKey = proof.publicKey,
                 localIsInitiator = false,
             )
+            pairingRequestId?.let { requestId ->
+                lanTrustStore.trust(proof.deviceId, proof.name, proof.publicKey)
+                pairingCoordinator.complete(requestId)
+                pairingRequestId = null
+            }
             connectedPeerId = proof.deviceId
             peers[proof.deviceId] = ServerPeerConnection(session, crypto)
             markPeerEndpoint(proof.deviceId, session)
@@ -239,6 +258,9 @@ class LanWebSocketServer @Inject constructor(
                 )
                 listener?.onMessage(proof.deviceId, crypto.decrypt(payload))
             }
+        } catch (error: Throwable) {
+            failPairing(error.message ?: "LAN pairing failed")
+            throw error
         } finally {
             val id = connectedPeerId
             if (id != null) {

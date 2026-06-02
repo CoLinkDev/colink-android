@@ -68,4 +68,8 @@ class MainViewModel @Inject constructor(
     fun respondPairing(requestId: String, accepted: Boolean) {
         pairingCoordinator.respond(requestId, accepted)
     }
+
+    fun clearPairing(requestId: String) {
+        pairingCoordinator.clear(requestId)
+    }
 }
