@@ -147,4 +147,35 @@ class SwimMembershipTest {
 
         assertEquals(MemberState.Alive, membership.memberState("peer"))
     }
+
+    @Test
+    fun localObservationRevivesSuspectWithoutNewIncarnation() {
+        val membership = membership()
+
+        assertNotNull(
+            membership.markMember("local", "peer", MemberState.Alive, 100L, explicit = true),
+        )
+        assertNotNull(
+            membership.markMember("local", "peer", MemberState.Suspect, 100L, explicit = false),
+        )
+        val update = membership.observeAlive("local", "peer")
+
+        assertNotNull(update)
+        assertEquals(MemberState.Alive, membership.memberState("peer"))
+        assertEquals(100L, update!!.incarnation)
+    }
+
+    @Test
+    fun aliveObservationClearsProbeMissesEvenWhenStateDoesNotChange() {
+        val membership = membership()
+
+        assertNotNull(
+            membership.markMember("local", "peer", MemberState.Alive, 100L, explicit = true),
+        )
+        assertEquals(1, membership.recordProbeMiss("peer"))
+
+        assertNull(membership.observeAlive("local", "peer"))
+
+        assertEquals(1, membership.recordProbeMiss("peer"))
+    }
 }

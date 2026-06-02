@@ -18,6 +18,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -65,12 +66,25 @@ class LanWebSocketClient @Inject constructor(
         lanOkHttpClient.newWebSocket(
             request,
             object : WebSocketListener() {
+                private val messages = Channel<Pair<WebSocket, String>>(Channel.UNLIMITED)
                 private var peerId: String? = null
                 private var peerName: String? = null
                 private var peerPublicKey: String? = null
                 private var crypto: LanSessionCrypto? = null
                 private var requestProof: HandshakeProofPayload? = null
                 private var pairingRequestId: String? = null
+                private val processor = scope.launch {
+                    for ((webSocket, text) in messages) {
+                        runCatching {
+                            handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
+                        }.onFailure {
+                            CoLinkLog.w("LAN", "outbound peer protocol error device=${CoLinkLog.shortId(deviceId)}", it)
+                            failPairing(it.message ?: "LAN protocol error")
+                            messages.close()
+                            webSocket.close(1002, it.message ?: "LAN protocol error")
+                        }
+                    }
+                }
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     CoLinkLog.d("LAN", "outbound websocket opened device=${CoLinkLog.shortId(deviceId)}")
@@ -84,14 +98,8 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    scope.launch {
-                        runCatching {
-                            handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
-                        }.onFailure {
-                            CoLinkLog.w("LAN", "outbound peer protocol error device=${CoLinkLog.shortId(deviceId)}", it)
-                            failPairing(it.message ?: "LAN protocol error")
-                            webSocket.close(1002, it.message ?: "LAN protocol error")
-                        }
+                    if (!messages.trySend(webSocket to text).isSuccess) {
+                        webSocket.close(1002, "LAN protocol processor closed")
                     }
                 }
 
@@ -101,6 +109,8 @@ class LanWebSocketClient @Inject constructor(
                         "outbound websocket closed device=${CoLinkLog.shortId(peerId ?: deviceId)} code=$code reason=$reason",
                     )
                     failPairing(reason.ifBlank { "LAN connection closed" })
+                    messages.close()
+                    processor.cancel()
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
@@ -108,6 +118,8 @@ class LanWebSocketClient @Inject constructor(
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     CoLinkLog.w("LAN", "outbound websocket failed device=${CoLinkLog.shortId(peerId ?: deviceId)}", t)
                     failPairing(t.message ?: "LAN connection failed")
+                    messages.close()
+                    processor.cancel()
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }

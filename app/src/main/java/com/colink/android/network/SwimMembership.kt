@@ -63,8 +63,12 @@ internal class SwimMembership(
             ).also(::pushGossipLocked)
         }
 
-    fun observeAlive(localDeviceId: String, deviceId: String): MemberUpdate? =
-        markMember(localDeviceId, deviceId, MemberState.Alive, incarnation = null, explicit = false)
+    fun observeAlive(localDeviceId: String, deviceId: String): MemberUpdate? {
+        synchronized(lock) {
+            clearProbeMissesLocked(deviceId)
+        }
+        return markMember(localDeviceId, deviceId, MemberState.Alive, incarnation = null, explicit = false)
+    }
 
     fun mergeMember(
         localDeviceId: String,
@@ -104,7 +108,12 @@ internal class SwimMembership(
             if (!shouldAcceptMemberUpdate(existing, state, nextIncarnation, explicit)) {
                 return@synchronized null
             }
-            members[deviceId] = MemberRecord(state, nextIncarnation, now)
+            members[deviceId] = MemberRecord(
+                state = state,
+                incarnation = nextIncarnation,
+                updatedAt = now,
+                missedProbes = if (state == MemberState.Alive) 0 else existing?.missedProbes ?: 0,
+            )
             pushGossipLocked(
                 SwimGossip(
                     deviceId = deviceId,
@@ -149,6 +158,18 @@ internal class SwimMembership(
             members[deviceId]?.state
         }
 
+    fun recordProbeMiss(deviceId: String): Int =
+        synchronized(lock) {
+            val existing = members[deviceId] ?: return@synchronized 0
+            val missedProbes = if (existing.missedProbes == Int.MAX_VALUE) {
+                Int.MAX_VALUE
+            } else {
+                existing.missedProbes + 1
+            }
+            members[deviceId] = existing.copy(missedProbes = missedProbes)
+            missedProbes
+        }
+
     fun clear() {
         synchronized(lock) {
             clearLocked()
@@ -160,6 +181,13 @@ internal class SwimMembership(
         gossipQueue.clear()
         localDeviceId = null
         localIncarnation = null
+    }
+
+    private fun clearProbeMissesLocked(deviceId: String) {
+        val existing = members[deviceId] ?: return
+        if (existing.missedProbes != 0) {
+            members[deviceId] = existing.copy(missedProbes = 0)
+        }
     }
 
     private fun pushGossipLocked(entry: SwimGossip) {
@@ -198,6 +226,7 @@ internal data class MemberRecord(
     val state: MemberState,
     val incarnation: Long,
     val updatedAt: Long,
+    val missedProbes: Int,
 )
 
 internal enum class MemberState(

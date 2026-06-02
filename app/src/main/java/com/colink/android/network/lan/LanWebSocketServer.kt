@@ -286,7 +286,6 @@ class LanWebSocketServer @Inject constructor(
             if (id != null) {
                 CoLinkLog.w("LAN", "inbound LAN peer ended device=${CoLinkLog.shortId(id)}")
                 peers.remove(id)
-                deviceRepository.clearLanEndpoint(id)
                 listener?.onDisconnected(id)
             }
         }

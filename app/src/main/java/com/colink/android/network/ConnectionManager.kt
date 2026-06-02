@@ -100,6 +100,7 @@ private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
 private const val SWIM_PERIOD_MILLIS = 1_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 5_000L
 private const val SWIM_MAX_GOSSIP = 10
+private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 
@@ -880,7 +881,6 @@ class ConnectionManager @Inject constructor(
 
             override fun onDisconnected(deviceId: String) {
                 CoLinkLog.w("LAN", "outbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
-                scope.launch { deviceRepository.clearLanEndpoint(deviceId) }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
@@ -1029,7 +1029,6 @@ class ConnectionManager @Inject constructor(
 
             override fun onDisconnected(deviceId: String) {
                 CoLinkLog.w("LAN", "inbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
-                scope.launch { deviceRepository.clearLanEndpoint(deviceId) }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
@@ -1725,7 +1724,15 @@ class ConnectionManager @Inject constructor(
             processSwimMessage(indirectAck, null)
             markMember(identity.deviceId, target, MemberState.Alive, null, explicit = false)
         } else {
-            CoLinkLog.w("SWIM", "marking member suspect target=${CoLinkLog.shortId(target)}")
+            val missedProbes = swimMembership.recordProbeMiss(target)
+            if (missedProbes < SWIM_SUSPECT_MISSES) {
+                CoLinkLog.w(
+                    "SWIM",
+                    "probe missed; keeping member alive target=${CoLinkLog.shortId(target)} missed=$missedProbes threshold=$SWIM_SUSPECT_MISSES",
+                )
+                return
+            }
+            CoLinkLog.w("SWIM", "marking member suspect target=${CoLinkLog.shortId(target)} missed=$missedProbes")
             markMember(identity.deviceId, target, MemberState.Suspect, null, explicit = false)
         }
     }

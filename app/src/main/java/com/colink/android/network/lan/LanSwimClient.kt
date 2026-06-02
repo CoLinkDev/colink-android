@@ -17,8 +17,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-private const val DIRECT_SWIM_TIMEOUT_MILLIS = 1_000L
-private const val INDIRECT_SWIM_TIMEOUT_MILLIS = 1_000L
+private const val DIRECT_SWIM_TIMEOUT_MILLIS = 2_000L
+private const val INDIRECT_SWIM_TIMEOUT_MILLIS = 2_000L
 
 @Singleton
 class LanSwimClient @Inject constructor(
