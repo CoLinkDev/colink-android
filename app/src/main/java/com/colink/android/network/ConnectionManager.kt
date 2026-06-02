@@ -15,6 +15,7 @@ import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.AppSettings
+import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
@@ -73,7 +74,6 @@ import androidx.core.content.FileProvider
 import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
-import java.util.ArrayDeque
 import java.util.Base64
 import java.util.TreeMap
 import java.util.UUID
@@ -137,8 +137,7 @@ class ConnectionManager @Inject constructor(
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val swimEndpoints = ConcurrentHashMap<String, LanEndpoint>()
     private val swimNames = ConcurrentHashMap<String, String>()
-    private val swimMembers = ConcurrentHashMap<String, MemberRecord>()
-    private val gossipQueue = ArrayDeque<SwimGossip>()
+    private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
     private var swimSeq = 0L
     private var probeCursor = 0
@@ -185,10 +184,9 @@ class ConnectionManager @Inject constructor(
         ackSignals.clear()
         swimEndpoints.clear()
         swimNames.clear()
-        swimMembers.clear()
+        swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
-            gossipQueue.clear()
             probeCursor = 0
         }
         cloudWebSocketClient.close()
@@ -226,7 +224,11 @@ class ConnectionManager @Inject constructor(
 
     private fun startLan() {
         lanWebSocketServer.start(lanListener)
-        startLanDiscovery()
+        scope.launch {
+            val identity = deviceRepository.localDeviceIdentity() ?: return@launch
+            swimMembership.ensureLocalStarted(identity.deviceId)
+            startLanDiscovery(identity)
+        }
         startSwimLoops()
     }
 
@@ -240,10 +242,9 @@ class ConnectionManager @Inject constructor(
         nsdDiscovery.stop()
         swimEndpoints.clear()
         swimNames.clear()
-        swimMembers.clear()
+        swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
-            gossipQueue.clear()
             probeCursor = 0
         }
         scope.launch { deviceRepository.clearAllLanEndpoints() }
@@ -1015,17 +1016,14 @@ class ConnectionManager @Inject constructor(
                 gossipBatch(localDeviceId)
         }
 
-    private fun startLanDiscovery() {
-        scope.launch {
-            val identity = deviceRepository.localDeviceIdentity() ?: return@launch
-            nsdDiscovery.start(
-                serviceName = "colink-${identity.deviceId.take(8)}",
-                port = com.colink.android.network.lan.LAN_PORT,
-                deviceId = identity.deviceId,
-                deviceName = identity.name,
-                listener = nsdListener,
-            )
-        }
+    private fun startLanDiscovery(identity: DeviceIdentity) {
+        nsdDiscovery.start(
+            serviceName = "colink-${identity.deviceId.take(8)}",
+            port = com.colink.android.network.lan.LAN_PORT,
+            deviceId = identity.deviceId,
+            deviceName = identity.name,
+            listener = nsdListener,
+        )
     }
 
     private val nsdListener =
@@ -1440,13 +1438,7 @@ class ConnectionManager @Inject constructor(
         observeSwimAlive(identity.deviceId, message.payload.from)
         message.payload.gossip.forEach { entry ->
             if (entry.deviceId == identity.deviceId && entry.state == MemberState.Suspect.wireValue) {
-                pushGossip(
-                    SwimGossip(
-                        deviceId = identity.deviceId,
-                        state = MemberState.Alive.wireValue,
-                        incarnation = System.currentTimeMillis(),
-                    ),
-                )
+                swimMembership.refuteSelf(identity.deviceId)
             } else {
                 mergeSwimMember(identity.deviceId, message.payload.from, entry)
             }
@@ -1454,10 +1446,8 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String) {
-        if (deviceId == localDeviceId) {
-            return
-        }
-        markMember(localDeviceId, deviceId, MemberState.Alive, incarnation = null, explicit = false)
+        swimMembership.observeAlive(localDeviceId, deviceId)
+            ?.let { applyMemberUpdate(localDeviceId, it) }
     }
 
     private suspend fun mergeSwimMember(
@@ -1465,20 +1455,11 @@ class ConnectionManager @Inject constructor(
         originDeviceId: String,
         entry: SwimGossip,
     ) {
-        if (entry.incarnation > System.currentTimeMillis() + 5 * 60 * 1000) {
-            return
-        }
-        val state = MemberState.fromWire(entry.state) ?: return
-        if (state == MemberState.Left && originDeviceId != entry.deviceId) {
-            return
-        }
-        markMember(
+        swimMembership.mergeMember(
             localDeviceId = localDeviceId,
-            deviceId = entry.deviceId,
-            state = state,
-            incarnation = entry.incarnation,
-            explicit = true,
-        )
+            originDeviceId = originDeviceId,
+            entry = entry,
+        )?.let { applyMemberUpdate(localDeviceId, it) }
     }
 
     private suspend fun markMember(
@@ -1488,23 +1469,13 @@ class ConnectionManager @Inject constructor(
         incarnation: Long?,
         explicit: Boolean,
     ) {
-        if (deviceId == localDeviceId) {
-            return
-        }
-        val now = System.currentTimeMillis()
-        val nextIncarnation = incarnation ?: swimMembers[deviceId]?.incarnation ?: now
-        val existing = swimMembers[deviceId]
-        if (!shouldAcceptMemberUpdate(existing, state, nextIncarnation, explicit)) {
-            return
-        }
-        swimMembers[deviceId] = MemberRecord(state, nextIncarnation, now)
-        pushGossip(
-            SwimGossip(
-                deviceId = deviceId,
-                state = state.wireValue,
-                incarnation = nextIncarnation,
-            ),
-        )
+        swimMembership.markMember(localDeviceId, deviceId, state, incarnation, explicit)
+            ?.let { applyMemberUpdate(localDeviceId, it) }
+    }
+
+    private suspend fun applyMemberUpdate(localDeviceId: String, update: MemberUpdate) {
+        val deviceId = update.deviceId
+        val state = update.state
         when (state) {
             MemberState.Alive -> {
                 val endpoint = swimEndpoints[deviceId]
@@ -1552,22 +1523,6 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun shouldAcceptMemberUpdate(
-        existing: MemberRecord?,
-        state: MemberState,
-        incarnation: Long,
-        explicit: Boolean,
-    ): Boolean =
-        when {
-            existing == null -> true
-            incarnation < existing.incarnation -> false
-            incarnation > existing.incarnation -> true
-            explicit -> existing.state !in setOf(MemberState.Dead, MemberState.Left) &&
-                state.priority > existing.state.priority
-
-            else -> state != existing.state
-        }
-
     private suspend fun updatePairingCandidate(
         deviceId: String,
         endpoint: LanEndpoint,
@@ -1601,7 +1556,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun refreshPairingCandidate(deviceId: String) {
-        val state = swimMembers[deviceId]?.state ?: return
+        val state = swimMembership.memberState(deviceId) ?: return
         val endpoint = swimEndpoints[deviceId] ?: return
         updatePairingCandidate(deviceId, endpoint, state)
     }
@@ -1672,7 +1627,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun nextProbeTarget(localDeviceId: String): String? {
-        val candidates = swimMembers
+        val candidates = swimMembership.membersSnapshot()
             .filter { (deviceId, member) ->
                 deviceId != localDeviceId &&
                     member.state in setOf(MemberState.Alive, MemberState.Suspect) &&
@@ -1689,7 +1644,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun indirectTargets(localDeviceId: String, targetDeviceId: String): List<String> =
-        swimMembers
+        swimMembership.membersSnapshot()
             .filter { (deviceId, member) ->
                 deviceId != localDeviceId &&
                     deviceId != targetDeviceId &&
@@ -1702,37 +1657,16 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun promoteExpiredSuspects() {
         val identity = deviceRepository.localDeviceIdentity() ?: return
-        val now = System.currentTimeMillis()
-        swimMembers
-            .filter { (_, member) ->
-                member.state == MemberState.Suspect &&
-                    now - member.updatedAt >= SWIM_SUSPECT_TIMEOUT_MILLIS
-            }
-            .keys
-            .toList()
-            .forEach { deviceId ->
-                markMember(identity.deviceId, deviceId, MemberState.Dead, null, explicit = false)
-            }
-    }
-
-    private fun pushGossip(entry: SwimGossip) {
-        synchronized(swimLock) {
-            gossipQueue.addLast(entry)
-            while (gossipQueue.size > SWIM_MAX_GOSSIP * 4) {
-                gossipQueue.removeFirst()
-            }
+        swimMembership
+            .promoteExpiredSuspects(identity.deviceId, SWIM_SUSPECT_TIMEOUT_MILLIS)
+            .forEach { update ->
+                applyMemberUpdate(identity.deviceId, update)
         }
     }
 
     private fun gossipBatch(localDeviceId: String): List<SwimGossip> {
-        val self = SwimGossip(
-            deviceId = localDeviceId,
-            state = MemberState.Alive.wireValue,
-            incarnation = System.currentTimeMillis(),
-        )
-        synchronized(swimLock) {
-            return (listOf(self) + gossipQueue.toList().asReversed()).take(SWIM_MAX_GOSSIP)
-        }
+        swimMembership.ensureLocalStarted(localDeviceId)
+        return swimMembership.gossipBatch()
     }
 
     private fun nextSwimSeq(): Long =
@@ -1745,12 +1679,7 @@ class ConnectionManager @Inject constructor(
         val identity = runCatching { kotlinx.coroutines.runBlocking { deviceRepository.localDeviceIdentity() } }
             .getOrNull()
             ?: return
-        val entry = SwimGossip(
-            deviceId = identity.deviceId,
-            state = MemberState.Left.wireValue,
-            incarnation = System.currentTimeMillis(),
-        )
-        pushGossip(entry)
+        val entry = swimMembership.leaveSelf(identity.deviceId)
         val targets = swimEndpoints.values.toList()
         runCatching {
             kotlinx.coroutines.runBlocking {
@@ -1953,24 +1882,3 @@ private data class LanEndpoint(
     val ip: String,
     val port: Int,
 )
-
-private data class MemberRecord(
-    val state: MemberState,
-    val incarnation: Long,
-    val updatedAt: Long,
-)
-
-private enum class MemberState(
-    val wireValue: String,
-    val priority: Int,
-) {
-    Alive("alive", 0),
-    Suspect("suspect", 1),
-    Dead("dead", 2),
-    Left("left", 3);
-
-    companion object {
-        fun fromWire(value: String): MemberState? =
-            entries.firstOrNull { it.wireValue == value }
-    }
-}
