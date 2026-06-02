@@ -34,6 +34,7 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import java.io.InterruptedIOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -314,6 +315,7 @@ class LanWebSocketServer @Inject constructor(
     }
 
     private suspend fun ApplicationCall.handleSwimPing() {
+        val startedAt = System.currentTimeMillis()
         val identity = settingsDataStore.currentDeviceIdentity()
         if (identity == null) {
             CoLinkLog.w("SWIM", "rejected SWIM request because local identity is missing")
@@ -325,13 +327,22 @@ class LanWebSocketServer @Inject constructor(
             respond(HttpStatusCode.PayloadTooLarge)
             return
         }
+        val readStartedAt = System.currentTimeMillis()
+        val body = runCatching { receiveText() }.getOrElse {
+            CoLinkLog.w("SWIM", "rejected unreadable SWIM request elapsed=${elapsedSince(startedAt)}ms", it)
+            respond(HttpStatusCode.BadRequest)
+            return
+        }
+        val readMillis = elapsedSince(readStartedAt)
+        val decodeStartedAt = System.currentTimeMillis()
         val swimRequest = runCatching {
-            json.decodeFromString(SwimEnvelope.serializer(), receiveText())
+            json.decodeFromString(SwimEnvelope.serializer(), body)
         }.getOrElse {
             CoLinkLog.w("SWIM", "rejected invalid SWIM request", it)
             respond(HttpStatusCode.BadRequest)
             return
         }
+        val decodeMillis = elapsedSince(decodeStartedAt)
 
         val from = swimRequest.payload.from
         val host = request.local.remoteHost
@@ -339,8 +350,12 @@ class LanWebSocketServer @Inject constructor(
             "SWIM",
             "handling ${swimRequest.type} from=${CoLinkLog.shortId(from)} host=$host gossip=${swimRequest.payload.gossip.size}",
         )
+        val listenerStartedAt = System.currentTimeMillis()
         listener?.onSwimMessage(swimRequest, host)
+        val listenerMillis = elapsedSince(listenerStartedAt)
 
+        var relayMillis: Long? = null
+        val responseBuildStartedAt = System.currentTimeMillis()
         val response = when (swimRequest.type) {
             "swim.ping" -> swimAck(identity, swimRequest.payload.seq)
             "swim.ping-req" -> {
@@ -360,6 +375,7 @@ class LanWebSocketServer @Inject constructor(
                             respond(HttpStatusCode.NotFound)
                             return
                         }
+                        val relayStartedAt = System.currentTimeMillis()
                         lanSwimClient
                             .ping(
                                 identity = identity,
@@ -369,11 +385,35 @@ class LanWebSocketServer @Inject constructor(
                                 gossip = swimGossip(identity),
                             )
                             .getOrElse {
-                                CoLinkLog.w("SWIM", "ping-req target probe failed target=${CoLinkLog.shortId(target)}", it)
-                                respond(HttpStatusCode.GatewayTimeout)
+                                relayMillis = elapsedSince(relayStartedAt)
+                                if (it.isExpectedSwimProbeFailure()) {
+                                    CoLinkLog.d(
+                                        "SWIM",
+                                        "ping-req target probe timed out target=${CoLinkLog.shortId(target)} elapsed=${relayMillis}ms",
+                                    )
+                                } else {
+                                    CoLinkLog.w("SWIM", "ping-req target probe failed target=${CoLinkLog.shortId(target)}", it)
+                                }
+                                val respondMillis = respondStatusWithTiming(HttpStatusCode.GatewayTimeout)
+                                logHandledSwimRequest(
+                                    type = swimRequest.type,
+                                    from = from,
+                                    host = host,
+                                    status = HttpStatusCode.GatewayTimeout.value,
+                                    startedAt = startedAt,
+                                    readMillis = readMillis,
+                                    decodeMillis = decodeMillis,
+                                    listenerMillis = listenerMillis,
+                                    responseBuildMillis = elapsedSince(responseBuildStartedAt),
+                                    relayMillis = relayMillis,
+                                    respondMillis = respondMillis,
+                                )
                                 return
                             }
-                            .also { listener?.onSwimMessage(it, null) }
+                            .also {
+                                relayMillis = elapsedSince(relayStartedAt)
+                                listener?.onSwimMessage(it, null)
+                            }
                     }
                 }
             }
@@ -385,7 +425,49 @@ class LanWebSocketServer @Inject constructor(
             }
         }
 
+        val responseBuildMillis = elapsedSince(responseBuildStartedAt)
+        val respondStartedAt = System.currentTimeMillis()
         respond(response)
+        val respondMillis = elapsedSince(respondStartedAt)
+        logHandledSwimRequest(
+            type = swimRequest.type,
+            from = from,
+            host = host,
+            status = HttpStatusCode.OK.value,
+            startedAt = startedAt,
+            readMillis = readMillis,
+            decodeMillis = decodeMillis,
+            listenerMillis = listenerMillis,
+            responseBuildMillis = responseBuildMillis,
+            relayMillis = relayMillis,
+            respondMillis = respondMillis,
+        )
+    }
+
+    private suspend fun ApplicationCall.respondStatusWithTiming(status: HttpStatusCode): Long {
+        val startedAt = System.currentTimeMillis()
+        respond(status)
+        return elapsedSince(startedAt)
+    }
+
+    private fun logHandledSwimRequest(
+        type: String,
+        from: String,
+        host: String,
+        status: Int,
+        startedAt: Long,
+        readMillis: Long,
+        decodeMillis: Long,
+        listenerMillis: Long,
+        responseBuildMillis: Long,
+        relayMillis: Long?,
+        respondMillis: Long,
+    ) {
+        val relay = relayMillis?.let { " relay=${it}ms" } ?: ""
+        CoLinkLog.d(
+            "SWIM",
+            "handled $type from=${CoLinkLog.shortId(from)} host=$host status=$status total=${elapsedSince(startedAt)}ms read=${readMillis}ms decode=${decodeMillis}ms listener=${listenerMillis}ms build=${responseBuildMillis}ms$relay respond=${respondMillis}ms",
+        )
     }
 
     private fun swimAck(identity: DeviceIdentity, seq: Long): SwimEnvelope =
@@ -487,3 +569,9 @@ private data class ServerPeerConnection(
     val session: DefaultWebSocketServerSession,
     val crypto: LanSessionCrypto,
 )
+
+private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
+    this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
+
+private fun elapsedSince(startedAt: Long): Long =
+    System.currentTimeMillis() - startedAt

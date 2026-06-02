@@ -58,6 +58,7 @@ import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.blake3Checksum
 import java.io.File
+import java.io.InterruptedIOException
 import java.io.InputStream
 import android.content.Context
 import android.net.Uri
@@ -1684,7 +1685,7 @@ class ConnectionManager @Inject constructor(
         observeSwimAlive(identity.deviceId, message.payload.from)
         message.payload.gossip.forEach { entry ->
             if (entry.deviceId == identity.deviceId && entry.state == MemberState.Suspect.wireValue) {
-                CoLinkLog.w("SWIM", "received suspicion for local device; refuting")
+                CoLinkLog.d("SWIM", "received suspicion for local device; refuting")
                 swimMembership.refuteSelf(identity.deviceId)
             } else {
                 mergeSwimMember(identity.deviceId, message.payload.from, entry)
@@ -1844,7 +1845,11 @@ class ConnectionManager @Inject constructor(
             seq = nextSwimSeq(),
             gossip = gossipBatch(identity.deviceId),
         ).onFailure { error ->
-            CoLinkLog.w("SWIM", "direct probe failed target=${CoLinkLog.shortId(target)}", error)
+            if (error.isExpectedSwimProbeFailure()) {
+                CoLinkLog.d("SWIM", "direct probe timed out target=${CoLinkLog.shortId(target)}")
+            } else {
+                CoLinkLog.w("SWIM", "direct probe failed target=${CoLinkLog.shortId(target)}", error)
+            }
         }.getOrNull()
         if (ack != null) {
             processSwimMessage(ack, null)
@@ -1870,7 +1875,7 @@ class ConnectionManager @Inject constructor(
         } else {
             val missedProbes = swimMembership.recordProbeMiss(target)
             if (missedProbes < SWIM_SUSPECT_MISSES) {
-                CoLinkLog.w(
+                CoLinkLog.d(
                     "SWIM",
                     "probe missed; keeping member alive target=${CoLinkLog.shortId(target)} missed=$missedProbes threshold=$SWIM_SUSPECT_MISSES",
                 )
@@ -2111,3 +2116,6 @@ private data class LanEndpoint(
     val ip: String,
     val port: Int,
 )
+
+private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
+    this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
