@@ -37,11 +37,13 @@ import io.ktor.websocket.readText
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 
 const val LAN_PORT = 27_777
+private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 
 @Singleton
@@ -100,14 +102,24 @@ class LanWebSocketServer @Inject constructor(
         val connection = peers[deviceId] ?: return false
         val crypto = connection.crypto
         val payload = crypto.encrypt(message)
-        return runCatching {
+        val sent = runCatching {
             connection.session.sendPeerMessage("business.v1.message", payload)
             true
         }.getOrDefault(false)
+        if (!sent) {
+            peers.remove(deviceId, connection)
+        }
+        return sent
     }
 
     fun hasPeer(deviceId: String): Boolean =
         peers.containsKey(deviceId)
+
+    suspend fun disconnect(deviceId: String) {
+        peers.remove(deviceId)?.let { connection ->
+            runCatching { connection.session.close() }
+        }
+    }
 
     fun registerTransferToken(sessionId: String, token: String) {
         transferTokens[sessionId] = token
@@ -145,7 +157,12 @@ class LanWebSocketServer @Inject constructor(
                     CoLinkLog.w("LAN", "closing inbound peer because local identity is missing")
                     return session.close()
                 }
-            val first = session.readPeerEnvelope() ?: return session.close()
+            val first = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) {
+                session.readPeerEnvelope()
+            } ?: run {
+                CoLinkLog.w("LAN", "closing inbound peer because handshake timed out")
+                return session.close()
+            }
             if (first.type != "handshake.v1.request") {
                 CoLinkLog.w("LAN", "rejecting inbound peer invalid first message type=${first.type}")
                 session.sendPeerMessage(
@@ -221,7 +238,9 @@ class LanWebSocketServer @Inject constructor(
                 ),
             )
 
-            val negotiationEnvelope = session.readPeerEnvelope()
+            val negotiationEnvelope = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) {
+                session.readPeerEnvelope()
+            }
             if (negotiationEnvelope == null) {
                 failPairing("LAN connection ended")
                 return session.close()
@@ -260,6 +279,9 @@ class LanWebSocketServer @Inject constructor(
                 pairingRequestId = null
             }
             connectedPeerId = proof.deviceId
+            peers.remove(proof.deviceId)?.let { existing ->
+                runCatching { existing.session.close() }
+            }
             peers[proof.deviceId] = ServerPeerConnection(session, crypto)
             markPeerEndpoint(proof.deviceId, session)
             CoLinkLog.i("LAN", "inbound LAN peer ready device=${CoLinkLog.shortId(proof.deviceId)}")

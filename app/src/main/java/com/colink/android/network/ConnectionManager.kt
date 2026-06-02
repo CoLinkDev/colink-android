@@ -102,6 +102,7 @@ private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 5_000L
 private const val SWIM_MAX_GOSSIP = 10
 private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
+private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 
 @Singleton
@@ -135,6 +136,9 @@ class ConnectionManager @Inject constructor(
     private val swimNames = ConcurrentHashMap<String, String>()
     private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
+    private val lanPeerLock = Any()
+    private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
+    private val lanConnectingPeers = mutableSetOf<String>()
     private var swimSeq = 0L
     private var probeCursor = 0
     private val clipboardManager = context.getSystemService(ClipboardManager::class.java)
@@ -186,6 +190,7 @@ class ConnectionManager @Inject constructor(
         swimNames.clear()
         swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
+        failPendingLanSends("LAN services stopped")
         synchronized(swimLock) {
             probeCursor = 0
         }
@@ -285,28 +290,40 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun sendViaLan(targetDeviceId: String, business: BusinessEnvelope): Result<String> =
         runCatching {
-            if (lanWebSocketServer.send(targetDeviceId, business)) {
+            if (trySendViaExistingLan(targetDeviceId, business)) {
                 return@runCatching "lan"
             }
-            if (lanWebSocketClient.send(targetDeviceId, business)) {
-                return@runCatching "lan"
-            }
-            val identity = deviceRepository.localDeviceIdentity()
-                ?: error("current device is not registered")
-            val device = deviceRepository.getDevice(targetDeviceId)
-                ?: error("target device not found")
-            if (!device.lanAvailable || device.localIp == null || device.localPort == null) {
-                error("LAN peer is not available")
-            }
-            lanWebSocketClient.connect(
-                identity = identity,
-                deviceId = device.deviceId,
-                ip = device.localIp,
-                port = device.localPort,
-                allowPairing = false,
-                listener = lanClientListener,
+
+            val pending = PendingLanSend(
+                message = business,
+                result = CompletableDeferred<Result<Unit>>(),
             )
-            error("LAN peer is connecting")
+            val shouldConnect = synchronized(lanPeerLock) {
+                pendingLanSends.getOrPut(targetDeviceId) { ArrayDeque() }.addLast(pending)
+                lanConnectingPeers.add(targetDeviceId)
+            }
+
+            flushPendingLanSends(targetDeviceId)
+            if (pending.result.isCompleted) {
+                pending.result.await().getOrThrow()
+                return@runCatching "lan"
+            }
+
+            if (shouldConnect) {
+                startOnDemandLanPeerConnection(targetDeviceId)
+                    .onFailure { error ->
+                        failPendingLanSends(targetDeviceId, error.message ?: "LAN peer connection failed")
+                    }
+            }
+
+            val result = withTimeoutOrNull(LAN_SEND_TIMEOUT_MILLIS) {
+                pending.result.await()
+            } ?: run {
+                removePendingLanSend(targetDeviceId, pending)
+                error("LAN peer connection timed out")
+            }
+            result.getOrThrow()
+            "lan"
         }
 
     private fun sendViaCloud(targetDeviceId: String, business: BusinessEnvelope): Result<String> =
@@ -322,6 +339,135 @@ class ConnectionManager @Inject constructor(
             check(cloudWebSocketClient.send(envelope)) { "cloud connection is not ready" }
             "cloud"
         }
+
+    private suspend fun trySendViaExistingLan(targetDeviceId: String, business: BusinessEnvelope): Boolean {
+        if (lanWebSocketServer.send(targetDeviceId, business)) {
+            return true
+        }
+        return lanWebSocketClient.send(targetDeviceId, business)
+    }
+
+    private fun hasLanPeer(deviceId: String): Boolean =
+        lanWebSocketServer.hasPeer(deviceId) || lanWebSocketClient.hasPeer(deviceId)
+
+    private suspend fun startOnDemandLanPeerConnection(deviceId: String): Result<Unit> =
+        runCatching {
+            if (hasLanPeer(deviceId)) {
+                synchronized(lanPeerLock) {
+                    lanConnectingPeers.remove(deviceId)
+                }
+                flushPendingLanSends(deviceId)
+                return@runCatching
+            }
+            val identity = deviceRepository.localDeviceIdentity()
+                ?: error("current device is not registered")
+            val device = deviceRepository.getDevice(deviceId)
+                ?: error("target device not found")
+            if (!device.lanAvailable || device.localIp == null || device.localPort == null) {
+                error("LAN peer is not available")
+            }
+            if (!lanTrustStore.isLanTrusted(deviceId)) {
+                error("LAN peer is not trusted")
+            }
+            lanWebSocketClient.connect(
+                identity = identity,
+                deviceId = device.deviceId,
+                ip = device.localIp,
+                port = device.localPort,
+                allowPairing = false,
+                listener = lanClientListener,
+            )
+        }
+
+    private suspend fun handleLanPeerConnected(deviceId: String) {
+        synchronized(lanPeerLock) {
+            lanConnectingPeers.remove(deviceId)
+        }
+        val identity = deviceRepository.localDeviceIdentity()
+        if (identity != null && lanWebSocketClient.hasPeer(deviceId) && lanWebSocketServer.hasPeer(deviceId)) {
+            if (shouldInitiate(identity.deviceId, deviceId)) {
+                CoLinkLog.d("LAN", "closing duplicate inbound peer device=${CoLinkLog.shortId(deviceId)}")
+                lanWebSocketServer.disconnect(deviceId)
+            } else {
+                CoLinkLog.d("LAN", "closing duplicate outbound peer device=${CoLinkLog.shortId(deviceId)}")
+                lanWebSocketClient.disconnect(deviceId)
+            }
+        }
+        flushPendingLanSends(deviceId)
+        removePairingCandidate(deviceId)
+        deviceRepository.listLocalDevices()
+    }
+
+    private suspend fun handleLanPeerDisconnected(deviceId: String) {
+        val wasConnecting = synchronized(lanPeerLock) {
+            lanConnectingPeers.remove(deviceId)
+        }
+        if (wasConnecting && !hasLanPeer(deviceId)) {
+            failPendingLanSends(deviceId, "LAN peer disconnected")
+            return
+        }
+        flushPendingLanSends(deviceId)
+    }
+
+    private suspend fun flushPendingLanSends(deviceId: String) {
+        if (!hasLanPeer(deviceId)) {
+            return
+        }
+        while (true) {
+            val pending = synchronized(lanPeerLock) {
+                val queue = pendingLanSends[deviceId] ?: return@synchronized null
+                if (queue.isEmpty()) {
+                    pendingLanSends.remove(deviceId)
+                    null
+                } else {
+                    queue.removeFirst().also {
+                        if (queue.isEmpty()) {
+                            pendingLanSends.remove(deviceId)
+                        }
+                    }
+                }
+            } ?: return
+
+            if (trySendViaExistingLan(deviceId, pending.message)) {
+                pending.result.complete(Result.success(Unit))
+            } else {
+                pending.result.complete(Result.failure(IllegalStateException("LAN peer is unavailable")))
+            }
+        }
+    }
+
+    private fun removePendingLanSend(deviceId: String, pending: PendingLanSend) {
+        synchronized(lanPeerLock) {
+            val queue = pendingLanSends[deviceId] ?: return@synchronized
+            queue.remove(pending)
+            if (queue.isEmpty()) {
+                pendingLanSends.remove(deviceId)
+                lanConnectingPeers.remove(deviceId)
+            }
+        }
+    }
+
+    private fun failPendingLanSends(reason: String) {
+        val pending = synchronized(lanPeerLock) {
+            lanConnectingPeers.clear()
+            pendingLanSends.values.flatMap { it.toList() }.also {
+                pendingLanSends.clear()
+            }
+        }
+        pending.forEach {
+            it.result.complete(Result.failure(IllegalStateException(reason)))
+        }
+    }
+
+    private fun failPendingLanSends(deviceId: String, reason: String) {
+        val pending = synchronized(lanPeerLock) {
+            lanConnectingPeers.remove(deviceId)
+            pendingLanSends.remove(deviceId)?.toList() ?: emptyList()
+        }
+        pending.forEach {
+            it.result.complete(Result.failure(IllegalStateException(reason)))
+        }
+    }
 
     private suspend fun saveInboundBusinessMessage(
         fromDeviceId: String,
@@ -518,13 +664,23 @@ class ConnectionManager @Inject constructor(
                 chunkSize = offer.payload.chunkSize.toInt(),
             )
             scheduleOfferExpiry(offer.payload.sessionId)
-            sendBusinessMessage(
+            val actualRoute = sendBusinessMessage(
                 targetDeviceId = targetDeviceId,
                 business = BusinessEnvelope(
                     type = FILE_OFFER_TYPE,
                     payload = json.encodeToJsonElement(offer.payload),
                 ),
             ).getOrThrow()
+            fileTransferRepository.get(offer.payload.sessionId)?.let { transfer ->
+                if (transfer.route != actualRoute) {
+                    fileTransferRepository.save(
+                        transfer.copy(
+                            route = actualRoute,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }
         }
 
     suspend fun rejectFileOffer(sessionId: String, reason: String = "user rejected"): Result<Unit> =
@@ -866,8 +1022,7 @@ class ConnectionManager @Inject constructor(
             override fun onConnected(deviceId: String) {
                 CoLinkLog.i("LAN", "outbound peer connected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch {
-                    removePairingCandidate(deviceId)
-                    deviceRepository.listLocalDevices()
+                    handleLanPeerConnected(deviceId)
                 }
             }
 
@@ -881,6 +1036,9 @@ class ConnectionManager @Inject constructor(
 
             override fun onDisconnected(deviceId: String) {
                 CoLinkLog.w("LAN", "outbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
+                scope.launch {
+                    handleLanPeerDisconnected(deviceId)
+                }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
@@ -1014,8 +1172,7 @@ class ConnectionManager @Inject constructor(
             override fun onConnected(deviceId: String) {
                 CoLinkLog.i("LAN", "inbound peer connected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch {
-                    removePairingCandidate(deviceId)
-                    deviceRepository.listLocalDevices()
+                    handleLanPeerConnected(deviceId)
                 }
             }
 
@@ -1029,6 +1186,9 @@ class ConnectionManager @Inject constructor(
 
             override fun onDisconnected(deviceId: String) {
                 CoLinkLog.w("LAN", "inbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
+                scope.launch {
+                    handleLanPeerDisconnected(deviceId)
+                }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
@@ -1534,7 +1694,7 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String) {
         swimMembership.observeAlive(localDeviceId, deviceId)
-            ?.let { applyMemberUpdate(localDeviceId, it) }
+            ?.let { applyMemberUpdate(it) }
     }
 
     private suspend fun mergeSwimMember(
@@ -1546,7 +1706,7 @@ class ConnectionManager @Inject constructor(
             localDeviceId = localDeviceId,
             originDeviceId = originDeviceId,
             entry = entry,
-        )?.let { applyMemberUpdate(localDeviceId, it) }
+        )?.let { applyMemberUpdate(it) }
     }
 
     private suspend fun markMember(
@@ -1557,10 +1717,10 @@ class ConnectionManager @Inject constructor(
         explicit: Boolean,
     ) {
         swimMembership.markMember(localDeviceId, deviceId, state, incarnation, explicit)
-            ?.let { applyMemberUpdate(localDeviceId, it) }
+            ?.let { applyMemberUpdate(it) }
     }
 
-    private suspend fun applyMemberUpdate(localDeviceId: String, update: MemberUpdate) {
+    private suspend fun applyMemberUpdate(update: MemberUpdate) {
         val deviceId = update.deviceId
         val state = update.state
         CoLinkLog.i(
@@ -1584,24 +1744,6 @@ class ConnectionManager @Inject constructor(
                 if (!lanTrusted) {
                     return
                 }
-                if (
-                    shouldInitiate(localDeviceId, deviceId) &&
-                    !lanWebSocketClient.hasPeer(deviceId) &&
-                    !lanWebSocketServer.hasPeer(deviceId)
-                ) {
-                    val identity = deviceRepository.localDeviceIdentity() ?: return
-                    val peer = deviceRepository.getDevice(deviceId) ?: return
-                    val ip = peer.localIp ?: endpoint?.ip ?: return
-                    val port = peer.localPort ?: endpoint?.port ?: return
-                    lanWebSocketClient.connect(
-                        identity = identity,
-                        deviceId = peer.deviceId,
-                        ip = ip,
-                        port = port,
-                        allowPairing = false,
-                        listener = lanClientListener,
-                    )
-                }
             }
 
             MemberState.Dead,
@@ -1611,6 +1753,7 @@ class ConnectionManager @Inject constructor(
                 removePairingCandidate(deviceId)
                 deviceRepository.clearLanEndpoint(deviceId)
                 lanWebSocketClient.disconnect(deviceId)
+                lanWebSocketServer.disconnect(deviceId)
             }
 
             MemberState.Suspect -> Unit
@@ -1662,6 +1805,7 @@ class ConnectionManager @Inject constructor(
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
         deviceRepository.clearLanEndpoint(deviceId)
         lanWebSocketClient.disconnect(deviceId)
+        lanWebSocketServer.disconnect(deviceId)
         name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
         refreshPairingCandidate(deviceId)
         notifyEvent(
@@ -1771,7 +1915,7 @@ class ConnectionManager @Inject constructor(
         swimMembership
             .promoteExpiredSuspects(identity.deviceId, SWIM_SUSPECT_TIMEOUT_MILLIS)
             .forEach { update ->
-                applyMemberUpdate(identity.deviceId, update)
+                applyMemberUpdate(update)
         }
     }
 
@@ -1956,6 +2100,11 @@ private data class OutgoingTransferState(
     val chunkSize: Int,
     @Volatile var acknowledgedChunks: Long = 0,
     @Volatile var transferConnection: TransferConnection? = null,
+)
+
+private data class PendingLanSend(
+    val message: BusinessEnvelope,
+    val result: CompletableDeferred<Result<Unit>>,
 )
 
 private data class LanEndpoint(
