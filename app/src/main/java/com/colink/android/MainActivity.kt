@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import com.colink.android.ui.navigation.CoLinkNavGraph
 import com.colink.android.ui.theme.CoLinkTheme
+import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -25,7 +26,9 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
 
     private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            CoLinkLog.i("Notification", "POST_NOTIFICATIONS permission granted=$granted")
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,7 +61,10 @@ class MainActivity : ComponentActivity() {
             Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
         if (!granted) {
+            CoLinkLog.i("Notification", "requesting POST_NOTIFICATIONS permission")
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            CoLinkLog.d("Notification", "POST_NOTIFICATIONS permission already granted")
         }
     }
 

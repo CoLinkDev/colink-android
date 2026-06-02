@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.Inet4Address
 import javax.inject.Inject
@@ -44,6 +45,10 @@ class NsdDiscovery @Inject constructor(
         listener: Listener,
     ) {
         stop()
+        CoLinkLog.i(
+            "LAN",
+            "starting NSD service=$serviceName device=${CoLinkLog.shortId(deviceId)} name=$deviceName port=$port",
+        )
         registerService(serviceInfo(serviceName, port, deviceId, deviceName))
         discover(listener)
     }
@@ -53,14 +58,26 @@ class NsdDiscovery @Inject constructor(
         discoveryListener?.let { runCatching { manager.stopServiceDiscovery(it) } }
         registrationListener = null
         discoveryListener = null
+        CoLinkLog.d("LAN", "stopped NSD")
     }
 
     private fun registerService(info: NsdServiceInfo) {
         registrationListener = object : NsdManager.RegistrationListener {
-            override fun onServiceRegistered(serviceInfo: NsdServiceInfo) = Unit
-            override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
-            override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) = Unit
-            override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
+            override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
+                CoLinkLog.i("LAN", "NSD service registered name=${serviceInfo.serviceName}")
+            }
+
+            override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                CoLinkLog.w("LAN", "NSD registration failed name=${serviceInfo.serviceName} code=$errorCode")
+            }
+
+            override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
+                CoLinkLog.i("LAN", "NSD service unregistered name=${serviceInfo.serviceName}")
+            }
+
+            override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                CoLinkLog.w("LAN", "NSD unregistration failed name=${serviceInfo.serviceName} code=$errorCode")
+            }
         }
         manager.registerService(
             info,
@@ -71,19 +88,33 @@ class NsdDiscovery @Inject constructor(
 
     private fun discover(listener: Listener) {
         discoveryListener = object : NsdManager.DiscoveryListener {
-            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
-            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) = Unit
-            override fun onDiscoveryStarted(serviceType: String) = Unit
-            override fun onDiscoveryStopped(serviceType: String) = Unit
+            override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
+                CoLinkLog.w("LAN", "NSD discovery start failed type=$serviceType code=$errorCode")
+            }
+
+            override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
+                CoLinkLog.w("LAN", "NSD discovery stop failed type=$serviceType code=$errorCode")
+            }
+
+            override fun onDiscoveryStarted(serviceType: String) {
+                CoLinkLog.i("LAN", "NSD discovery started type=$serviceType")
+            }
+
+            override fun onDiscoveryStopped(serviceType: String) {
+                CoLinkLog.i("LAN", "NSD discovery stopped type=$serviceType")
+            }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
                 if (serviceInfo.serviceType != SERVICE_TYPE) {
                     return
                 }
+                CoLinkLog.d("LAN", "NSD service found name=${serviceInfo.serviceName}")
                 manager.resolveService(
                     serviceInfo,
                     object : NsdManager.ResolveListener {
-                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) = Unit
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
+                            CoLinkLog.w("LAN", "NSD resolve failed name=${serviceInfo.serviceName} code=$errorCode")
+                        }
 
                         override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
                             val deviceId = serviceInfo.attributes["deviceId"]
@@ -101,6 +132,10 @@ class NsdDiscovery @Inject constructor(
                                 ?.trim()
                                 .orEmpty()
                             val hostAddress = resolvedHostAddress(serviceInfo) ?: return
+                            CoLinkLog.i(
+                                "LAN",
+                                "NSD service resolved device=${CoLinkLog.shortId(deviceId)} name=$name ip=$hostAddress port=${serviceInfo.port}",
+                            )
                             listener.onServiceResolved(
                                 deviceId = deviceId,
                                 name = name,
@@ -117,6 +152,7 @@ class NsdDiscovery @Inject constructor(
                     ?.decodeToString()
                     ?.takeIf { it.isNotBlank() }
                     ?: return
+                CoLinkLog.w("LAN", "NSD service lost device=${CoLinkLog.shortId(deviceId)}")
                 listener.onServiceLost(deviceId)
             }
         }

@@ -41,9 +41,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = SettingsUiState(saving = true)
             settingsDataStore.saveSettings(settings)
-            deviceRepository.localDeviceIdentity()
-                ?.takeIf { settings.deviceName.trim().isNotEmpty() && it.name != settings.deviceName.trim() }
-                ?.let { deviceRepository.updateDeviceName(it.deviceId, settings.deviceName) }
+            val identity = deviceRepository.localDeviceIdentity()
+            val deviceName = settings.deviceName.trim()
+            when {
+                identity == null -> Unit
+                deviceName.isBlank() -> deviceRepository.ensureLocalDeviceIdentity()
+                identity.name != deviceName -> deviceRepository.updateDeviceName(identity.deviceId, deviceName)
+            }
             connectionManager.applySettings(settings)
             _uiState.value = SettingsUiState(message = "Settings saved")
         }

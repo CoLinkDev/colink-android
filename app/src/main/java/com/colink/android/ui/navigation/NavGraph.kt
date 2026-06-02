@@ -94,8 +94,8 @@ fun CoLinkNavGraph(
         }
     }
 
-    LaunchedEffect(uiState.authenticated, uiState.notificationsEnabled) {
-        if (uiState.authenticated && uiState.notificationsEnabled) {
+    LaunchedEffect(uiState.bootstrapping, uiState.notificationsEnabled) {
+        if (!uiState.bootstrapping && uiState.notificationsEnabled) {
             onRequestNotificationPermission()
         }
     }

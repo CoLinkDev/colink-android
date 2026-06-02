@@ -4,6 +4,7 @@ import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.SwimPayload
+import com.colink.android.util.CoLinkLog
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,6 +16,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+
+private const val DIRECT_SWIM_TIMEOUT_MILLIS = 1_000L
+private const val INDIRECT_SWIM_TIMEOUT_MILLIS = 1_000L
 
 @Singleton
 class LanSwimClient @Inject constructor(
@@ -39,7 +43,7 @@ class LanSwimClient @Inject constructor(
                     gossip = gossip,
                 ),
             ),
-            timeoutMillis = 500,
+            timeoutMillis = DIRECT_SWIM_TIMEOUT_MILLIS,
         )
 
     suspend fun pingReq(
@@ -62,7 +66,7 @@ class LanSwimClient @Inject constructor(
                     gossip = gossip,
                 ),
             ),
-            timeoutMillis = 500,
+            timeoutMillis = INDIRECT_SWIM_TIMEOUT_MILLIS,
         )
 
     suspend fun post(
@@ -72,6 +76,7 @@ class LanSwimClient @Inject constructor(
         timeoutMillis: Long,
     ): Result<SwimEnvelope> =
         withContext(Dispatchers.IO) {
+            val startedAt = System.currentTimeMillis()
             runCatching {
                 val client = okHttpClient.newBuilder()
                     .callTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
@@ -86,8 +91,19 @@ class LanSwimClient @Inject constructor(
                 client.newCall(request).execute().use { response ->
                     check(response.isSuccessful) { "SWIM ping failed: ${response.code}" }
                     val body = response.body?.string().orEmpty()
-                    json.decodeFromString(SwimEnvelope.serializer(), body)
+                    json.decodeFromString(SwimEnvelope.serializer(), body).also {
+                        CoLinkLog.d(
+                            "SWIM",
+                            "HTTP ${envelope.type} succeeded ip=$ip port=$port elapsed=${System.currentTimeMillis() - startedAt}ms",
+                        )
+                    }
                 }
+            }.onFailure { error ->
+                CoLinkLog.w(
+                    "SWIM",
+                    "HTTP ${envelope.type} failed ip=$ip port=$port elapsed=${System.currentTimeMillis() - startedAt}ms",
+                    error,
+                )
             }
         }
 }

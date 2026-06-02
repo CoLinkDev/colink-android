@@ -33,7 +33,7 @@ class SettingsDataStore @Inject constructor(
                 autoStartOnBoot = preferences[AUTO_START_ON_BOOT] ?: false,
                 lanDiscovery = preferences[LAN_DISCOVERY] ?: true,
                 notifications = preferences[NOTIFICATIONS] ?: true,
-                deviceName = preferences[SETTINGS_DEVICE_NAME] ?: preferences[DEVICE_NAME] ?: "",
+                deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
             )
         }
 

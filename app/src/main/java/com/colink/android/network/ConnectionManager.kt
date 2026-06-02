@@ -1,12 +1,8 @@
 package com.colink.android.network
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
-import android.content.Intent
 import android.webkit.MimeTypeMap
 import com.colink.android.domain.model.CloudConnectionState
 import com.colink.android.domain.model.CloudStatus
@@ -20,9 +16,8 @@ import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.domain.repository.MessageRepository
-import com.colink.android.MainActivity
-import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.notification.CoLinkNotifier
 import com.colink.android.network.cloud.CloudWebSocketClient
 import com.colink.android.network.cloud.TicketProvider
 import com.colink.android.network.lan.LanWebSocketClient
@@ -69,8 +64,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
+import com.colink.android.util.CoLinkLog
 import java.net.URI
 import java.net.URLEncoder
 import java.security.MessageDigest
@@ -106,7 +101,6 @@ private const val SWIM_PERIOD_MILLIS = 1_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 5_000L
 private const val SWIM_MAX_GOSSIP = 10
 private const val SWIM_PING_REQ_FANOUT = 2
-private const val NOTIFICATION_CHANNEL_ID = "colink_events"
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 
 @Singleton
@@ -125,6 +119,7 @@ class ConnectionManager @Inject constructor(
     private val lanSwimClient: LanSwimClient,
     private val lanTrustStore: LanTrustStore,
     private val nsdDiscovery: NsdDiscovery,
+    private val notifier: CoLinkNotifier,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _cloudState = MutableStateFlow(CloudConnectionState())
@@ -152,9 +147,11 @@ class ConnectionManager @Inject constructor(
         _lanPairingCandidates.asStateFlow()
 
     fun start() {
-        ensureNotificationChannel()
+        notifier.ensureEventChannel()
+        CoLinkLog.i("Connection", "starting connection manager")
         scope.launch {
             deviceRepository.ensureLocalDeviceIdentity()
+                .onFailure { error -> CoLinkLog.e("Connection", "failed to ensure local identity", error) }
             fileTransferRepository.failUnfinished("app restarted")
             if (settingsDataStore.currentSettings().lanDiscovery) {
                 startLan()
@@ -163,12 +160,14 @@ class ConnectionManager @Inject constructor(
                 connectionJob = scope.launch { runCloudLoop() }
             } else if (settingsDataStore.currentSession() == null) {
                 _cloudState.value = CloudConnectionState()
+                CoLinkLog.d("Cloud", "cloud loop skipped because no session exists")
             }
         }
         startClipboardSync()
     }
 
     fun stop() {
+        CoLinkLog.i("Connection", "stopping connection manager")
         connectionJob?.cancel()
         connectionJob = null
         swimJob?.cancel()
@@ -194,6 +193,7 @@ class ConnectionManager @Inject constructor(
     }
 
     fun startCloud() {
+        CoLinkLog.i("Cloud", "start cloud requested")
         scope.launch {
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
@@ -202,6 +202,7 @@ class ConnectionManager @Inject constructor(
     }
 
     fun stopCloud() {
+        CoLinkLog.i("Cloud", "stop cloud requested")
         connectionJob?.cancel()
         connectionJob = null
         cloudWebSocketClient.close()
@@ -210,6 +211,10 @@ class ConnectionManager @Inject constructor(
     }
 
     fun applySettings(settings: AppSettings) {
+        CoLinkLog.i(
+            "Settings",
+            "applying settings lanDiscovery=${settings.lanDiscovery} notifications=${settings.notifications}",
+        )
         if (settings.lanDiscovery) {
             startLan()
         } else {
@@ -223,9 +228,13 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun startLan() {
+        CoLinkLog.i("LAN", "starting LAN services")
         lanWebSocketServer.start(lanListener)
         scope.launch {
-            val identity = deviceRepository.localDeviceIdentity() ?: return@launch
+            val identity = deviceRepository.localDeviceIdentity() ?: run {
+                CoLinkLog.w("LAN", "LAN discovery skipped because local identity is missing")
+                return@launch
+            }
             swimMembership.ensureLocalStarted(identity.deviceId)
             startLanDiscovery(identity)
         }
@@ -233,6 +242,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun stopLan() {
+        CoLinkLog.i("LAN", "stopping LAN services")
         swimJob?.cancel()
         swimJob = null
         suspectJob?.cancel()
@@ -826,6 +836,7 @@ class ConnectionManager @Inject constructor(
     private val lanClientListener =
         object : LanWebSocketClient.Listener {
             override fun onConnected(deviceId: String) {
+                CoLinkLog.i("LAN", "outbound peer connected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch {
                     removePairingCandidate(deviceId)
                     deviceRepository.listLocalDevices()
@@ -833,14 +844,20 @@ class ConnectionManager @Inject constructor(
             }
 
             override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
+                CoLinkLog.d(
+                    "LAN",
+                    "received outbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
+                )
                 scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
             }
 
             override fun onDisconnected(deviceId: String) {
+                CoLinkLog.w("LAN", "outbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch { deviceRepository.clearLanEndpoint(deviceId) }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
+                CoLinkLog.w("LAN", "outbound peer key changed device=${CoLinkLog.shortId(deviceId)} name=$name")
                 scope.launch { handleLanKeyChanged(deviceId, name) }
             }
         }
@@ -968,6 +985,7 @@ class ConnectionManager @Inject constructor(
     private val lanListener =
         object : LanWebSocketServer.Listener {
             override fun onConnected(deviceId: String) {
+                CoLinkLog.i("LAN", "inbound peer connected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch {
                     removePairingCandidate(deviceId)
                     deviceRepository.listLocalDevices()
@@ -975,24 +993,32 @@ class ConnectionManager @Inject constructor(
             }
 
             override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
+                CoLinkLog.d(
+                    "LAN",
+                    "received inbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
+                )
                 scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
             }
 
             override fun onDisconnected(deviceId: String) {
+                CoLinkLog.w("LAN", "inbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch { deviceRepository.clearLanEndpoint(deviceId) }
             }
 
             override fun onKeyChanged(deviceId: String, name: String) {
+                CoLinkLog.w("LAN", "inbound peer key changed device=${CoLinkLog.shortId(deviceId)} name=$name")
                 scope.launch { handleLanKeyChanged(deviceId, name) }
             }
 
             override fun onTransferConnected(sessionId: String) = Unit
 
             override fun onTransferFrame(sessionId: String, frame: FileDataFrame) {
+                CoLinkLog.d("Transfer", "received LAN transfer frame session=${CoLinkLog.shortId(sessionId)} kind=${frame.kind}")
                 scope.launch { handleTransferFrame(sessionId, frame) }
             }
 
             override fun onTransferClosed(sessionId: String) {
+                CoLinkLog.w("Transfer", "LAN transfer closed session=${CoLinkLog.shortId(sessionId)}")
                 scope.launch {
                     val transfer = fileTransferRepository.get(sessionId) ?: return@launch
                     if (transfer.status == "receiving") {
@@ -1009,6 +1035,10 @@ class ConnectionManager @Inject constructor(
             }
 
             override fun onSwimMessage(message: SwimEnvelope, sourceIp: String?) {
+                CoLinkLog.d(
+                    "SWIM",
+                    "received ${message.type} from=${CoLinkLog.shortId(message.payload.from)} sourceIp=$sourceIp gossip=${message.payload.gossip.size}",
+                )
                 scope.launch { processSwimMessage(message, sourceIp) }
             }
 
@@ -1017,6 +1047,10 @@ class ConnectionManager @Inject constructor(
         }
 
     private fun startLanDiscovery(identity: DeviceIdentity) {
+        CoLinkLog.i(
+            "LAN",
+            "starting discovery device=${CoLinkLog.shortId(identity.deviceId)} name=${identity.name}",
+        )
         nsdDiscovery.start(
             serviceName = "colink-${identity.deviceId.take(8)}",
             port = com.colink.android.network.lan.LAN_PORT,
@@ -1029,6 +1063,10 @@ class ConnectionManager @Inject constructor(
     private val nsdListener =
         object : NsdDiscovery.Listener {
             override fun onServiceResolved(deviceId: String, name: String, ip: String, port: Int) {
+                CoLinkLog.i(
+                    "LAN",
+                    "resolved service device=${CoLinkLog.shortId(deviceId)} name=$name ip=$ip port=$port",
+                )
                 scope.launch {
                     val identity = deviceRepository.localDeviceIdentity() ?: return@launch
                     if (deviceId == identity.deviceId) {
@@ -1043,14 +1081,22 @@ class ConnectionManager @Inject constructor(
                         port = port,
                         seq = nextSwimSeq(),
                         gossip = gossipBatch(identity.deviceId),
-                    ).getOrNull() ?: return@launch
+                    ).onFailure { error ->
+                        CoLinkLog.w(
+                            "SWIM",
+                            "discovery ping failed device=${CoLinkLog.shortId(deviceId)} ip=$ip port=$port",
+                            error,
+                        )
+                    }.getOrNull() ?: return@launch
                     if (response.type == "swim.ack" && response.payload.from == deviceId) {
                         processSwimMessage(response, ip)
                     }
                 }
             }
 
-            override fun onServiceLost(deviceId: String) = Unit
+            override fun onServiceLost(deviceId: String) {
+                CoLinkLog.w("LAN", "service lost device=${CoLinkLog.shortId(deviceId)}")
+            }
         }
 
     private suspend fun runCloudLoop() {
@@ -1084,6 +1130,7 @@ class ConnectionManager @Inject constructor(
                 listener = object : CloudWebSocketClient.Listener {
                     override fun onOpen() {
                         _cloudState.value = CloudConnectionState(CloudStatus.Connected)
+                        CoLinkLog.i("Cloud", "cloud websocket connected")
                         scope.launch {
                             val session = authRepository.currentSession().getOrNull() ?: return@launch
                             deviceRepository.syncDevices(session)
@@ -1091,10 +1138,12 @@ class ConnectionManager @Inject constructor(
                     }
 
                     override fun onMessage(message: CloudServerEnvelope) {
+                        CoLinkLog.d("Cloud", "received cloud message type=${message.type} from=${CoLinkLog.shortId(message.from)}")
                         scope.launch { handleCloudMessage(message) }
                     }
 
                     override fun onClosed(reason: String?) {
+                        CoLinkLog.w("Cloud", "cloud websocket closed reason=${reason ?: "unknown"}")
                         if (!closed.isCompleted) {
                             closed.complete(reason)
                         }
@@ -1117,6 +1166,7 @@ class ConnectionManager @Inject constructor(
             val reason = closed.await()
             pingJob.cancel()
             attempt += 1
+            CoLinkLog.w("Cloud", "cloud loop reconnecting attempt=$attempt reason=${reason ?: "unknown"}")
             _cloudState.value =
                 CloudConnectionState(CloudStatus.Reconnecting, attempt, reason)
             delay(backoffDelay(attempt))
@@ -1430,6 +1480,10 @@ class ConnectionManager @Inject constructor(
         sourceIp?.let { ip ->
             if (message.payload.from != identity.deviceId) {
                 swimEndpoints[message.payload.from] = LanEndpoint(ip, com.colink.android.network.lan.LAN_PORT)
+                CoLinkLog.d(
+                    "SWIM",
+                    "remembered endpoint device=${CoLinkLog.shortId(message.payload.from)} ip=$ip",
+                )
                 if (!lanTrustStore.isLanTrusted(message.payload.from)) {
                     deviceRepository.clearLanEndpoint(message.payload.from)
                 }
@@ -1438,6 +1492,7 @@ class ConnectionManager @Inject constructor(
         observeSwimAlive(identity.deviceId, message.payload.from)
         message.payload.gossip.forEach { entry ->
             if (entry.deviceId == identity.deviceId && entry.state == MemberState.Suspect.wireValue) {
+                CoLinkLog.w("SWIM", "received suspicion for local device; refuting")
                 swimMembership.refuteSelf(identity.deviceId)
             } else {
                 mergeSwimMember(identity.deviceId, message.payload.from, entry)
@@ -1476,14 +1531,20 @@ class ConnectionManager @Inject constructor(
     private suspend fun applyMemberUpdate(localDeviceId: String, update: MemberUpdate) {
         val deviceId = update.deviceId
         val state = update.state
+        CoLinkLog.i(
+            "SWIM",
+            "member update device=${CoLinkLog.shortId(deviceId)} state=${state.wireValue} incarnation=${update.incarnation}",
+        )
         when (state) {
             MemberState.Alive -> {
                 val endpoint = swimEndpoints[deviceId]
                 val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
                 if (endpoint != null) {
                     if (lanTrusted) {
+                        CoLinkLog.d("LAN", "marking LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=${endpoint.ip} port=${endpoint.port}")
                         deviceRepository.markLanEndpoint(deviceId, endpoint.ip, endpoint.port)
                     } else {
+                        CoLinkLog.d("LAN", "clearing untrusted LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
                         deviceRepository.clearLanEndpoint(deviceId)
                     }
                     updatePairingCandidate(deviceId, endpoint, state)
@@ -1514,6 +1575,7 @@ class ConnectionManager @Inject constructor(
             MemberState.Dead,
             MemberState.Left,
             -> {
+                CoLinkLog.w("SWIM", "clearing LAN endpoint because member is ${state.wireValue} device=${CoLinkLog.shortId(deviceId)}")
                 removePairingCandidate(deviceId)
                 deviceRepository.clearLanEndpoint(deviceId)
                 lanWebSocketClient.disconnect(deviceId)
@@ -1548,9 +1610,13 @@ class ConnectionManager @Inject constructor(
             )
             .sortedBy { it.deviceId }
         _lanPairingCandidates.value = candidates
+        CoLinkLog.i("LAN", "updated pairing candidate device=${CoLinkLog.shortId(deviceId)} name=$name ip=${endpoint.ip} port=${endpoint.port}")
     }
 
     private fun removePairingCandidate(deviceId: String) {
+        if (_lanPairingCandidates.value.any { it.deviceId == deviceId }) {
+            CoLinkLog.i("LAN", "removed pairing candidate device=${CoLinkLog.shortId(deviceId)}")
+        }
         _lanPairingCandidates.value = _lanPairingCandidates.value
             .filterNot { it.deviceId == deviceId }
     }
@@ -1573,6 +1639,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun startSwimLoops() {
+        CoLinkLog.i("SWIM", "starting SWIM loops")
         swimJob?.cancel()
         suspectJob?.cancel()
         swimJob = scope.launch {
@@ -1593,13 +1660,16 @@ class ConnectionManager @Inject constructor(
         val identity = deviceRepository.localDeviceIdentity() ?: return
         val target = nextProbeTarget(identity.deviceId) ?: return
         val endpoint = swimEndpoints[target] ?: return
+        CoLinkLog.d("SWIM", "probing target=${CoLinkLog.shortId(target)} ip=${endpoint.ip} port=${endpoint.port}")
         val ack = lanSwimClient.ping(
             identity = identity,
             ip = endpoint.ip,
             port = endpoint.port,
             seq = nextSwimSeq(),
             gossip = gossipBatch(identity.deviceId),
-        ).getOrNull()
+        ).onFailure { error ->
+            CoLinkLog.w("SWIM", "direct probe failed target=${CoLinkLog.shortId(target)}", error)
+        }.getOrNull()
         if (ack != null) {
             processSwimMessage(ack, null)
             markMember(identity.deviceId, target, MemberState.Alive, null, explicit = false)
@@ -1622,6 +1692,7 @@ class ConnectionManager @Inject constructor(
             processSwimMessage(indirectAck, null)
             markMember(identity.deviceId, target, MemberState.Alive, null, explicit = false)
         } else {
+            CoLinkLog.w("SWIM", "marking member suspect target=${CoLinkLog.shortId(target)}")
             markMember(identity.deviceId, target, MemberState.Suspect, null, explicit = false)
         }
     }
@@ -1817,38 +1888,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun notifyEvent(title: String, text: String) {
-        if (!settingsDataStore.currentSettings().notifications) {
-            return
-        }
-        val intent = Intent(context, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
-            .build()
-        context.getSystemService(NotificationManager::class.java)
-            .notify(UUID.randomUUID().hashCode(), notification)
-    }
-
-    private fun ensureNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return
-        }
-        val manager = context.getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(
-            NOTIFICATION_CHANNEL_ID,
-            "CoLink events",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        )
-        manager.createNotificationChannel(channel)
+        notifier.notifyEvent(title, text)
     }
 
     private fun ClipboardSyncPayload.clipboardHash(): String {

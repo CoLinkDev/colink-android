@@ -15,6 +15,7 @@ import com.colink.android.MainActivity
 import com.colink.android.R
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.network.ConnectionManager
+import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -36,9 +37,11 @@ class CoLinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureNotificationChannel()
+        CoLinkLog.i("Service", "CoLink service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        CoLinkLog.i("Service", "CoLink service start command startId=$startId")
         startForegroundCompat(buildNotification("Connecting..."))
         connectionManager.start()
         startNotificationUpdates()
@@ -46,6 +49,7 @@ class CoLinkService : Service() {
     }
 
     override fun onDestroy() {
+        CoLinkLog.i("Service", "CoLink service destroyed")
         notificationJob?.cancel()
         connectionManager.stop()
         super.onDestroy()
@@ -98,6 +102,7 @@ class CoLinkService : Service() {
                 }
                 getSystemService(NotificationManager::class.java)
                     .notify(NOTIFICATION_ID, buildNotification(text))
+                CoLinkLog.d("Service", "foreground notification updated status=${state.status}")
             }
         }
     }
@@ -117,6 +122,7 @@ class CoLinkService : Service() {
 
     companion object {
         fun start(context: Context) {
+            CoLinkLog.i("Service", "starting CoLink service")
             val intent = Intent(context, CoLinkService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)

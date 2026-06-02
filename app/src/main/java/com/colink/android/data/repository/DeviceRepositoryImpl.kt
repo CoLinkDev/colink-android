@@ -1,7 +1,7 @@
 package com.colink.android.data.repository
 
-import android.os.Build
 import com.colink.android.crypto.KeyManager
+import com.colink.android.data.local.DeviceNameProvider
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.data.local.db.dao.DeviceDao
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
@@ -18,6 +18,7 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.DeviceRepository
+import com.colink.android.util.CoLinkLog
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -31,6 +32,7 @@ class DeviceRepositoryImpl @Inject constructor(
     private val deviceDao: DeviceDao,
     private val trustedPeerKeyDao: TrustedPeerKeyDao,
     private val keyManager: KeyManager,
+    private val deviceNameProvider: DeviceNameProvider,
 ) : DeviceRepository {
     override val devices: Flow<List<Device>> =
         deviceDao.observeDevices().map { entities -> entities.map { it.toDomain() } }
@@ -95,6 +97,7 @@ class DeviceRepositoryImpl @Inject constructor(
                 localIdentity = localIdentity,
             )
             saveDevices(reconciled)
+            CoLinkLog.i("Device", "synced devices count=${reconciled.size}")
             reconciled
         }
 
@@ -119,6 +122,10 @@ class DeviceRepositoryImpl @Inject constructor(
                 ),
                 replaceAll = false,
             )
+            CoLinkLog.i(
+                "Device",
+                "marked LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=$ip port=$port",
+            )
         }
 
     override suspend fun clearLanEndpoint(deviceId: String): Result<Unit> =
@@ -136,12 +143,14 @@ class DeviceRepositoryImpl @Inject constructor(
                 ),
                 replaceAll = false,
             )
+            CoLinkLog.i("Device", "cleared LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
         }
 
     override suspend fun clearAllLanEndpoints(): Result<Unit> =
         runCatching {
             deviceDao.clearAllLanEndpoints()
             listLocalDevices().getOrThrow()
+            CoLinkLog.i("Device", "cleared all LAN endpoints")
         }
 
     override suspend fun listLocalDevices(): Result<List<Device>> =
@@ -244,8 +253,7 @@ class DeviceRepositoryImpl @Inject constructor(
         }
 
         val generated = keyManager.generateKeyPair()
-        val settings = settingsDataStore.currentSettings()
-        val name = settings.deviceName.ifBlank { Build.MODEL.ifBlank { "Android" } }
+        val name = configuredOrDefaultDeviceName()
         return DeviceIdentity(
             userId = null,
             deviceId = UUID.randomUUID().toString(),
@@ -256,6 +264,10 @@ class DeviceRepositoryImpl @Inject constructor(
             privateKey = generated.privateKey,
         ).also { identity ->
             settingsDataStore.saveDeviceIdentity(identity)
+            CoLinkLog.i(
+                "Device",
+                "created local identity device=${CoLinkLog.shortId(identity.deviceId)} name=${identity.name}",
+            )
         }
     }
 
@@ -264,7 +276,7 @@ class DeviceRepositoryImpl @Inject constructor(
         identity: DeviceIdentity,
     ): DeviceIdentity {
         val settings = settingsDataStore.currentSettings()
-        val name = settings.deviceName.ifBlank { identity.name.ifBlank { Build.MODEL.ifBlank { "Android" } } }
+        val name = configuredOrDefaultDeviceName(identity.name)
         val response = deviceApi
             .registerDevice(
                 url = apiEndpoint(settings.serverUrl, "/api/v1/devices"),
@@ -286,6 +298,10 @@ class DeviceRepositoryImpl @Inject constructor(
             cloudKeySyncPending = false,
         ).also { registered ->
             settingsDataStore.saveDeviceIdentity(registered)
+            CoLinkLog.i(
+                "Device",
+                "registered local device device=${CoLinkLog.shortId(registered.deviceId)} name=${registered.name}",
+            )
         }
     }
 
@@ -301,6 +317,25 @@ class DeviceRepositoryImpl @Inject constructor(
                     request = DeviceNameUpdateRequestDto(identity.name),
                 )
                 .requireOk()
+            CoLinkLog.i(
+                "Device",
+                "synced local device name device=${CoLinkLog.shortId(identity.deviceId)} name=${identity.name}",
+            )
+        }.onFailure { error ->
+            CoLinkLog.w(
+                "Device",
+                "failed to sync local device name device=${CoLinkLog.shortId(identity.deviceId)}",
+                error,
+            )
+        }
+    }
+
+    private suspend fun configuredOrDefaultDeviceName(currentName: String? = null): String {
+        val configured = settingsDataStore.currentSettings().deviceName.trim()
+        return when {
+            configured.isNotBlank() -> configured
+            !currentName.isNullOrBlank() -> currentName
+            else -> deviceNameProvider.defaultDeviceName()
         }
     }
 

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -18,7 +19,10 @@ class BootReceiver : BroadcastReceiver() {
             val dataStore = SettingsDataStore(context.applicationContext)
             val settings = dataStore.currentSettings()
             if (settings.autoStartOnBoot) {
+                CoLinkLog.i("Service", "boot receiver starting service")
                 CoLinkService.start(context.applicationContext)
+            } else {
+                CoLinkLog.d("Service", "boot receiver skipped service start")
             }
             result.finish()
         }

@@ -11,6 +11,7 @@ import com.colink.android.network.message.HandshakeProofPayload
 import com.colink.android.network.message.HandshakeRejectPayload
 import com.colink.android.network.message.PeerEnvelope
 import com.colink.android.network.transfer.FileDataFrame
+import com.colink.android.util.CoLinkLog
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -51,8 +52,13 @@ class LanWebSocketClient @Inject constructor(
         listener: Listener,
     ) {
         if (peers.containsKey(deviceId)) {
+            CoLinkLog.d("LAN", "outbound peer already connected device=${CoLinkLog.shortId(deviceId)}")
             return
         }
+        CoLinkLog.i(
+            "LAN",
+            "connecting outbound peer device=${CoLinkLog.shortId(deviceId)} ip=$ip port=$port allowPairing=$allowPairing",
+        )
         val request = Request.Builder()
             .url("ws://$ip:$port/peer")
             .build()
@@ -67,6 +73,7 @@ class LanWebSocketClient @Inject constructor(
                 private var pairingRequestId: String? = null
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    CoLinkLog.d("LAN", "outbound websocket opened device=${CoLinkLog.shortId(deviceId)}")
                     val proof = handshake.buildProof(identity)
                     requestProof = proof
                     sendPeerMessage(
@@ -81,6 +88,7 @@ class LanWebSocketClient @Inject constructor(
                         runCatching {
                             handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
                         }.onFailure {
+                            CoLinkLog.w("LAN", "outbound peer protocol error device=${CoLinkLog.shortId(deviceId)}", it)
                             failPairing(it.message ?: "LAN protocol error")
                             webSocket.close(1002, it.message ?: "LAN protocol error")
                         }
@@ -88,12 +96,17 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    CoLinkLog.w(
+                        "LAN",
+                        "outbound websocket closed device=${CoLinkLog.shortId(peerId ?: deviceId)} code=$code reason=$reason",
+                    )
                     failPairing(reason.ifBlank { "LAN connection closed" })
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    CoLinkLog.w("LAN", "outbound websocket failed device=${CoLinkLog.shortId(peerId ?: deviceId)}", t)
                     failPairing(t.message ?: "LAN connection failed")
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
@@ -121,6 +134,10 @@ class LanWebSocketClient @Inject constructor(
                                 "signature invalid"
                             }
                             val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
+                            CoLinkLog.i(
+                                "LAN",
+                                "received handshake exchange device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name} trust=$trust",
+                            )
                             if (trust == LanTrustState.KeyChanged) {
                                 lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
                                 sendPeerMessage(
@@ -185,6 +202,7 @@ class LanWebSocketClient @Inject constructor(
                             }
                             val peerId = requireNotNull(peerId) { "LAN peer proof missing" }
                             peers[peerId] = ClientPeerConnection(webSocket, null)
+                            CoLinkLog.d("LAN", "handshake accepted device=${CoLinkLog.shortId(peerId)}")
                             sendPeerMessage(
                                 webSocket = webSocket,
                                 type = "business.v1.negotiate",
@@ -224,10 +242,12 @@ class LanWebSocketClient @Inject constructor(
                                         "LAN peer proof missing"
                                     },
                                 )
+                                CoLinkLog.i("LAN", "trusted LAN peer device=${CoLinkLog.shortId(peerId)} name=$peerName")
                                 pairingCoordinator.complete(requestId)
                                 pairingRequestId = null
                             }
                             peers[peerId] = ClientPeerConnection(webSocket, crypto)
+                            CoLinkLog.i("LAN", "LAN peer ready device=${CoLinkLog.shortId(peerId)}")
                             listener.onConnected(peerId)
                         }
 
@@ -248,6 +268,7 @@ class LanWebSocketClient @Inject constructor(
                 private fun failPairing(reason: String) {
                     pairingRequestId?.let { requestId ->
                         pairingCoordinator.fail(requestId, reason)
+                        CoLinkLog.w("Pairing", "outbound pairing failed request=${CoLinkLog.shortId(requestId)} reason=$reason")
                         pairingRequestId = null
                     }
                 }

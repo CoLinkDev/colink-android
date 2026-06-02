@@ -16,6 +16,7 @@ import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.SwimPayload
 import com.colink.android.network.transfer.FileDataFrame
+import com.colink.android.util.CoLinkLog
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
@@ -62,6 +63,7 @@ class LanWebSocketServer @Inject constructor(
     fun start(listener: Listener) {
         if (engine != null) {
             this.listener = listener
+            CoLinkLog.d("LAN", "LAN server already running")
             return
         }
         this.listener = listener
@@ -82,6 +84,7 @@ class LanWebSocketServer @Inject constructor(
                 }
             }
         }.start(wait = false)
+        CoLinkLog.i("LAN", "LAN server started port=$LAN_PORT")
     }
 
     fun stop() {
@@ -90,6 +93,7 @@ class LanWebSocketServer @Inject constructor(
         peers.clear()
         transferTokens.clear()
         transferConnections.clear()
+        CoLinkLog.i("LAN", "LAN server stopped")
     }
 
     suspend fun send(deviceId: String, message: BusinessEnvelope): Boolean {
@@ -131,14 +135,19 @@ class LanWebSocketServer @Inject constructor(
         fun failPairing(reason: String) {
             pairingRequestId?.let { requestId ->
                 pairingCoordinator.fail(requestId, reason)
+                CoLinkLog.w("Pairing", "inbound pairing failed request=${CoLinkLog.shortId(requestId)} reason=$reason")
                 pairingRequestId = null
             }
         }
         try {
             val identity = settingsDataStore.currentDeviceIdentity()
-                ?: return session.close()
+                ?: run {
+                    CoLinkLog.w("LAN", "closing inbound peer because local identity is missing")
+                    return session.close()
+                }
             val first = session.readPeerEnvelope() ?: return session.close()
             if (first.type != "handshake.v1.request") {
+                CoLinkLog.w("LAN", "rejecting inbound peer invalid first message type=${first.type}")
                 session.sendPeerMessage(
                     "handshake.v1.reject",
                     HandshakeRejectPayload("invalid_handshake"),
@@ -148,6 +157,7 @@ class LanWebSocketServer @Inject constructor(
 
             val proof = json.decodeFromJsonElement(HandshakeProofPayload.serializer(), first.payload)
             if (!handshake.verifyProof(proof)) {
+                CoLinkLog.w("LAN", "rejecting inbound peer invalid signature device=${CoLinkLog.shortId(proof.deviceId)}")
                 session.sendPeerMessage(
                     "handshake.v1.reject",
                     HandshakeRejectPayload("signature_invalid"),
@@ -156,6 +166,10 @@ class LanWebSocketServer @Inject constructor(
             }
 
             val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
+            CoLinkLog.i(
+                "LAN",
+                "received inbound handshake device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name} trust=$trust",
+            )
             if (trust == LanTrustState.KeyChanged) {
                 lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
                 deviceRepository.clearLanEndpoint(proof.deviceId)
@@ -186,6 +200,7 @@ class LanWebSocketServer @Inject constructor(
                 pairingRequestId = decision.requestId
                 if (!decision.accepted) {
                     pairingRequestId = null
+                    CoLinkLog.w("Pairing", "inbound pairing rejected device=${CoLinkLog.shortId(proof.deviceId)}")
                     session.sendPeerMessage(
                         "handshake.v1.reject",
                         HandshakeRejectPayload("user_rejected"),
@@ -212,6 +227,7 @@ class LanWebSocketServer @Inject constructor(
                 return session.close()
             }
             if (negotiationEnvelope.type != "business.v1.negotiate") {
+                CoLinkLog.w("LAN", "invalid inbound negotiation type=${negotiationEnvelope.type}")
                 failPairing("invalid LAN encryption negotiation type")
                 return session.close()
             }
@@ -225,6 +241,7 @@ class LanWebSocketServer @Inject constructor(
                 localIsInitiator = false,
             )
             if (suite == null) {
+                CoLinkLog.w("LAN", "no compatible LAN encryption suite device=${CoLinkLog.shortId(proof.deviceId)}")
                 failPairing("no compatible LAN encryption suite")
                 return session.close()
             }
@@ -238,12 +255,14 @@ class LanWebSocketServer @Inject constructor(
             )
             pairingRequestId?.let { requestId ->
                 lanTrustStore.trust(proof.deviceId, proof.name, proof.publicKey)
+                CoLinkLog.i("LAN", "trusted inbound LAN peer device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name}")
                 pairingCoordinator.complete(requestId)
                 pairingRequestId = null
             }
             connectedPeerId = proof.deviceId
             peers[proof.deviceId] = ServerPeerConnection(session, crypto)
             markPeerEndpoint(proof.deviceId, session)
+            CoLinkLog.i("LAN", "inbound LAN peer ready device=${CoLinkLog.shortId(proof.deviceId)}")
             listener?.onConnected(proof.deviceId)
 
             for (frame in session.incoming) {
@@ -259,11 +278,13 @@ class LanWebSocketServer @Inject constructor(
                 listener?.onMessage(proof.deviceId, crypto.decrypt(payload))
             }
         } catch (error: Throwable) {
+            CoLinkLog.w("LAN", "inbound peer handler failed device=${CoLinkLog.shortId(connectedPeerId)}", error)
             failPairing(error.message ?: "LAN pairing failed")
             throw error
         } finally {
             val id = connectedPeerId
             if (id != null) {
+                CoLinkLog.w("LAN", "inbound LAN peer ended device=${CoLinkLog.shortId(id)}")
                 peers.remove(id)
                 deviceRepository.clearLanEndpoint(id)
                 listener?.onDisconnected(id)
@@ -274,25 +295,29 @@ class LanWebSocketServer @Inject constructor(
     private suspend fun ApplicationCall.handleSwimPing() {
         val identity = settingsDataStore.currentDeviceIdentity()
         if (identity == null) {
+            CoLinkLog.w("SWIM", "rejected SWIM request because local identity is missing")
             respond(HttpStatusCode.Unauthorized)
             return
         }
         if ((request.headers["Content-Length"]?.toLongOrNull() ?: 0L) > SWIM_MAX_BODY_BYTES) {
+            CoLinkLog.w("SWIM", "rejected oversized SWIM request")
             respond(HttpStatusCode.PayloadTooLarge)
             return
         }
         val swimRequest = runCatching {
             json.decodeFromString(SwimEnvelope.serializer(), receiveText())
         }.getOrElse {
+            CoLinkLog.w("SWIM", "rejected invalid SWIM request", it)
             respond(HttpStatusCode.BadRequest)
             return
         }
 
         val from = swimRequest.payload.from
         val host = request.local.remoteHost
-        if (from.isNotBlank() && lanTrustStore.isLanTrusted(from)) {
-            deviceRepository.markLanEndpoint(from, host, LAN_PORT)
-        }
+        CoLinkLog.d(
+            "SWIM",
+            "handling ${swimRequest.type} from=${CoLinkLog.shortId(from)} host=$host gossip=${swimRequest.payload.gossip.size}",
+        )
         listener?.onSwimMessage(swimRequest, host)
 
         val response = when (swimRequest.type) {
@@ -301,6 +326,7 @@ class LanWebSocketServer @Inject constructor(
                 val target = swimRequest.payload.target
                 when {
                     target.isNullOrBlank() -> {
+                        CoLinkLog.w("SWIM", "rejected ping-req with missing target from=${CoLinkLog.shortId(from)}")
                         respond(HttpStatusCode.BadRequest)
                         return
                     }
@@ -309,6 +335,7 @@ class LanWebSocketServer @Inject constructor(
                     else -> {
                         val device = deviceRepository.getDevice(target)
                         if (device?.localIp == null || device.localPort == null) {
+                            CoLinkLog.w("SWIM", "ping-req target endpoint missing target=${CoLinkLog.shortId(target)}")
                             respond(HttpStatusCode.NotFound)
                             return
                         }
@@ -321,6 +348,7 @@ class LanWebSocketServer @Inject constructor(
                                 gossip = swimGossip(identity),
                             )
                             .getOrElse {
+                                CoLinkLog.w("SWIM", "ping-req target probe failed target=${CoLinkLog.shortId(target)}", it)
                                 respond(HttpStatusCode.GatewayTimeout)
                                 return
                             }
@@ -330,6 +358,7 @@ class LanWebSocketServer @Inject constructor(
             }
 
             else -> {
+                CoLinkLog.w("SWIM", "rejected unknown SWIM type=${swimRequest.type}")
                 respond(HttpStatusCode.BadRequest)
                 return
             }
