@@ -17,6 +17,7 @@ import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.SwimPayload
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.util.CoLinkLog
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
@@ -26,6 +27,7 @@ import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.routing
 import io.ktor.server.routing.post
 import io.ktor.server.websocket.DefaultWebSocketServerSession
@@ -427,7 +429,7 @@ class LanWebSocketServer @Inject constructor(
 
         val responseBuildMillis = elapsedSince(responseBuildStartedAt)
         val respondStartedAt = System.currentTimeMillis()
-        respond(response)
+        respondText(json.encodeToString(response), ContentType.Application.Json)
         val respondMillis = elapsedSince(respondStartedAt)
         logHandledSwimRequest(
             type = swimRequest.type,
