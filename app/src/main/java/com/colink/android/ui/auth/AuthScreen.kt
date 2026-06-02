@@ -3,11 +3,9 @@ package com.colink.android.ui.auth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -25,9 +23,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
+import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.StateMessage
 
 @Composable
@@ -86,6 +82,44 @@ fun AuthDialogContent(
 }
 
 @Composable
+fun CloudAccountScreen(
+    authenticated: Boolean,
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier,
+    onAuthenticated: () -> Unit = {},
+) {
+    ScreenColumn(
+        title = "Cloud account",
+        subtitle = if (authenticated) "Connected" else "Login to sync devices",
+        modifier = modifier,
+    ) {
+        if (authenticated) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    text = "This device is connected to your Cloud account.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = onLogout,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Logout")
+                }
+            }
+        } else {
+            AuthDialogContent(
+                onAuthenticated = onAuthenticated,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
 private fun AuthContent(
     modifier: Modifier,
     verticalArrangement: Arrangement.Vertical,
@@ -95,13 +129,9 @@ private fun AuthContent(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
-    var registerMode by rememberSaveable { mutableStateOf(false) }
     var serverUrl by rememberSaveable { mutableStateOf("") }
     var identifier by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
-    var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var confirmPassword by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var localError by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -149,33 +179,6 @@ private fun AuthContent(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = !registerMode,
-                    onClick = {
-                        registerMode = false
-                        localError = null
-                        viewModel.clearError()
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                ) {
-                    Text("Login")
-                }
-                SegmentedButton(
-                    selected = registerMode,
-                    onClick = {
-                        registerMode = true
-                        localError = null
-                        viewModel.clearError()
-                    },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                ) {
-                    Text("Register")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
@@ -188,36 +191,14 @@ private fun AuthContent(
                 singleLine = true,
             )
 
-            if (registerMode) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Next
-                    ),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Username") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                )
-            } else {
-                OutlinedTextField(
-                    value = identifier,
-                    onValueChange = { identifier = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email or username") },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                )
-            }
+            OutlinedTextField(
+                value = identifier,
+                onValueChange = { identifier = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Email or username") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true,
+            )
 
             OutlinedTextField(
                 value = password,
@@ -227,7 +208,7 @@ private fun AuthContent(
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
-                    imeAction = if (registerMode) ImeAction.Next else ImeAction.Done
+                    imeAction = ImeAction.Done
                 ),
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -240,21 +221,6 @@ private fun AuthContent(
                 singleLine = true,
             )
 
-            if (registerMode) {
-                OutlinedTextField(
-                    value = confirmPassword,
-                    onValueChange = { confirmPassword = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Confirm password") },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
-                    ),
-                    singleLine = true,
-                )
-            }
-
             StateMessage(localError ?: uiState.error)
 
             if (uiState.loading) {
@@ -264,51 +230,32 @@ private fun AuthContent(
             Button(
                 onClick = {
                     localError = validate(
-                        registerMode = registerMode,
                         serverUrl = serverUrl,
                         identifier = identifier,
-                        email = email,
-                        username = username,
                         password = password,
-                        confirmPassword = confirmPassword,
                     )
                     if (localError != null) {
                         return@Button
                     }
                     val normalizedServerUrl = serverUrl.trim()
-                    if (registerMode) {
-                        viewModel.register(normalizedServerUrl, email, username, password)
-                    } else {
-                        viewModel.login(normalizedServerUrl, identifier, password)
-                    }
+                    viewModel.login(normalizedServerUrl, identifier, password)
                 },
                 enabled = !uiState.loading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (uiState.loading) "Working..." else if (registerMode) "Create account" else "Login")
+                Text(if (uiState.loading) "Working..." else "Login")
             }
         }
     }
 }
 
 private fun validate(
-    registerMode: Boolean,
     serverUrl: String,
     identifier: String,
-    email: String,
-    username: String,
     password: String,
-    confirmPassword: String,
 ): String? {
     if (serverUrl.isBlank()) {
         return "Server URL is required"
-    }
-    if (registerMode) {
-        if (email.isBlank()) return "Email is required"
-        if (username.isBlank()) return "Username is required"
-        if (password.length < 8) return "Password must be at least 8 characters"
-        if (password != confirmPassword) return "Passwords do not match"
-        return null
     }
     if (identifier.isBlank()) {
         return "Email or username is required"

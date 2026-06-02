@@ -3,15 +3,13 @@ package com.colink.android.ui.transfers
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -23,11 +21,9 @@ import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.RadioButton
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -54,7 +50,7 @@ import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.components.BadgeChip
-import com.colink.android.ui.components.DevicePicker
+import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
@@ -74,6 +70,9 @@ fun TransfersScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pickedFileUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var confirmTransfer by rememberSaveable { mutableStateOf<TransferDecision?>(null) }
+    val targetDevices = remember(devices, uiState.localDeviceId) {
+        devicesWithoutLocalDevice(devices, uiState.localDeviceId)
+    }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -97,7 +96,7 @@ fun TransfersScreen(
     val uriToSend = pickedFileUri
     if (uriToSend != null) {
         SelectDeviceDialog(
-            devices = devices,
+            devices = targetDevices,
             onDismiss = { pickedFileUri = null },
             onSelect = { deviceId ->
                 viewModel.send(context.contentResolver, deviceId, uriToSend)
@@ -313,6 +312,12 @@ private fun SelectDeviceDialog(
     onSelect: (String) -> Unit
 ) {
     var selectedId by remember { mutableStateOf(devices.firstOrNull { it.online || it.lanAvailable }?.deviceId) }
+
+    LaunchedEffect(devices) {
+        if (selectedId == null || devices.none { it.deviceId == selectedId }) {
+            selectedId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

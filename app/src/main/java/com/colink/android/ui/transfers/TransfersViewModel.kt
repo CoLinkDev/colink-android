@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 data class TransfersUiState(
     val working: Boolean = false,
     val message: String? = null,
+    val localDeviceId: String? = null,
 )
 
 @HiltViewModel
@@ -45,42 +46,63 @@ class TransfersViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TransfersUiState())
     val uiState: StateFlow<TransfersUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            val identity = deviceRepository.localDeviceIdentity()
+                ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
+            _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
+        }
+    }
+
     fun accept(sessionId: String) {
         viewModelScope.launch {
-            _uiState.value = TransfersUiState(working = true)
+            _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.acceptFileOffer(sessionId)
-            _uiState.value = TransfersUiState(
-                message = result.exceptionOrNull()?.message ?: "Transfer accepted",
-            )
+            _uiState.update {
+                it.copy(
+                    working = false,
+                    message = result.exceptionOrNull()?.message ?: "Transfer accepted",
+                )
+            }
         }
     }
 
     fun reject(sessionId: String) {
         viewModelScope.launch {
-            _uiState.value = TransfersUiState(working = true)
+            _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.rejectFileOffer(sessionId)
-            _uiState.value = TransfersUiState(
-                message = result.exceptionOrNull()?.message ?: "Transfer rejected",
-            )
+            _uiState.update {
+                it.copy(
+                    working = false,
+                    message = result.exceptionOrNull()?.message ?: "Transfer rejected",
+                )
+            }
         }
     }
 
     fun send(contentResolver: ContentResolver, targetDeviceId: String?, uri: Uri?) {
         viewModelScope.launch {
             if (targetDeviceId == null || uri == null) {
-                _uiState.value = TransfersUiState(message = "Select a device and file")
+                _uiState.update {
+                    it.copy(working = false, message = "Select a device and file")
+                }
                 return@launch
             }
-            _uiState.value = TransfersUiState(working = true)
+            _uiState.update { it.copy(working = true, message = null) }
             val offer = runCatching { buildFileOffer(contentResolver, uri) }.getOrElse {
-                _uiState.value = TransfersUiState(message = it.message)
+                _uiState.update { state ->
+                    state.copy(working = false, message = it.message)
+                }
                 return@launch
             }
             val result = connectionManager
                 .sendFileOffer(targetDeviceId, offer)
-            _uiState.value = TransfersUiState(
-                message = result.exceptionOrNull()?.message ?: "File offer sent",
-            )
+            _uiState.update {
+                it.copy(
+                    working = false,
+                    message = result.exceptionOrNull()?.message ?: "File offer sent",
+                )
+            }
         }
     }
 

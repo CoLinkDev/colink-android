@@ -1,5 +1,6 @@
 package com.colink.android.ui.navigation
 
+import android.net.Uri
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,7 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
@@ -36,9 +37,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,7 +55,8 @@ import com.colink.android.domain.model.CloudStatus
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkService
-import com.colink.android.ui.auth.AuthDialogContent
+import com.colink.android.ui.auth.CloudAccountScreen
+import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.messages.MessageScreen
@@ -86,7 +86,6 @@ fun CoLinkNavGraph(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
-    var showAuth by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.bootstrapping) {
         if (!uiState.bootstrapping) {
@@ -106,24 +105,10 @@ fun CoLinkNavGraph(
             MainScaffold(
                 cloudStatus = uiState.cloud.status,
                 authenticated = uiState.authenticated,
-                onLogin = { showAuth = true },
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
                 modifier = modifier,
             )
-            if (showAuth) {
-                AlertDialog(
-                    onDismissRequest = { showAuth = false },
-                    title = { Text("Cloud account") },
-                    text = {
-                        AuthDialogContent(
-                            onAuthenticated = { showAuth = false },
-                        )
-                    },
-                    confirmButton = {},
-                    dismissButton = {},
-                )
-            }
             val request = uiState.pairingRequest
             if (request != null) {
                 AlertDialog(
@@ -181,7 +166,6 @@ fun CoLinkNavGraph(
 private fun MainScaffold(
     cloudStatus: CloudStatus,
     authenticated: Boolean,
-    onLogin: () -> Unit,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
     modifier: Modifier = Modifier,
@@ -244,14 +228,14 @@ private fun MainScaffold(
                     )
                 },
                 actions = {
-                    IconButton(onClick = if (authenticated) onLogout else onLogin) {
+                    IconButton(onClick = { navController.navigateAccount() }) {
                         Icon(
                             imageVector = if (authenticated) {
-                                Icons.AutoMirrored.Filled.Logout
+                                Icons.Default.AccountCircle
                             } else {
                                 Icons.AutoMirrored.Filled.Login
                             },
-                            contentDescription = if (authenticated) "Logout" else "Login",
+                            contentDescription = "Cloud account",
                         )
                     }
                 },
@@ -261,9 +245,7 @@ private fun MainScaffold(
             NavigationBar {
                 topLevelRoutes.forEach { item ->
                     NavigationBarItem(
-                        selected = currentDestination
-                            ?.hierarchy
-                            ?.any { it.route == item.route } == true,
+                        selected = currentDestination?.isTopLevelSelected(item.route) == true,
                         onClick = { navController.navigateTopLevel(item.route) },
                         icon = { Icon(item.icon, contentDescription = null) },
                         label = { Text(item.label) },
@@ -281,7 +263,21 @@ private fun MainScaffold(
             popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
             popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
         ) {
-            composable("devices") { DeviceListScreen(snackbarHostState = snackbarHostState) }
+            composable("devices") {
+                DeviceListScreen(
+                    snackbarHostState = snackbarHostState,
+                    onDeviceSelected = { deviceId ->
+                        navController.navigate("device/${Uri.encode(deviceId)}")
+                    },
+                )
+            }
+            composable("device/{deviceId}") { entry ->
+                DeviceDetailsScreen(
+                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                    snackbarHostState = snackbarHostState,
+                    onBack = { navController.popBackStack() },
+                )
+            }
             composable("messages") {
                 MessageScreen(
                     snackbarHostState = snackbarHostState,
@@ -295,8 +291,19 @@ private fun MainScaffold(
                 )
             }
             composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
+            composable("cloud-account") {
+                CloudAccountScreen(
+                    authenticated = authenticated,
+                    onLogout = onLogout,
+                )
+            }
         }
     }
+}
+
+private fun androidx.navigation.NavDestination.isTopLevelSelected(route: String): Boolean {
+    val selected = hierarchy.any { it.route == route }
+    return selected || (route == "devices" && this.route == "device/{deviceId}")
 }
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
@@ -306,5 +313,11 @@ private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
         }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+private fun androidx.navigation.NavController.navigateAccount() {
+    navigate("cloud-account") {
+        launchSingleTop = true
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,11 +33,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.TextMessage
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.components.DevicePicker
+import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
@@ -55,10 +58,13 @@ fun MessageScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
+    val targetDevices = remember(devices, uiState.localDeviceId) {
+        devicesWithoutLocalDevice(devices, uiState.localDeviceId)
+    }
 
-    LaunchedEffect(devices) {
-        if (selectedDeviceId == null || devices.none { it.deviceId == selectedDeviceId }) {
-            selectedDeviceId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+    LaunchedEffect(targetDevices) {
+        if (selectedDeviceId == null || targetDevices.none { it.deviceId == selectedDeviceId }) {
+            selectedDeviceId = targetDevices.firstOrNull { it.online || it.lanAvailable }?.deviceId
         }
     }
 
@@ -82,11 +88,11 @@ fun MessageScreen(
 
     ScreenColumn(
         title = "Messages",
-        subtitle = selectedDeviceName(devices, selectedDeviceId) ?: "Choose an available device",
+        subtitle = selectedDeviceName(targetDevices, selectedDeviceId) ?: "Choose an available device",
         modifier = modifier,
     ) {
         DevicePicker(
-            devices = devices,
+            devices = targetDevices,
             selectedDeviceId = selectedDeviceId,
             onSelectedDeviceChange = { selectedDeviceId = it },
         )
@@ -195,7 +201,7 @@ private fun MessageCard(message: TextMessage, modifier: Modifier = Modifier) {
 }
 
 private fun selectedDeviceName(
-    devices: List<com.colink.android.domain.model.Device>,
+    devices: List<Device>,
     selectedDeviceId: String?,
 ): String? =
     devices.firstOrNull { it.deviceId == selectedDeviceId }?.name?.takeIf { it.isNotBlank() }

@@ -20,11 +20,12 @@ import kotlinx.coroutines.launch
 data class MessagesUiState(
     val sending: Boolean = false,
     val message: String? = null,
+    val localDeviceId: String? = null,
 )
 
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
-    deviceRepository: DeviceRepository,
+    private val deviceRepository: DeviceRepository,
     messageRepository: MessageRepository,
     private val connectionManager: ConnectionManager,
 ) : ViewModel() {
@@ -37,17 +38,30 @@ class MessagesViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(MessagesUiState())
     val uiState: StateFlow<MessagesUiState> = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            val identity = deviceRepository.localDeviceIdentity()
+                ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
+            _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
+        }
+    }
+
     fun send(targetDeviceId: String?, text: String) {
         viewModelScope.launch {
             if (targetDeviceId == null) {
-                _uiState.value = MessagesUiState(message = "Select a target device")
+                _uiState.update {
+                    it.copy(sending = false, message = "Select a target device")
+                }
                 return@launch
             }
-            _uiState.value = MessagesUiState(sending = true)
+            _uiState.update { it.copy(sending = true, message = null) }
             val result = connectionManager.sendText(targetDeviceId, text)
-            _uiState.value = MessagesUiState(
-                message = result.exceptionOrNull()?.message ?: "Message sent",
-            )
+            _uiState.update { state ->
+                state.copy(
+                    sending = false,
+                    message = result.exceptionOrNull()?.message ?: "Message sent",
+                )
+            }
         }
     }
 
