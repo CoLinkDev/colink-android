@@ -272,14 +272,7 @@ class ConnectionManager @Inject constructor(
                 type = TEXT_MESSAGE_TYPE,
                 payload = json.encodeToJsonElement(payload),
             )
-            val route = sendViaLan(targetDeviceId, business).getOrElse {
-                sendViaCloud(targetDeviceId, business)
-                "cloud"
-            }
-
-            if (route == "cloud") {
-                check(_cloudState.value.connected) { "cloud connection is not ready" }
-            }
+            val route = sendBusinessMessage(targetDeviceId, business).getOrThrow()
             messageRepository.saveTextMessage(
                 messageId = messageId,
                 deviceId = targetDeviceId,
@@ -315,16 +308,19 @@ class ConnectionManager @Inject constructor(
             error("LAN peer is connecting")
         }
 
-    private fun sendViaCloud(targetDeviceId: String, business: BusinessEnvelope) {
-        val envelope = CloudClientEnvelope(
-            id = UUID.randomUUID().toString(),
-            type = "relay",
-            to = targetDeviceId,
-            payload = json.encodeToJsonElement(business),
-        )
+    private fun sendViaCloud(targetDeviceId: String, business: BusinessEnvelope): Result<String> =
+        runCatching {
+            check(_cloudState.value.connected) { "cloud connection is not ready" }
+            val envelope = CloudClientEnvelope(
+                id = UUID.randomUUID().toString(),
+                type = "relay",
+                to = targetDeviceId,
+                payload = json.encodeToJsonElement(business),
+            )
 
-        check(cloudWebSocketClient.send(envelope)) { "cloud connection is not ready" }
-    }
+            check(cloudWebSocketClient.send(envelope)) { "cloud connection is not ready" }
+            "cloud"
+        }
 
     private suspend fun saveInboundBusinessMessage(
         fromDeviceId: String,
@@ -487,7 +483,7 @@ class ConnectionManager @Inject constructor(
                         ),
                     ),
                 ),
-            )
+            ).getOrThrow()
             if (transfer.totalChunks == 0L) {
                 finishIncomingTransfer(sessionId, incomingTransfers[sessionId] ?: return@runCatching, accepted)
             }
@@ -527,7 +523,7 @@ class ConnectionManager @Inject constructor(
                     type = FILE_OFFER_TYPE,
                     payload = json.encodeToJsonElement(offer.payload),
                 ),
-            )
+            ).getOrThrow()
         }
 
     suspend fun rejectFileOffer(sessionId: String, reason: String = "user rejected"): Result<Unit> =
@@ -551,7 +547,7 @@ class ConnectionManager @Inject constructor(
                         ),
                     ),
                 ),
-            )
+            ).getOrThrow()
         }
 
     fun startLanPairing(deviceId: String) {
@@ -648,7 +644,10 @@ class ConnectionManager @Inject constructor(
                 type = FILE_READY_TYPE,
                 payload = json.encodeToJsonElement(FileReadyPayload(sessionId)),
             ),
-        )
+        ).getOrElse {
+            cancelTransfer(sessionId, it.message ?: "file route is unavailable")
+            return
+        }
         val uri = Uri.parse(outgoing.localUri)
         var index = 0u
         context.contentResolver.openInputStream(uri)?.use { input ->
@@ -706,7 +705,15 @@ class ConnectionManager @Inject constructor(
                             ),
                         ),
                     ),
-                )
+                ).getOrElse {
+                    CoLinkLog.w(
+                        "Transfer",
+                        "relay chunk send failed session=${CoLinkLog.shortId(sessionId)} index=$index",
+                        it,
+                    )
+                    cancelTransfer(sessionId, it.message ?: "cloud connection is not ready")
+                    return
+                }
                 index += 1
             }
         } ?: error("file is unavailable")
@@ -822,10 +829,30 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    private suspend fun sendBusinessMessage(targetDeviceId: String, business: BusinessEnvelope) {
-        sendViaLan(targetDeviceId, business).getOrElse {
-            sendViaCloud(targetDeviceId, business)
+    private suspend fun sendBusinessMessage(targetDeviceId: String, business: BusinessEnvelope): Result<String> {
+        val lanResult = sendViaLan(targetDeviceId, business)
+        if (lanResult.isSuccess) {
+            return lanResult
         }
+
+        val cloudResult = sendViaCloud(targetDeviceId, business)
+        if (cloudResult.isSuccess) {
+            return cloudResult
+        }
+
+        val lanError = lanResult.exceptionOrNull()
+        val cloudError = cloudResult.exceptionOrNull()
+        val error = IllegalStateException(
+            "message route unavailable: lan=${lanError?.message ?: "failed"}; cloud=${cloudError?.message ?: "failed"}",
+            cloudError ?: lanError,
+        )
+        CoLinkLog.w(
+            "Connection",
+            "business send failed device=${CoLinkLog.shortId(targetDeviceId)} type=${business.type} " +
+                "lan=${lanError?.message ?: "failed"} cloud=${cloudError?.message ?: "failed"}",
+            error,
+        )
+        return Result.failure(error)
     }
 
     private suspend fun routeForDevice(deviceId: String): String {
@@ -1345,7 +1372,13 @@ class ConnectionManager @Inject constructor(
                         ),
                     ),
                 ),
-            )
+            ).onFailure {
+                CoLinkLog.w(
+                    "Transfer",
+                    "relay chunk retransmit failed session=${CoLinkLog.shortId(sessionId)} index=$chunkIndex",
+                    it,
+                )
+            }
         }
     }
 
@@ -1457,7 +1490,7 @@ class ConnectionManager @Inject constructor(
                         ),
                     ),
                 ),
-            )
+            ).getOrThrow()
         }
 
     private fun shouldSendFileAck(nextExpectedIndex: Long, totalChunks: Long): Boolean =
