@@ -12,6 +12,21 @@ class LanTrustStore @Inject constructor(
     suspend fun get(deviceId: String): TrustedPeerKeyEntity? =
         trustedPeerKeyDao.get(deviceId)
 
+    suspend fun trustState(deviceId: String, publicKey: String): LanTrustState {
+        val record = trustedPeerKeyDao.get(deviceId) ?: return LanTrustState.Unknown
+        if (record.trustedAt == null) {
+            return LanTrustState.Unknown
+        }
+        return if (record.publicKey == publicKey) {
+            LanTrustState.Trusted
+        } else {
+            LanTrustState.KeyChanged
+        }
+    }
+
+    suspend fun isLanTrusted(deviceId: String): Boolean =
+        trustedPeerKeyDao.get(deviceId)?.trustedAt != null
+
     suspend fun trust(
         deviceId: String,
         name: String,
@@ -28,4 +43,26 @@ class LanTrustStore @Inject constructor(
             ),
         )
     }
+
+    suspend fun clearLanPairing(
+        deviceId: String,
+        name: String,
+        publicKey: String,
+    ) {
+        trustedPeerKeyDao.upsert(
+            TrustedPeerKeyEntity(
+                deviceId = deviceId,
+                name = name,
+                publicKey = publicKey,
+                keyUpdatedAt = System.currentTimeMillis(),
+                trustedAt = null,
+            ),
+        )
+    }
+}
+
+enum class LanTrustState {
+    Trusted,
+    Unknown,
+    KeyChanged,
 }

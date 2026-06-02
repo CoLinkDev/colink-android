@@ -352,7 +352,7 @@ class DeviceRepositoryImpl @Inject constructor(
                         name = device.name,
                         publicKey = nextKey,
                         keyUpdatedAt = nextUpdatedAt,
-                        trustedAt = existing?.trustedAt,
+                        trustedAt = if (shouldUpdateKey && existing != null) null else existing?.trustedAt,
                     ),
                 )
             }

@@ -3,8 +3,10 @@ package com.colink.android.ui.devices
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.domain.model.Device
+import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
+import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,9 +27,17 @@ data class DevicesUiState(
 class DevicesViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val deviceRepository: DeviceRepository,
+    private val connectionManager: ConnectionManager,
 ) : ViewModel() {
     val devices: StateFlow<List<Device>> =
         deviceRepository.devices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
+        connectionManager.lanPairingCandidates.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            emptyList(),
+        )
 
     private val _uiState = MutableStateFlow(DevicesUiState())
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
@@ -90,6 +100,10 @@ class DevicesViewModel @Inject constructor(
                 localDeviceId = identity?.deviceId,
             )
         }
+    }
+
+    fun startLanPairing(deviceId: String) {
+        connectionManager.startLanPairing(deviceId)
     }
 
     fun clearMessage() {

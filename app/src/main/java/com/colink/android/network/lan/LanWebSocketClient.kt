@@ -2,7 +2,6 @@ package com.colink.android.network.lan
 
 import com.colink.android.crypto.Handshake
 import com.colink.android.crypto.LanSessionCrypto
-import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BusinessNegotiatePayload
@@ -13,6 +12,7 @@ import com.colink.android.network.message.HandshakeRejectPayload
 import com.colink.android.network.message.PeerEnvelope
 import com.colink.android.network.transfer.FileDataFrame
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -37,27 +37,34 @@ class LanWebSocketClient @Inject constructor(
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val peers = ConcurrentHashMap<String, ClientPeerConnection>()
+    private val lanOkHttpClient = okHttpClient
+        .newBuilder()
+        .pingInterval(15, TimeUnit.SECONDS)
+        .build()
 
     fun connect(
         identity: DeviceIdentity,
-        peer: Device,
+        deviceId: String,
+        ip: String,
+        port: Int,
+        allowPairing: Boolean,
         listener: Listener,
     ) {
-        if (peers.containsKey(peer.deviceId)) {
+        if (peers.containsKey(deviceId)) {
             return
         }
-        val ip = peer.localIp ?: return
-        val port = peer.localPort ?: return
         val request = Request.Builder()
             .url("ws://$ip:$port/peer")
             .build()
-        okHttpClient.newWebSocket(
+        lanOkHttpClient.newWebSocket(
             request,
             object : WebSocketListener() {
                 private var peerId: String? = null
+                private var peerName: String? = null
                 private var peerPublicKey: String? = null
                 private var crypto: LanSessionCrypto? = null
                 private var requestProof: HandshakeProofPayload? = null
+                private var trustAfterAccept = false
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     val proof = handshake.buildProof(identity)
@@ -72,7 +79,7 @@ class LanWebSocketClient @Inject constructor(
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     scope.launch {
                         runCatching {
-                            handleMessage(webSocket, text, identity, peer, listener)
+                            handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
                         }.onFailure {
                             webSocket.close(1002, it.message ?: "LAN protocol error")
                         }
@@ -81,19 +88,20 @@ class LanWebSocketClient @Inject constructor(
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                     peerId?.let { peers.remove(it) }
-                    listener.onDisconnected(peer.deviceId)
+                    listener.onDisconnected(peerId ?: deviceId)
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     peerId?.let { peers.remove(it) }
-                    listener.onDisconnected(peer.deviceId)
+                    listener.onDisconnected(peerId ?: deviceId)
                 }
 
                 private suspend fun handleMessage(
                     webSocket: WebSocket,
                     text: String,
                     identity: DeviceIdentity,
-                    expectedPeer: Device,
+                    expectedDeviceId: String,
+                    allowPairing: Boolean,
                     listener: Listener,
                 ) {
                     val envelope = json.decodeFromString(PeerEnvelope.serializer(), text)
@@ -103,17 +111,27 @@ class LanWebSocketClient @Inject constructor(
                                 HandshakeProofPayload.serializer(),
                                 envelope.payload,
                             )
-                            require(proof.deviceId == expectedPeer.deviceId) {
+                            require(proof.deviceId == expectedDeviceId) {
                                 "LAN handshake device mismatch"
                             }
                             require(handshake.verifyProof(proof)) {
                                 "signature invalid"
                             }
-                            val trusted = lanTrustStore.get(proof.deviceId)
-                            if (trusted?.publicKey != proof.publicKey) {
-                                val localProof = requireNotNull(requestProof) {
-                                    "LAN request proof missing"
-                                }
+                            val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
+                            if (trust == LanTrustState.KeyChanged) {
+                                lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
+                                sendPeerMessage(
+                                    webSocket = webSocket,
+                                    type = "handshake.v1.reject",
+                                    payload = HandshakeRejectPayload("key_changed"),
+                                )
+                                listener.onKeyChanged(proof.deviceId, proof.name)
+                                webSocket.close(1008, "key_changed")
+                                return
+                            }
+                            if (trust == LanTrustState.Unknown) {
+                                require(allowPairing) { "LAN device key is not trusted" }
+                                val localProof = requireNotNull(requestProof) { "LAN request proof missing" }
                                 val accepted = pairingCoordinator.request(
                                     deviceId = proof.deviceId,
                                     name = proof.name,
@@ -124,12 +142,13 @@ class LanWebSocketClient @Inject constructor(
                                         localProof.nonce,
                                         proof.nonce,
                                     ),
-                                    reason = if (trusted == null) "unknown_device" else "key_changed",
+                                    reason = "unknown_device",
                                 )
                                 require(accepted) { "user cancelled LAN pairing" }
-                                lanTrustStore.trust(proof.deviceId, proof.name, proof.publicKey)
+                                trustAfterAccept = true
                             }
                             peerId = proof.deviceId
+                            peerName = proof.name
                             peerPublicKey = proof.publicKey
                         }
 
@@ -138,6 +157,14 @@ class LanWebSocketClient @Inject constructor(
                                 HandshakeRejectPayload.serializer(),
                                 envelope.payload,
                             )
+                            if (rejection.reason == "key_changed") {
+                                val id = peerId ?: expectedDeviceId
+                                val name = id
+                                lanTrustStore.get(id)?.let {
+                                    lanTrustStore.clearLanPairing(id, it.name, it.publicKey)
+                                }
+                                listener.onKeyChanged(id, name)
+                            }
                             webSocket.close(1008, rejection.reason)
                         }
 
@@ -146,10 +173,20 @@ class LanWebSocketClient @Inject constructor(
                                 HandshakeAcceptPayload.serializer(),
                                 envelope.payload,
                             )
-                            require(accepted.deviceId == expectedPeer.deviceId) {
+                            require(accepted.deviceId == expectedDeviceId) {
                                 "LAN handshake confirmation device mismatch"
                             }
                             val peerId = requireNotNull(peerId) { "LAN peer proof missing" }
+                            if (trustAfterAccept) {
+                                lanTrustStore.trust(
+                                    deviceId = peerId,
+                                    name = requireNotNull(peerName) { "LAN peer proof missing" },
+                                    publicKey = requireNotNull(peerPublicKey) {
+                                        "LAN peer proof missing"
+                                    },
+                                )
+                                trustAfterAccept = false
+                            }
                             peers[peerId] = ClientPeerConnection(webSocket, null)
                             sendPeerMessage(
                                 webSocket = webSocket,
@@ -174,6 +211,7 @@ class LanWebSocketClient @Inject constructor(
                             require(suite != null) { "no compatible LAN encryption suite" }
                             crypto = LanSessionCrypto.create(
                                 json = json,
+                                suite = suite,
                                 privateKey = identity.privateKey,
                                 peerPublicKey = requireNotNull(peerPublicKey) {
                                     "LAN peer proof missing"
@@ -270,6 +308,8 @@ class LanWebSocketClient @Inject constructor(
         fun onMessage(fromDeviceId: String, message: BusinessEnvelope)
 
         fun onDisconnected(deviceId: String)
+
+        fun onKeyChanged(deviceId: String, name: String)
     }
 
     interface TransferListener {

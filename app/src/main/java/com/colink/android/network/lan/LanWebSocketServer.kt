@@ -27,7 +27,6 @@ import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import io.ktor.server.routing.post
-import io.ktor.server.routing.get
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
@@ -67,7 +66,10 @@ class LanWebSocketServer @Inject constructor(
         }
         this.listener = listener
         engine = embeddedServer(CIO, host = "0.0.0.0", port = LAN_PORT) {
-            install(WebSockets)
+            install(WebSockets) {
+                pingPeriodMillis = 15_000
+                timeoutMillis = 45_000
+            }
             routing {
                 post("/peer/swim/v1") {
                     call.handleSwimPing()
@@ -123,7 +125,7 @@ class LanWebSocketServer @Inject constructor(
     }
 
     private suspend fun handlePeer(session: DefaultWebSocketServerSession) {
-        var peerId: String? = null
+        var connectedPeerId: String? = null
         var crypto: LanSessionCrypto? = null
         try {
             val identity = settingsDataStore.currentDeviceIdentity()
@@ -146,12 +148,22 @@ class LanWebSocketServer @Inject constructor(
                 return session.close()
             }
 
-            peerId = proof.deviceId
+            val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
+            if (trust == LanTrustState.KeyChanged) {
+                lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
+                deviceRepository.clearLanEndpoint(proof.deviceId)
+                session.sendPeerMessage(
+                    "handshake.v1.reject",
+                    HandshakeRejectPayload("key_changed"),
+                )
+                listener?.onKeyChanged(proof.deviceId, proof.name)
+                return session.close()
+            }
+
             val exchangeProof = handshake.buildProof(identity)
             session.sendPeerMessage("handshake.v1.exchange", exchangeProof)
 
-            val trusted = lanTrustStore.get(proof.deviceId)
-            if (trusted?.publicKey != proof.publicKey) {
+            if (trust == LanTrustState.Unknown) {
                 val accepted = pairingCoordinator.request(
                     deviceId = proof.deviceId,
                     name = proof.name,
@@ -162,12 +174,12 @@ class LanWebSocketServer @Inject constructor(
                         proof.nonce,
                         exchangeProof.nonce,
                     ),
-                    reason = if (trusted == null) "unknown_device" else "key_changed",
+                    reason = "unknown_device",
                 )
                 if (!accepted) {
                     session.sendPeerMessage(
                         "handshake.v1.reject",
-                        HandshakeRejectPayload(if (trusted == null) "user_rejected" else "key_changed_rejected"),
+                        HandshakeRejectPayload("user_rejected"),
                     )
                     return session.close()
                 }
@@ -205,10 +217,12 @@ class LanWebSocketServer @Inject constructor(
 
             crypto = LanSessionCrypto.create(
                 json = json,
+                suite = suite,
                 privateKey = identity.privateKey,
                 peerPublicKey = proof.publicKey,
                 localIsInitiator = false,
             )
+            connectedPeerId = proof.deviceId
             peers[proof.deviceId] = ServerPeerConnection(session, crypto)
             markPeerEndpoint(proof.deviceId, session)
             listener?.onConnected(proof.deviceId)
@@ -226,7 +240,7 @@ class LanWebSocketServer @Inject constructor(
                 listener?.onMessage(proof.deviceId, crypto.decrypt(payload))
             }
         } finally {
-            val id = peerId
+            val id = connectedPeerId
             if (id != null) {
                 peers.remove(id)
                 deviceRepository.clearLanEndpoint(id)
@@ -254,7 +268,7 @@ class LanWebSocketServer @Inject constructor(
 
         val from = swimRequest.payload.from
         val host = request.local.remoteHost
-        if (from.isNotBlank()) {
+        if (from.isNotBlank() && lanTrustStore.isLanTrusted(from)) {
             deviceRepository.markLanEndpoint(from, host, LAN_PORT)
         }
         listener?.onSwimMessage(swimRequest, host)
@@ -382,6 +396,8 @@ class LanWebSocketServer @Inject constructor(
         fun onMessage(fromDeviceId: String, message: BusinessEnvelope)
 
         fun onDisconnected(deviceId: String)
+
+        fun onKeyChanged(deviceId: String, name: String)
 
         fun onTransferConnected(sessionId: String)
 

@@ -14,16 +14,21 @@ import kotlinx.serialization.json.Json
 import org.bouncycastle.crypto.agreement.X25519Agreement
 import org.bouncycastle.crypto.digests.SHA256Digest
 import org.bouncycastle.crypto.generators.HKDFBytesGenerator
+import org.bouncycastle.crypto.modes.ChaCha20Poly1305
+import org.bouncycastle.crypto.params.AEADParameters
 import org.bouncycastle.crypto.params.HKDFParameters
+import org.bouncycastle.crypto.params.KeyParameter
 import org.bouncycastle.crypto.params.X25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters
 
 private const val AES_256_GCM = "x25519-aes-256-gcm"
+private const val CHACHA20_POLY1305 = "x25519-chacha20-poly1305"
 private const val HKDF_SALT = "colink-lan-v1"
 private const val HKDF_INFO = "encryption"
 
 class LanSessionCrypto(
     private val json: Json,
+    private val suite: String,
     private val key: ByteArray,
     private val outboundRole: Byte,
 ) {
@@ -33,13 +38,12 @@ class LanSessionCrypto(
 
     fun encrypt(message: BusinessEnvelope): EncryptedBusinessPayload {
         val nonce = nextNonce()
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.ENCRYPT_MODE,
-            SecretKeySpec(key, "AES"),
-            GCMParameterSpec(128, nonce),
-        )
-        val ciphertext = cipher.doFinal(json.encodeToString(message).toByteArray())
+        val plaintext = json.encodeToString(message).toByteArray()
+        val ciphertext = when (suite) {
+            AES_256_GCM -> aesGcm(Cipher.ENCRYPT_MODE, plaintext, nonce)
+            CHACHA20_POLY1305 -> chacha20Poly1305(encrypt = true, plaintext, nonce)
+            else -> error("unsupported LAN encryption suite")
+        }
         return EncryptedBusinessPayload(
             ciphertext = encoder.encodeToString(ciphertext),
             nonce = encoder.encodeToString(nonce),
@@ -49,14 +53,28 @@ class LanSessionCrypto(
     fun decrypt(payload: EncryptedBusinessPayload): BusinessEnvelope {
         val nonce = decoder.decode(payload.nonce)
         require(nonce.size == 12) { "LAN nonce length invalid" }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            SecretKeySpec(key, "AES"),
-            GCMParameterSpec(128, nonce),
-        )
-        val plaintext = cipher.doFinal(decoder.decode(payload.ciphertext))
+        val ciphertext = decoder.decode(payload.ciphertext)
+        val plaintext = when (suite) {
+            AES_256_GCM -> aesGcm(Cipher.DECRYPT_MODE, ciphertext, nonce)
+            CHACHA20_POLY1305 -> chacha20Poly1305(encrypt = false, ciphertext, nonce)
+            else -> error("unsupported LAN encryption suite")
+        }
         return json.decodeFromString(BusinessEnvelope.serializer(), plaintext.decodeToString())
+    }
+
+    private fun aesGcm(mode: Int, input: ByteArray, nonce: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(mode, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
+        return cipher.doFinal(input)
+    }
+
+    private fun chacha20Poly1305(encrypt: Boolean, input: ByteArray, nonce: ByteArray): ByteArray {
+        val cipher = ChaCha20Poly1305()
+        cipher.init(encrypt, AEADParameters(KeyParameter(key), 128, nonce))
+        val output = ByteArray(cipher.getOutputSize(input.size))
+        val processed = cipher.processBytes(input, 0, input.size, output, 0)
+        val final = cipher.doFinal(output, processed)
+        return output.copyOf(processed + final)
     }
 
     private fun nextNonce(): ByteArray {
@@ -68,7 +86,7 @@ class LanSessionCrypto(
     }
 
     companion object {
-        val supportedSuites: List<String> = listOf(AES_256_GCM)
+        val supportedSuites: List<String> = listOf(AES_256_GCM, CHACHA20_POLY1305)
 
         fun preferredSuite(): String = AES_256_GCM
 
@@ -79,20 +97,26 @@ class LanSessionCrypto(
         ): String? {
             val ordered = if (localIsInitiator) localSupported else peerSupported
             val other = if (localIsInitiator) peerSupported else localSupported
-            return ordered.firstOrNull { it == AES_256_GCM && other.contains(it) }
+            return ordered.firstOrNull {
+                it in supportedSuites && other.contains(it)
+            }
         }
 
         fun create(
             json: Json,
+            suite: String,
             privateKey: String,
             peerPublicKey: String,
             localIsInitiator: Boolean,
-        ): LanSessionCrypto =
-            LanSessionCrypto(
+        ): LanSessionCrypto {
+            require(suite in supportedSuites) { "unsupported LAN encryption suite" }
+            return LanSessionCrypto(
                 json = json,
+                suite = suite,
                 key = deriveSessionKey(privateKey, peerPublicKey),
                 outboundRole = if (localIsInitiator) 0 else 1,
             )
+        }
 
         private fun deriveSessionKey(privateKey: String, peerPublicKey: String): ByteArray {
             val agreement = X25519Agreement()

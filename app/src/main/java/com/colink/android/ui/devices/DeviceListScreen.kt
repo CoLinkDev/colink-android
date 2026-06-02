@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,6 +16,7 @@ import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.domain.model.Device
+import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.RefreshableList
@@ -54,6 +58,7 @@ fun DeviceListScreen(
     viewModel: DevicesViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
+    val lanPairingCandidates by viewModel.lanPairingCandidates.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmAction by remember { mutableStateOf<DeviceAction?>(null) }
 
@@ -77,7 +82,7 @@ fun DeviceListScreen(
             isRefreshing = uiState.loading,
             onRefresh = viewModel::refresh,
         ) {
-            if (devices.isEmpty()) {
+            if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                 item {
                     EmptyState(
                         icon = Icons.Default.Devices,
@@ -94,6 +99,13 @@ fun DeviceListScreen(
                         onDelete = { confirmAction = DeviceAction.Delete(device.deviceId, device.name) },
                         onForgetTrust = { confirmAction = DeviceAction.ForgetTrust(device.deviceId, device.name) },
                         modifier = Modifier.animateItem()
+                    )
+                }
+                items(lanPairingCandidates, key = { "lan-pairing-${it.deviceId}" }) { candidate ->
+                    LanPairingCandidateCard(
+                        candidate = candidate,
+                        onPair = { viewModel.startLanPairing(candidate.deviceId) },
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -135,6 +147,52 @@ fun DeviceListScreen(
         )
 
         null -> Unit
+    }
+}
+
+@Composable
+private fun LanPairingCandidateCard(
+    candidate: LanPairingCandidate,
+    onPair: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Wifi,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = candidate.deviceId,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BadgeChip(text = "LAN pairing")
+                    BadgeChip(text = candidate.ip)
+                }
+            }
+            TextButton(onClick = onPair) {
+                Icon(Icons.Default.SyncAlt, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Pair")
+            }
+        }
     }
 }
 
