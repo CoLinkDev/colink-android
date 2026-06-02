@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 
 @Composable
 fun ScreenColumn(
@@ -205,19 +207,33 @@ fun SnackbarOnMessage(
 fun BadgeChip(
     text: String,
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.secondaryContainer,
     contentColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSecondaryContainer,
 ) {
     androidx.compose.material3.Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.small,
+        shape = RoundedCornerShape(6.dp),
         color = containerColor,
         contentColor = contentColor,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
+        Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
+

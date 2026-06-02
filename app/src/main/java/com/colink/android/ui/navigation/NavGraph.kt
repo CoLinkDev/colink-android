@@ -48,6 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.compose.material3.TopAppBar
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.colink.android.R
@@ -170,140 +173,193 @@ private fun MainScaffold(
     pendingShareStore: PendingShareStore?,
     modifier: Modifier = Modifier,
 ) {
-    val navController = rememberNavController()
-    val backStack by navController.currentBackStackEntryAsState()
-    val currentDestination = backStack?.destination
+    val rootNavController = rememberNavController()
+    val snackbarHostState = remember { SnackbarHostState() }
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
         }
-    val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(pendingShare) {
-        when (pendingShare) {
-            is PendingShare.Text -> navController.navigateTopLevel("messages")
-            is PendingShare.File -> navController.navigateTopLevel("transfers")
-            null -> Unit
-        }
-    }
-
-    Scaffold(
+    NavHost(
+        navController = rootNavController,
+        startDestination = "main",
         modifier = modifier,
-        contentWindowInsets = WindowInsets(0.dp),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            CenterAlignedTopAppBar(
-                modifier = Modifier.statusBarsPadding(),
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Image(
-                            painter = painterResource(R.drawable.colink_logo),
-                            contentDescription = null,
-                            modifier = Modifier.size(28.dp),
-                        )
-                        Text("CoLink")
-                    }
-                },
-                navigationIcon = {
-                    Icon(
-                        imageVector = if (cloudStatus == CloudStatus.Connected) {
-                            Icons.Default.Cloud
-                        } else {
-                            Icons.Default.CloudOff
-                        },
-                        contentDescription = cloudStatus.name,
-                        tint = if (cloudStatus == CloudStatus.Connected) {
-                            MaterialTheme.colorScheme.secondary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier.padding(start = 16.dp),
-                    )
-                },
-                actions = {
-                    IconButton(onClick = { navController.navigateAccount() }) {
-                        Icon(
-                            imageVector = if (authenticated) {
-                                Icons.Default.AccountCircle
-                            } else {
-                                Icons.AutoMirrored.Filled.Login
-                            },
-                            contentDescription = "Cloud account",
-                        )
-                    }
-                },
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                topLevelRoutes.forEach { item ->
-                    NavigationBarItem(
-                        selected = currentDestination?.isTopLevelSelected(item.route) == true,
-                        onClick = { navController.navigateTopLevel(item.route) },
-                        icon = { Icon(item.icon, contentDescription = null) },
-                        label = { Text(item.label) },
-                    )
+    ) {
+        composable("main") {
+            val nestedNavController = rememberNavController()
+            val backStack by nestedNavController.currentBackStackEntryAsState()
+            val currentDestination = backStack?.destination
+
+            LaunchedEffect(pendingShare) {
+                val share = pendingShare ?: return@LaunchedEffect
+                if (rootNavController.currentBackStackEntry?.destination?.route != "main") {
+                    rootNavController.popBackStack("main", inclusive = false)
+                }
+                when (share) {
+                    is PendingShare.Text -> nestedNavController.navigateTopLevel("messages")
+                    is PendingShare.File -> nestedNavController.navigateTopLevel("transfers")
                 }
             }
-        },
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "devices",
-            modifier = Modifier.padding(innerPadding),
-            enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
-            exitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
-            popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
+
+            Scaffold(
+                contentWindowInsets = WindowInsets(0.dp),
+                snackbarHost = { SnackbarHost(snackbarHostState) },
+                topBar = {
+                    TopAppBar(
+                        modifier = Modifier.statusBarsPadding(),
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        ),
+                        title = {
+                            Text("CoLink", fontWeight = FontWeight.Bold)
+                        },
+                        actions = {
+                            Icon(
+                                imageVector = if (cloudStatus == CloudStatus.Connected) {
+                                    Icons.Default.Cloud
+                                } else {
+                                    Icons.Default.CloudOff
+                                },
+                                contentDescription = cloudStatus.name,
+                                tint = if (cloudStatus == CloudStatus.Connected) {
+                                    MaterialTheme.colorScheme.secondary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+                            IconButton(onClick = { rootNavController.navigate("cloud-account") }) {
+                                Icon(
+                                    imageVector = if (authenticated) {
+                                        Icons.Default.AccountCircle
+                                    } else {
+                                        Icons.AutoMirrored.Filled.Login
+                                    },
+                                    contentDescription = "Cloud account",
+                                )
+                            }
+                        },
+                    )
+                },
+                bottomBar = {
+                    NavigationBar {
+                        topLevelRoutes.forEach { item ->
+                            NavigationBarItem(
+                                selected = currentDestination?.isTopLevelSelected(item.route) == true,
+                                onClick = { nestedNavController.navigateTopLevel(item.route) },
+                                icon = { Icon(item.icon, contentDescription = null) },
+                                label = { Text(item.label) },
+                            )
+                        }
+                    }
+                },
+            ) { innerPadding ->
+                NavHost(
+                    navController = nestedNavController,
+                    startDestination = "devices",
+                    modifier = Modifier.padding(innerPadding),
+                    enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
+                    exitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
+                    popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
+                    popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
+                ) {
+                    composable("devices") {
+                        DeviceListScreen(
+                            snackbarHostState = snackbarHostState,
+                            onDeviceSelected = { deviceId ->
+                                rootNavController.navigate("device/${Uri.encode(deviceId)}")
+                            },
+                        )
+                    }
+                    composable("messages") {
+                        MessageScreen(
+                            snackbarHostState = snackbarHostState,
+                            pendingShareStore = pendingShareStore,
+                        )
+                    }
+                    composable("transfers") {
+                        TransfersScreen(
+                            snackbarHostState = snackbarHostState,
+                            pendingShareStore = pendingShareStore,
+                        )
+                    }
+                    composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
+                }
+            }
+        }
+
+        composable(
+            route = "device/{deviceId}",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300)
+                )
+            }
+        ) { entry ->
+            DeviceDetailsScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                snackbarHostState = snackbarHostState,
+                onBack = { rootNavController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = "cloud-account",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                  towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                  animationSpec = tween(300)
+                )
+            }
         ) {
-            composable("devices") {
-                DeviceListScreen(
-                    snackbarHostState = snackbarHostState,
-                    onDeviceSelected = { deviceId ->
-                        navController.navigate("device/${Uri.encode(deviceId)}")
-                    },
-                )
-            }
-            composable("device/{deviceId}") { entry ->
-                DeviceDetailsScreen(
-                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                    snackbarHostState = snackbarHostState,
-                    onBack = { navController.popBackStack() },
-                )
-            }
-            composable("messages") {
-                MessageScreen(
-                    snackbarHostState = snackbarHostState,
-                    pendingShareStore = pendingShareStore,
-                )
-            }
-            composable("transfers") {
-                TransfersScreen(
-                    snackbarHostState = snackbarHostState,
-                    pendingShareStore = pendingShareStore,
-                )
-            }
-            composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
-            composable("cloud-account") {
-                CloudAccountScreen(
-                    authenticated = authenticated,
-                    onLogout = onLogout,
-                )
-            }
+            CloudAccountScreen(
+                authenticated = authenticated,
+                onLogout = onLogout,
+            )
         }
     }
 }
 
 private fun androidx.navigation.NavDestination.isTopLevelSelected(route: String): Boolean {
-    val selected = hierarchy.any { it.route == route }
-    return selected || (route == "devices" && this.route == "device/{deviceId}")
+    return hierarchy.any { it.route == route }
 }
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
@@ -313,11 +369,5 @@ private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
         }
         launchSingleTop = true
         restoreState = true
-    }
-}
-
-private fun androidx.navigation.NavController.navigateAccount() {
-    navigate("cloud-account") {
-        launchSingleTop = true
     }
 }

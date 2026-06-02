@@ -46,11 +46,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.Box
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceDetailsScreen(
     deviceId: String,
@@ -71,42 +77,73 @@ fun DeviceDetailsScreen(
         onConsumed = viewModel::clearMessage,
     )
 
-    ScreenColumn(
-        title = device?.name?.takeIf { it.isNotBlank() } ?: "Device details",
-        subtitle = device?.let { formatPlatformName(it.type) },
-        action = {
-            TextButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Back")
-            }
-        },
-        modifier = modifier,
-    ) {
-        if (device == null) {
-            EmptyState(
-                icon = Icons.Default.Devices,
-                title = "Device not found",
-                body = "Refresh the device list and try again.",
-                action = {
-                    TextButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Refresh")
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = device?.name?.takeIf { it.isNotBlank() } ?: "Device details",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (device != null) {
+                            Text(
+                                text = formatPlatformName(device.type),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                )
             )
+        }
+    ) { innerPadding ->
+        if (device == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyState(
+                    icon = Icons.Default.Devices,
+                    title = "Device not found",
+                    body = "Refresh the device list and try again.",
+                    action = {
+                        TextButton(onClick = viewModel::refresh) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Refresh")
+                        }
+                    },
+                )
+            }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item {
-                    DeviceSummaryCard(
-                        device = device,
-                        isLocalDevice = isLocalDevice,
-                    )
-                }
                 item {
                     DeviceActionsCard(
                         device = device,
@@ -172,80 +209,6 @@ fun DeviceDetailsScreen(
     }
 }
 
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun DeviceSummaryCard(
-    device: Device,
-    isLocalDevice: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                imageVector = when {
-                    device.lanAvailable -> Icons.Default.Wifi
-                    device.cloudAvailable -> Icons.Default.Cloud
-                    else -> Icons.Default.Devices
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = device.name.ifBlank { "Unnamed device" },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = formatPlatformName(device.type),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    if (isLocalDevice) {
-                        BadgeChip(
-                            text = "Local",
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                    BadgeChip(
-                        text = when {
-                            device.lanAvailable -> "LAN"
-                            device.cloudAvailable -> "Cloud"
-                            else -> "Offline"
-                        },
-                        containerColor = if (device.lanAvailable || device.cloudAvailable) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        contentColor = if (device.lanAvailable || device.cloudAvailable) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                    BadgeChip(text = formatSecurityState(device.securityState))
-                }
-            }
-        }
-    }
-}
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
