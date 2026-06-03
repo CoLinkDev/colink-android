@@ -99,6 +99,27 @@ import java.util.Date
 
 private val openDocumentMimeTypes = arrayOf("*/*")
 
+private sealed interface TimelineItem {
+    val id: String
+    val timestamp: Long
+    val direction: MessageDirection
+    val route: String
+
+    data class Message(val message: TextMessage) : TimelineItem {
+        override val id: String get() = message.messageId
+        override val timestamp: Long get() = message.createdAt
+        override val direction: MessageDirection get() = message.direction
+        override val route: String get() = message.route
+    }
+
+    data class Transfer(val transfer: FileTransfer) : TimelineItem {
+        override val id: String get() = transfer.sessionId
+        override val timestamp: Long get() = transfer.updatedAt
+        override val direction: MessageDirection get() = if (transfer.direction == FileTransferDirection.Incoming) MessageDirection.Incoming else MessageDirection.Outgoing
+        override val route: String get() = transfer.route
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageScreen(
@@ -120,7 +141,6 @@ fun MessageScreen(
 
     val isConversationRoute = !fixedDeviceId.isNullOrBlank()
     var selectedDeviceId by rememberSaveable(fixedDeviceId) { mutableStateOf(fixedDeviceId) }
-    var selectedSection by rememberSaveable { mutableIntStateOf(0) }
     var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
     var pendingFileUri by remember { mutableStateOf<Uri?>(null) }
     var pendingFileTargetDeviceId by remember { mutableStateOf<String?>(null) }
@@ -142,11 +162,15 @@ fun MessageScreen(
             transfers.filter { it.deviceId == deviceId }
         }.orEmpty()
     }
+    val timelineItems = remember(conversationMessages, conversationTransfers) {
+        val msgItems = conversationMessages.map { TimelineItem.Message(it) }
+        val transferItems = conversationTransfers.map { TimelineItem.Transfer(it) }
+        (msgItems + transferItems).sortedByDescending { it.timestamp }
+    }
 
     LaunchedEffect(fixedDeviceId) {
         if (!fixedDeviceId.isNullOrBlank()) {
             selectedDeviceId = fixedDeviceId
-            selectedSection = 0
         }
     }
 
@@ -159,10 +183,6 @@ fun MessageScreen(
         if (current != null && targetDevices.any { it.deviceId == current }) {
             return@LaunchedEffect
         }
-    }
-
-    LaunchedEffect(selectedDeviceId) {
-        selectedSection = 0
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -322,14 +342,7 @@ fun MessageScreen(
             if (selectedDevice != null) {
                 ConversationScreen(
                     device = selectedDevice,
-                    selectedSection = selectedSection,
-                    onSectionChange = { selectedSection = it },
-                    onSendFile = {
-                        pendingFileTargetDeviceId = selectedDeviceId
-                        filePicker.launch(openDocumentMimeTypes)
-                    },
-                    messages = conversationMessages,
-                    transfers = conversationTransfers,
+                    timelineItems = timelineItems,
                     isSendingMessage = messageUiState.sending,
                     isWorkingFiles = transferUiState.working,
                     draft = draft,
@@ -521,11 +534,7 @@ private fun ContactCard(
 @Composable
 private fun ConversationScreen(
     device: Device,
-    selectedSection: Int,
-    onSectionChange: (Int) -> Unit,
-    onSendFile: () -> Unit,
-    messages: List<TextMessage>,
-    transfers: List<FileTransfer>,
+    timelineItems: List<TimelineItem>,
     isSendingMessage: Boolean,
     isWorkingFiles: Boolean,
     draft: String,
@@ -542,55 +551,31 @@ private fun ConversationScreen(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        TabRow(selectedTabIndex = selectedSection) {
-            Tab(
-                selected = selectedSection == 0,
-                onClick = { onSectionChange(0) },
-                text = { Text(stringResource(R.string.messages_chat_tab)) },
-            )
-            Tab(
-                selected = selectedSection == 1,
-                onClick = { onSectionChange(1) },
-                text = { Text(stringResource(R.string.messages_files_tab)) },
+        if (isWorkingFiles) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
-        when (selectedSection) {
-            0 -> {
-                MessageThread(
-                    messages = messages,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                )
-                ChatInputBar(
-                    draft = draft,
-                    onDraftChange = onDraftChange,
-                    onSendText = onSendText,
-                    onSendFile = onSendFile,
-                    sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
-                    placeholderText = stringResource(R.string.message_placeholder),
-                )
-            }
+        ConversationThread(
+            timelineItems = timelineItems,
+            onAcceptTransfer = onAcceptTransfer,
+            onRejectTransfer = onRejectTransfer,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        )
 
-            else -> {
-                if (isWorkingFiles) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
-                FileTransfersList(
-                    transfers = transfers,
-                    working = isWorkingFiles,
-                    onPickFile = onPickFile,
-                    onAccept = onAcceptTransfer,
-                    onReject = onRejectTransfer,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                )
-            }
-        }
+        ChatInputBar(
+            draft = draft,
+            onDraftChange = onDraftChange,
+            onSendText = onSendText,
+            onSendFile = onPickFile,
+            sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
+            placeholderText = stringResource(R.string.message_placeholder),
+        )
     }
 }
 
@@ -656,8 +641,10 @@ private fun ChatInputBar(
 }
 
 @Composable
-private fun MessageThread(
-    messages: List<TextMessage>,
+private fun ConversationThread(
+    timelineItems: List<TimelineItem>,
+    onAcceptTransfer: (String) -> Unit,
+    onRejectTransfer: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -665,7 +652,7 @@ private fun MessageThread(
         reverseLayout = true,
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (messages.isEmpty()) {
+        if (timelineItems.isEmpty()) {
             item(contentType = "empty") {
                 EmptyState(
                     icon = Icons.AutoMirrored.Filled.Chat,
@@ -675,10 +662,21 @@ private fun MessageThread(
             }
         } else {
             items(
-                items = messages,
-                key = { it.messageId },
-            ) { message ->
-                MessageBubble(message = message)
+                items = timelineItems,
+                key = { it.id },
+            ) { item ->
+                when (item) {
+                    is TimelineItem.Message -> {
+                        MessageBubble(message = item.message)
+                    }
+                    is TimelineItem.Transfer -> {
+                        TransferBubble(
+                            transfer = item.transfer,
+                            onAccept = { onAcceptTransfer(item.transfer.sessionId) },
+                            onReject = { onRejectTransfer(item.transfer.sessionId) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -736,171 +734,177 @@ private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun FileTransfersList(
-    transfers: List<FileTransfer>,
-    working: Boolean,
-    onPickFile: () -> Unit,
-    onAccept: (String) -> Unit,
-    onReject: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        if (transfers.isEmpty()) {
-            item(contentType = "empty") {
-                EmptyState(
-                    icon = Icons.Default.FolderOff,
-                    title = stringResource(R.string.no_transfers_title),
-                    body = stringResource(R.string.no_transfers_body),
-                    action = {
-                        Button(
-                            enabled = !working,
-                            onClick = onPickFile,
-                        ) {
-                            Icon(Icons.Default.FileUpload, contentDescription = null)
-                            Text(stringResource(R.string.send_file_btn))
-                        }
-                    },
-                )
-            }
-        } else {
-            items(
-                items = transfers,
-                key = { it.sessionId },
-            ) { transfer ->
-                TransferCard(
-                    transfer = transfer,
-                    onAccept = { onAccept(transfer.sessionId) },
-                    onReject = { onReject(transfer.sessionId) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransferCard(
+private fun TransferBubble(
     transfer: FileTransfer,
     onAccept: () -> Unit,
     onReject: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    val outgoing = transfer.direction == FileTransferDirection.Outgoing
+    val timeText = remember(transfer.updatedAt) {
+        DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(transfer.updatedAt))
+    }
+    val sizeText = remember(transfer.fileSize) {
+        formatSize(transfer.fileSize)
+    }
+
+    Column(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        shape = MaterialTheme.shapes.large,
+        horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start,
     ) {
-        val sizeText = remember(transfer.fileSize) {
-            formatSize(transfer.fileSize)
-        }
-        val updatedAtText = remember(transfer.updatedAt) {
-            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-                .format(Date(transfer.updatedAt))
-        }
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (outgoing) 16.dp else 4.dp,
+                bottomEnd = if (outgoing) 4.dp else 16.dp,
+            ),
+            color = if (outgoing) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+            contentColor = if (outgoing) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.widthIn(min = 200.dp, max = 320.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    imageVector = if (transfer.direction == FileTransferDirection.Incoming) {
-                        Icons.Default.FileUpload
-                    } else {
-                        Icons.Default.UploadFile
-                    },
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = transfer.fileName.ifBlank { stringResource(R.string.unnamed_file) },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    val directionText = if (transfer.direction == FileTransferDirection.Incoming) {
-                        stringResource(R.string.direction_incoming)
-                    } else {
-                        stringResource(R.string.direction_outgoing)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(
+                                color = if (outgoing) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)
+                                } else {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                },
+                                shape = CircleShape,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (transfer.direction == FileTransferDirection.Incoming) {
+                                Icons.Default.FileUpload
+                            } else {
+                                Icons.Default.UploadFile
+                            },
+                            contentDescription = null,
+                            tint = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    Text(
-                        text = "$directionText · $sizeText · $updatedAtText",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = transfer.fileName.ifBlank { stringResource(R.string.unnamed_file) },
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = sizeText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+
+                if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending")) {
+                    val progress = (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                        trackColor = if (outgoing) {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
                     )
                 }
-            }
 
-            if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending")) {
-                LinearProgressIndicator(
-                    progress = {
-                        (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
-                    },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                BadgeChip(
-                    text = statusLabel(transfer.status),
-                    containerColor = if (transfer.status == "completed") {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    },
-                    contentColor = if (transfer.status == "completed") {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-                val routeName = when (transfer.route) {
-                    "lan" -> stringResource(R.string.route_lan)
-                    "cloud" -> stringResource(R.string.route_cloud)
-                    else -> transfer.route
-                }
-                BadgeChip(text = routeName)
-                if (
-                    transfer.direction == FileTransferDirection.Incoming &&
-                    transfer.status == "offered"
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    TextButton(onClick = onReject) {
-                        Icon(Icons.Default.Close, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.reject_btn))
-                    }
-                    Button(onClick = onAccept) {
-                        Icon(Icons.Default.Check, contentDescription = null)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.accept_btn))
+                    val statusText = statusLabel(transfer.status)
+                    BadgeChip(
+                        text = statusText,
+                        containerColor = if (transfer.status == "completed") {
+                            if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        contentColor = if (transfer.status == "completed") {
+                            if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+
+                    if (
+                        transfer.direction == FileTransferDirection.Incoming &&
+                        transfer.status == "offered"
+                    ) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(
+                            onClick = onReject,
+                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Text(stringResource(R.string.reject_btn))
+                        }
+                        Button(
+                            onClick = onAccept,
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)
+                        ) {
+                            Text(stringResource(R.string.accept_btn))
+                        }
                     }
                 }
-            }
 
-            transfer.error?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
+                transfer.error?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
+
+        val routeName = when (transfer.route) {
+            "lan" -> stringResource(R.string.route_lan)
+            "cloud" -> stringResource(R.string.route_cloud)
+            else -> transfer.route
+        }
+        Text(
+            text = "${timeText} · ${routeName}",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
+        )
     }
 }
 
