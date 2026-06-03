@@ -104,7 +104,12 @@ class DeviceRepositoryImpl @Inject constructor(
     override suspend fun getDevice(deviceId: String): Device? =
         deviceDao.getDevice(deviceId)?.toDomain()
 
-    override suspend fun markLanEndpoint(deviceId: String, ip: String, port: Int): Result<Unit> =
+    override suspend fun markLanEndpoint(
+        deviceId: String,
+        ip: String,
+        port: Int,
+        deviceType: String?,
+    ): Result<Unit> =
         runCatching {
             val current = deviceDao.getDevice(deviceId)?.toDomain()
                 ?: trustedPeerDevice(deviceId)
@@ -112,6 +117,7 @@ class DeviceRepositoryImpl @Inject constructor(
             saveDevices(
                 listOf(
                     current.copy(
+                        type = reconcileDeviceType(current.type, lanType = deviceType),
                         localIp = ip,
                         localPort = port,
                         lanAvailable = true,
@@ -419,6 +425,10 @@ class DeviceRepositoryImpl @Inject constructor(
                     device.securityState != "unverified" -> device.securityState
                     else -> existing?.securityState ?: "unverified"
                 },
+                type = reconcileDeviceType(
+                    incoming = device.type,
+                    previous = existing?.type,
+                ),
                 deviceSources = mergeSources(device.deviceSources),
             )
         }.toMutableList()
@@ -432,7 +442,7 @@ class DeviceRepositoryImpl @Inject constructor(
                 devices += Device(
                     deviceId = record.deviceId,
                     name = record.name,
-                    type = "unknown",
+                    type = reconcileDeviceType(existing?.type ?: "unknown"),
                     online = lanAvailable,
                     lastSeen = null,
                     publicKey = record.publicKey,
@@ -529,6 +539,37 @@ class DeviceRepositoryImpl @Inject constructor(
         (extras.toList() + current)
             .filter { it in setOf("local", "cloud", "trusted_peer_key") }
             .distinct()
+
+    private fun reconcileDeviceType(
+        incoming: String,
+        previous: String? = null,
+        lanType: String? = null,
+    ): String {
+        if (!incoming.isUnknownDeviceType()) {
+            return incoming.trim()
+        }
+        val normalizedLanType = lanType.normalizedDeviceType()
+        if (normalizedLanType != null) {
+            return normalizedLanType
+        }
+        val normalizedPreviousType = previous.normalizedDeviceType()
+        if (normalizedPreviousType != null) {
+            return normalizedPreviousType
+        }
+        return incoming.trim().ifEmpty { "unknown" }
+    }
+
+    private fun String?.normalizedDeviceType(): String? {
+        val value = this?.trim().orEmpty().lowercase()
+        return value.takeIf { it in knownDeviceTypes }
+    }
+
+    private fun String.isUnknownDeviceType(): Boolean {
+        val value = trim()
+        return value.isEmpty() || value.equals("unknown", ignoreCase = true)
+    }
+
+    private val knownDeviceTypes = setOf("windows", "macos", "linux", "android", "ios")
 
     private fun bearer(token: String): String = "Bearer $token"
 }

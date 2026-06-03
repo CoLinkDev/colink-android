@@ -251,7 +251,6 @@ private fun DeviceActionsCard(
 ) {
     val canDelete = !isLocalDevice && device.deviceSources.contains("cloud")
     val canForgetTrust = !isLocalDevice &&
-        device.type == "unknown" &&
         device.deviceSources.contains("trusted_peer_key")
 
     if (!isLocalDevice && !canDelete && !canForgetTrust) {

@@ -14,6 +14,7 @@ data class LanPairingRequest(
 data class LanPairingCandidate(
     val deviceId: String,
     val name: String,
+    val type: String,
     val ip: String,
     val port: Int,
     val state: String,

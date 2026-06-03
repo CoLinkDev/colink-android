@@ -18,7 +18,7 @@ interface DeviceRepository {
 
     suspend fun getDevice(deviceId: String): Device?
 
-    suspend fun markLanEndpoint(deviceId: String, ip: String, port: Int): Result<Unit>
+    suspend fun markLanEndpoint(deviceId: String, ip: String, port: Int, deviceType: String? = null): Result<Unit>
 
     suspend fun clearLanEndpoint(deviceId: String): Result<Unit>
 

@@ -14,9 +14,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.LaptopMac
+import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Verified
@@ -35,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,8 +115,7 @@ fun DeviceListScreen(
                         type = device.type,
                         lanAvailable = device.lanAvailable,
                         online = device.online,
-                        showTrustedTag = device.type == "unknown" &&
-                            device.deviceSources.contains("trusted_peer_key"),
+                        showTrustedTag = device.deviceSources.contains("trusted_peer_key"),
                         onClick = { onDeviceSelected(device.deviceId) },
                         modifier = Modifier.animateItem()
                     )
@@ -161,7 +166,7 @@ private fun LanPairingCandidateCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Wifi,
+                    imageVector = deviceTypeIcon(candidate.type),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(20.dp)
@@ -251,11 +256,7 @@ private fun DeviceCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = when {
-                        lanAvailable -> Icons.Default.Wifi
-                        online -> Icons.Default.Cloud
-                        else -> Icons.Default.Devices
-                    },
+                    imageVector = deviceTypeIcon(type),
                     contentDescription = null,
                     tint = if (lanAvailable || online) {
                         MaterialTheme.colorScheme.onPrimaryContainer
@@ -329,3 +330,13 @@ private fun DeviceCard(
         }
     }
 }
+
+private fun deviceTypeIcon(type: String): ImageVector =
+    when (type.lowercase()) {
+        "windows" -> Icons.Default.DesktopWindows
+        "macos" -> Icons.Default.LaptopMac
+        "linux" -> Icons.Default.Computer
+        "android" -> Icons.Default.Android
+        "ios" -> Icons.Default.PhoneIphone
+        else -> Icons.Default.Devices
+    }

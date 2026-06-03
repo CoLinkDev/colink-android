@@ -25,6 +25,7 @@ class NsdDiscovery @Inject constructor(
         port: Int,
         deviceId: String,
         deviceName: String,
+        deviceType: String,
     ): NsdServiceInfo =
         NsdServiceInfo().apply {
             this.serviceName = serviceName
@@ -32,6 +33,9 @@ class NsdDiscovery @Inject constructor(
             this.port = port
             setAttribute("deviceId", deviceId)
             setAttribute("version", "1")
+            deviceType.trim().takeIf { it.isNotEmpty() }?.let {
+                setAttribute("type", it)
+            }
             deviceName.trim().takeIf { it.isNotEmpty() && it.length <= 200 }?.let {
                 setAttribute("name", it)
             }
@@ -42,14 +46,15 @@ class NsdDiscovery @Inject constructor(
         port: Int,
         deviceId: String,
         deviceName: String,
+        deviceType: String,
         listener: Listener,
     ) {
         stop()
         CoLinkLog.i(
             "LAN",
-            "starting NSD service=$serviceName device=${CoLinkLog.shortId(deviceId)} name=$deviceName port=$port",
+            "starting NSD service=$serviceName device=${CoLinkLog.shortId(deviceId)} name=$deviceName type=$deviceType port=$port",
         )
-        registerService(serviceInfo(serviceName, port, deviceId, deviceName))
+        registerService(serviceInfo(serviceName, port, deviceId, deviceName, deviceType))
         discover(listener)
     }
 
@@ -131,14 +136,20 @@ class NsdDiscovery @Inject constructor(
                                 ?.decodeToString()
                                 ?.trim()
                                 .orEmpty()
+                            val deviceType = serviceInfo.attributes["type"]
+                                ?.decodeToString()
+                                ?.trim()
+                                ?.takeIf { it.isNotBlank() }
+                                ?: "unknown"
                             val hostAddress = resolvedHostAddress(serviceInfo) ?: return
                             CoLinkLog.i(
                                 "LAN",
-                                "NSD service resolved device=${CoLinkLog.shortId(deviceId)} name=$name ip=$hostAddress port=${serviceInfo.port}",
+                                "NSD service resolved device=${CoLinkLog.shortId(deviceId)} name=$name type=$deviceType ip=$hostAddress port=${serviceInfo.port}",
                             )
                             listener.onServiceResolved(
                                 deviceId = deviceId,
                                 name = name,
+                                type = deviceType,
                                 ip = hostAddress,
                                 port = serviceInfo.port,
                             )
@@ -183,10 +194,10 @@ class NsdDiscovery @Inject constructor(
             override fun onDiscoveryStopped(serviceType: String) = Unit
             override fun onServiceFound(serviceInfo: NsdServiceInfo) = Unit
             override fun onServiceLost(serviceInfo: NsdServiceInfo) = Unit
-        }
+    }
 
     interface Listener {
-        fun onServiceResolved(deviceId: String, name: String, ip: String, port: Int)
+        fun onServiceResolved(deviceId: String, name: String, type: String, ip: String, port: Int)
 
         fun onServiceLost(deviceId: String)
     }
