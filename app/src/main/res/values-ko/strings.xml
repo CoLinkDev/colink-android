@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">디바이스</string>
-    <string name="nav_messages">메시지</string>
+    <string name="nav_messages">메시지와 파일</string>
     <string name="nav_transfers">파일 전송</string>
     <string name="nav_settings">설정</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">CoLink 이벤트</string>
+    <string name="notification_clipboard_synced_title">클립보드가 동기화되었습니다</string>
+    <string name="notification_file_received_title">파일을 받았습니다</string>
+    <string name="notification_file_transfer_failed_title">파일 전송에 실패했습니다</string>
+    <string name="notification_lan_pairing_title">LAN 페어링 요청</string>
+    <string name="notification_lan_pairing_text">%1$s님이 페어링을 요청했습니다. 코드: %2$s</string>
+    <string name="notification_lan_pairing_body">%1$s님이 이 기기와의 페어링을 요청했습니다.\n코드: %2$s</string>
+    <string name="notification_file_offer_body">%1$s님이 %2$s를 보내려고 합니다</string>
+    <string name="notification_lan_key_changed_title">LAN 키가 변경되었습니다</string>
+    <string name="notification_lan_key_changed_body">%1$s은(는) 다시 LAN 페어링이 필요합니다</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN 페어링</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">사용 가능한 디바이스를 선택하세요</string>
+    <string name="messages_chat_tab">채팅</string>
+    <string name="messages_files_tab">파일</string>
+    <string name="messages_contacts_empty_title">아직 연락처가 없습니다</string>
+    <string name="messages_contacts_empty_body">다른 기기에서 로그인하면 여기서 연락처를 볼 수 있습니다.</string>
+    <string name="message_select_target_device">대상 기기를 선택하세요</string>
     <string name="no_messages_title">메시지가 없습니다</string>
     <string name="no_messages_body">디바이스를 선택하고 첫 메시지를 전송하세요.</string>
     <string name="message_placeholder">메시지</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">디바이스 재부팅 시 CoLink를 자동 실행합니다.</string>
     <string name="language_label">언어</string>
     <string name="language_body">표시 언어 선택</string>
+    <string name="lang_english">영어</string>
+    <string name="lang_simplified_chinese">중국어(간체)</string>
+    <string name="lang_traditional_chinese">중국어(번체)</string>
+    <string name="lang_japanese">일본어</string>
+    <string name="lang_korean">한국어</string>
+    <string name="lang_spanish">스페인어</string>
+    <string name="lang_german">독일어</string>
+    <string name="lang_russian">러시아어</string>
     <string name="save_btn">저장</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">연결 중...</string>
     <string name="lang_system">시스템 기본값</string>
     <string name="send_btn">보내기</string>
+    <string name="message_sent">메시지를 보냈습니다</string>
+    <string name="settings_saved">설정을 저장했습니다</string>
+    <string name="device_key_rotated">기기 키를 변경했습니다</string>
+    <string name="device_renamed">기기 이름을 변경했습니다</string>
+    <string name="device_deleted">기기를 삭제했습니다</string>
+    <string name="lan_trust_forgotten">LAN 신뢰를 삭제했습니다</string>
     <string name="status_completed">완료됨</string>
     <string name="status_receiving">받는 중</string>
     <string name="status_sending">보내는 중</string>

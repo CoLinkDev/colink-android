@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
-    <string name="nav_messages">Сообщения</string>
+    <string name="nav_messages">Сообщения и файлы</string>
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">События CoLink</string>
+    <string name="notification_clipboard_synced_title">Буфер обмена синхронизирован</string>
+    <string name="notification_file_received_title">Файл получен</string>
+    <string name="notification_file_transfer_failed_title">Ошибка передачи файла</string>
+    <string name="notification_lan_pairing_title">Запрос LAN-сопряжения</string>
+    <string name="notification_lan_pairing_text">%1$s хочет выполнить сопряжение. Код: %2$s</string>
+    <string name="notification_lan_pairing_body">%1$s хочет выполнить сопряжение с этим устройством.\nКод: %2$s</string>
+    <string name="notification_file_offer_body">%1$s хочет отправить %2$s</string>
+    <string name="notification_lan_key_changed_title">LAN-ключ изменен</string>
+    <string name="notification_lan_key_changed_body">%1$s нужно заново выполнить LAN-сопряжение</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN-сопряжение</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">Выберите доступное устройство</string>
+    <string name="messages_chat_tab">Чат</string>
+    <string name="messages_files_tab">Файлы</string>
+    <string name="messages_contacts_empty_title">Контактов пока нет</string>
+    <string name="messages_contacts_empty_body">Войдите на другом устройстве, и они появятся здесь.</string>
+    <string name="message_select_target_device">Выберите устройство назначения</string>
     <string name="no_messages_title">Сообщений нет</string>
     <string name="no_messages_body">Выберите устройство и отправьте первое сообщение.</string>
     <string name="message_placeholder">Сообщение</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
     <string name="language_label">Язык</string>
     <string name="language_body">Выберите язык интерфейса</string>
+    <string name="lang_english">Английский</string>
+    <string name="lang_simplified_chinese">Китайский (упрощенный)</string>
+    <string name="lang_traditional_chinese">Китайский (традиционный)</string>
+    <string name="lang_japanese">Японский</string>
+    <string name="lang_korean">Корейский</string>
+    <string name="lang_spanish">Испанский</string>
+    <string name="lang_german">Немецкий</string>
+    <string name="lang_russian">Русский</string>
     <string name="save_btn">Сохранить</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">Подключение...</string>
     <string name="lang_system">Системный</string>
     <string name="send_btn">Отправить</string>
+    <string name="message_sent">Сообщение отправлено</string>
+    <string name="settings_saved">Настройки сохранены</string>
+    <string name="device_key_rotated">Ключ устройства изменен</string>
+    <string name="device_renamed">Имя устройства изменено</string>
+    <string name="device_deleted">Устройство удалено</string>
+    <string name="lan_trust_forgotten">Доверие LAN удалено</string>
     <string name="status_completed">Завершено</string>
     <string name="status_receiving">Получение</string>
     <string name="status_sending">Отправка</string>

@@ -14,13 +14,17 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -147,6 +151,8 @@ private fun AuthContent(
                 onValueChange = { serverUrl = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.server_url_label)) },
+                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Next
@@ -159,6 +165,8 @@ private fun AuthContent(
                 onValueChange = { identifier = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.email_or_username_label)) },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 singleLine = true,
             )
@@ -168,6 +176,8 @@ private fun AuthContent(
                 onValueChange = { password = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.password_label)) },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -191,10 +201,6 @@ private fun AuthContent(
             }
             StateMessage(errorMsg)
 
-            if (uiState.loading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
-
             Button(
                 onClick = {
                     localErrorResId = validate(
@@ -210,8 +216,17 @@ private fun AuthContent(
                 },
                 enabled = !uiState.loading,
                 modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
             ) {
-                Text(if (uiState.loading) stringResource(R.string.working_status) else stringResource(R.string.login_btn))
+                if (uiState.loading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(stringResource(R.string.login_btn))
+                }
             }
         }
     }

@@ -3,7 +3,9 @@ package com.colink.android.network
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
+import android.content.Context
 import android.webkit.MimeTypeMap
+import com.colink.android.R
 import com.colink.android.domain.model.CloudConnectionState
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.FileTransfer
@@ -60,7 +62,6 @@ import com.colink.android.network.transfer.blake3Checksum
 import java.io.File
 import java.io.InterruptedIOException
 import java.io.InputStream
-import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -508,8 +509,9 @@ class ConnectionManager @Inject constructor(
             text = textPayload.text,
             route = route,
         )
-        notifyEvent(
-            title = "Message from ${deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId}",
+        notifier.notifyMessageReceived(
+            deviceId = fromDeviceId,
+            deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
             text = textPayload.text,
         )
     }
@@ -561,7 +563,7 @@ class ConnectionManager @Inject constructor(
             else -> Unit
         }
         notifyEvent(
-            title = "Clipboard synced",
+            title = context.getString(R.string.notification_clipboard_synced_title),
             text = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
         )
     }
@@ -593,9 +595,11 @@ class ConnectionManager @Inject constructor(
                 updatedAt = now,
             ),
         )
-        notifyEvent(
-            title = "File offer",
-            text = "${deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId}: ${payload.fileName}",
+        notifier.notifyFileOffer(
+            sessionId = payload.sessionId,
+            deviceId = fromDeviceId,
+            deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
+            fileName = payload.fileName,
         )
         scheduleOfferExpiry(payload.sessionId)
     }
@@ -1166,7 +1170,11 @@ class ConnectionManager @Inject constructor(
             ),
         )
         notifyEvent(
-            title = if (success) "File received" else "File transfer failed",
+            title = if (success) {
+                context.getString(R.string.notification_file_received_title)
+            } else {
+                context.getString(R.string.notification_file_transfer_failed_title)
+            },
             text = transfer.fileName,
         )
     }
@@ -1836,9 +1844,10 @@ class ConnectionManager @Inject constructor(
         lanWebSocketServer.disconnect(deviceId)
         name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
         refreshPairingCandidate(deviceId)
+        val peerName = name.ifBlank { deviceId }
         notifyEvent(
-            title = "LAN key changed",
-            text = "${name.ifBlank { deviceId }} needs LAN pairing again",
+            title = context.getString(R.string.notification_lan_key_changed_title),
+            text = context.getString(R.string.notification_lan_key_changed_body, peerName),
         )
     }
 

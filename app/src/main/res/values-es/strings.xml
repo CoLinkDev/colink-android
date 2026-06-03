@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Dispositivos</string>
-    <string name="nav_messages">Mensajes</string>
+    <string name="nav_messages">Mensajes y archivos</string>
     <string name="nav_transfers">Transferencias</string>
     <string name="nav_settings">Ajustes</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">Eventos de CoLink</string>
+    <string name="notification_clipboard_synced_title">Portapapeles sincronizado</string>
+    <string name="notification_file_received_title">Archivo recibido</string>
+    <string name="notification_file_transfer_failed_title">Error en la transferencia de archivos</string>
+    <string name="notification_lan_pairing_title">Solicitud de emparejamiento LAN</string>
+    <string name="notification_lan_pairing_text">%1$s quiere emparejarse. Código: %2$s</string>
+    <string name="notification_lan_pairing_body">%1$s quiere emparejarse con este dispositivo.\nCódigo: %2$s</string>
+    <string name="notification_file_offer_body">%1$s quiere enviar %2$s</string>
+    <string name="notification_lan_key_changed_title">La clave LAN cambió</string>
+    <string name="notification_lan_key_changed_body">%1$s necesita emparejarse de nuevo por LAN</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">Emparejamiento LAN</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">Elija un dispositivo disponible</string>
+    <string name="messages_chat_tab">Chat</string>
+    <string name="messages_files_tab">Archivos</string>
+    <string name="messages_contacts_empty_title">Todavía no hay contactos</string>
+    <string name="messages_contacts_empty_body">Inicie sesión en otro dispositivo y aparecerá aquí.</string>
+    <string name="message_select_target_device">Seleccione un dispositivo de destino</string>
     <string name="no_messages_title">No hay mensajes</string>
     <string name="no_messages_body">Elija un dispositivo y envíe el primer mensaje.</string>
     <string name="message_placeholder">Message</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">Iniciar CoLink después de que este dispositivo se reinicie.</string>
     <string name="language_label">Idioma</string>
     <string name="language_body">Seleccione el idioma de visualización</string>
+    <string name="lang_english">Inglés</string>
+    <string name="lang_simplified_chinese">Chino simplificado</string>
+    <string name="lang_traditional_chinese">Chino tradicional</string>
+    <string name="lang_japanese">Japonés</string>
+    <string name="lang_korean">Coreano</string>
+    <string name="lang_spanish">Español</string>
+    <string name="lang_german">Alemán</string>
+    <string name="lang_russian">Ruso</string>
     <string name="save_btn">Guardar</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">Conectando...</string>
     <string name="lang_system">Predeterminado del sistema</string>
     <string name="send_btn">Enviar</string>
+    <string name="message_sent">Mensaje enviado</string>
+    <string name="settings_saved">Ajustes guardados</string>
+    <string name="device_key_rotated">Clave del dispositivo rotada</string>
+    <string name="device_renamed">Nombre del dispositivo cambiado</string>
+    <string name="device_deleted">Dispositivo eliminado</string>
+    <string name="lan_trust_forgotten">Confianza LAN olvidada</string>
     <string name="status_completed">Completado</string>
     <string name="status_receiving">Recibiendo</string>
     <string name="status_sending">Enviando</string>

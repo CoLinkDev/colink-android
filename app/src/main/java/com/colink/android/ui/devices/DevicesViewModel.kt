@@ -1,13 +1,16 @@
 package com.colink.android.ui.devices
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +29,7 @@ data class DevicesUiState(
 
 @HiltViewModel
 class DevicesViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val deviceRepository: DeviceRepository,
     private val connectionManager: ConnectionManager,
@@ -61,7 +65,7 @@ class DevicesViewModel @Inject constructor(
                 )
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
-                message = result.exceptionOrNull()?.message ?: "Devices refreshed",
+                message = result.exceptionOrNull()?.message,
                 localDeviceId = identity?.deviceId,
             )
         }
@@ -73,7 +77,8 @@ class DevicesViewModel @Inject constructor(
             val result = deviceRepository.rotateDeviceKey(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
-                message = result.exceptionOrNull()?.message ?: "Device key rotated",
+                message = result.exceptionOrNull()?.message
+                    ?: context.getString(R.string.device_key_rotated),
                 localDeviceId = identity?.deviceId,
             )
         }
@@ -85,7 +90,8 @@ class DevicesViewModel @Inject constructor(
             val result = deviceRepository.updateDeviceName(deviceId, name)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
-                message = result.exceptionOrNull()?.message ?: "Device renamed",
+                message = result.exceptionOrNull()?.message
+                    ?: context.getString(R.string.device_renamed),
                 localDeviceId = identity?.deviceId,
             )
         }
@@ -97,7 +103,8 @@ class DevicesViewModel @Inject constructor(
             val result = deviceRepository.deleteDevice(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
-                message = result.exceptionOrNull()?.message ?: "Device deleted",
+                message = result.exceptionOrNull()?.message
+                    ?: context.getString(R.string.device_deleted),
                 localDeviceId = identity?.deviceId,
             )
         }
@@ -112,7 +119,8 @@ class DevicesViewModel @Inject constructor(
             }
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
-                message = result.exceptionOrNull()?.message ?: "LAN trust forgotten",
+                message = result.exceptionOrNull()?.message
+                    ?: context.getString(R.string.lan_trust_forgotten),
                 localDeviceId = identity?.deviceId,
             )
         }

@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">裝置</string>
-    <string name="nav_messages">訊息</string>
+    <string name="nav_messages">訊息與檔案</string>
     <string name="nav_transfers">檔案傳輸</string>
     <string name="nav_settings">設定</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">CoLink 事件</string>
+    <string name="notification_clipboard_synced_title">剪貼簿已同步</string>
+    <string name="notification_file_received_title">檔案已接收</string>
+    <string name="notification_file_transfer_failed_title">檔案傳輸失敗</string>
+    <string name="notification_lan_pairing_title">區域網路配對請求</string>
+    <string name="notification_lan_pairing_text">%1$s 想要配對。配對碼：%2$s</string>
+    <string name="notification_lan_pairing_body">%1$s 想要與此裝置配對。\n配對碼：%2$s</string>
+    <string name="notification_file_offer_body">%1$s 想要傳送 %2$s</string>
+    <string name="notification_lan_key_changed_title">區域網路金鑰已變更</string>
+    <string name="notification_lan_key_changed_body">%1$s 需要重新進行區域網路配對</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">區域網路配對</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">選擇一個可用裝置</string>
+    <string name="messages_chat_tab">聊天</string>
+    <string name="messages_files_tab">檔案</string>
+    <string name="messages_contacts_empty_title">還沒有聯絡人</string>
+    <string name="messages_contacts_empty_body">在另一台裝置上登入後，這裡會顯示聯絡人。</string>
+    <string name="message_select_target_device">選擇目標裝置</string>
     <string name="no_messages_title">暫無訊息</string>
     <string name="no_messages_body">選擇一個裝置並發送第一條訊息。</string>
     <string name="message_placeholder">訊息</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">在裝置重新啟動後自動啟動 CoLink。</string>
     <string name="language_label">語言</string>
     <string name="language_body">選擇介面顯示語言</string>
+    <string name="lang_english">英文</string>
+    <string name="lang_simplified_chinese">簡體中文</string>
+    <string name="lang_traditional_chinese">繁體中文</string>
+    <string name="lang_japanese">日文</string>
+    <string name="lang_korean">韓文</string>
+    <string name="lang_spanish">西班牙文</string>
+    <string name="lang_german">德文</string>
+    <string name="lang_russian">俄文</string>
     <string name="save_btn">儲存</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">連線中…</string>
     <string name="lang_system">系統預設</string>
     <string name="send_btn">傳送</string>
+    <string name="message_sent">訊息已傳送</string>
+    <string name="settings_saved">設定已儲存</string>
+    <string name="device_key_rotated">裝置金鑰已輪換</string>
+    <string name="device_renamed">裝置名稱已變更</string>
+    <string name="device_deleted">裝置已刪除</string>
+    <string name="lan_trust_forgotten">已忘記區域網路信任</string>
     <string name="status_completed">已完成</string>
     <string name="status_receiving">接收中</string>
     <string name="status_sending">傳送中</string>

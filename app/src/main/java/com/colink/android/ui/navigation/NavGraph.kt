@@ -15,11 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -66,7 +63,7 @@ import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
-import com.colink.android.ui.transfers.TransfersScreen
+import com.colink.android.ui.navigation.LaunchTarget
 import kotlinx.coroutines.flow.StateFlow
 
 private data class TopLevelRoute(
@@ -79,7 +76,6 @@ private val topLevelRoutes =
     listOf(
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
         TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
-        TopLevelRoute("transfers", R.string.nav_transfers, Icons.Default.SwapHoriz),
         TopLevelRoute("settings", R.string.nav_settings, Icons.Default.Settings),
     )
 
@@ -87,6 +83,8 @@ private val topLevelRoutes =
 fun CoLinkNavGraph(
     modifier: Modifier = Modifier,
     pendingShareStore: PendingShareStore? = null,
+    launchTarget: LaunchTarget? = null,
+    onLaunchTargetConsumed: () -> Unit = {},
     onRequestNotificationPermission: () -> Unit = {},
     viewModel: MainViewModel = hiltViewModel(),
 ) {
@@ -114,6 +112,8 @@ fun CoLinkNavGraph(
                 authenticated = viewModel.authenticated,
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
+                launchTarget = launchTarget,
+                onLaunchTargetConsumed = onLaunchTargetConsumed,
                 modifier = modifier,
             )
             PairingRequestDialogHost(
@@ -133,6 +133,8 @@ private fun MainScaffold(
     authenticated: StateFlow<Boolean>,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
+    launchTarget: LaunchTarget?,
+    onLaunchTargetConsumed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rootNavController = rememberNavController()
@@ -153,14 +155,22 @@ private fun MainScaffold(
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
 
             LaunchedEffect(pendingShare) {
-                val share = pendingShare ?: return@LaunchedEffect
+                if (pendingShare == null) {
+                    return@LaunchedEffect
+                }
                 if (rootNavController.currentBackStackEntry?.destination?.route != "main") {
                     rootNavController.popBackStack("main", inclusive = false)
                 }
-                when (share) {
-                    is PendingShare.Text -> nestedNavController.navigateTopLevel("messages")
-                    is PendingShare.File -> nestedNavController.navigateTopLevel("transfers")
+                nestedNavController.navigateTopLevel("messages")
+            }
+
+            LaunchedEffect(launchTarget) {
+                val target = launchTarget
+                if (target == null) {
+                    return@LaunchedEffect
                 }
+                rootNavController.navigate("conversation/${Uri.encode(target.deviceId)}")
+                onLaunchTargetConsumed()
             }
 
             Scaffold(
@@ -198,15 +208,12 @@ private fun MainScaffold(
                         MessageScreen(
                             snackbarHostState = snackbarHostState,
                             pendingShareStore = pendingShareStore,
+                            onConversationSelected = { deviceId ->
+                                rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
+                            },
                         )
                     }
-                    composable("transfers") {
-                        TransfersScreen(
-                            snackbarHostState = snackbarHostState,
-                            pendingShareStore = pendingShareStore,
-                        )
-                    }
-                    composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
+                    composable("settings") { SettingsScreen() }
                 }
             }
 
@@ -253,6 +260,41 @@ private fun MainScaffold(
             DeviceDetailsScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 snackbarHostState = snackbarHostState,
+                onBack = { rootNavController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = "conversation/{deviceId}",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(300)
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300)
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(300)
+                )
+            }
+        ) { entry ->
+            MessageScreen(
+                snackbarHostState = snackbarHostState,
+                pendingShareStore = pendingShareStore,
+                fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
             )
         }
@@ -322,6 +364,16 @@ private fun MainTopBar(
 ) {
     val status by cloudStatus.collectAsStateWithLifecycle()
     val isAuthenticated by authenticated.collectAsStateWithLifecycle()
+    val accountIcon = if (isAuthenticated) {
+        Icons.Default.AccountCircle
+    } else {
+        Icons.AutoMirrored.Filled.Login
+    }
+    val accountTint = when {
+        !isAuthenticated -> MaterialTheme.colorScheme.onSurfaceVariant
+        status == CloudStatus.Connected -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.error
+    }
 
     TopAppBar(
         modifier = Modifier.statusBarsPadding(),
@@ -333,28 +385,11 @@ private fun MainTopBar(
             Text("CoLink", fontWeight = FontWeight.Bold)
         },
         actions = {
-            Icon(
-                imageVector = if (status == CloudStatus.Connected) {
-                    Icons.Default.Cloud
-                } else {
-                    Icons.Default.CloudOff
-                },
-                contentDescription = status.name,
-                tint = if (status == CloudStatus.Connected) {
-                    MaterialTheme.colorScheme.secondary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
             IconButton(onClick = onAccountClick) {
                 Icon(
-                    imageVector = if (isAuthenticated) {
-                        Icons.Default.AccountCircle
-                    } else {
-                        Icons.AutoMirrored.Filled.Login
-                    },
+                    imageVector = accountIcon,
                     contentDescription = stringResource(R.string.account_desc),
+                    tint = accountTint,
                 )
             }
         },

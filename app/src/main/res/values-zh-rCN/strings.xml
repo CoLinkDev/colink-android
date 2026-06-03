@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
-    <string name="nav_messages">消息</string>
+    <string name="nav_messages">消息与文件</string>
     <string name="nav_transfers">文件传输</string>
     <string name="nav_settings">设置</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">CoLink 事件</string>
+    <string name="notification_clipboard_synced_title">剪贴板已同步</string>
+    <string name="notification_file_received_title">文件已接收</string>
+    <string name="notification_file_transfer_failed_title">文件传输失败</string>
+    <string name="notification_lan_pairing_title">局域网配对请求</string>
+    <string name="notification_lan_pairing_text">%1$s 想要配对。验证码：%2$s</string>
+    <string name="notification_lan_pairing_body">%1$s 想要与此设备配对。\n配对码：%2$s</string>
+    <string name="notification_file_offer_body">%1$s 想要发送 %2$s</string>
+    <string name="notification_lan_key_changed_title">局域网密钥已变更</string>
+    <string name="notification_lan_key_changed_body">%1$s 需要重新进行局域网配对</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">局域网配对</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">选择一个可用设备</string>
+    <string name="messages_chat_tab">聊天</string>
+    <string name="messages_files_tab">文件</string>
+    <string name="messages_contacts_empty_title">还没有联系人</string>
+    <string name="messages_contacts_empty_body">在另一台设备上登录后，这里会显示联系人。</string>
+    <string name="message_select_target_device">选择目标设备</string>
     <string name="no_messages_title">暂无消息</string>
     <string name="no_messages_body">选择一个设备并发送第一条消息。</string>
     <string name="message_placeholder">消息</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
     <string name="language_label">语言</string>
     <string name="language_body">选择界面显示语言</string>
+    <string name="lang_english">英语</string>
+    <string name="lang_simplified_chinese">简体中文</string>
+    <string name="lang_traditional_chinese">繁體中文</string>
+    <string name="lang_japanese">日语</string>
+    <string name="lang_korean">韩语</string>
+    <string name="lang_spanish">西班牙语</string>
+    <string name="lang_german">德语</string>
+    <string name="lang_russian">俄语</string>
     <string name="save_btn">保存</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">连接中…</string>
     <string name="lang_system">系统默认</string>
     <string name="send_btn">发送</string>
+    <string name="message_sent">消息已发送</string>
+    <string name="settings_saved">设置已保存</string>
+    <string name="device_key_rotated">设备密钥已轮换</string>
+    <string name="device_renamed">设备名称已修改</string>
+    <string name="device_deleted">设备已删除</string>
+    <string name="lan_trust_forgotten">已忘记局域网信任</string>
     <string name="status_completed">已完成</string>
     <string name="status_receiving">接收中</string>
     <string name="status_sending">发送中</string>

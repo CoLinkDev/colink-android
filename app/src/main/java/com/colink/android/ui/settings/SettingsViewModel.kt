@@ -1,16 +1,19 @@
 package com.colink.android.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -23,6 +26,7 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
 ) : ViewModel() {
@@ -39,9 +43,14 @@ class SettingsViewModel @Inject constructor(
     fun save(settings: AppSettings) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = SettingsUiState(saving = true)
-            settingsDataStore.saveSettings(settings)
-            connectionManager.applySettings(settings)
-            _uiState.value = SettingsUiState(message = "Settings saved")
+            val result = runCatching {
+                settingsDataStore.saveSettings(settings)
+                connectionManager.applySettings(settings)
+            }
+            _uiState.value = SettingsUiState(
+                message = result.exceptionOrNull()?.message
+                    ?: context.getString(R.string.settings_saved),
+            )
         }
     }
 

@@ -1,144 +1,593 @@
 package com.colink.android.ui.messages
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.DesktopWindows
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.FolderOff
+import androidx.compose.material.icons.filled.LaptopMac
+import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.UploadFile
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.Device
+import com.colink.android.domain.model.FileTransfer
+import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.TextMessage
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
-import com.colink.android.ui.components.DevicePicker
-import com.colink.android.ui.components.devicesWithoutLocalDevice
+import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
+import com.colink.android.ui.components.devicesWithoutLocalDevice
+import com.colink.android.ui.transfers.TransfersViewModel
 import java.text.DateFormat
 import java.util.Date
-import kotlinx.coroutines.flow.StateFlow
 
+private val openDocumentMimeTypes = arrayOf("*/*")
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MessageScreen(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
     pendingShareStore: PendingShareStore? = null,
+    fixedDeviceId: String? = null,
+    onConversationSelected: (String) -> Unit = {},
+    onBack: () -> Unit = {},
     viewModel: MessagesViewModel = hiltViewModel(),
+    transferViewModel: TransfersViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
-    var draft by rememberSaveable { mutableStateOf("") }
-    val targetDevices = remember(devices, uiState.localDeviceId) {
-        devicesWithoutLocalDevice(devices, uiState.localDeviceId)
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val messageUiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val transfers by transferViewModel.transfers.collectAsStateWithLifecycle()
+    val transferUiState by transferViewModel.uiState.collectAsStateWithLifecycle()
+
+    val isConversationRoute = !fixedDeviceId.isNullOrBlank()
+    var selectedDeviceId by rememberSaveable(fixedDeviceId) { mutableStateOf(fixedDeviceId) }
+    var selectedSection by rememberSaveable { mutableIntStateOf(0) }
+    var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
+    var pendingFileUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingFileTargetDeviceId by remember { mutableStateOf<String?>(null) }
+
+    val targetDevices = remember(devices, messageUiState.localDeviceId) {
+        devicesWithoutLocalDevice(devices, messageUiState.localDeviceId)
     }
 
-    LaunchedEffect(targetDevices) {
-        if (selectedDeviceId == null || targetDevices.none { it.deviceId == selectedDeviceId }) {
-            selectedDeviceId = targetDevices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+    val selectedDevice = remember(targetDevices, selectedDeviceId) {
+        targetDevices.firstOrNull { it.deviceId == selectedDeviceId }
+    }
+    val conversationMessages = remember(messages, selectedDeviceId) {
+        selectedDeviceId?.let { deviceId ->
+            messages.filter { it.deviceId == deviceId }
+        }.orEmpty()
+    }
+    val conversationTransfers = remember(transfers, selectedDeviceId) {
+        selectedDeviceId?.let { deviceId ->
+            transfers.filter { it.deviceId == deviceId }
+        }.orEmpty()
+    }
+
+    LaunchedEffect(fixedDeviceId) {
+        if (!fixedDeviceId.isNullOrBlank()) {
+            selectedDeviceId = fixedDeviceId
+            selectedSection = 0
+        }
+    }
+
+    LaunchedEffect(targetDevices, selectedDeviceId, isConversationRoute) {
+        if (!isConversationRoute) {
+            selectedDeviceId = null
+            return@LaunchedEffect
+        }
+        val current = selectedDeviceId
+        if (current != null && targetDevices.any { it.deviceId == current }) {
+            return@LaunchedEffect
+        }
+    }
+
+    LaunchedEffect(selectedDeviceId) {
+        selectedSection = 0
+    }
+
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) {
+            pendingFileTargetDeviceId = null
+            return@rememberLauncherForActivityResult
+        }
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        val targetDeviceId = pendingFileTargetDeviceId
+        pendingFileTargetDeviceId = null
+        if (targetDeviceId != null) {
+            transferViewModel.send(context.contentResolver, targetDeviceId, uri)
+        } else {
+            pendingFileUri = uri
         }
     }
 
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
-        ?: androidx.compose.runtime.remember {
-            androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
-        }
+        ?: remember { mutableStateOf<PendingShare?>(null) }
 
     LaunchedEffect(pendingShare) {
         val share = pendingShareStore?.consume()
-        if (share is PendingShare.Text) {
-            draft = share.text
+        when (share) {
+            is PendingShare.Text -> draft = share.text
+            is PendingShare.File -> {
+                pendingFileTargetDeviceId = null
+                pendingFileUri = share.uri
+            }
+            null -> Unit
         }
-    }
-
-    val selectedName = remember(targetDevices, selectedDeviceId) {
-        selectedDeviceName(targetDevices, selectedDeviceId)
     }
 
     SnackbarOnMessage(
-        message = uiState.message,
+        message = messageUiState.message,
         snackbarHostState = snackbarHostState,
         onConsumed = viewModel::clearMessage,
     )
+    SnackbarOnMessage(
+        message = transferUiState.message,
+        snackbarHostState = snackbarHostState,
+        onConsumed = transferViewModel::clearMessage,
+    )
 
-    ScreenColumn(
-        title = stringResource(R.string.nav_messages),
-        subtitle = selectedName ?: stringResource(R.string.messages_choose_device),
-        modifier = modifier,
-    ) {
-        DevicePicker(
-            devices = targetDevices,
-            selectedDeviceId = selectedDeviceId,
-            onSelectedDeviceChange = { selectedDeviceId = it },
-        )
-
-        if (uiState.sending) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        }
-
-        MessageList(
-            messages = viewModel.messages,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-        )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
+    if (!isConversationRoute) {
+        ScreenColumn(
+            title = stringResource(R.string.nav_messages),
+            subtitle = stringResource(R.string.messages_choose_device),
+            modifier = modifier,
         ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                label = { Text(stringResource(R.string.message_placeholder)) },
-                minLines = 1,
-                maxLines = 4,
-                supportingText = {
-                    Text("${draft.trim().length}/10000")
-                },
+            ContactList(
+                devices = targetDevices,
+                onSelect = onConversationSelected,
             )
-            FilledIconButton(
-                enabled = draft.isNotBlank() && !uiState.sending,
-                onClick = {
-                    val text = draft
-                    viewModel.send(selectedDeviceId, text)
-                    if (text.isNotBlank()) {
-                        draft = ""
-                    }
-                },
+        }
+    } else {
+        Scaffold(
+            modifier = modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        if (selectedDevice != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(
+                                            color = if (selectedDevice.online || selectedDevice.lanAvailable) {
+                                                MaterialTheme.colorScheme.primaryContainer
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            shape = CircleShape,
+                                        ),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = deviceTypeIcon(selectedDevice.type),
+                                        contentDescription = null,
+                                        tint = if (selectedDevice.online || selectedDevice.lanAvailable) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = selectedDevice.name.ifBlank { stringResource(R.string.unnamed_device) },
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = selectedDevice.type.ifBlank { stringResource(R.string.unknown_type) },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        if (selectedDevice.lanAvailable) {
+                                            BadgeChip(
+                                                text = stringResource(R.string.device_tag_lan),
+                                                icon = Icons.Default.Wifi,
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            )
+                                        } else if (selectedDevice.online) {
+                                            BadgeChip(
+                                                text = stringResource(R.string.device_tag_cloud),
+                                                icon = Icons.Default.Cloud,
+                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            )
+                                        } else {
+                                            BadgeChip(
+                                                text = stringResource(R.string.device_tag_offline),
+                                                icon = Icons.Default.Devices,
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(stringResource(R.string.messages_choose_device))
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back_desc),
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    )
+                )
+            }
+        ) { innerPadding ->
+            if (selectedDevice != null) {
+                ConversationScreen(
+                    device = selectedDevice,
+                    selectedSection = selectedSection,
+                    onSectionChange = { selectedSection = it },
+                    onSendFile = {
+                        pendingFileTargetDeviceId = selectedDeviceId
+                        filePicker.launch(openDocumentMimeTypes)
+                    },
+                    messages = conversationMessages,
+                    transfers = conversationTransfers,
+                    isSendingMessage = messageUiState.sending,
+                    isWorkingFiles = transferUiState.working,
+                    draft = draft,
+                    onDraftChange = { draft = it },
+                    onSendText = {
+                        val text = draft
+                        viewModel.send(selectedDeviceId, text)
+                        if (text.isNotBlank()) {
+                            draft = ""
+                        }
+                    },
+                    onPickFile = {
+                        pendingFileTargetDeviceId = selectedDeviceId
+                        filePicker.launch(openDocumentMimeTypes)
+                    },
+                    onAcceptTransfer = transferViewModel::accept,
+                    onRejectTransfer = transferViewModel::reject,
+                    modifier = Modifier.padding(innerPadding),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EmptyState(
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        title = stringResource(R.string.device_not_found),
+                        body = stringResource(R.string.refresh_body),
+                    )
+                }
+            }
+        }
+    }
+
+    val pendingUri = pendingFileUri
+    if (pendingUri != null) {
+        SelectDeviceDialog(
+            devices = targetDevices,
+            initialDeviceId = selectedDeviceId,
+            onDismiss = {
+                pendingFileUri = null
+                pendingFileTargetDeviceId = null
+            },
+            onSelect = { deviceId ->
+                transferViewModel.send(context.contentResolver, deviceId, pendingUri)
+                pendingFileUri = null
+                pendingFileTargetDeviceId = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun ContactList(
+    devices: List<Device>,
+    onSelect: (String) -> Unit,
+) {
+    if (devices.isEmpty()) {
+        EmptyState(
+            icon = Icons.AutoMirrored.Filled.Chat,
+            title = stringResource(R.string.messages_contacts_empty_title),
+            body = stringResource(R.string.messages_contacts_empty_body),
+        )
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        items(
+            items = devices,
+            key = { it.deviceId },
+        ) { device ->
+            ContactCard(
+                device = device,
+                onClick = { onSelect(device.deviceId) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContactCard(
+    device: Device,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (device.lanAvailable || device.online) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = stringResource(R.string.send_message_desc)
+                    imageVector = deviceTypeIcon(device.type),
+                    contentDescription = null,
+                    tint = if (device.lanAvailable || device.online) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = device.type.ifBlank { stringResource(R.string.unknown_type) },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    if (device.lanAvailable) {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_lan),
+                            icon = Icons.Default.Wifi,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    } else if (device.online) {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_cloud),
+                            icon = Icons.Default.Cloud,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    } else {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_offline),
+                            icon = Icons.Default.Devices,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    if (device.deviceSources.contains("trusted_peer_key")) {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_trusted),
+                            icon = Icons.Default.Verified,
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationScreen(
+    device: Device,
+    selectedSection: Int,
+    onSectionChange: (Int) -> Unit,
+    onSendFile: () -> Unit,
+    messages: List<TextMessage>,
+    transfers: List<FileTransfer>,
+    isSendingMessage: Boolean,
+    isWorkingFiles: Boolean,
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    onSendText: () -> Unit,
+    onPickFile: () -> Unit,
+    onAcceptTransfer: (String) -> Unit,
+    onRejectTransfer: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sendEnabled = device.online || device.lanAvailable
+
+    Column(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
+    ) {
+        TabRow(selectedTabIndex = selectedSection) {
+            Tab(
+                selected = selectedSection == 0,
+                onClick = { onSectionChange(0) },
+                text = { Text(stringResource(R.string.messages_chat_tab)) },
+            )
+            Tab(
+                selected = selectedSection == 1,
+                onClick = { onSectionChange(1) },
+                text = { Text(stringResource(R.string.messages_files_tab)) },
+            )
+        }
+
+        when (selectedSection) {
+            0 -> {
+                MessageThread(
+                    messages = messages,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                )
+                ChatInputBar(
+                    draft = draft,
+                    onDraftChange = onDraftChange,
+                    onSendText = onSendText,
+                    onSendFile = onSendFile,
+                    sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
+                    placeholderText = stringResource(R.string.message_placeholder),
+                )
+            }
+
+            else -> {
+                if (isWorkingFiles) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+                FileTransfersList(
+                    transfers = transfers,
+                    working = isWorkingFiles,
+                    onPickFile = onPickFile,
+                    onAccept = onAcceptTransfer,
+                    onReject = onRejectTransfer,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
                 )
             }
         }
@@ -146,21 +595,77 @@ fun MessageScreen(
 }
 
 @Composable
-private fun MessageList(
-    messages: StateFlow<List<TextMessage>>,
+private fun ChatInputBar(
+    draft: String,
+    onDraftChange: (String) -> Unit,
+    onSendText: () -> Unit,
+    onSendFile: () -> Unit,
+    sendEnabled: Boolean,
+    placeholderText: String,
     modifier: Modifier = Modifier,
 ) {
-    val messageItems by messages.collectAsStateWithLifecycle()
-    val visibleMessages = remember(messageItems) {
-        messageItems.asReversed()
-    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 2.dp,
+        shadowElevation = 8.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconButton(onClick = onSendFile) {
+                Icon(
+                    imageVector = Icons.Default.AttachFile,
+                    contentDescription = stringResource(R.string.send_file_desc),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
 
+            OutlinedTextField(
+                value = draft,
+                onValueChange = onDraftChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(placeholderText) },
+                maxLines = 4,
+                shape = RoundedCornerShape(24.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+
+            FilledIconButton(
+                enabled = sendEnabled,
+                onClick = onSendText,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.send_message_desc),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageThread(
+    messages: List<TextMessage>,
+    modifier: Modifier = Modifier,
+) {
     LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier,
         reverseLayout = true,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (messageItems.isEmpty()) {
+        if (messages.isEmpty()) {
             item(contentType = "empty") {
                 EmptyState(
                     icon = Icons.AutoMirrored.Filled.Chat,
@@ -170,73 +675,353 @@ private fun MessageList(
             }
         } else {
             items(
-                items = visibleMessages,
+                items = messages,
                 key = { it.messageId },
-                contentType = { "message" },
             ) { message ->
-                MessageCard(message = message, modifier = Modifier.animateItem())
+                MessageBubble(message = message)
             }
         }
     }
 }
 
 @Composable
-private fun MessageCard(message: TextMessage, modifier: Modifier = Modifier) {
+private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
     val outgoing = message.direction == MessageDirection.Outgoing
     val timeText = remember(message.createdAt) {
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(message.createdAt))
     }
-    
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start
+        horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val routeName = when (message.route) {
-                "lan" -> stringResource(R.string.route_lan)
-                "cloud" -> stringResource(R.string.route_cloud)
-                else -> message.route
-            }
-            Text(
-                text = stringResource(R.string.message_via, routeName),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "·",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = timeText,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        
         Surface(
-            shape = MaterialTheme.shapes.large.copy(
-                bottomEnd = if (outgoing) androidx.compose.foundation.shape.CornerSize(4.dp) else androidx.compose.foundation.shape.CornerSize(24.dp),
-                bottomStart = if (!outgoing) androidx.compose.foundation.shape.CornerSize(4.dp) else androidx.compose.foundation.shape.CornerSize(24.dp),
+            shape = RoundedCornerShape(
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = if (outgoing) 16.dp else 4.dp,
+                bottomEnd = if (outgoing) 4.dp else 16.dp,
             ),
-            color = if (outgoing) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+            color = if (outgoing) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+            contentColor = if (outgoing) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            modifier = Modifier.widthIn(min = 40.dp, max = 320.dp),
         ) {
             Text(
                 text = message.text,
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             )
+        }
+
+        val routeName = when (message.route) {
+            "lan" -> stringResource(R.string.route_lan)
+            "cloud" -> stringResource(R.string.route_cloud)
+            else -> message.route
+        }
+        Text(
+            text = "${timeText} · ${routeName}",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun FileTransfersList(
+    transfers: List<FileTransfer>,
+    working: Boolean,
+    onPickFile: () -> Unit,
+    onAccept: (String) -> Unit,
+    onReject: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (transfers.isEmpty()) {
+            item(contentType = "empty") {
+                EmptyState(
+                    icon = Icons.Default.FolderOff,
+                    title = stringResource(R.string.no_transfers_title),
+                    body = stringResource(R.string.no_transfers_body),
+                    action = {
+                        Button(
+                            enabled = !working,
+                            onClick = onPickFile,
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null)
+                            Text(stringResource(R.string.send_file_btn))
+                        }
+                    },
+                )
+            }
+        } else {
+            items(
+                items = transfers,
+                key = { it.sessionId },
+            ) { transfer ->
+                TransferCard(
+                    transfer = transfer,
+                    onAccept = { onAccept(transfer.sessionId) },
+                    onReject = { onReject(transfer.sessionId) },
+                )
+            }
         }
     }
 }
 
-private fun selectedDeviceName(
+@Composable
+private fun TransferCard(
+    transfer: FileTransfer,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        val sizeText = remember(transfer.fileSize) {
+            formatSize(transfer.fileSize)
+        }
+        val updatedAtText = remember(transfer.updatedAt) {
+            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                .format(Date(transfer.updatedAt))
+        }
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(
+                    imageVector = if (transfer.direction == FileTransferDirection.Incoming) {
+                        Icons.Default.FileUpload
+                    } else {
+                        Icons.Default.UploadFile
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = transfer.fileName.ifBlank { stringResource(R.string.unnamed_file) },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val directionText = if (transfer.direction == FileTransferDirection.Incoming) {
+                        stringResource(R.string.direction_incoming)
+                    } else {
+                        stringResource(R.string.direction_outgoing)
+                    }
+                    Text(
+                        text = "$directionText · $sizeText · $updatedAtText",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending")) {
+                LinearProgressIndicator(
+                    progress = {
+                        (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BadgeChip(
+                    text = statusLabel(transfer.status),
+                    containerColor = if (transfer.status == "completed") {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (transfer.status == "completed") {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+                val routeName = when (transfer.route) {
+                    "lan" -> stringResource(R.string.route_lan)
+                    "cloud" -> stringResource(R.string.route_cloud)
+                    else -> transfer.route
+                }
+                BadgeChip(text = routeName)
+                if (
+                    transfer.direction == FileTransferDirection.Incoming &&
+                    transfer.status == "offered"
+                ) {
+                    TextButton(onClick = onReject) {
+                        Icon(Icons.Default.Close, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.reject_btn))
+                    }
+                    Button(onClick = onAccept) {
+                        Icon(Icons.Default.Check, contentDescription = null)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.accept_btn))
+                    }
+                }
+            }
+
+            transfer.error?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectDeviceDialog(
     devices: List<Device>,
-    selectedDeviceId: String?,
-): String? =
-    devices.firstOrNull { it.deviceId == selectedDeviceId }?.name?.takeIf { it.isNotBlank() }
+    initialDeviceId: String? = null,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    var selectedId by remember(devices, initialDeviceId) {
+        mutableStateOf(
+            devices.firstOrNull { it.deviceId == initialDeviceId }?.deviceId
+                ?: devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+                ?: devices.firstOrNull()?.deviceId,
+        )
+    }
+
+    LaunchedEffect(devices) {
+        if (selectedId == null || devices.none { it.deviceId == selectedId }) {
+            selectedId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+                ?: devices.firstOrNull()?.deviceId
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.select_destination_title)) },
+        text = {
+            if (devices.isEmpty()) {
+                Text(stringResource(R.string.no_devices_available))
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(
+                        items = devices,
+                        key = { it.deviceId },
+                    ) { device ->
+                        val available = device.online || device.lanAvailable
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = available) { selectedId = device.deviceId }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            RadioButton(
+                                selected = selectedId == device.deviceId,
+                                onClick = { selectedId = device.deviceId },
+                                enabled = available,
+                            )
+                            Column {
+                                Text(
+                                    device.name.ifBlank { stringResource(R.string.unnamed_device) },
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    when {
+                                        device.lanAvailable -> stringResource(R.string.lan_available_tag)
+                                        device.online -> stringResource(R.string.cloud_available_tag)
+                                        else -> stringResource(R.string.device_tag_offline)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (available) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { selectedId?.let(onSelect) },
+                enabled = selectedId != null,
+            ) {
+                Text(stringResource(R.string.send_btn))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
+}
+
+@Composable
+private fun statusLabel(status: String): String =
+    when (status) {
+        "completed" -> stringResource(R.string.status_completed)
+        "receiving" -> stringResource(R.string.status_receiving)
+        "sending" -> stringResource(R.string.status_sending)
+        "offered" -> stringResource(R.string.status_offered)
+        "failed" -> stringResource(R.string.status_failed)
+        "rejected" -> stringResource(R.string.status_rejected)
+        "cancelled" -> stringResource(R.string.status_cancelled)
+        else -> status.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }
+
+private fun formatSize(bytes: Long): String =
+    when {
+        bytes >= 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024 * 1024)} GB"
+        bytes >= 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
+        bytes >= 1024 -> "${bytes / 1024} KB"
+        else -> "$bytes B"
+    }
+
+private fun deviceTypeIcon(type: String) =
+    when (type.lowercase()) {
+        "windows" -> Icons.Default.DesktopWindows
+        "macos" -> Icons.Default.LaptopMac
+        "linux" -> Icons.Default.Computer
+        "android" -> Icons.Default.Android
+        "ios" -> Icons.Default.PhoneIphone
+        else -> Icons.Default.Devices
+    }

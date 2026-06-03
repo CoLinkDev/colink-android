@@ -1,5 +1,6 @@
 package com.colink.android.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,14 +47,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.ui.components.ScreenColumn
-import com.colink.android.ui.components.SnackbarOnMessage
 
 @Composable
 fun SettingsScreen(
-    snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var serverUrl by rememberSaveable { mutableStateOf("") }
@@ -70,17 +70,31 @@ fun SettingsScreen(
         language = settings.language
     }
 
-    SnackbarOnMessage(
-        message = uiState.message,
-        snackbarHostState = snackbarHostState,
-        onConsumed = viewModel::clearMessage,
-    )
+    LaunchedEffect(uiState.message) {
+        val message = uiState.message ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.clearMessage()
+    }
 
     ScreenColumn(
         title = stringResource(R.string.settings_title),
         subtitle = stringResource(R.string.settings_subtitle),
         modifier = modifier,
     ) {
+        val systemLanguage = stringResource(R.string.lang_system)
+        val languages = listOf(
+            "system" to systemLanguage,
+            "en" to stringResource(R.string.lang_english),
+            "zh-CN" to stringResource(R.string.lang_simplified_chinese),
+            "zh-TW" to stringResource(R.string.lang_traditional_chinese),
+            "ja" to stringResource(R.string.lang_japanese),
+            "ko" to stringResource(R.string.lang_korean),
+            "es" to stringResource(R.string.lang_spanish),
+            "de" to stringResource(R.string.lang_german),
+            "ru" to stringResource(R.string.lang_russian),
+        )
+        val currentLanguageLabel = languages.find { it.first == language }?.second.orEmpty()
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,24 +112,6 @@ fun SettingsScreen(
 
             // Language Dropdown
             var expanded by remember { mutableStateOf(false) }
-            val systemLanguage = stringResource(R.string.lang_system)
-            val languages = remember(systemLanguage) {
-                listOf(
-                    "system" to systemLanguage,
-                    "en" to "English",
-                    "zh-CN" to "简体中文",
-                    "zh-TW" to "繁體中文",
-                    "ja" to "日本語",
-                    "ko" to "한국어",
-                    "es" to "Español",
-                    "de" to "Deutsch",
-                    "ru" to "Русский"
-                )
-            }
-            val currentLanguageLabel = remember(languages, language) {
-                languages.find { it.first == language }?.second ?: ""
-            }
-
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = currentLanguageLabel,
@@ -175,10 +171,6 @@ fun SettingsScreen(
                 checked = autoStart,
                 onCheckedChange = { autoStart = it },
             )
-
-            if (uiState.saving) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            }
 
             Button(
                 onClick = {

@@ -13,6 +13,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -21,6 +24,7 @@ import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.navigation.CoLinkNavGraph
+import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.theme.CoLinkTheme
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.LocaleHelper
@@ -34,6 +38,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
     @Inject lateinit var settingsDataStore: SettingsDataStore
+    private var launchTarget by mutableStateOf<LaunchTarget?>(null)
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -48,7 +53,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 settingsDataStore.settings
@@ -65,11 +70,14 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         handleShareIntent(intent)
+        handleLaunchIntent(intent)
         setContent {
             CoLinkTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     CoLinkNavGraph(
                         pendingShareStore = pendingShareStore,
+                        launchTarget = launchTarget,
+                        onLaunchTargetConsumed = { launchTarget = null },
                         onRequestNotificationPermission = ::requestNotificationPermission,
                     )
                 }
@@ -81,6 +89,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleShareIntent(intent)
+        handleLaunchIntent(intent)
     }
 
     private fun requestNotificationPermission() {
@@ -121,5 +130,16 @@ class MainActivity : ComponentActivity() {
             )
         }
         pendingShareStore.set(PendingShare.File(uri))
+    }
+
+    private fun handleLaunchIntent(intent: Intent?) {
+        val deviceId = intent
+            ?.getStringExtra(com.colink.android.notification.EXTRA_TARGET_DEVICE_ID)
+            ?.takeIf { it.isNotBlank() }
+        if (deviceId != null) {
+            launchTarget = LaunchTarget(deviceId)
+        } else if (intent?.action != Intent.ACTION_SEND) {
+            launchTarget = null
+        }
     }
 }

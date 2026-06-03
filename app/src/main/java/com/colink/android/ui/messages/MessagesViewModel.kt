@@ -1,13 +1,16 @@
 package com.colink.android.ui.messages
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.TextMessage
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.MessageRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +29,7 @@ data class MessagesUiState(
 
 @HiltViewModel
 class MessagesViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val deviceRepository: DeviceRepository,
     messageRepository: MessageRepository,
     private val connectionManager: ConnectionManager,
@@ -51,7 +55,10 @@ class MessagesViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null) {
                 _uiState.update {
-                    it.copy(sending = false, message = "Select a target device")
+                    it.copy(
+                        sending = false,
+                        message = context.getString(R.string.message_select_target_device),
+                    )
                 }
                 return@launch
             }
@@ -60,7 +67,8 @@ class MessagesViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     sending = false,
-                    message = result.exceptionOrNull()?.message ?: "Message sent",
+                    message = result.exceptionOrNull()?.message
+                        ?: context.getString(R.string.message_sent),
                 )
             }
         }

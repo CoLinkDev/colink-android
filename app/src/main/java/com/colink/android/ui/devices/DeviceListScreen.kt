@@ -22,14 +22,12 @@ import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -82,14 +80,6 @@ fun DeviceListScreen(
             availableDeviceCount,
             devices.size
         ),
-        action = {
-            FilledTonalIconButton(onClick = viewModel::refresh) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = stringResource(R.string.refresh_devices)
-                )
-            }
-        },
         modifier = modifier,
     ) {
         RefreshableList(

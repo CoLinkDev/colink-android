@@ -5,9 +5,21 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Devices</string>
-    <string name="nav_messages">Messages</string>
+    <string name="nav_messages">Messages &amp; Files</string>
     <string name="nav_transfers">Transfers</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Notifications -->
+    <string name="notification_events_channel_name">CoLink events</string>
+    <string name="notification_clipboard_synced_title">Clipboard synced</string>
+    <string name="notification_file_received_title">File received</string>
+    <string name="notification_file_transfer_failed_title">File transfer failed</string>
+    <string name="notification_lan_pairing_title">LAN pairing request</string>
+    <string name="notification_lan_pairing_text">%1$s wants to pair. Code: %2$s</string>
+    <string name="notification_lan_pairing_body">%1$s wants to pair with this device.\nCode: %2$s</string>
+    <string name="notification_file_offer_body">%1$s wants to send %2$s</string>
+    <string name="notification_lan_key_changed_title">LAN key changed</string>
+    <string name="notification_lan_key_changed_body">%1$s needs LAN pairing again</string>
     
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN pairing</string>
@@ -89,6 +101,11 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">Choose an available device</string>
+    <string name="messages_chat_tab">Chat</string>
+    <string name="messages_files_tab">Files</string>
+    <string name="messages_contacts_empty_title">No contacts yet</string>
+    <string name="messages_contacts_empty_body">Sign in on another device and it will appear here.</string>
+    <string name="message_select_target_device">Select a target device</string>
     <string name="no_messages_title">No messages</string>
     <string name="no_messages_body">Pick a device and send the first message.</string>
     <string name="message_placeholder">Message</string>
@@ -130,6 +147,14 @@
     <string name="auto_start_body">Start CoLink after this device restarts.</string>
     <string name="language_label">Language</string>
     <string name="language_body">Select UI display language</string>
+    <string name="lang_english">English</string>
+    <string name="lang_simplified_chinese">Simplified Chinese</string>
+    <string name="lang_traditional_chinese">Traditional Chinese</string>
+    <string name="lang_japanese">Japanese</string>
+    <string name="lang_korean">Korean</string>
+    <string name="lang_spanish">Spanish</string>
+    <string name="lang_german">German</string>
+    <string name="lang_russian">Russian</string>
     <string name="save_btn">Save</string>
     
     <!-- Authentication -->
@@ -151,6 +176,12 @@
     <string name="working_status">Working...</string>
     <string name="lang_system">System</string>
     <string name="send_btn">Send</string>
+    <string name="message_sent">Message sent</string>
+    <string name="settings_saved">Settings saved</string>
+    <string name="device_key_rotated">Device key rotated</string>
+    <string name="device_renamed">Device renamed</string>
+    <string name="device_deleted">Device deleted</string>
+    <string name="lan_trust_forgotten">LAN trust forgotten</string>
     <string name="status_completed">Completed</string>
     <string name="status_receiving">Receiving</string>
     <string name="status_sending">Sending</string>

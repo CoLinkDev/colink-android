@@ -15,6 +15,10 @@ import com.colink.android.MainActivity
 import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.LanPairingRequest
+import com.colink.android.notification.ACTION_FILE_TRANSFER_ACCEPT
+import com.colink.android.notification.ACTION_FILE_TRANSFER_REJECT
+import com.colink.android.notification.EXTRA_FILE_SESSION_ID
+import com.colink.android.notification.EXTRA_TARGET_DEVICE_ID
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -35,7 +39,7 @@ class CoLinkNotifier @Inject constructor(
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             EVENT_CHANNEL_ID,
-            "CoLink events",
+            context.getString(R.string.notification_events_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT,
         )
         manager.createNotificationChannel(channel)
@@ -57,19 +61,106 @@ class CoLinkNotifier @Inject constructor(
         CoLinkLog.d("Notification", "posted event notification title=$title")
     }
 
+    suspend fun notifyMessageReceived(deviceId: String, deviceName: String, text: String) {
+        ensureEventChannel()
+        if (!canNotify("message")) {
+            return
+        }
+        val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.colink_logo)
+            .setContentTitle(deviceName)
+            .setContentText(text)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(text),
+            )
+            .setContentIntent(mainActivityIntent(deviceId))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .build()
+        NotificationManagerCompat.from(context).notify(uniqueNotificationId(), notification)
+        CoLinkLog.d("Notification", "posted message notification device=${CoLinkLog.shortId(deviceId)}")
+    }
+
+    suspend fun notifyFileOffer(
+        sessionId: String,
+        deviceId: String,
+        deviceName: String,
+        fileName: String,
+    ) {
+        ensureEventChannel()
+        if (!canNotify("file offer")) {
+            return
+        }
+        val body = context.getString(R.string.notification_file_offer_body, deviceName, fileName)
+        val notificationId = fileOfferNotificationId(sessionId)
+        val acceptIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            Intent(context, com.colink.android.service.FileTransferActionReceiver::class.java).apply {
+                action = ACTION_FILE_TRANSFER_ACCEPT
+                putExtra(EXTRA_FILE_SESSION_ID, sessionId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val rejectIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId + 1,
+            Intent(context, com.colink.android.service.FileTransferActionReceiver::class.java).apply {
+                action = ACTION_FILE_TRANSFER_REJECT
+                putExtra(EXTRA_FILE_SESSION_ID, sessionId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.colink_logo)
+            .setContentTitle(deviceName)
+            .setContentText(body)
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(body),
+            )
+            .setContentIntent(mainActivityIntent(deviceId))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .addAction(
+                android.R.drawable.ic_menu_save,
+                context.getString(R.string.accept_btn),
+                acceptIntent,
+            )
+            .addAction(
+                android.R.drawable.ic_delete,
+                context.getString(R.string.reject_btn),
+                rejectIntent,
+            )
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+        CoLinkLog.i(
+            "Notification",
+            "posted file offer notification session=${CoLinkLog.shortId(sessionId)} device=${CoLinkLog.shortId(deviceId)}",
+        )
+    }
+
+    fun cancelFileOffer(sessionId: String) {
+        NotificationManagerCompat.from(context).cancel(fileOfferNotificationId(sessionId))
+    }
+
     suspend fun notifyLanPairingRequest(request: LanPairingRequest) {
         ensureEventChannel()
         if (!canNotify("lan pairing")) {
             return
         }
         val deviceName = request.name.ifBlank { request.deviceId }
+        val title = context.getString(R.string.notification_lan_pairing_title)
+        val text = context.getString(R.string.notification_lan_pairing_text, deviceName, request.code)
+        val body = context.getString(R.string.notification_lan_pairing_body, deviceName, request.code)
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
             .setSmallIcon(R.drawable.colink_logo)
-            .setContentTitle("LAN pairing request")
-            .setContentText("$deviceName wants to pair. Code: ${request.code}")
+            .setContentTitle(title)
+            .setContentText(text)
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText("$deviceName wants to pair with this device.\nCode: ${request.code}"),
+                    .bigText(body),
             )
             .setContentIntent(mainActivityIntent())
             .setAutoCancel(true)
@@ -102,9 +193,12 @@ class CoLinkNotifier @Inject constructor(
         return true
     }
 
-    private fun mainActivityIntent(): PendingIntent {
+    private fun mainActivityIntent(deviceId: String? = null): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            deviceId?.takeIf { it.isNotBlank() }?.let {
+                putExtra(EXTRA_TARGET_DEVICE_ID, it)
+            }
         }
         return PendingIntent.getActivity(
             context,
@@ -114,6 +208,13 @@ class CoLinkNotifier @Inject constructor(
         )
     }
 
+    private fun fileOfferNotificationId(sessionId: String): Int =
+        FILE_OFFER_NOTIFICATION_ID_BASE + (sessionId.hashCode() and 0x7fffffff)
+
     private fun uniqueNotificationId(): Int =
         (System.currentTimeMillis() and 0x7fffffff).toInt()
+
+    companion object {
+        private const val FILE_OFFER_NOTIFICATION_ID_BASE = 3000
+    }
 }
