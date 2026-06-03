@@ -20,7 +20,7 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
@@ -108,6 +108,46 @@ abstract class CoLinkDatabase : RoomDatabase() {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE devices ADD COLUMN deviceSources TEXT NOT NULL DEFAULT ''")
                     db.execSQL("ALTER TABLE devices ADD COLUMN securityState TEXT NOT NULL DEFAULT 'unverified'")
+                }
+            }
+
+        val MIGRATION_5_6: Migration =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE trusted_peer_keys_new (
+                            device_id TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            public_key TEXT NOT NULL,
+                            key_updated_at INTEGER NOT NULL,
+                            trusted_by_lan INTEGER NOT NULL DEFAULT 0,
+                            trusted_by_cloud INTEGER NOT NULL DEFAULT 0
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        """
+                        INSERT INTO trusted_peer_keys_new (
+                            device_id,
+                            name,
+                            public_key,
+                            key_updated_at,
+                            trusted_by_lan,
+                            trusted_by_cloud
+                        )
+                        SELECT
+                            deviceId,
+                            name,
+                            publicKey,
+                            keyUpdatedAt,
+                            CASE WHEN trustedAt IS NOT NULL THEN 1 ELSE 0 END,
+                            0
+                        FROM trusted_peer_keys
+                        """.trimIndent(),
+                    )
+                    db.execSQL("DROP TABLE trusted_peer_keys")
+                    db.execSQL("ALTER TABLE trusted_peer_keys_new RENAME TO trusted_peer_keys")
                 }
             }
     }

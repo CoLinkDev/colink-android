@@ -6,6 +6,7 @@ import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.data.local.db.dao.DeviceDao
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
 import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
+import com.colink.android.data.local.db.entity.isTrusted
 import com.colink.android.data.local.db.entity.toEntity
 import com.colink.android.data.remote.api.DeviceApi
 import com.colink.android.data.remote.api.apiEndpoint
@@ -247,8 +248,18 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun forgetLanTrust(deviceId: String): Result<Unit> =
         runCatching {
-            trustedPeerKeyDao.delete(deviceId)
-            deviceDao.delete(deviceId)
+            trustedPeerKeyDao.clearLanTrust(deviceId)
+            if (trustedPeerKeyDao.get(deviceId)?.isTrusted != true) {
+                deviceDao.delete(deviceId)
+            }
+            listLocalDevices().getOrThrow()
+        }
+
+    override suspend fun clearCloudTrust(): Result<Unit> =
+        runCatching {
+            trustedPeerKeyDao.clearCloudTrust()
+            trustedPeerKeyDao.deleteUntrusted()
+            deviceDao.clear()
             listLocalDevices().getOrThrow()
         }
 
@@ -366,29 +377,70 @@ class DeviceRepositoryImpl @Inject constructor(
         devices: List<Device>,
         localDeviceId: String?,
     ) {
-        devices
+        val cloudDevices = devices
             .filter { it.deviceId != localDeviceId && it.publicKey.isNotBlank() }
-            .forEach { device ->
-                val existing = trustedPeerKeyDao.get(device.deviceId)
-                val shouldUpdateKey = existing == null ||
-                    (device.publicKeyUpdatedAt != null && device.publicKeyUpdatedAt > existing.keyUpdatedAt)
-                val nextKey = if (shouldUpdateKey) device.publicKey else existing.publicKey
-                val nextUpdatedAt = if (shouldUpdateKey) {
-                    device.publicKeyUpdatedAt ?: existing?.keyUpdatedAt ?: 0L
-                } else {
-                    existing.keyUpdatedAt
-                }
+        val cloudDeviceIds = cloudDevices.map { it.deviceId }.toSet()
+        val now = System.currentTimeMillis()
+
+        cloudDevices.forEach { device ->
+            val existing = trustedPeerKeyDao.get(device.deviceId)
+            if (existing == null) {
                 trustedPeerKeyDao.upsert(
                     TrustedPeerKeyEntity(
                         deviceId = device.deviceId,
                         name = device.name,
-                        publicKey = nextKey,
-                        keyUpdatedAt = nextUpdatedAt,
-                        trustedAt = if (shouldUpdateKey && existing != null) null else existing?.trustedAt,
+                        publicKey = device.publicKey,
+                        keyUpdatedAt = device.publicKeyUpdatedAt ?: now,
+                        trustedByLan = false,
+                        trustedByCloud = true,
                     ),
                 )
+                return@forEach
+            }
+
+            val keyDiffers = existing.publicKey != device.publicKey
+            val cloudTimestampNewer = device.publicKeyUpdatedAt != null &&
+                device.publicKeyUpdatedAt > existing.keyUpdatedAt
+            val acceptCloudKey = keyDiffers && cloudTimestampNewer
+            val nextUpdatedAt = when {
+                acceptCloudKey -> requireNotNull(device.publicKeyUpdatedAt)
+                !keyDiffers && device.publicKeyUpdatedAt != null &&
+                    device.publicKeyUpdatedAt > existing.keyUpdatedAt -> device.publicKeyUpdatedAt
+                else -> existing.keyUpdatedAt
+            }
+
+            trustedPeerKeyDao.upsert(
+                existing.copy(
+                    name = device.name,
+                    publicKey = if (acceptCloudKey) device.publicKey else existing.publicKey,
+                    keyUpdatedAt = nextUpdatedAt,
+                    trustedByLan = if (acceptCloudKey) false else existing.trustedByLan,
+                    trustedByCloud = !keyDiffers || acceptCloudKey,
+                ),
+            )
+        }
+
+        trustedPeerKeyDao.getAll()
+            .filter { it.deviceId != localDeviceId && it.deviceId !in cloudDeviceIds && it.trustedByCloud }
+            .forEach { record ->
+                trustedPeerKeyDao.upsert(record.copy(trustedByCloud = false))
             }
     }
+
+    private fun trustedSources(record: TrustedPeerKeyEntity?): List<String> =
+        buildList {
+            if (record?.trustedByCloud == true) {
+                add("cloud")
+            }
+            if (record?.trustedByLan == true) {
+                add("trusted_peer_key")
+            }
+        }
+
+    private suspend fun trustedPeerKeysById(): Map<String, TrustedPeerKeyEntity> =
+        trustedPeerKeyDao.getAll()
+            .filter { it.isTrusted }
+            .associateBy { it.deviceId }
 
     private suspend fun reconcileDevices(
         incoming: List<Device>,
@@ -396,6 +448,7 @@ class DeviceRepositoryImpl @Inject constructor(
         localIdentity: DeviceIdentity?,
         keepCloudState: Boolean = true,
     ): List<Device> {
+        val trustedById = trustedPeerKeysById()
         val previousById = previous.associateBy { it.deviceId }
         val incomingById = incoming.associateBy { it.deviceId }.toMutableMap()
         if (localIdentity != null && !incomingById.containsKey(localIdentity.deviceId)) {
@@ -407,6 +460,7 @@ class DeviceRepositoryImpl @Inject constructor(
                 return@map localDeviceInfo(localIdentity, device, keepCloudState)
             }
             val existing = previousById[device.deviceId]
+            val trust = trustedById[device.deviceId]
             val lanAvailable = existing?.lanAvailable == true || device.lanAvailable
             val cloudAvailable = device.cloudAvailable
             device.copy(
@@ -421,6 +475,7 @@ class DeviceRepositoryImpl @Inject constructor(
                     else -> null
                 },
                 securityState = when {
+                    trust?.isTrusted == true -> "verified"
                     lanAvailable -> "verified"
                     device.securityState != "unverified" -> device.securityState
                     else -> existing?.securityState ?: "unverified"
@@ -429,12 +484,12 @@ class DeviceRepositoryImpl @Inject constructor(
                     incoming = device.type,
                     previous = existing?.type,
                 ),
-                deviceSources = mergeSources(device.deviceSources),
+                deviceSources = mergeSources(device.deviceSources, *trustedSources(trust).toTypedArray()),
             )
         }.toMutableList()
 
         val knownIds = devices.map { it.deviceId }.toSet()
-        trustedPeerKeyDao.getAll()
+        trustedById.values
             .filter { it.deviceId != localIdentity?.deviceId && it.deviceId !in knownIds }
             .forEach { record ->
                 val existing = previousById[record.deviceId]
@@ -452,7 +507,7 @@ class DeviceRepositoryImpl @Inject constructor(
                     cloudAvailable = false,
                     lanAvailable = lanAvailable,
                     activeRoute = if (lanAvailable) "lan" else null,
-                    deviceSources = listOf("trusted_peer_key"),
+                    deviceSources = trustedSources(record),
                     securityState = "verified",
                 )
             }
@@ -469,7 +524,7 @@ class DeviceRepositoryImpl @Inject constructor(
     }
 
     private suspend fun trustedPeerDevice(deviceId: String): Device? {
-        val record = trustedPeerKeyDao.get(deviceId) ?: return null
+        val record = trustedPeerKeyDao.get(deviceId)?.takeIf { it.isTrusted } ?: return null
         return Device(
             deviceId = record.deviceId,
             name = record.name,
@@ -480,7 +535,7 @@ class DeviceRepositoryImpl @Inject constructor(
             publicKeyUpdatedAt = record.keyUpdatedAt,
             cloudAvailable = false,
             lanAvailable = false,
-            deviceSources = listOf("trusted_peer_key"),
+            deviceSources = trustedSources(record),
             securityState = "verified",
         )
     }

@@ -20,7 +20,7 @@ class LanTrustStoreTest {
 
     @Test
     fun matchingTrustedKeyIsTrusted() = runBlocking {
-        dao.upsert(record(deviceId = "device", publicKey = "key", trustedAt = 100))
+        dao.upsert(record(deviceId = "device", publicKey = "key", trustedByLan = true))
 
         assertEquals(LanTrustState.Trusted, store.trustState("device", "key"))
         assertTrue(store.isLanTrusted("device"))
@@ -28,42 +28,52 @@ class LanTrustStoreTest {
 
     @Test
     fun changedTrustedKeyIsKeyChanged() = runBlocking {
-        dao.upsert(record(deviceId = "device", publicKey = "old", trustedAt = 100))
+        dao.upsert(record(deviceId = "device", publicKey = "old", trustedByLan = true))
 
         assertEquals(LanTrustState.KeyChanged, store.trustState("device", "new"))
     }
 
     @Test
+    fun cloudTrustedKeyIsTrustedForLan() = runBlocking {
+        dao.upsert(record(deviceId = "device", publicKey = "key", trustedByCloud = true))
+
+        assertEquals(LanTrustState.Trusted, store.trustState("device", "key"))
+        assertTrue(store.isLanTrusted("device"))
+    }
+
+    @Test
     fun unpairedRecordIsUnknown() = runBlocking {
-        dao.upsert(record(deviceId = "device", publicKey = "key", trustedAt = null))
+        dao.upsert(record(deviceId = "device", publicKey = "key"))
 
         assertEquals(LanTrustState.Unknown, store.trustState("device", "key"))
         assertFalse(store.isLanTrusted("device"))
     }
 
     @Test
-    fun clearLanPairingKeepsRecordButRemovesTrust() = runBlocking {
-        dao.upsert(record(deviceId = "device", publicKey = "old", trustedAt = 100))
+    fun clearLanPairingKeepsKeyButRemovesLanTrust() = runBlocking {
+        dao.upsert(record(deviceId = "device", publicKey = "old", trustedByLan = true))
 
-        store.clearLanPairing("device", "Device", "new")
+        store.clearLanPairing("device")
 
         val record = dao.get("device")
-        assertEquals("new", record?.publicKey)
-        assertEquals(null, record?.trustedAt)
-        assertEquals(LanTrustState.Unknown, store.trustState("device", "new"))
+        assertEquals("old", record?.publicKey)
+        assertFalse(record?.trustedByLan == true)
+        assertEquals(LanTrustState.Unknown, store.trustState("device", "old"))
     }
 
     private fun record(
         deviceId: String,
         publicKey: String,
-        trustedAt: Long?,
+        trustedByLan: Boolean = false,
+        trustedByCloud: Boolean = false,
     ): TrustedPeerKeyEntity =
         TrustedPeerKeyEntity(
             deviceId = deviceId,
             name = "Device",
             publicKey = publicKey,
             keyUpdatedAt = 0,
-            trustedAt = trustedAt,
+            trustedByLan = trustedByLan,
+            trustedByCloud = trustedByCloud,
         )
 }
 
@@ -78,6 +88,18 @@ private class FakeTrustedPeerKeyDao : TrustedPeerKeyDao {
 
     override suspend fun upsert(record: TrustedPeerKeyEntity) {
         records[record.deviceId] = record
+    }
+
+    override suspend fun clearLanTrust(deviceId: String) {
+        records[deviceId]?.let { records[deviceId] = it.copy(trustedByLan = false) }
+    }
+
+    override suspend fun clearCloudTrust() {
+        records.replaceAll { _, record -> record.copy(trustedByCloud = false) }
+    }
+
+    override suspend fun deleteUntrusted() {
+        records.entries.removeIf { !it.value.trustedByLan && !it.value.trustedByCloud }
     }
 
     override suspend fun delete(deviceId: String) {

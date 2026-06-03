@@ -191,7 +191,7 @@ class LanWebSocketServer @Inject constructor(
                 "received inbound handshake device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name} trust=$trust",
             )
             if (trust == LanTrustState.KeyChanged) {
-                lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
+                lanTrustStore.clearLanPairing(proof.deviceId)
                 deviceRepository.clearLanEndpoint(proof.deviceId)
                 session.sendPeerMessage(
                     "handshake.v1.reject",

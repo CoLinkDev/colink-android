@@ -2,6 +2,7 @@ package com.colink.android.network.lan
 
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
 import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
+import com.colink.android.data.local.db.entity.isTrusted
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,7 +15,7 @@ class LanTrustStore @Inject constructor(
 
     suspend fun trustState(deviceId: String, publicKey: String): LanTrustState {
         val record = trustedPeerKeyDao.get(deviceId) ?: return LanTrustState.Unknown
-        if (record.trustedAt == null) {
+        if (!record.isTrusted) {
             return LanTrustState.Unknown
         }
         return if (record.publicKey == publicKey) {
@@ -25,7 +26,7 @@ class LanTrustStore @Inject constructor(
     }
 
     suspend fun isLanTrusted(deviceId: String): Boolean =
-        trustedPeerKeyDao.get(deviceId)?.trustedAt != null
+        trustedPeerKeyDao.get(deviceId)?.isTrusted == true
 
     suspend fun trust(
         deviceId: String,
@@ -33,32 +34,22 @@ class LanTrustStore @Inject constructor(
         publicKey: String,
     ) {
         val now = System.currentTimeMillis()
+        val existing = trustedPeerKeyDao.get(deviceId)
+        val keyChanged = existing != null && existing.publicKey != publicKey
         trustedPeerKeyDao.upsert(
             TrustedPeerKeyEntity(
                 deviceId = deviceId,
                 name = name,
                 publicKey = publicKey,
                 keyUpdatedAt = now,
-                trustedAt = now,
+                trustedByLan = true,
+                trustedByCloud = existing?.trustedByCloud == true && !keyChanged,
             ),
         )
     }
 
-    suspend fun clearLanPairing(
-        deviceId: String,
-        name: String,
-        publicKey: String,
-    ) {
-        trustedPeerKeyDao.upsert(
-            TrustedPeerKeyEntity(
-                deviceId = deviceId,
-                name = name,
-                publicKey = publicKey,
-                keyUpdatedAt = System.currentTimeMillis(),
-                trustedAt = null,
-            ),
-        )
-    }
+    suspend fun clearLanPairing(deviceId: String) =
+        trustedPeerKeyDao.clearLanTrust(deviceId)
 }
 
 enum class LanTrustState {

@@ -96,7 +96,7 @@ class AuthRepositoryImpl @Inject constructor(
                 }
             }
             settingsDataStore.clearSession()
-            deviceRepository.listLocalDevices().getOrThrow()
+            deviceRepository.clearCloudTrust().getOrThrow()
         }
 
     override suspend fun currentSession(): Result<Session> =
@@ -149,7 +149,7 @@ class AuthRepositoryImpl @Inject constructor(
 
     private suspend fun clearCloudSession() {
         settingsDataStore.clearSession()
-        deviceRepository.listLocalDevices().getOrThrow()
+        deviceRepository.clearCloudTrust().getOrThrow()
     }
 
     private fun isAuthError(error: Throwable): Boolean =

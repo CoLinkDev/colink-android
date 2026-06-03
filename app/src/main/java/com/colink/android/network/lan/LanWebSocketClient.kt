@@ -174,7 +174,7 @@ class LanWebSocketClient @Inject constructor(
                                 "received handshake exchange device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name} trust=$trust",
                             )
                             if (trust == LanTrustState.KeyChanged) {
-                                lanTrustStore.clearLanPairing(proof.deviceId, proof.name, proof.publicKey)
+                                lanTrustStore.clearLanPairing(proof.deviceId)
                                 sendPeerMessage(
                                     webSocket = webSocket,
                                     type = "handshake.v1.reject",
@@ -218,9 +218,7 @@ class LanWebSocketClient @Inject constructor(
                             if (rejection.reason == "key_changed") {
                                 val id = peerId ?: expectedDeviceId
                                 val name = id
-                                lanTrustStore.get(id)?.let {
-                                    lanTrustStore.clearLanPairing(id, it.name, it.publicKey)
-                                }
+                                lanTrustStore.clearLanPairing(id)
                                 listener.onKeyChanged(id, name)
                             }
                             failPairing(rejection.reason)

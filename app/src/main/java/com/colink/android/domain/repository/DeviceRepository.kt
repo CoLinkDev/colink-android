@@ -33,4 +33,6 @@ interface DeviceRepository {
     suspend fun rotateDeviceKey(deviceId: String): Result<Unit>
 
     suspend fun forgetLanTrust(deviceId: String): Result<Unit>
+
+    suspend fun clearCloudTrust(): Result<Unit>
 }
