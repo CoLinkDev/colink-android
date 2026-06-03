@@ -2,4 +2,157 @@
     <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink connection</string>
     <string name="service_notification_title">CoLink</string>
+    
+    <!-- Navigation -->
+    <string name="nav_devices">Devices</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_transfers">Transfers</string>
+    <string name="nav_settings">Settings</string>
+    
+    <!-- LAN Pairing -->
+    <string name="lan_pairing_title">LAN pairing</string>
+    <string name="lan_pairing_wants_to_pair">%1$s wants to pair with this device.\nCode: %2$s</string>
+    <string name="lan_pairing_waiting">Waiting for the other device...</string>
+    <string name="lan_pairing_accept">Accept</string>
+    <string name="lan_pairing_reject">Reject</string>
+    <string name="lan_pairing_close">Close</string>
+    <string name="lan_pairing_waiting_btn">Waiting</string>
+    
+    <!-- Cloud Status -->
+    <string name="cloud_status_connected">Connected</string>
+    <string name="cloud_status_disconnected">Disconnected</string>
+    <string name="cloud_status_connecting">Connecting</string>
+    <string name="account_desc">Cloud account</string>
+    
+    <!-- Devices List -->
+    <string name="devices_subtitle">%1$d available · %2$d total</string>
+    <string name="refresh_devices">Refresh devices</string>
+    <string name="no_devices_title">No devices yet</string>
+    <string name="no_devices_body">Sign in on another device, then refresh this list.</string>
+    <string name="lan_pairing_tag">LAN pairing</string>
+    <string name="pair_btn">Pair</string>
+    <string name="device_tag_lan">LAN</string>
+    <string name="device_tag_cloud">Cloud</string>
+    <string name="device_tag_offline">Offline</string>
+    <string name="device_tag_trusted">Trusted</string>
+    <string name="unnamed_device">Unnamed device</string>
+    <string name="unknown_type">Unknown type</string>
+    
+    <!-- Device Details -->
+    <string name="device_details_title">Device details</string>
+    <string name="back_desc">Back</string>
+    <string name="device_not_found">Device not found</string>
+    <string name="refresh_body">Refresh the device list and try again.</string>
+    <string name="refresh_btn">Refresh</string>
+    <string name="delete_device_title">Delete device</string>
+    <string name="delete_device_body">Remove %1$s from your account?</string>
+    <string name="delete_btn">Delete</string>
+    <string name="rotate_key_title">Rotate key</string>
+    <string name="rotate_key_body">Create a new trusted key for %1$s?</string>
+    <string name="rotate_btn">Rotate</string>
+    <string name="forget_lan_trust_title">Forget LAN trust</string>
+    <string name="forget_lan_trust_body">Forget LAN trust for %1$s?</string>
+    <string name="forget_btn">Forget</string>
+    <string name="cancel_btn">Cancel</string>
+    <string name="info_title">Information</string>
+    <string name="actions_title">Actions</string>
+    <string name="label_name">Name</string>
+    <string name="label_device_id">Device ID</string>
+    <string name="label_platform">Platform</string>
+    <string name="label_fetch_source">Fetch source</string>
+    <string name="label_local_reachable">Local reachable</string>
+    <string name="label_cloud_available">Cloud available</string>
+    <string name="label_lan_available">LAN available</string>
+    <string name="label_lan_endpoint">LAN endpoint</string>
+    <string name="label_active_route">Active route</string>
+    <string name="label_security_state">Security state</string>
+    <string name="label_last_seen">Last seen</string>
+    <string name="label_public_key_fingerprint">Public key fingerprint</string>
+    <string name="label_public_key">Public key</string>
+    <string name="value_yes">Yes</string>
+    <string name="value_no">No</string>
+    <string name="value_none">None</string>
+    <string name="source_local_identity">Local identity</string>
+    <string name="source_server_device_list">Server device list</string>
+    <string name="source_trusted_peer_key">Trusted peer key</string>
+    <string name="security_verified">Verified</string>
+    <string name="security_unverified">Unverified</string>
+    <string name="security_trusted">Trusted</string>
+    <string name="security_unknown">Unknown</string>
+    <string name="security_key_changed">Key changed</string>
+    <string name="route_lan">LAN</string>
+    <string name="route_cloud">Cloud</string>
+    <string name="never_connected">Never connected</string>
+    
+    <!-- Messages -->
+    <string name="messages_choose_device">Choose an available device</string>
+    <string name="no_messages_title">No messages</string>
+    <string name="no_messages_body">Pick a device and send the first message.</string>
+    <string name="message_placeholder">Message</string>
+    <string name="send_message_desc">Send message</string>
+    <string name="message_via">via %1$s</string>
+    
+    <!-- Transfers -->
+    <string name="transfers_subtitle">Tap + to select a file and send</string>
+    <string name="send_file_desc">Send file</string>
+    <string name="no_transfers_title">No transfers</string>
+    <string name="no_transfers_body">Tap the + button to select a file to send.</string>
+    <string name="send_file_btn">Send file</string>
+    <string name="accept_file_title">Accept file</string>
+    <string name="accept_file_body">Receive %1$s?</string>
+    <string name="accept_btn">Accept</string>
+    <string name="reject_file_title">Reject file</string>
+    <string name="reject_file_body">Reject %1$s?</string>
+    <string name="reject_btn">Reject</string>
+    <string name="unnamed_file">Unnamed file</string>
+    <string name="transfer_details">%1$s · %2$s · %3$s</string>
+    <string name="direction_incoming">Incoming</string>
+    <string name="direction_outgoing">Outgoing</string>
+    <string name="select_destination_title">Select destination</string>
+    <string name="no_devices_available">No devices available.</string>
+    <string name="lan_available_tag">LAN Available</string>
+    <string name="cloud_available_tag">Cloud Available</string>
+    <string name="offline_tag">Offline</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">Connection, device name, startup and notifications</string>
+    <string name="server_url_label">Server URL</string>
+    <string name="device_name_label">Device name</string>
+    <string name="lan_discovery_label">LAN discovery</string>
+    <string name="lan_discovery_body">Find nearby CoLink devices on the same network.</string>
+    <string name="notifications_label">Notifications</string>
+    <string name="notifications_body">Show incoming messages and transfer offers.</string>
+    <string name="auto_start_label">Auto-start on boot</string>
+    <string name="auto_start_body">Start CoLink after this device restarts.</string>
+    <string name="language_label">Language</string>
+    <string name="language_body">Select UI display language</string>
+    <string name="save_btn">Save</string>
+    
+    <!-- Authentication -->
+    <string name="auth_title">CoLink</string>
+    <string name="auth_subtitle">Connect this device to your account</string>
+    <string name="cloud_account_title">Cloud account</string>
+    <string name="cloud_account_connected">Connected</string>
+    <string name="cloud_account_login_tip">Login to sync devices</string>
+    <string name="cloud_account_connected_body">This device is connected to your Cloud account.</string>
+    <string name="logout_btn">Logout</string>
+    <string name="email_or_username_label">Email or username</string>
+    <string name="password_label">Password</string>
+    <string name="show_password_desc">Show password</string>
+    <string name="hide_password_desc">Hide password</string>
+    <string name="err_server_url_required">Server URL is required</string>
+    <string name="err_email_or_username_required">Email or username is required</string>
+    <string name="err_password_required">Password is required</string>
+    <string name="login_btn">Login</string>
+    <string name="working_status">Working...</string>
+    <string name="lang_system">System</string>
+    <string name="send_btn">Send</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_receiving">Receiving</string>
+    <string name="status_sending">Sending</string>
+    <string name="status_offered">Offered</string>
+    <string name="status_failed">Failed</string>
+    <string name="status_rejected">Rejected</string>
+    <string name="status_cancelled">Cancelled</string>
 </resources>

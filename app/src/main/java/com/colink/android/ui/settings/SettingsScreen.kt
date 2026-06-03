@@ -1,6 +1,7 @@
 package com.colink.android.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,11 +12,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -27,16 +31,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.R
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
@@ -54,6 +61,7 @@ fun SettingsScreen(
     var autoStart by rememberSaveable { mutableStateOf(false) }
     var lanDiscovery by rememberSaveable { mutableStateOf(true) }
     var notifications by rememberSaveable { mutableStateOf(true) }
+    var language by rememberSaveable { mutableStateOf("system") }
 
     LaunchedEffect(settings) {
         serverUrl = settings.serverUrl
@@ -61,6 +69,7 @@ fun SettingsScreen(
         autoStart = settings.autoStartOnBoot
         lanDiscovery = settings.lanDiscovery
         notifications = settings.notifications
+        language = settings.language
     }
 
     SnackbarOnMessage(
@@ -70,8 +79,8 @@ fun SettingsScreen(
     )
 
     ScreenColumn(
-        title = "Settings",
-        subtitle = "Connection, device name, startup and notifications",
+        title = stringResource(R.string.settings_title),
+        subtitle = stringResource(R.string.settings_subtitle),
         modifier = modifier,
     ) {
         Column(
@@ -84,7 +93,7 @@ fun SettingsScreen(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Server URL") },
+                label = { Text(stringResource(R.string.server_url_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 singleLine = true,
             )
@@ -92,28 +101,81 @@ fun SettingsScreen(
                 value = deviceName,
                 onValueChange = { deviceName = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Device name") },
+                label = { Text(stringResource(R.string.device_name_label)) },
                 singleLine = true,
             )
 
+            // Language Dropdown
+            var expanded by remember { mutableStateOf(false) }
+            val languages = listOf(
+                "system" to stringResource(R.string.lang_system),
+                "en" to "English",
+                "zh-CN" to "简体中文",
+                "zh-TW" to "繁體中文",
+                "ja" to "日本語",
+                "ko" to "한국어",
+                "es" to "Español",
+                "de" to "Deutsch",
+                "ru" to "Русский"
+            )
+            val currentLanguageLabel = languages.find { it.first == language }?.second ?: ""
+
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = currentLanguageLabel,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(stringResource(R.string.language_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            modifier = Modifier.clickable { expanded = !expanded }
+                        )
+                    }
+                )
+                // Transparent overlay to detect clicks on the text field
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable { expanded = !expanded }
+                )
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.fillMaxWidth(0.9f)
+                ) {
+                    languages.forEach { (code, name) ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            onClick = {
+                                language = code
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
             SettingSwitchRow(
                 icon = Icons.Default.Lan,
-                label = "LAN discovery",
-                body = "Find nearby CoLink devices on the same network.",
+                label = stringResource(R.string.lan_discovery_label),
+                body = stringResource(R.string.lan_discovery_body),
                 checked = lanDiscovery,
                 onCheckedChange = { lanDiscovery = it },
             )
             SettingSwitchRow(
                 icon = Icons.Default.Notifications,
-                label = "Notifications",
-                body = "Show incoming messages and transfer offers.",
+                label = stringResource(R.string.notifications_label),
+                body = stringResource(R.string.notifications_body),
                 checked = notifications,
                 onCheckedChange = { notifications = it },
             )
             SettingSwitchRow(
                 icon = Icons.Default.PowerSettingsNew,
-                label = "Auto-start on boot",
-                body = "Start CoLink after this device restarts.",
+                label = stringResource(R.string.auto_start_label),
+                body = stringResource(R.string.auto_start_body),
                 checked = autoStart,
                 onCheckedChange = { autoStart = it },
             )
@@ -131,6 +193,7 @@ fun SettingsScreen(
                             autoStartOnBoot = autoStart,
                             lanDiscovery = lanDiscovery,
                             notifications = notifications,
+                            language = language,
                         ),
                     )
                 },
@@ -138,7 +201,10 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Icon(Icons.Default.Save, contentDescription = null)
-                Text("Save")
+                Text(
+                    text = stringResource(R.string.save_btn),
+                    modifier = Modifier.padding(start = 8.dp)
+                )
             }
         }
     }

@@ -1,0 +1,158 @@
+<resources>
+    <string name="app_name">CoLink</string>
+    <string name="service_channel_name">CoLink-Verbindung</string>
+    <string name="service_notification_title">CoLink</string>
+    
+    <!-- Navigation -->
+    <string name="nav_devices">Geräte</string>
+    <string name="nav_messages">Nachrichten</string>
+    <string name="nav_transfers">Übertragungen</string>
+    <string name="nav_settings">Einstellungen</string>
+    
+    <!-- LAN Pairing -->
+    <string name="lan_pairing_title">LAN-Kopplung</string>
+    <string name="lan_pairing_wants_to_pair">%1$s möchte mit diesem Gerät gekoppelt werden.\nCode: %2$s</string>
+    <string name="lan_pairing_waiting">Warten auf das andere Gerät...</string>
+    <string name="lan_pairing_accept">Akzeptieren</string>
+    <string name="lan_pairing_reject">Ablehnen</string>
+    <string name="lan_pairing_close">Schließen</string>
+    <string name="lan_pairing_waiting_btn">Warten</string>
+    
+    <!-- Cloud Status -->
+    <string name="cloud_status_connected">Verbunden</string>
+    <string name="cloud_status_disconnected">Nicht verbunden</string>
+    <string name="cloud_status_connecting">Verbinden</string>
+    <string name="account_desc">Cloud-Konto</string>
+    
+    <!-- Devices List -->
+    <string name="devices_subtitle">%1$d verfügbar · %2$d insgesamt</string>
+    <string name="refresh_devices">Geräte aktualisieren</string>
+    <string name="no_devices_title">Noch keine Geräte</string>
+    <string name="no_devices_body">Melden Sie sich auf einem anderen Gerät an und aktualisieren Sie dann diese Liste.</string>
+    <string name="lan_pairing_tag">LAN-Kopplung</string>
+    <string name="pair_btn">Koppeln</string>
+    <string name="device_tag_lan">LAN</string>
+    <string name="device_tag_cloud">Cloud</string>
+    <string name="device_tag_offline">Offline</string>
+    <string name="device_tag_trusted">Vertrauenswürdig</string>
+    <string name="unnamed_device">Unbenanntes Gerät</string>
+    <string name="unknown_type">Unbekannt</string>
+    
+    <!-- Device Details -->
+    <string name="device_details_title">Gerätedetails</string>
+    <string name="back_desc">Zurück</string>
+    <string name="device_not_found">Gerät nicht gefunden</string>
+    <string name="refresh_body">Geräteliste aktualisieren und erneut versuchen.</string>
+    <string name="refresh_btn">Aktualisieren</string>
+    <string name="delete_device_title">Gerät löschen</string>
+    <string name="delete_device_body">%1$s von Ihrem Konto entfernen?</string>
+    <string name="delete_btn">Löschen</string>
+    <string name="rotate_key_title">Schlüssel rotieren</string>
+    <string name="rotate_key_body">Einen neuen vertrauenswürdigen Schlüssel für %1$s erstellen?</string>
+    <string name="rotate_btn">Rotieren</string>
+    <string name="forget_lan_trust_title">Vertrauen entfernen</string>
+    <string name="forget_lan_trust_body">LAN-Vertrauen für %1$s entfernen?</string>
+    <string name="forget_btn">Entfernen</string>
+    <string name="cancel_btn">Abbrechen</string>
+    <string name="info_title">Informationen</string>
+    <string name="actions_title">Aktionen</string>
+    <string name="label_name">Name</string>
+    <string name="label_device_id">Geräte-ID</string>
+    <string name="label_platform">Plattform</string>
+    <string name="label_fetch_source">Quelle</string>
+    <string name="label_local_reachable">Lokal erreichbar</string>
+    <string name="label_cloud_available">Cloud verfügbar</string>
+    <string name="label_lan_available">LAN verfügbar</string>
+    <string name="label_lan_endpoint">LAN-Endpunkt</string>
+    <string name="label_active_route">Aktive Route</string>
+    <string name="label_security_state">Vertrauensstatus</string>
+    <string name="label_last_seen">Zuletzt gesehen</string>
+    <string name="label_public_key_fingerprint">Public-Key-Fingerabdruck</string>
+    <string name="label_public_key">Public Key</string>
+    <string name="value_yes">Ja</string>
+    <string name="value_no">Nein</string>
+    <string name="value_none">Keine</string>
+    <string name="source_local_identity">Lokale Identität</string>
+    <string name="source_server_device_list">Server-Geräteliste</string>
+    <string name="source_trusted_peer_key">Vertrauenswürdiger Geräteschlüssel</string>
+    <string name="security_verified">Vertrauenswürdiger Schlüssel</string>
+    <string name="security_unverified">Nicht vertrauenswürdig</string>
+    <string name="security_trusted">Vertrauenswürdig</string>
+    <string name="security_unknown">Unbekannt</string>
+    <string name="security_key_changed">Schlüssel geändert</string>
+    <string name="route_lan">LAN</string>
+    <string name="route_cloud">Cloud-Relais</string>
+    <string name="never_connected">Nie verbunden</string>
+    
+    <!-- Messages -->
+    <string name="messages_choose_device">Wählen Sie ein verfügbares Gerät</string>
+    <string name="no_messages_title">Keine Nachrichten</string>
+    <string name="no_messages_body">Wählen Sie ein Gerät aus und senden Sie die erste Nachricht.</string>
+    <string name="message_placeholder">Nachricht</string>
+    <string name="send_message_desc">Nachricht senden</string>
+    <string name="message_via">über %1$s</string>
+    
+    <!-- Transfers -->
+    <string name="transfers_subtitle">Tippen Sie auf +, um eine Datei auszuwählen und zu senden</string>
+    <string name="send_file_desc">Datei senden</string>
+    <string name="no_transfers_title">Keine Übertragungen</string>
+    <string name="no_transfers_body">Tippen Sie auf +, um eine Datei zum Senden auszuwählen.</string>
+    <string name="send_file_btn">Datei senden</string>
+    <string name="accept_file_title">Datei akzeptieren</string>
+    <string name="accept_file_body">%1$s empfangen?</string>
+    <string name="accept_btn">Akzeptieren</string>
+    <string name="reject_file_title">Datei ablehnen</string>
+    <string name="reject_file_body">%1$s ablehnen?</string>
+    <string name="reject_btn">Ablehnen</string>
+    <string name="unnamed_file">Unbenannte Datei</string>
+    <string name="transfer_details">%1$s · %2$s · %3$s</string>
+    <string name="direction_incoming">Empfangen</string>
+    <string name="direction_outgoing">Senden</string>
+    <string name="select_destination_title">Ziel auswählen</string>
+    <string name="no_devices_available">Keine Geräte verfügbar.</string>
+    <string name="lan_available_tag">LAN verfügbar</string>
+    <string name="cloud_available_tag">Cloud verfügbar</string>
+    <string name="offline_tag">Offline</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_subtitle">Verbindung, Gerätename, Autostart und Benachrichtigungen</string>
+    <string name="server_url_label">Server-URL</string>
+    <string name="device_name_label">Gerätename</string>
+    <string name="lan_discovery_label">Lokale Netzwerk-Erkennung</string>
+    <string name="lan_discovery_body">Nahegelegene CoLink-Geräte im selben Netzwerk suchen.</string>
+    <string name="notifications_label">Benachrichtigungen</string>
+    <string name="notifications_body">Eingehende Nachrichten und Übertragungsangebote anzeigen.</string>
+    <string name="auto_start_label">Beim Systemstart ausführen</string>
+    <string name="auto_start_body">Startet CoLink nach dem Neustart des Geräts.</string>
+    <string name="language_label">Sprache</string>
+    <string name="language_body">Anzeigesprache auswählen</string>
+    <string name="save_btn">Speichern</string>
+    
+    <!-- Authentication -->
+    <string name="auth_title">CoLink</string>
+    <string name="auth_subtitle">Verbinden Sie Ihr Konto, um Geräte zu synchronisieren</string>
+    <string name="cloud_account_title">Cloud-Konto</string>
+    <string name="cloud_account_connected">Verbunden</string>
+    <string name="cloud_account_login_tip">Anmelden, um Geräte zu synchronisieren</string>
+    <string name="cloud_account_connected_body">Dieses Gerät ist mit Ihrem Cloud-Konto verbunden.</string>
+    <string name="logout_btn">Abmelden</string>
+    <string name="email_or_username_label">E-Mail oder Benutzername</string>
+    <string name="password_label">Passwort</string>
+    <string name="show_password_desc">Passwort anzeigen</string>
+    <string name="hide_password_desc">Passwort ausblenden</string>
+    <string name="err_server_url_required">Server-URL ist erforderlich</string>
+    <string name="err_email_or_username_required">E-Mail oder Benutzername ist erforderlich</string>
+    <string name="err_password_required">Passwort ist erforderlich</string>
+    <string name="login_btn">Anmelden</string>
+    <string name="working_status">Verbinden...</string>
+    <string name="lang_system">Systemstandard</string>
+    <string name="send_btn">Senden</string>
+    <string name="status_completed">Abgeschlossen</string>
+    <string name="status_receiving">Empfangen</string>
+    <string name="status_sending">Senden</string>
+    <string name="status_offered">Angeboten</string>
+    <string name="status_failed">Fehlgeschlagen</string>
+    <string name="status_rejected">Abgelehnt</string>
+    <string name="status_cancelled">Abgebrochen</string>
+</resources>

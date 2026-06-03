@@ -33,10 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,8 +90,8 @@ fun CloudAccountScreen(
     onAuthenticated: () -> Unit = {},
 ) {
     ScreenColumn(
-        title = "Cloud account",
-        subtitle = if (authenticated) "Connected" else "Login to sync devices",
+        title = stringResource(R.string.cloud_account_title),
+        subtitle = if (authenticated) stringResource(R.string.cloud_account_connected) else stringResource(R.string.cloud_account_login_tip),
         modifier = modifier,
     ) {
         if (authenticated) {
@@ -99,7 +100,7 @@ fun CloudAccountScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
-                    text = "This device is connected to your Cloud account.",
+                    text = stringResource(R.string.cloud_account_connected_body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -107,7 +108,7 @@ fun CloudAccountScreen(
                     onClick = onLogout,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Logout")
+                    Text(stringResource(R.string.logout_btn))
                 }
             }
         } else {
@@ -133,7 +134,7 @@ private fun AuthContent(
     var identifier by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
-    var localError by rememberSaveable { mutableStateOf<String?>(null) }
+    var localErrorResId by rememberSaveable { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(settings.serverUrl) {
         if (serverUrl.isBlank()) {
@@ -168,7 +169,7 @@ private fun AuthContent(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Connect this device to your account",
+                    text = stringResource(R.string.auth_subtitle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -183,7 +184,7 @@ private fun AuthContent(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Server URL") },
+                label = { Text(stringResource(R.string.server_url_label)) },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Next
@@ -195,7 +196,7 @@ private fun AuthContent(
                 value = identifier,
                 onValueChange = { identifier = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Email or username") },
+                label = { Text(stringResource(R.string.email_or_username_label)) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 singleLine = true,
             )
@@ -204,7 +205,7 @@ private fun AuthContent(
                 value = password,
                 onValueChange = { password = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Password") },
+                label = { Text(stringResource(R.string.password_label)) },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -214,14 +215,19 @@ private fun AuthContent(
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                            contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc),
                         )
                     }
                 },
                 singleLine = true,
             )
 
-            StateMessage(localError ?: uiState.error)
+            val errorMsg = when {
+                localErrorResId != null -> stringResource(localErrorResId!!)
+                uiState.error != null -> uiState.error
+                else -> null
+            }
+            StateMessage(errorMsg)
 
             if (uiState.loading) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -229,12 +235,12 @@ private fun AuthContent(
 
             Button(
                 onClick = {
-                    localError = validate(
+                    localErrorResId = validate(
                         serverUrl = serverUrl,
                         identifier = identifier,
                         password = password,
                     )
-                    if (localError != null) {
+                    if (localErrorResId != null) {
                         return@Button
                     }
                     val normalizedServerUrl = serverUrl.trim()
@@ -243,7 +249,7 @@ private fun AuthContent(
                 enabled = !uiState.loading,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (uiState.loading) "Working..." else "Login")
+                Text(if (uiState.loading) stringResource(R.string.working_status) else stringResource(R.string.login_btn))
             }
         }
     }
@@ -253,15 +259,15 @@ private fun validate(
     serverUrl: String,
     identifier: String,
     password: String,
-): String? {
+): Int? {
     if (serverUrl.isBlank()) {
-        return "Server URL is required"
+        return R.string.err_server_url_required
     }
     if (identifier.isBlank()) {
-        return "Email or username is required"
+        return R.string.err_email_or_username_required
     }
     if (password.isBlank()) {
-        return "Password is required"
+        return R.string.err_password_required
     }
     return null
 }

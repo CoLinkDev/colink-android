@@ -6,4 +6,6 @@ data class AppSettings(
     val lanDiscovery: Boolean = true,
     val notifications: Boolean = true,
     val deviceName: String = "",
+    val language: String = "system",
 )
+

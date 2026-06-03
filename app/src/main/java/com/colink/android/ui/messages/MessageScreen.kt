@@ -11,13 +11,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.Surface
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,11 +28,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.TextMessage
@@ -87,8 +87,8 @@ fun MessageScreen(
     )
 
     ScreenColumn(
-        title = "Messages",
-        subtitle = selectedDeviceName(targetDevices, selectedDeviceId) ?: "Choose an available device",
+        title = stringResource(R.string.nav_messages),
+        subtitle = selectedDeviceName(targetDevices, selectedDeviceId) ?: stringResource(R.string.messages_choose_device),
         modifier = modifier,
     ) {
         DevicePicker(
@@ -110,8 +110,8 @@ fun MessageScreen(
                 item {
                     EmptyState(
                         icon = Icons.AutoMirrored.Filled.Chat,
-                        title = "No messages",
-                        body = "Pick a device and send the first message.",
+                        title = stringResource(R.string.no_messages_title),
+                        body = stringResource(R.string.no_messages_body),
                     )
                 }
             } else {
@@ -130,7 +130,7 @@ fun MessageScreen(
                 value = draft,
                 onValueChange = { draft = it },
                 modifier = Modifier.weight(1f),
-                label = { Text("Message") },
+                label = { Text(stringResource(R.string.message_placeholder)) },
                 minLines = 1,
                 maxLines = 4,
                 supportingText = {
@@ -147,7 +147,10 @@ fun MessageScreen(
                     }
                 },
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.send_message_desc)
+                )
             }
         }
     }
@@ -166,8 +169,13 @@ private fun MessageCard(message: TextMessage, modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val routeName = when (message.route) {
+                "lan" -> stringResource(R.string.route_lan)
+                "cloud" -> stringResource(R.string.route_cloud)
+                else -> message.route
+            }
             Text(
-                text = "via ${message.route}",
+                text = stringResource(R.string.message_via, routeName),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

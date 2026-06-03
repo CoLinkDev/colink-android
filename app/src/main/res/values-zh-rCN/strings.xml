@@ -1,0 +1,158 @@
+<resources>
+    <string name="app_name">CoLink</string>
+    <string name="service_channel_name">CoLink 连接</string>
+    <string name="service_notification_title">CoLink</string>
+    
+    <!-- Navigation -->
+    <string name="nav_devices">设备</string>
+    <string name="nav_messages">消息</string>
+    <string name="nav_transfers">文件传输</string>
+    <string name="nav_settings">设置</string>
+    
+    <!-- LAN Pairing -->
+    <string name="lan_pairing_title">局域网配对</string>
+    <string name="lan_pairing_wants_to_pair">%1$s 想要与此设备配对。\n配对码：%2$s</string>
+    <string name="lan_pairing_waiting">等待另一台设备确认...</string>
+    <string name="lan_pairing_accept">接受</string>
+    <string name="lan_pairing_reject">拒绝</string>
+    <string name="lan_pairing_close">关闭</string>
+    <string name="lan_pairing_waiting_btn">等待中</string>
+    
+    <!-- Cloud Status -->
+    <string name="cloud_status_connected">已连接</string>
+    <string name="cloud_status_disconnected">未连接</string>
+    <string name="cloud_status_connecting">连接中</string>
+    <string name="account_desc">云端账户</string>
+    
+    <!-- Devices List -->
+    <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
+    <string name="refresh_devices">刷新设备</string>
+    <string name="no_devices_title">还没有设备记录</string>
+    <string name="no_devices_body">在另一台设备上登录，然后刷新此列表。</string>
+    <string name="lan_pairing_tag">局域网配对</string>
+    <string name="pair_btn">配对</string>
+    <string name="device_tag_lan">局域网</string>
+    <string name="device_tag_cloud">云端</string>
+    <string name="device_tag_offline">离线</string>
+    <string name="device_tag_trusted">已信任</string>
+    <string name="unnamed_device">未命名设备</string>
+    <string name="unknown_type">未知</string>
+    
+    <!-- Device Details -->
+    <string name="device_details_title">设备详细信息</string>
+    <string name="back_desc">返回</string>
+    <string name="device_not_found">未找到设备</string>
+    <string name="refresh_body">刷新设备列表并重试。</string>
+    <string name="refresh_btn">刷新</string>
+    <string name="delete_device_title">删除设备</string>
+    <string name="delete_device_body">确定从您的账户中删除 %1$s 吗？</string>
+    <string name="delete_btn">删除</string>
+    <string name="rotate_key_title">轮换密钥</string>
+    <string name="rotate_key_body">确定为 %1$s 创建新的可信密钥吗？</string>
+    <string name="rotate_btn">轮换</string>
+    <string name="forget_lan_trust_title">忘记 LAN 信任</string>
+    <string name="forget_lan_trust_body">确定忘记对 %1$s 的 LAN 信任记录吗？</string>
+    <string name="forget_btn">忘记</string>
+    <string name="cancel_btn">取消</string>
+    <string name="info_title">详细信息</string>
+    <string name="actions_title">操作</string>
+    <string name="label_name">名称</string>
+    <string name="label_device_id">设备 ID</string>
+    <string name="label_platform">平台</string>
+    <string name="label_fetch_source">获取来源</string>
+    <string name="label_local_reachable">本机可达</string>
+    <string name="label_cloud_available">云端可用</string>
+    <string name="label_lan_available">局域网可用</string>
+    <string name="label_lan_endpoint">局域网端点</string>
+    <string name="label_active_route">当前路由</string>
+    <string name="label_security_state">信任状态</string>
+    <string name="label_last_seen">上次在线</string>
+    <string name="label_public_key_fingerprint">公钥指纹</string>
+    <string name="label_public_key">公钥</string>
+    <string name="value_yes">是</string>
+    <string name="value_no">否</string>
+    <string name="value_none">无</string>
+    <string name="source_local_identity">本机身份</string>
+    <string name="source_server_device_list">服务端设备列表</string>
+    <string name="source_trusted_peer_key">可信设备密钥</string>
+    <string name="security_verified">密钥可信</string>
+    <string name="security_unverified">未信任</string>
+    <string name="security_trusted">已信任</string>
+    <string name="security_unknown">未知</string>
+    <string name="security_key_changed">密钥变更</string>
+    <string name="route_lan">局域网</string>
+    <string name="route_cloud">云端</string>
+    <string name="never_connected">从未连接</string>
+    
+    <!-- Messages -->
+    <string name="messages_choose_device">选择一个可用设备</string>
+    <string name="no_messages_title">暂无消息</string>
+    <string name="no_messages_body">选择一个设备并发送第一条消息。</string>
+    <string name="message_placeholder">消息</string>
+    <string name="send_message_desc">发送消息</string>
+    <string name="message_via">通过 %1$s</string>
+    
+    <!-- Transfers -->
+    <string name="transfers_subtitle">点击 + 选择文件并发送</string>
+    <string name="send_file_desc">发送文件</string>
+    <string name="no_transfers_title">暂无传输</string>
+    <string name="no_transfers_body">点击 + 按钮选择要发送的文件。</string>
+    <string name="send_file_btn">发送文件</string>
+    <string name="accept_file_title">接收文件</string>
+    <string name="accept_file_body">确定接收 %1$s 吗？</string>
+    <string name="accept_btn">接受</string>
+    <string name="reject_file_title">拒绝文件</string>
+    <string name="reject_file_body">确定拒绝 %1$s 吗？</string>
+    <string name="reject_btn">拒绝</string>
+    <string name="unnamed_file">未命名文件</string>
+    <string name="transfer_details">%1$s · %2$s · %3$s</string>
+    <string name="direction_incoming">接收</string>
+    <string name="direction_outgoing">发送</string>
+    <string name="select_destination_title">选择传输目标</string>
+    <string name="no_devices_available">无可用设备。</string>
+    <string name="lan_available_tag">局域网可用</string>
+    <string name="cloud_available_tag">云端可用</string>
+    <string name="offline_tag">离线</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">设置</string>
+    <string name="settings_subtitle">连接、设备名称、启动和通知</string>
+    <string name="server_url_label">服务器地址</string>
+    <string name="device_name_label">设备名称</string>
+    <string name="lan_discovery_label">局域网发现</string>
+    <string name="lan_discovery_body">在同一网络上发现附近的 CoLink 设备。</string>
+    <string name="notifications_label">通知</string>
+    <string name="notifications_body">显示接收到的消息和文件传输请求。</string>
+    <string name="auto_start_label">开机启动</string>
+    <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
+    <string name="language_label">语言</string>
+    <string name="language_body">选择界面显示语言</string>
+    <string name="save_btn">保存</string>
+    
+    <!-- Authentication -->
+    <string name="auth_title">CoLink</string>
+    <string name="auth_subtitle">连接此设备到您的账户</string>
+    <string name="cloud_account_title">云端账户</string>
+    <string name="cloud_account_connected">已连接</string>
+    <string name="cloud_account_login_tip">登录以同步设备</string>
+    <string name="cloud_account_connected_body">此设备已连接到您的云端账户。</string>
+    <string name="logout_btn">退出</string>
+    <string name="email_or_username_label">邮箱或用户名</string>
+    <string name="password_label">密码</string>
+    <string name="show_password_desc">显示密码</string>
+    <string name="hide_password_desc">隐藏密码</string>
+    <string name="err_server_url_required">请输入服务器地址</string>
+    <string name="err_email_or_username_required">请输入邮箱或用户名</string>
+    <string name="err_password_required">请输入密码</string>
+    <string name="login_btn">登录</string>
+    <string name="working_status">连接中…</string>
+    <string name="lang_system">系统默认</string>
+    <string name="send_btn">发送</string>
+    <string name="status_completed">已完成</string>
+    <string name="status_receiving">接收中</string>
+    <string name="status_sending">发送中</string>
+    <string name="status_offered">已提供</string>
+    <string name="status_failed">失败</string>
+    <string name="status_rejected">已拒绝</string>
+    <string name="status_cancelled">已取消</string>
+</resources>

@@ -2,6 +2,7 @@ package com.colink.android.ui.devices
 
 import android.util.Base64
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -24,12 +25,17 @@ import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,24 +43,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.R
 import com.colink.android.domain.model.Device
-import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.SnackbarOnMessage
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.foundation.layout.Box
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +85,7 @@ fun DeviceDetailsScreen(
                 title = {
                     Column {
                         Text(
-                            text = device?.name?.takeIf { it.isNotBlank() } ?: "Device details",
+                            text = device?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.device_details_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -105,7 +106,7 @@ fun DeviceDetailsScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back_desc)
                         )
                     }
                 },
@@ -124,13 +125,13 @@ fun DeviceDetailsScreen(
             ) {
                 EmptyState(
                     icon = Icons.Default.Devices,
-                    title = "Device not found",
-                    body = "Refresh the device list and try again.",
+                    title = stringResource(R.string.device_not_found),
+                    body = stringResource(R.string.refresh_body),
                     action = {
                         TextButton(onClick = viewModel::refresh) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Refresh")
+                            Text(stringResource(R.string.refresh_btn))
                         }
                     },
                 )
@@ -170,45 +171,53 @@ fun DeviceDetailsScreen(
     }
 
     when (val action = confirmAction) {
-        is DeviceAction.Delete -> ConfirmDeviceActionDialog(
-            title = "Delete device",
-            body = "Remove ${action.deviceName.ifBlank { "this device" }} from your account?",
-            confirmText = "Delete",
-            onDismiss = { confirmAction = null },
-            onConfirm = {
-                viewModel.deleteDevice(action.deviceId)
-                confirmAction = null
-                onBack()
-            },
-        )
+        is DeviceAction.Delete -> {
+            val devName = action.deviceName.ifBlank { stringResource(R.string.unnamed_device) }
+            ConfirmDeviceActionDialog(
+                title = stringResource(R.string.delete_device_title),
+                body = stringResource(R.string.delete_device_body, devName),
+                confirmText = stringResource(R.string.delete_btn),
+                onDismiss = { confirmAction = null },
+                onConfirm = {
+                    viewModel.deleteDevice(action.deviceId)
+                    confirmAction = null
+                    onBack()
+                },
+            )
+        }
 
-        is DeviceAction.RotateKey -> ConfirmDeviceActionDialog(
-            title = "Rotate key",
-            body = "Create a new trusted key for ${action.deviceName.ifBlank { "this device" }}?",
-            confirmText = "Rotate",
-            onDismiss = { confirmAction = null },
-            onConfirm = {
-                viewModel.rotateKey(action.deviceId)
-                confirmAction = null
-            },
-        )
+        is DeviceAction.RotateKey -> {
+            val devName = action.deviceName.ifBlank { stringResource(R.string.unnamed_device) }
+            ConfirmDeviceActionDialog(
+                title = stringResource(R.string.rotate_key_title),
+                body = stringResource(R.string.rotate_key_body, devName),
+                confirmText = stringResource(R.string.rotate_btn),
+                onDismiss = { confirmAction = null },
+                onConfirm = {
+                    viewModel.rotateKey(action.deviceId)
+                    confirmAction = null
+                },
+            )
+        }
 
-        is DeviceAction.ForgetTrust -> ConfirmDeviceActionDialog(
-            title = "Forget LAN trust",
-            body = "Forget LAN trust for ${action.deviceName.ifBlank { "this device" }}?",
-            confirmText = "Forget",
-            onDismiss = { confirmAction = null },
-            onConfirm = {
-                viewModel.forgetLanTrust(action.deviceId)
-                confirmAction = null
-                onBack()
-            },
-        )
+        is DeviceAction.ForgetTrust -> {
+            val devName = action.deviceName.ifBlank { stringResource(R.string.unnamed_device) }
+            ConfirmDeviceActionDialog(
+                title = stringResource(R.string.forget_lan_trust_title),
+                body = stringResource(R.string.forget_lan_trust_body, devName),
+                confirmText = stringResource(R.string.forget_btn),
+                onDismiss = { confirmAction = null },
+                onConfirm = {
+                    viewModel.forgetLanTrust(action.deviceId)
+                    confirmAction = null
+                    onBack()
+                },
+            )
+        }
 
         null -> Unit
     }
 }
-
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -237,7 +246,7 @@ private fun DeviceActionsCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = "Actions",
+                text = stringResource(R.string.actions_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -249,21 +258,21 @@ private fun DeviceActionsCard(
                     Button(onClick = onRotateKey) {
                         Icon(Icons.Default.VpnKey, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Rotate key")
+                        Text(stringResource(R.string.rotate_key_title))
                     }
                 }
                 if (canDelete) {
                     OutlinedButton(onClick = onDelete) {
                         Icon(Icons.Default.Delete, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Delete")
+                        Text(stringResource(R.string.delete_btn))
                     }
                 }
                 if (canForgetTrust) {
                     OutlinedButton(onClick = onForgetTrust) {
                         Icon(Icons.Default.LinkOff, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Forget trust")
+                        Text(stringResource(R.string.forget_btn))
                     }
                 }
             }
@@ -281,23 +290,23 @@ private fun DeviceInformationCard(
         publicKeyFingerprint(device.publicKey)
     }
     val rows = listOf(
-        DetailRowData("Name", device.name.ifBlank { "Unnamed device" }),
-        DetailRowData("Device ID", device.deviceId, mono = true),
-        DetailRowData("Platform", formatPlatformName(device.type)),
-        DetailRowData("Fetch source", describeSources(device, isLocalDevice)),
-        DetailRowData("Local reachable", formatBoolean(isLocalDevice)),
-        DetailRowData("Cloud available", formatBoolean(device.cloudAvailable)),
-        DetailRowData("LAN available", formatLanAvailability(device)),
-        DetailRowData("LAN endpoint", formatLanEndpoint(device)),
-        DetailRowData("Active route", formatRoute(device.activeRoute)),
-        DetailRowData("Security state", formatSecurityState(device.securityState)),
-        DetailRowData("Last seen", device.lastSeen ?: "Never connected"),
+        DetailRowData(stringResource(R.string.label_name), device.name.ifBlank { stringResource(R.string.unnamed_device) }),
+        DetailRowData(stringResource(R.string.label_device_id), device.deviceId, mono = true),
+        DetailRowData(stringResource(R.string.label_platform), formatPlatformName(device.type)),
+        DetailRowData(stringResource(R.string.label_fetch_source), describeSources(device, isLocalDevice)),
+        DetailRowData(stringResource(R.string.label_local_reachable), formatBoolean(isLocalDevice)),
+        DetailRowData(stringResource(R.string.label_cloud_available), formatBoolean(device.cloudAvailable)),
+        DetailRowData(stringResource(R.string.label_lan_available), formatLanAvailability(device)),
+        DetailRowData(stringResource(R.string.label_lan_endpoint), formatLanEndpoint(device)),
+        DetailRowData(stringResource(R.string.label_active_route), formatRoute(device.activeRoute)),
+        DetailRowData(stringResource(R.string.label_security_state), formatSecurityState(device.securityState)),
+        DetailRowData(stringResource(R.string.label_last_seen), device.lastSeen ?: stringResource(R.string.never_connected)),
         DetailRowData(
-            label = "Public key fingerprint",
-            value = fingerprint.ifBlank { "None" },
+            label = stringResource(R.string.label_public_key_fingerprint),
+            value = fingerprint.ifBlank { stringResource(R.string.value_none) },
             mono = true,
         ),
-        DetailRowData("Public key", device.publicKey.ifBlank { "None" }, mono = true, maxLines = 6),
+        DetailRowData(stringResource(R.string.label_public_key), device.publicKey.ifBlank { stringResource(R.string.value_none) }, mono = true, maxLines = 6),
     )
 
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
@@ -307,7 +316,7 @@ private fun DeviceInformationCard(
                 .padding(16.dp),
         ) {
             Text(
-                text = "Information",
+                text = stringResource(R.string.info_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -361,7 +370,7 @@ private fun ConfirmDeviceActionDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel_btn))
             }
         },
     )
@@ -394,8 +403,9 @@ private sealed interface DeviceAction {
     ) : DeviceAction
 }
 
+@Composable
 private fun formatBoolean(value: Boolean): String =
-    if (value) "Yes" else "No"
+    if (value) stringResource(R.string.value_yes) else stringResource(R.string.value_no)
 
 private fun formatPlatformName(value: String): String =
     when (value.lowercase()) {
@@ -408,46 +418,51 @@ private fun formatPlatformName(value: String): String =
         else -> value.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
     }
 
+@Composable
 private fun describeSources(device: Device, isLocalDevice: Boolean): String {
     val sources = buildList {
         if (isLocalDevice || device.deviceSources.contains("local")) {
-            add("Local identity")
+            add(stringResource(R.string.source_local_identity))
         }
         if (device.deviceSources.contains("cloud")) {
-            add("Server device list")
+            add(stringResource(R.string.source_server_device_list))
         }
         if (device.deviceSources.contains("trusted_peer_key")) {
-            add("Trusted peer key")
+            add(stringResource(R.string.source_trusted_peer_key))
         }
     }
-    return sources.ifEmpty { listOf("Server device list") }.joinToString()
+    return sources.ifEmpty { listOf(stringResource(R.string.source_server_device_list)) }.joinToString()
 }
 
+@Composable
 private fun formatLanAvailability(device: Device): String =
-    if (device.lanAvailable) "LAN" else "No"
+    if (device.lanAvailable) stringResource(R.string.device_tag_lan) else stringResource(R.string.value_no)
 
+@Composable
 private fun formatLanEndpoint(device: Device): String {
-    val ip = device.localIp?.takeIf { it.isNotBlank() } ?: return "None"
+    val ip = device.localIp?.takeIf { it.isNotBlank() } ?: return stringResource(R.string.value_none)
     val port = device.localPort
     return if (port != null && port > 0) "$ip:$port" else ip
 }
 
+@Composable
 private fun formatRoute(value: String?): String =
     when (value) {
-        "lan" -> "LAN"
-        "cloud" -> "Cloud"
-        null, "" -> "None"
+        "lan" -> stringResource(R.string.route_lan)
+        "cloud" -> stringResource(R.string.route_cloud)
+        null, "" -> stringResource(R.string.value_none)
         else -> value
     }
 
+@Composable
 private fun formatSecurityState(value: String): String =
     when (value) {
-        "verified" -> "Verified"
-        "unverified" -> "Unverified"
-        "trusted" -> "Trusted"
-        "unknown" -> "Unknown"
-        "key_changed" -> "Key changed"
-        else -> value.ifBlank { "Unknown" }
+        "verified" -> stringResource(R.string.security_verified)
+        "unverified" -> stringResource(R.string.security_unverified)
+        "trusted" -> stringResource(R.string.security_trusted)
+        "unknown" -> stringResource(R.string.security_unknown)
+        "key_changed" -> stringResource(R.string.security_key_changed)
+        else -> value.ifBlank { stringResource(R.string.security_unknown) }
     }
 
 private fun publicKeyFingerprint(publicKey: String): String {

@@ -1,0 +1,158 @@
+<resources>
+    <string name="app_name">CoLink</string>
+    <string name="service_channel_name">Подключение CoLink</string>
+    <string name="service_notification_title">CoLink</string>
+    
+    <!-- Navigation -->
+    <string name="nav_devices">Устройства</string>
+    <string name="nav_messages">Сообщения</string>
+    <string name="nav_transfers">Передачи</string>
+    <string name="nav_settings">Настройки</string>
+    
+    <!-- LAN Pairing -->
+    <string name="lan_pairing_title">LAN-сопряжение</string>
+    <string name="lan_pairing_wants_to_pair">%1$s хочет выполнить сопряжение с этим устройством.\nКод: %2$s</string>
+    <string name="lan_pairing_waiting">Ожидание подтверждения на другом устройстве...</string>
+    <string name="lan_pairing_accept">Принять</string>
+    <string name="lan_pairing_reject">Отклонить</string>
+    <string name="lan_pairing_close">Закрыть</string>
+    <string name="lan_pairing_waiting_btn">Ожидание</string>
+    
+    <!-- Cloud Status -->
+    <string name="cloud_status_connected">Подключено</string>
+    <string name="cloud_status_disconnected">Не подключено</string>
+    <string name="cloud_status_connecting">Подключение</string>
+    <string name="account_desc">Облачный аккаунт</string>
+    
+    <!-- Devices List -->
+    <string name="devices_subtitle">Доступно %1$d · Всего %2$d</string>
+    <string name="refresh_devices">Обновить устройства</string>
+    <string name="no_devices_title">Устройства не найдены</string>
+    <string name="no_devices_body">Войдите на другом устройстве, а затем обновите этот список.</string>
+    <string name="lan_pairing_tag">LAN-сопряжение</string>
+    <string name="pair_btn">Сопрячь</string>
+    <string name="device_tag_lan">LAN</string>
+    <string name="device_tag_cloud">Облако</string>
+    <string name="device_tag_offline">Вне сети</string>
+    <string name="device_tag_trusted">Доверенное</string>
+    <string name="unnamed_device">Устройство без имени</string>
+    <string name="unknown_type">Неизвестно</string>
+    
+    <!-- Device Details -->
+    <string name="device_details_title">Сведения об устройстве</string>
+    <string name="back_desc">Назад</string>
+    <string name="device_not_found">Устройство не найдено</string>
+    <string name="refresh_body">Обновите список устройств и попробуйте снова.</string>
+    <string name="refresh_btn">Обновить</string>
+    <string name="delete_device_title">Удалить устройство</string>
+    <string name="delete_device_body">Удалить %1$s из вашего аккаунта?</string>
+    <string name="delete_btn">Удалить</string>
+    <string name="rotate_key_title">Смена ключа</string>
+    <string name="rotate_key_body">Создать новый доверенный ключ для %1$s?</string>
+    <string name="rotate_btn">Сменить</string>
+    <string name="forget_lan_trust_title">Удалить доверие</string>
+    <string name="forget_lan_trust_body">Удалить запись доверия LAN для %1$s?</string>
+    <string name="forget_btn">Удалить</string>
+    <string name="cancel_btn">Отмена</string>
+    <string name="info_title">Информация</string>
+    <string name="actions_title">Действия</string>
+    <string name="label_name">Имя</string>
+    <string name="label_device_id">ID устройства</string>
+    <string name="label_platform">Платформа</string>
+    <string name="label_fetch_source">Источник</string>
+    <string name="label_local_reachable">Локально доступно</string>
+    <string name="label_cloud_available">Облако доступно</string>
+    <string name="label_lan_available">LAN доступна</string>
+    <string name="label_lan_endpoint">Точка доступа LAN</string>
+    <string name="label_active_route">Активный маршрут</string>
+    <string name="label_security_state">Статус доверия</string>
+    <string name="label_last_seen">Последняя активность</string>
+    <string name="label_public_key_fingerprint">Отпечаток публичного ключа</string>
+    <string name="label_public_key">Публичный ключ</string>
+    <string name="value_yes">Да</string>
+    <string name="value_no">Нет</string>
+    <string name="value_none">Нет</string>
+    <string name="source_local_identity">Локальная идентичность</string>
+    <string name="source_server_device_list">Список устройств сервера</string>
+    <string name="source_trusted_peer_key">Доверенный ключ устройства</string>
+    <string name="security_verified">Доверенный ключ</string>
+    <string name="security_unverified">Недоверенный</string>
+    <string name="security_trusted">Доверенное</string>
+    <string name="security_unknown">Неизвестно</string>
+    <string name="security_key_changed">Ключ изменен</string>
+    <string name="route_lan">LAN</string>
+    <string name="route_cloud">Облачный ретранслятор</string>
+    <string name="never_connected">Никогда не подключалось</string>
+    
+    <!-- Messages -->
+    <string name="messages_choose_device">Выберите доступное устройство</string>
+    <string name="no_messages_title">Сообщений нет</string>
+    <string name="no_messages_body">Выберите устройство и отправьте первое сообщение.</string>
+    <string name="message_placeholder">Сообщение</string>
+    <string name="send_message_desc">Отправить сообщение</string>
+    <string name="message_via">через %1$s</string>
+    
+    <!-- Transfers -->
+    <string name="transfers_subtitle">Нажмите +, чтобы выбрать файл и отправить</string>
+    <string name="send_file_desc">Отправить файл</string>
+    <string name="no_transfers_title">Передач нет</string>
+    <string name="no_transfers_body">Нажмите +, чтобы выбрать файл для отправки.</string>
+    <string name="send_file_btn">Отправить файл</string>
+    <string name="accept_file_title">Принять файл</string>
+    <string name="accept_file_body">Принять %1$s?</string>
+    <string name="accept_btn">Принять</string>
+    <string name="reject_file_title">Отклонить файл</string>
+    <string name="reject_file_body">Отклонить %1$s?</string>
+    <string name="reject_btn">Отклонить</string>
+    <string name="unnamed_file">Файл без имени</string>
+    <string name="transfer_details">%1$s · %2$s · %3$s</string>
+    <string name="direction_incoming">Получить</string>
+    <string name="direction_outgoing">Отправить</string>
+    <string name="select_destination_title">Выберите получателя</string>
+    <string name="no_devices_available">Нет доступных устройств.</string>
+    <string name="lan_available_tag">LAN доступна</string>
+    <string name="cloud_available_tag">Облако доступно</string>
+    <string name="offline_tag">Вне сети</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_subtitle">Подключение, имя устройства, автозапуск и уведомления</string>
+    <string name="server_url_label">URL сервера</string>
+    <string name="device_name_label">Имя устройства</string>
+    <string name="lan_discovery_label">Обнаружение в локальной сети</string>
+    <string name="lan_discovery_body">Находить находящиеся поблизости устройства CoLink в той же сети.</string>
+    <string name="notifications_label">Уведомления</string>
+    <string name="notifications_body">Показывать входящие сообщения и предложения файлов.</string>
+    <string name="auto_start_label">Автозапуск при старте</string>
+    <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
+    <string name="language_label">Язык</string>
+    <string name="language_body">Выберите язык интерфейса</string>
+    <string name="save_btn">Сохранить</string>
+    
+    <!-- Authentication -->
+    <string name="auth_title">CoLink</string>
+    <string name="auth_subtitle">Войдите в аккаунт для синхронизации</string>
+    <string name="cloud_account_title">Облачный аккаунт</string>
+    <string name="cloud_account_connected">Подключено</string>
+    <string name="cloud_account_login_tip">Войдите, чтобы синхронизировать устройства</string>
+    <string name="cloud_account_connected_body">Это устройство подключено к вашему облачному аккаунту.</string>
+    <string name="logout_btn">Выйти</string>
+    <string name="email_or_username_label">Имя пользователя или эл. почта</string>
+    <string name="password_label">Пароль</string>
+    <string name="show_password_desc">Показать пароль</string>
+    <string name="hide_password_desc">Скрыть пароль</string>
+    <string name="err_server_url_required">Введите адрес сервера</string>
+    <string name="err_email_or_username_required">Введите имя пользователя или эл. почту</string>
+    <string name="err_password_required">Введите пароль</string>
+    <string name="login_btn">Войти</string>
+    <string name="working_status">Подключение...</string>
+    <string name="lang_system">Системный</string>
+    <string name="send_btn">Отправить</string>
+    <string name="status_completed">Завершено</string>
+    <string name="status_receiving">Получение</string>
+    <string name="status_sending">Отправка</string>
+    <string name="status_offered">Предложено</string>
+    <string name="status_failed">Ошибка</string>
+    <string name="status_rejected">Отклонено</string>
+    <string name="status_cancelled">Отменено</string>
+</resources>

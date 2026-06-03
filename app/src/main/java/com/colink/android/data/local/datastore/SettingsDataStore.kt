@@ -34,6 +34,7 @@ class SettingsDataStore @Inject constructor(
                 lanDiscovery = preferences[LAN_DISCOVERY] ?: true,
                 notifications = preferences[NOTIFICATIONS] ?: true,
                 deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
+                language = preferences[LANGUAGE] ?: "system",
             )
         }
 
@@ -93,6 +94,7 @@ class SettingsDataStore @Inject constructor(
             preferences[LAN_DISCOVERY] = settings.lanDiscovery
             preferences[NOTIFICATIONS] = settings.notifications
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
+            preferences[LANGUAGE] = settings.language
         }
     }
 
@@ -164,6 +166,7 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_ACCESS_TOKEN = stringPreferencesKey("session_access_token")
         private val SESSION_REFRESH_TOKEN = stringPreferencesKey("session_refresh_token")
         private val SESSION_USER_ID = stringPreferencesKey("session_user_id")
+        private val LANGUAGE = stringPreferencesKey("language")
 
         private fun normalizeServerUrl(serverUrl: String): String {
             val trimmed = serverUrl.trim().trimEnd('/').ifBlank {

@@ -19,13 +19,13 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,11 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.model.FileTransferDirection
@@ -112,14 +114,17 @@ fun TransfersScreen(
     )
 
     ScreenColumn(
-        title = "Transfers",
-        subtitle = "Tap + to select a file and send",
+        title = stringResource(R.string.nav_transfers),
+        subtitle = stringResource(R.string.transfers_subtitle),
         action = {
             FilledTonalIconButton(
                 enabled = !uiState.working,
                 onClick = { filePicker.launch(arrayOf("*/*")) },
             ) {
-                Icon(Icons.Default.UploadFile, contentDescription = "Send file")
+                Icon(
+                    imageVector = Icons.Default.UploadFile,
+                    contentDescription = stringResource(R.string.send_file_desc)
+                )
             }
         },
         modifier = modifier,
@@ -136,15 +141,15 @@ fun TransfersScreen(
                 item {
                     EmptyState(
                         icon = Icons.Default.FolderOff,
-                        title = "No transfers",
-                        body = "Tap the + button to select a file to send.",
+                        title = stringResource(R.string.no_transfers_title),
+                        body = stringResource(R.string.no_transfers_body),
                         action = {
                             Button(
                                 enabled = !uiState.working,
                                 onClick = { filePicker.launch(arrayOf("*/*")) },
                             ) {
                                 Icon(Icons.Default.FileUpload, contentDescription = null)
-                                Text("Send file")
+                                Text(stringResource(R.string.send_file_btn))
                             }
                         },
                     )
@@ -163,27 +168,33 @@ fun TransfersScreen(
     }
 
     when (val decision = confirmTransfer) {
-        is TransferDecision.Accept -> ConfirmTransferDialog(
-            title = "Accept file",
-            body = "Receive ${decision.fileName.ifBlank { "this file" }}?",
-            confirmText = "Accept",
-            onDismiss = { confirmTransfer = null },
-            onConfirm = {
-                viewModel.accept(decision.sessionId)
-                confirmTransfer = null
-            },
-        )
+        is TransferDecision.Accept -> {
+            val fName = decision.fileName.ifBlank { stringResource(R.string.unnamed_file) }
+            ConfirmTransferDialog(
+                title = stringResource(R.string.accept_file_title),
+                body = stringResource(R.string.accept_file_body, fName),
+                confirmText = stringResource(R.string.accept_btn),
+                onDismiss = { confirmTransfer = null },
+                onConfirm = {
+                    viewModel.accept(decision.sessionId)
+                    confirmTransfer = null
+                },
+            )
+        }
 
-        is TransferDecision.Reject -> ConfirmTransferDialog(
-            title = "Reject file",
-            body = "Reject ${decision.fileName.ifBlank { "this file" }}?",
-            confirmText = "Reject",
-            onDismiss = { confirmTransfer = null },
-            onConfirm = {
-                viewModel.reject(decision.sessionId)
-                confirmTransfer = null
-            },
-        )
+        is TransferDecision.Reject -> {
+            val fName = decision.fileName.ifBlank { stringResource(R.string.unnamed_file) }
+            ConfirmTransferDialog(
+                title = stringResource(R.string.reject_file_title),
+                body = stringResource(R.string.reject_file_body, fName),
+                confirmText = stringResource(R.string.reject_btn),
+                onDismiss = { confirmTransfer = null },
+                onConfirm = {
+                    viewModel.reject(decision.sessionId)
+                    confirmTransfer = null
+                },
+            )
+        }
 
         null -> Unit
     }
@@ -220,14 +231,21 @@ private fun TransferCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        transfer.fileName.ifBlank { "Unnamed file" },
+                        transfer.fileName.ifBlank { stringResource(R.string.unnamed_file) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    val directionStr = if (transfer.direction == FileTransferDirection.Incoming) {
+                        stringResource(R.string.direction_incoming)
+                    } else {
+                        stringResource(R.string.direction_outgoing)
+                    }
+                    val sizeStr = formatSize(transfer.fileSize)
+                    val dateStr = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(transfer.updatedAt))
                     Text(
-                        "${transfer.direction.name} · ${formatSize(transfer.fileSize)} · ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(transfer.updatedAt))}",
+                        text = "$directionStr · $sizeStr · $dateStr",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -253,18 +271,23 @@ private fun TransferCard(
                     containerColor = if (transfer.status == "completed") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = if (transfer.status == "completed") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                BadgeChip(text = transfer.route)
+                val routeName = when (transfer.route) {
+                    "lan" -> stringResource(R.string.route_lan)
+                    "cloud" -> stringResource(R.string.route_cloud)
+                    else -> transfer.route
+                }
+                BadgeChip(text = routeName)
                 if (
                     transfer.direction == FileTransferDirection.Incoming &&
                     transfer.status == "offered"
                 ) {
                     TextButton(onClick = onReject) {
                         Icon(Icons.Default.Close, contentDescription = null)
-                        Text("Reject")
+                        Text(stringResource(R.string.reject_btn))
                     }
                     Button(onClick = onAccept) {
                         Icon(Icons.Default.Check, contentDescription = null)
-                        Text("Accept")
+                        Text(stringResource(R.string.accept_btn))
                     }
                 }
             }
@@ -299,7 +322,7 @@ private fun ConfirmTransferDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel_btn))
             }
         },
     )
@@ -321,10 +344,10 @@ private fun SelectDeviceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Select destination") },
+        title = { Text(stringResource(R.string.select_destination_title)) },
         text = {
             if (devices.isEmpty()) {
-                Text("No devices available.")
+                Text(stringResource(R.string.no_devices_available))
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxWidth(),
@@ -346,12 +369,12 @@ private fun SelectDeviceDialog(
                                 enabled = available
                             )
                             Column {
-                                Text(device.name.ifBlank { "Unnamed device" }, fontWeight = FontWeight.SemiBold)
+                                Text(device.name.ifBlank { stringResource(R.string.unnamed_device) }, fontWeight = FontWeight.SemiBold)
                                 Text(
                                     when {
-                                        device.lanAvailable -> "LAN Available"
-                                        device.online -> "Cloud Available"
-                                        else -> "Offline"
+                                        device.lanAvailable -> stringResource(R.string.lan_available_tag)
+                                        device.online -> stringResource(R.string.cloud_available_tag)
+                                        else -> stringResource(R.string.device_tag_offline)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -367,19 +390,29 @@ private fun SelectDeviceDialog(
                 onClick = { selectedId?.let { onSelect(it) } },
                 enabled = selectedId != null
             ) {
-                Text("Send")
+                Text(stringResource(R.string.send_btn))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel_btn))
             }
         }
     )
 }
 
+@Composable
 private fun statusLabel(status: String): String =
-    status.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    when (status) {
+        "completed" -> stringResource(R.string.status_completed)
+        "receiving" -> stringResource(R.string.status_receiving)
+        "sending" -> stringResource(R.string.status_sending)
+        "offered" -> stringResource(R.string.status_offered)
+        "failed" -> stringResource(R.string.status_failed)
+        "rejected" -> stringResource(R.string.status_rejected)
+        "cancelled" -> stringResource(R.string.status_cancelled)
+        else -> status.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    }
 
 private fun formatSize(bytes: Long): String =
     when {

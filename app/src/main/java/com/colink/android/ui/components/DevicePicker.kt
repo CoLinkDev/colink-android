@@ -11,7 +11,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 
 @Composable
@@ -30,7 +32,7 @@ fun DevicePicker(
             FilterChip(
                 selected = selectedDeviceId == device.deviceId,
                 onClick = { onSelectedDeviceChange(device.deviceId) },
-                label = { Text(device.name.ifBlank { device.type.ifBlank { "Device" } }) },
+                label = { Text(device.name.ifBlank { device.type.ifBlank { stringResource(R.string.unnamed_device) } }) },
                 enabled = available,
                 leadingIcon = {
                     Icon(

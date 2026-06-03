@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.colink.android.R
+import androidx.compose.ui.res.stringResource
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
@@ -68,16 +69,16 @@ import com.colink.android.ui.transfers.TransfersScreen
 
 private data class TopLevelRoute(
     val route: String,
-    val label: String,
+    val labelResId: Int,
     val icon: ImageVector,
 )
 
 private val topLevelRoutes =
     listOf(
-        TopLevelRoute("devices", "Devices", Icons.Default.Devices),
-        TopLevelRoute("messages", "Messages", Icons.AutoMirrored.Filled.Chat),
-        TopLevelRoute("transfers", "Transfers", Icons.Default.SwapHoriz),
-        TopLevelRoute("settings", "Settings", Icons.Default.Settings),
+        TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
+        TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
+        TopLevelRoute("transfers", R.string.nav_transfers, Icons.Default.SwapHoriz),
+        TopLevelRoute("settings", R.string.nav_settings, Icons.Default.Settings),
     )
 
 @Composable
@@ -123,16 +124,17 @@ fun CoLinkNavGraph(
                         }
                     },
                     icon = { Icon(Icons.Default.Devices, contentDescription = null) },
-                    title = { Text("LAN pairing") },
+                    title = { Text(stringResource(R.string.lan_pairing_title)) },
                     text = {
                         val deviceName = request.name.ifBlank { request.deviceId }
+                        val mainText = stringResource(R.string.lan_pairing_wants_to_pair, deviceName, request.code)
                         val body = when {
                             request.error != null ->
-                                "$deviceName wants to pair with this device.\nCode: ${request.code}\n\n${request.error}"
+                                "$mainText\n\n${request.error}"
                             request.waiting ->
-                                "$deviceName wants to pair with this device.\nCode: ${request.code}\n\nWaiting for the other device..."
+                                "$mainText\n\n" + stringResource(R.string.lan_pairing_waiting)
                             else ->
-                                "$deviceName wants to pair with this device.\nCode: ${request.code}"
+                                mainText
                         }
                         Text(body)
                     },
@@ -147,7 +149,14 @@ fun CoLinkNavGraph(
                                 }
                             },
                         ) {
-                            Text(if (request.error != null) "Close" else if (request.waiting) "Waiting" else "Accept")
+                            val btnText = if (request.error != null) {
+                                stringResource(R.string.lan_pairing_close)
+                            } else if (request.waiting) {
+                                stringResource(R.string.lan_pairing_waiting_btn)
+                            } else {
+                                stringResource(R.string.lan_pairing_accept)
+                            }
+                            Text(btnText)
                         }
                     },
                     dismissButton = {
@@ -155,7 +164,7 @@ fun CoLinkNavGraph(
                             enabled = !request.waiting && request.error == null,
                             onClick = { viewModel.respondPairing(request.requestId, false) },
                         ) {
-                            Text("Reject")
+                            Text(stringResource(R.string.lan_pairing_reject))
                         }
                     },
                 )
@@ -236,7 +245,7 @@ private fun MainScaffold(
                                     } else {
                                         Icons.AutoMirrored.Filled.Login
                                     },
-                                    contentDescription = "Cloud account",
+                                    contentDescription = stringResource(R.string.account_desc),
                                 )
                             }
                         },
@@ -249,7 +258,7 @@ private fun MainScaffold(
                                 selected = currentDestination?.isTopLevelSelected(item.route) == true,
                                 onClick = { nestedNavController.navigateTopLevel(item.route) },
                                 icon = { Icon(item.icon, contentDescription = null) },
-                                label = { Text(item.label) },
+                                label = { Text(stringResource(item.labelResId)) },
                             )
                         }
                     }

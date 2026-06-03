@@ -1,22 +1,30 @@
 package com.colink.android.ui.devices
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +35,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
@@ -39,15 +49,6 @@ import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.RefreshableList
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Verified
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ButtonDefaults
 
 @Composable
 fun DeviceListScreen(
@@ -67,11 +68,18 @@ fun DeviceListScreen(
     )
 
     ScreenColumn(
-        title = "Devices",
-        subtitle = "${devices.count { it.online || it.lanAvailable }} available · ${devices.size} total",
+        title = stringResource(R.string.nav_devices),
+        subtitle = stringResource(
+            R.string.devices_subtitle,
+            devices.count { it.online || it.lanAvailable },
+            devices.size
+        ),
         action = {
             FilledTonalIconButton(onClick = viewModel::refresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh devices")
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.refresh_devices)
+                )
             }
         },
         modifier = modifier,
@@ -84,8 +92,8 @@ fun DeviceListScreen(
                 item {
                     EmptyState(
                         icon = Icons.Default.Devices,
-                        title = "No devices yet",
-                        body = "Sign in on another device, then refresh this list.",
+                        title = stringResource(R.string.no_devices_title),
+                        body = stringResource(R.string.no_devices_body),
                     )
                 }
             } else {
@@ -169,7 +177,7 @@ private fun LanPairingCandidateCard(
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
                     BadgeChip(
-                        text = "LAN pairing",
+                        text = stringResource(R.string.lan_pairing_tag),
                         icon = Icons.Default.SyncAlt,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -184,7 +192,7 @@ private fun LanPairingCandidateCard(
             ) {
                 Icon(Icons.Default.SyncAlt, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Pair", fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.pair_btn), fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -246,7 +254,7 @@ private fun DeviceCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = device.name.ifBlank { "Unnamed device" },
+                    text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -254,7 +262,7 @@ private fun DeviceCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = device.type.ifBlank { "Unknown type" },
+                    text = device.type.ifBlank { stringResource(R.string.unknown_type) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -266,21 +274,21 @@ private fun DeviceCard(
                 ) {
                     if (device.lanAvailable) {
                         BadgeChip(
-                            text = "LAN",
+                            text = stringResource(R.string.device_tag_lan),
                             icon = Icons.Default.Wifi,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     } else if (device.online) {
                         BadgeChip(
-                            text = "Cloud",
+                            text = stringResource(R.string.device_tag_cloud),
                             icon = Icons.Default.Cloud,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     } else {
                         BadgeChip(
-                            text = "Offline",
+                            text = stringResource(R.string.device_tag_offline),
                             icon = Icons.Default.CloudOff,
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -289,7 +297,7 @@ private fun DeviceCard(
 
                     if (device.type == "unknown" && device.deviceSources.contains("trusted_peer_key")) {
                         BadgeChip(
-                            text = "Trusted",
+                            text = stringResource(R.string.device_tag_trusted),
                             icon = Icons.Default.Verified,
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,

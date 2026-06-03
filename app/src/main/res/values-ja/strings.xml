@@ -1,0 +1,158 @@
+<resources>
+    <string name="app_name">CoLink</string>
+    <string name="service_channel_name">CoLink 接続</string>
+    <string name="service_notification_title">CoLink</string>
+    
+    <!-- Navigation -->
+    <string name="nav_devices">デバイス</string>
+    <string name="nav_messages">メッセージ</string>
+    <string name="nav_transfers">ファイル転送</string>
+    <string name="nav_settings">設定</string>
+    
+    <!-- LAN Pairing -->
+    <string name="lan_pairing_title">LAN ペアリング</string>
+    <string name="lan_pairing_wants_to_pair">%1$s がこのデバイスとのペアリングを求めています。\nコード: %2$s</string>
+    <string name="lan_pairing_waiting">相手の確認を待っています...</string>
+    <string name="lan_pairing_accept">承認</string>
+    <string name="lan_pairing_reject">拒否</string>
+    <string name="lan_pairing_close">閉じる</string>
+    <string name="lan_pairing_waiting_btn">待機中</string>
+    
+    <!-- Cloud Status -->
+    <string name="cloud_status_connected">接続済み</string>
+    <string name="cloud_status_disconnected">未接続</string>
+    <string name="cloud_status_connecting">接続中</string>
+    <string name="account_desc">クラウド接続</string>
+    
+    <!-- Devices List -->
+    <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>
+    <string name="refresh_devices">デバイス一覧を更新</string>
+    <string name="no_devices_title">デバイスが見つかりません</string>
+    <string name="no_devices_body">他のデバイスでログインしてから、この一覧を更新してください。</string>
+    <string name="lan_pairing_tag">LAN ペアリング</string>
+    <string name="pair_btn">ペアリング</string>
+    <string name="device_tag_lan">LAN</string>
+    <string name="device_tag_cloud">クラウド</string>
+    <string name="device_tag_offline">オフライン</string>
+    <string name="device_tag_trusted">信頼済み</string>
+    <string name="unnamed_device">名前なしデバイス</string>
+    <string name="unknown_type">不明</string>
+    
+    <!-- Device Details -->
+    <string name="device_details_title">デバイス詳細</string>
+    <string name="back_desc">戻る</string>
+    <string name="device_not_found">デバイスが見つかりません</string>
+    <string name="refresh_body">デバイス一覧を更新してやり直してください。</string>
+    <string name="refresh_btn">更新</string>
+    <string name="delete_device_title">デバイスの削除</string>
+    <string name="delete_device_body">アカウントから %1$s を削除しますか？</string>
+    <string name="delete_btn">削除</string>
+    <string name="rotate_key_title">キーのローテーション</string>
+    <string name="rotate_key_body">%1$s の新しい信頼キーを生成しますか？</string>
+    <string name="rotate_btn">更新</string>
+    <string name="forget_lan_trust_title">信頼を削除</string>
+    <string name="forget_lan_trust_body">%1$s の LAN 信頼記録を削除しますか？</string>
+    <string name="forget_btn">削除</string>
+    <string name="cancel_btn">キャンセル</string>
+    <string name="info_title">情報</string>
+    <string name="actions_title">操作</string>
+    <string name="label_name">名前</string>
+    <string name="label_device_id">デバイス ID</string>
+    <string name="label_platform">プラットフォーム</string>
+    <string name="label_fetch_source">取得元</string>
+    <string name="label_local_reachable">ローカル</string>
+    <string name="label_cloud_available">クラウド到達可</string>
+    <string name="label_lan_available">LAN 利用可</string>
+    <string name="label_lan_endpoint">LAN エンドポイント</string>
+    <string name="label_active_route">現在の経路</string>
+    <string name="label_security_state">信頼状態</string>
+    <string name="label_last_seen">最終オンライン</string>
+    <string name="label_public_key_fingerprint">公開鍵フィンガープリント</string>
+    <string name="label_public_key">公開鍵</string>
+    <string name="value_yes">はい</string>
+    <string name="value_no">いいえ</string>
+    <string name="value_none">なし</string>
+    <string name="source_local_identity">ローカル ID</string>
+    <string name="source_server_device_list">サーバーデバイス一覧</string>
+    <string name="source_trusted_peer_key">信頼済みデバイスキー</string>
+    <string name="security_verified">信頼済みキー</string>
+    <string name="security_unverified">未信頼</string>
+    <string name="security_trusted">信頼済み</string>
+    <string name="security_unknown">不明</string>
+    <string name="security_key_changed">キー変更</string>
+    <string name="route_lan">LAN</string>
+    <string name="route_cloud">クラウドリレー</string>
+    <string name="never_connected">未接続</string>
+    
+    <!-- Messages -->
+    <string name="messages_choose_device">接続可能なデバイスを選択してください</string>
+    <string name="no_messages_title">メッセージはありません</string>
+    <string name="no_messages_body">デバイスを選択して、最初のメッセージを送信します。</string>
+    <string name="message_placeholder">メッセージ</string>
+    <string name="send_message_desc">メッセージを送信</string>
+    <string name="message_via">%1$s 経由</string>
+    
+    <!-- Transfers -->
+    <string name="transfers_subtitle">+ をタップしてファイルを選択し、送信します</string>
+    <string name="send_file_desc">ファイルを送信</string>
+    <string name="no_transfers_title">転送履歴はありません</string>
+    <string name="no_transfers_body">+ ボタンをタップして、送信するファイルを選択します。</string>
+    <string name="send_file_btn">ファイルを送信</string>
+    <string name="accept_file_title">ファイルの受信</string>
+    <string name="accept_file_body">%1$s を受信しますか？</string>
+    <string name="accept_btn">受信</string>
+    <string name="reject_file_title">ファイルの拒否</string>
+    <string name="reject_file_body">%1$s を拒否しますか？</string>
+    <string name="reject_btn">拒否</string>
+    <string name="unnamed_file">名前なしファイル</string>
+    <string name="transfer_details">%1$s · %2$s · %3$s</string>
+    <string name="direction_incoming">受信</string>
+    <string name="direction_outgoing">送信</string>
+    <string name="select_destination_title">送信先を選択</string>
+    <string name="no_devices_available">利用可能なデバイスはありません。</string>
+    <string name="lan_available_tag">LAN 利用可能</string>
+    <string name="cloud_available_tag">クラウド利用可能</string>
+    <string name="offline_tag">オフライン</string>
+    
+    <!-- Settings -->
+    <string name="settings_title">設定</string>
+    <string name="settings_subtitle">接続、デバイス名、起動、通知</string>
+    <string name="server_url_label">サーバー URL</string>
+    <string name="device_name_label">デバイス名</string>
+    <string name="lan_discovery_label">ローカルネットワーク検出</string>
+    <string name="lan_discovery_body">同じネットワーク上の近くの CoLink デバイスを検出します。</string>
+    <string name="notifications_label">通知</string>
+    <string name="notifications_body">受信メッセージやファイル転送の提案を表示します。</string>
+    <string name="auto_start_label">ログイン時に起動</string>
+    <string name="auto_start_body">デバイスの再起動後に CoLink を自動起動します。</string>
+    <string name="language_label">言語</string>
+    <string name="language_body">表示言語を選択してください</string>
+    <string name="save_btn">保存</string>
+    
+    <!-- Authentication -->
+    <string name="auth_title">CoLink</string>
+    <string name="auth_subtitle">デバイスを同期するためにアカウントに接続</string>
+    <string name="cloud_account_title">クラウドアカウント</string>
+    <string name="cloud_account_connected">接続済み</string>
+    <string name="cloud_account_login_tip">ログインしてデバイスを同期</string>
+    <string name="cloud_account_connected_body">このデバイスはクラウドアカウントに接続されています。</string>
+    <string name="logout_btn">ログアウト</string>
+    <string name="email_or_username_label">メールアドレスまたはユーザー名</string>
+    <string name="password_label">パスワード</string>
+    <string name="show_password_desc">パスワードを表示</string>
+    <string name="hide_password_desc">パスワードを非表示</string>
+    <string name="err_server_url_required">サーバーアドレスを入力してください</string>
+    <string name="err_email_or_username_required">メールアドレスまたはユーザー名を入力してください</string>
+    <string name="err_password_required">パスワードを入力してください</string>
+    <string name="login_btn">ログイン</string>
+    <string name="working_status">接続中...</string>
+    <string name="lang_system">システムデフォルト</string>
+    <string name="send_btn">送信</string>
+    <string name="status_completed">完了</string>
+    <string name="status_receiving">受信中</string>
+    <string name="status_sending">送信中</string>
+    <string name="status_offered">提案済み</string>
+    <string name="status_failed">失敗</string>
+    <string name="status_rejected">拒否されました</string>
+    <string name="status_cancelled">キャンセルされました</string>
+</resources>
