@@ -253,7 +253,7 @@ class DeviceRepositoryImpl @Inject constructor(
         }
 
         val generated = keyManager.generateKeyPair()
-        val name = configuredOrDefaultDeviceName()
+        val name = deviceNameProvider.defaultDeviceName()
         return DeviceIdentity(
             userId = null,
             deviceId = UUID.randomUUID().toString(),
@@ -276,7 +276,7 @@ class DeviceRepositoryImpl @Inject constructor(
         identity: DeviceIdentity,
     ): DeviceIdentity {
         val settings = settingsDataStore.currentSettings()
-        val name = configuredOrDefaultDeviceName(identity.name)
+        val name = identity.name.ifBlank { deviceNameProvider.defaultDeviceName() }
         val response = deviceApi
             .registerDevice(
                 url = apiEndpoint(settings.serverUrl, "/api/v1/devices"),
@@ -327,15 +327,6 @@ class DeviceRepositoryImpl @Inject constructor(
                 "failed to sync local device name device=${CoLinkLog.shortId(identity.deviceId)}",
                 error,
             )
-        }
-    }
-
-    private suspend fun configuredOrDefaultDeviceName(currentName: String? = null): String {
-        val configured = settingsDataStore.currentSettings().deviceName.trim()
-        return when {
-            configured.isNotBlank() -> configured
-            !currentName.isNullOrBlank() -> currentName
-            else -> deviceNameProvider.defaultDeviceName()
         }
     }
 

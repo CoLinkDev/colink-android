@@ -47,6 +47,8 @@
     <string name="delete_device_title">刪除裝置</string>
     <string name="delete_device_body">確定從您的帳戶中刪除 %1$s 嗎？</string>
     <string name="delete_btn">刪除</string>
+    <string name="rename_device_title">重新命名裝置</string>
+    <string name="rename_device_btn">改名</string>
     <string name="rotate_key_title">輪換金鑰</string>
     <string name="rotate_key_body">確定為 %1$s 建立新的可信金鑰嗎？</string>
     <string name="rotate_btn">輪換</string>
@@ -83,6 +85,7 @@
     <string name="route_lan">區域網路</string>
     <string name="route_cloud">雲端</string>
     <string name="never_connected">從未連線</string>
+    <string name="err_device_name_required">請輸入裝置名稱</string>
     
     <!-- Messages -->
     <string name="messages_choose_device">選擇一個可用裝置</string>
@@ -116,7 +119,7 @@
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
-    <string name="settings_subtitle">連線、裝置名稱、啟動和通知</string>
+    <string name="settings_subtitle">連線、啟動和通知</string>
     <string name="server_url_label">伺服器網址</string>
     <string name="device_name_label">裝置名稱</string>
     <string name="lan_discovery_label">區域網路發現</string>

@@ -47,6 +47,8 @@
     <string name="delete_device_title">Delete device</string>
     <string name="delete_device_body">Remove %1$s from your account?</string>
     <string name="delete_btn">Delete</string>
+    <string name="rename_device_title">Rename device</string>
+    <string name="rename_device_btn">Rename</string>
     <string name="rotate_key_title">Rotate key</string>
     <string name="rotate_key_body">Create a new trusted key for %1$s?</string>
     <string name="rotate_btn">Rotate</string>
@@ -83,6 +85,7 @@
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Cloud</string>
     <string name="never_connected">Never connected</string>
+    <string name="err_device_name_required">Device name is required</string>
     
     <!-- Messages -->
     <string name="messages_choose_device">Choose an available device</string>
@@ -116,7 +119,7 @@
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_subtitle">Connection, device name, startup and notifications</string>
+    <string name="settings_subtitle">Connection, startup and notifications</string>
     <string name="server_url_label">Server URL</string>
     <string name="device_name_label">Device name</string>
     <string name="lan_discovery_label">LAN discovery</string>

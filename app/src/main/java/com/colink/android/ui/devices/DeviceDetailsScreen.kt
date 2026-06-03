@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VpnKey
@@ -30,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -40,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -154,6 +157,9 @@ fun DeviceDetailsScreen(
                         onRotateKey = {
                             confirmAction = DeviceAction.RotateKey(device.deviceId, device.name)
                         },
+                        onRename = {
+                            confirmAction = DeviceAction.Rename(device.deviceId, device.name)
+                        },
                         onDelete = {
                             confirmAction = DeviceAction.Delete(device.deviceId, device.name)
                         },
@@ -202,6 +208,17 @@ fun DeviceDetailsScreen(
             )
         }
 
+        is DeviceAction.Rename -> {
+            RenameDeviceDialog(
+                initialName = action.deviceName,
+                onDismiss = { confirmAction = null },
+                onConfirm = { name ->
+                    viewModel.renameDevice(action.deviceId, name)
+                    confirmAction = null
+                },
+            )
+        }
+
         is DeviceAction.ForgetTrust -> {
             val devName = action.deviceName.ifBlank { stringResource(R.string.unnamed_device) }
             ConfirmDeviceActionDialog(
@@ -227,6 +244,7 @@ private fun DeviceActionsCard(
     device: Device,
     isLocalDevice: Boolean,
     onRotateKey: () -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
     onForgetTrust: () -> Unit,
     modifier: Modifier = Modifier,
@@ -257,6 +275,11 @@ private fun DeviceActionsCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 if (isLocalDevice) {
+                    Button(onClick = onRename) {
+                        Icon(Icons.Default.Edit, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.rename_device_btn))
+                    }
                     Button(onClick = onRotateKey) {
                         Icon(Icons.Default.VpnKey, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
@@ -354,6 +377,60 @@ private fun DetailRow(row: DetailRowData) {
 }
 
 @Composable
+private fun RenameDeviceDialog(
+    initialName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var name by rememberSaveable(initialName) { mutableStateOf(initialName) }
+    var nameError by rememberSaveable { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.rename_device_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        nameError = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.device_name_label)) },
+                    singleLine = true,
+                    isError = nameError,
+                    supportingText = {
+                        if (nameError) {
+                            Text(stringResource(R.string.err_device_name_required))
+                        }
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val trimmed = name.trim()
+                    if (trimmed.isBlank()) {
+                        nameError = true
+                    } else {
+                        onConfirm(trimmed)
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.save_btn))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
+}
+
+@Composable
 private fun ConfirmDeviceActionDialog(
     title: String,
     body: String,
@@ -395,6 +472,11 @@ private sealed interface DeviceAction {
     ) : DeviceAction
 
     data class RotateKey(
+        override val deviceId: String,
+        override val deviceName: String,
+    ) : DeviceAction
+
+    data class Rename(
         override val deviceId: String,
         override val deviceName: String,
     ) : DeviceAction

@@ -47,6 +47,8 @@
     <string name="delete_device_title">디바이스 삭제</string>
     <string name="delete_device_body">계정에서 %1$s 기기를 삭제할까요?</string>
     <string name="delete_btn">삭제</string>
+    <string name="rename_device_title">디바이스 이름 변경</string>
+    <string name="rename_device_btn">이름 변경</string>
     <string name="rotate_key_title">키 회전</string>
     <string name="rotate_key_body">%1$s의 보안 키를 변경하시겠습니까?</string>
     <string name="rotate_btn">회전</string>
@@ -83,6 +85,7 @@
     <string name="route_lan">LAN</string>
     <string name="route_cloud">클라우드 릴레이</string>
     <string name="never_connected">연결된 적 없음</string>
+    <string name="err_device_name_required">디바이스 이름을 입력하세요</string>
     
     <!-- Messages -->
     <string name="messages_choose_device">사용 가능한 디바이스를 선택하세요</string>
@@ -116,7 +119,7 @@
     
     <!-- Settings -->
     <string name="settings_title">설정</string>
-    <string name="settings_subtitle">연결, 디바이스 이름, 시작 및 알림</string>
+    <string name="settings_subtitle">연결, 시작 및 알림</string>
     <string name="server_url_label">서버 주소</string>
     <string name="device_name_label">디바이스 이름</string>
     <string name="lan_discovery_label">로컬 네트워크 검색</string>

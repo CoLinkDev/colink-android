@@ -47,6 +47,8 @@
     <string name="delete_device_title">デバイスの削除</string>
     <string name="delete_device_body">アカウントから %1$s を削除しますか？</string>
     <string name="delete_btn">削除</string>
+    <string name="rename_device_title">デバイス名を変更</string>
+    <string name="rename_device_btn">名前を変更</string>
     <string name="rotate_key_title">キーのローテーション</string>
     <string name="rotate_key_body">%1$s の新しい信頼キーを生成しますか？</string>
     <string name="rotate_btn">更新</string>
@@ -83,6 +85,7 @@
     <string name="route_lan">LAN</string>
     <string name="route_cloud">クラウドリレー</string>
     <string name="never_connected">未接続</string>
+    <string name="err_device_name_required">デバイス名を入力してください</string>
     
     <!-- Messages -->
     <string name="messages_choose_device">接続可能なデバイスを選択してください</string>
@@ -116,7 +119,7 @@
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
-    <string name="settings_subtitle">接続、デバイス名、起動、通知</string>
+    <string name="settings_subtitle">接続、起動、通知</string>
     <string name="server_url_label">サーバー URL</string>
     <string name="device_name_label">デバイス名</string>
     <string name="lan_discovery_label">ローカルネットワーク検出</string>

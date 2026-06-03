@@ -14,28 +14,15 @@ class DeviceNameProvider @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     fun defaultDeviceName(): String {
-        val settingsName = systemDeviceName()
-        if (settingsName != null) {
-            return settingsName
-        }
-        return modelDeviceName()
+        return systemDeviceName() ?: modelDeviceName()
     }
 
     private fun systemDeviceName(): String? =
-        listOf(
-            "global.device_name" to {
-                Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-            },
-            "secure.bluetooth_name" to {
-                Settings.Secure.getString(context.contentResolver, "bluetooth_name")
-            },
-        ).firstNotNullOfOrNull { (source, read) ->
-            runCatching {
-                read().clean()
-            }.onFailure { error ->
-                CoLinkLog.w("DeviceName", "failed to read Android device name source=$source", error)
-            }.getOrNull()
-        }
+        runCatching {
+            Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME).clean()
+        }.onFailure { error ->
+            CoLinkLog.w("DeviceName", "failed to read Android device name", error)
+        }.getOrNull()
 
     private fun modelDeviceName(): String {
         val manufacturer = Build.MANUFACTURER.clean()

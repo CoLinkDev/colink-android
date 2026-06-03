@@ -57,7 +57,6 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var serverUrl by rememberSaveable { mutableStateOf("") }
-    var deviceName by rememberSaveable { mutableStateOf("") }
     var autoStart by rememberSaveable { mutableStateOf(false) }
     var lanDiscovery by rememberSaveable { mutableStateOf(true) }
     var notifications by rememberSaveable { mutableStateOf(true) }
@@ -65,7 +64,6 @@ fun SettingsScreen(
 
     LaunchedEffect(settings) {
         serverUrl = settings.serverUrl
-        deviceName = settings.deviceName
         autoStart = settings.autoStartOnBoot
         lanDiscovery = settings.lanDiscovery
         notifications = settings.notifications
@@ -95,13 +93,6 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.server_url_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                singleLine = true,
-            )
-            OutlinedTextField(
-                value = deviceName,
-                onValueChange = { deviceName = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.device_name_label)) },
                 singleLine = true,
             )
 
@@ -194,7 +185,7 @@ fun SettingsScreen(
                     viewModel.save(
                         AppSettings(
                             serverUrl = serverUrl,
-                            deviceName = deviceName,
+                            deviceName = settings.deviceName,
                             autoStartOnBoot = autoStart,
                             lanDiscovery = lanDiscovery,
                             notifications = notifications,

@@ -79,6 +79,18 @@ class DevicesViewModel @Inject constructor(
         }
     }
 
+    fun renameDevice(deviceId: String, name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(message = null) }
+            val result = deviceRepository.updateDeviceName(deviceId, name)
+            val identity = deviceRepository.localDeviceIdentity()
+            _uiState.value = DevicesUiState(
+                message = result.exceptionOrNull()?.message ?: "Device renamed",
+                localDeviceId = identity?.deviceId,
+            )
+        }
+    }
+
     fun deleteDevice(deviceId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }

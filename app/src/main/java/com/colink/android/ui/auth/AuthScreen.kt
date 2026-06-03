@@ -42,7 +42,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
-import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.StateMessage
 
 @Composable
@@ -83,44 +82,6 @@ fun AuthDialogContent(
 }
 
 @Composable
-fun CloudAccountScreen(
-    authenticated: Boolean,
-    onLogout: () -> Unit,
-    modifier: Modifier = Modifier,
-    onAuthenticated: () -> Unit = {},
-) {
-    ScreenColumn(
-        title = stringResource(R.string.cloud_account_title),
-        subtitle = if (authenticated) stringResource(R.string.cloud_account_connected) else stringResource(R.string.cloud_account_login_tip),
-        modifier = modifier,
-    ) {
-        if (authenticated) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.cloud_account_connected_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(
-                    onClick = onLogout,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.logout_btn))
-                }
-            }
-        } else {
-            AuthDialogContent(
-                onAuthenticated = onAuthenticated,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
-
-@Composable
 private fun AuthContent(
     modifier: Modifier,
     verticalArrangement: Arrangement.Vertical,
@@ -145,6 +106,7 @@ private fun AuthContent(
     LaunchedEffect(uiState.authenticated) {
         if (uiState.authenticated) {
             onAuthenticated()
+            viewModel.consumeAuthenticated()
         }
     }
 

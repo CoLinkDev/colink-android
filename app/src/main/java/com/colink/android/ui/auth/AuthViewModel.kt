@@ -64,4 +64,8 @@ class AuthViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    fun consumeAuthenticated() {
+        _uiState.update { it.copy(authenticated = false) }
+    }
 }

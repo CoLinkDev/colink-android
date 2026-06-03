@@ -5,7 +5,10 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -34,7 +37,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -54,7 +60,7 @@ import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkService
-import com.colink.android.ui.auth.CloudAccountScreen
+import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
@@ -143,6 +149,8 @@ private fun MainScaffold(
     ) {
         composable("main") {
             val nestedNavController = rememberNavController()
+            val isAuthenticated by authenticated.collectAsStateWithLifecycle()
+            var showAccountDialog by rememberSaveable { mutableStateOf(false) }
 
             LaunchedEffect(pendingShare) {
                 val share = pendingShare ?: return@LaunchedEffect
@@ -162,7 +170,7 @@ private fun MainScaffold(
                     MainTopBar(
                         cloudStatus = cloudStatus,
                         authenticated = authenticated,
-                        onAccountClick = { rootNavController.navigate("cloud-account") },
+                        onAccountClick = { showAccountDialog = true },
                     )
                 },
                 bottomBar = {
@@ -201,6 +209,18 @@ private fun MainScaffold(
                     composable("settings") { SettingsScreen(snackbarHostState = snackbarHostState) }
                 }
             }
+
+            if (showAccountDialog) {
+                AccountDialog(
+                    authenticated = isAuthenticated,
+                    onLogout = {
+                        onLogout()
+                        showAccountDialog = false
+                    },
+                    onAuthenticated = { showAccountDialog = false },
+                    onDismiss = { showAccountDialog = false },
+                )
+            }
         }
 
         composable(
@@ -236,41 +256,61 @@ private fun MainScaffold(
                 onBack = { rootNavController.popBackStack() },
             )
         }
+    }
+}
 
-        composable(
-            route = "cloud-account",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
-                )
-            },
-            exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
-                )
-            },
-            popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(300)
-                )
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                  towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                  animationSpec = tween(300)
+@Composable
+private fun AccountDialog(
+    authenticated: Boolean,
+    onLogout: () -> Unit,
+    onAuthenticated: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = if (authenticated) Icons.Default.AccountCircle else Icons.AutoMirrored.Filled.Login,
+                contentDescription = null,
+            )
+        },
+        title = { Text(stringResource(R.string.cloud_account_title)) },
+        text = {
+            if (authenticated) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.cloud_account_connected),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.cloud_account_connected_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else {
+                AuthDialogContent(
+                    onAuthenticated = onAuthenticated,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-        ) {
-            val isAuthenticated by authenticated.collectAsStateWithLifecycle()
-            CloudAccountScreen(
-                authenticated = isAuthenticated,
-                onLogout = onLogout,
-            )
-        }
-    }
+        },
+        confirmButton = {
+            if (authenticated) {
+                TextButton(onClick = onLogout) {
+                    Text(stringResource(R.string.logout_btn))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
 }
 
 @Composable

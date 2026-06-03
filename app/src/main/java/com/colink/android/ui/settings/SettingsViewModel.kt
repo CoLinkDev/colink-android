@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.AppSettings
-import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -26,7 +25,6 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
-    private val deviceRepository: DeviceRepository,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> =
         settingsDataStore.settings.stateIn(
@@ -42,13 +40,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = SettingsUiState(saving = true)
             settingsDataStore.saveSettings(settings)
-            val identity = deviceRepository.localDeviceIdentity()
-            val deviceName = settings.deviceName.trim()
-            when {
-                identity == null -> Unit
-                deviceName.isBlank() -> deviceRepository.ensureLocalDeviceIdentity()
-                identity.name != deviceName -> deviceRepository.updateDeviceName(identity.deviceId, deviceName)
-            }
             connectionManager.applySettings(settings)
             _uiState.value = SettingsUiState(message = "Settings saved")
         }

@@ -47,6 +47,8 @@
     <string name="delete_device_title">Eliminar dispositivo</string>
     <string name="delete_device_body">¿Eliminar %1$s de su cuenta?</string>
     <string name="delete_btn">Eliminar</string>
+    <string name="rename_device_title">Cambiar nombre del dispositivo</string>
+    <string name="rename_device_btn">Cambiar nombre</string>
     <string name="rotate_key_title">Rotar clave</string>
     <string name="rotate_key_body">¿Crear una nueva clave confiable para %1$s?</string>
     <string name="rotate_btn">Rotar</string>
@@ -83,6 +85,7 @@
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Retransmisión en la nube</string>
     <string name="never_connected">Nunca conectado</string>
+    <string name="err_device_name_required">El nombre del dispositivo es obligatorio</string>
     
     <!-- Messages -->
     <string name="messages_choose_device">Elija un dispositivo disponible</string>
@@ -116,7 +119,7 @@
     
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
-    <string name="settings_subtitle">Conexión, nombre del dispositivo, inicio y notificaciones</string>
+    <string name="settings_subtitle">Conexión, inicio y notificaciones</string>
     <string name="server_url_label">URL del servidor</string>
     <string name="device_name_label">Nombre del dispositivo</string>
     <string name="lan_discovery_label">Descubrimiento de red local</string>
