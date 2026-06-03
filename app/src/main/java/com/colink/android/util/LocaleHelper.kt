@@ -7,6 +7,9 @@ import android.os.LocaleList
 import java.util.Locale
 
 object LocaleHelper {
+    private const val PREFS_NAME = "colink_locale"
+    private const val KEY_LANGUAGE = "language"
+
     fun wrap(context: Context, language: String): Context {
         val locale = getLocaleFromCode(language) ?: return context
         Locale.setDefault(locale)
@@ -41,5 +44,17 @@ object LocaleHelper {
             "ru" -> Locale("ru")
             else -> null // system default / no override
         }
+    }
+
+    fun cachedLanguage(context: Context): String =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_LANGUAGE, "system")
+            ?: "system"
+
+    fun cacheLanguage(context: Context, language: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LANGUAGE, language)
+            .apply()
     }
 }

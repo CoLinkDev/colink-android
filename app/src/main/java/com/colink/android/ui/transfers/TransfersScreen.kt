@@ -208,6 +208,14 @@ private fun TransferCard(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(modifier = modifier.fillMaxWidth()) {
+        val sizeStr = remember(transfer.fileSize) {
+            formatSize(transfer.fileSize)
+        }
+        val dateStr = remember(transfer.updatedAt) {
+            DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                .format(Date(transfer.updatedAt))
+        }
+
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -242,8 +250,6 @@ private fun TransferCard(
                     } else {
                         stringResource(R.string.direction_outgoing)
                     }
-                    val sizeStr = formatSize(transfer.fileSize)
-                    val dateStr = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(transfer.updatedAt))
                     Text(
                         text = "$directionStr · $sizeStr · $dateStr",
                         style = MaterialTheme.typography.bodyMedium,
@@ -353,7 +359,7 @@ private fun SelectDeviceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(devices) { device ->
+                    items(devices, key = { it.deviceId }) { device ->
                         val available = device.online || device.lanAvailable
                         Row(
                             modifier = Modifier

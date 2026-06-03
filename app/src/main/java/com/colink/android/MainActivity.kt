@@ -27,10 +27,8 @@ import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -43,10 +41,7 @@ class MainActivity : ComponentActivity() {
         }
 
     override fun attachBaseContext(newBase: Context) {
-        val datastore = SettingsDataStore(newBase)
-        val language = runBlocking {
-            datastore.settings.map { it.language }.firstOrNull() ?: "system"
-        }
+        val language = LocaleHelper.cachedLanguage(newBase)
         val wrappedContext = LocaleHelper.wrap(newBase, language)
         super.attachBaseContext(wrappedContext)
     }
@@ -56,15 +51,12 @@ class MainActivity : ComponentActivity() {
         
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                var first = true
                 settingsDataStore.settings
                     .map { it.language }
                     .distinctUntilChanged()
                     .collect { lang ->
-                        if (first) {
-                            first = false
-                        } else {
-                            // Language changed! Recreate the activity to apply.
+                        if (LocaleHelper.cachedLanguage(this@MainActivity) != lang) {
+                            LocaleHelper.cacheLanguage(this@MainActivity, lang)
                             recreate()
                         }
                     }

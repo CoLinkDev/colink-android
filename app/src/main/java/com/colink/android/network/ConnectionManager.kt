@@ -1936,13 +1936,14 @@ class ConnectionManager @Inject constructor(
         }
 
     private fun broadcastLeft() {
-        val identity = runCatching { kotlinx.coroutines.runBlocking { deviceRepository.localDeviceIdentity() } }
-            .getOrNull()
-            ?: return
-        val entry = swimMembership.leaveSelf(identity.deviceId)
         val targets = swimEndpoints.values.toList()
-        runCatching {
-            kotlinx.coroutines.runBlocking {
+        if (targets.isEmpty()) {
+            return
+        }
+        scope.launch {
+            val identity = deviceRepository.localDeviceIdentity() ?: return@launch
+            val entry = swimMembership.leaveSelf(identity.deviceId)
+            runCatching {
                 targets.forEach { endpoint ->
                     lanSwimClient.ping(
                         identity = identity,

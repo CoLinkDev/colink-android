@@ -5,6 +5,8 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import com.colink.android.network.message.FileOfferPayload
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.bouncycastle.crypto.digests.Blake3Digest
 
 private const val FILE_CHUNK_SIZE = 512 * 1024L
@@ -14,25 +16,26 @@ data class BuiltFileOffer(
     val localUri: String,
 )
 
-fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFileOffer {
-    val metadata = contentResolver.readFileMetadata(uri)
-    val totalChunks = if (metadata.size == 0L) {
-        0
-    } else {
-        (metadata.size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+suspend fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFileOffer =
+    withContext(Dispatchers.IO) {
+        val metadata = contentResolver.readFileMetadata(uri)
+        val totalChunks = if (metadata.size == 0L) {
+            0
+        } else {
+            (metadata.size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+        }
+        BuiltFileOffer(
+            payload = FileOfferPayload(
+                sessionId = UUID.randomUUID().toString(),
+                fileName = metadata.name,
+                fileSize = metadata.size,
+                totalChunks = totalChunks,
+                chunkSize = FILE_CHUNK_SIZE,
+                checksum = contentResolver.blake3Checksum(uri),
+            ),
+            localUri = uri.toString(),
+        )
     }
-    return BuiltFileOffer(
-        payload = FileOfferPayload(
-            sessionId = UUID.randomUUID().toString(),
-            fileName = metadata.name,
-            fileSize = metadata.size,
-            totalChunks = totalChunks,
-            chunkSize = FILE_CHUNK_SIZE,
-            checksum = contentResolver.blake3Checksum(uri),
-        ),
-        localUri = uri.toString(),
-    )
-}
 
 private data class FileMetadata(
     val name: String,

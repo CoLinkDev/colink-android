@@ -80,6 +80,10 @@ fun MessageScreen(
         }
     }
 
+    val visibleMessages = remember(messages) {
+        messages.asReversed()
+    }
+
     SnackbarOnMessage(
         message = uiState.message,
         snackbarHostState = snackbarHostState,
@@ -115,7 +119,7 @@ fun MessageScreen(
                     )
                 }
             } else {
-                items(messages.asReversed(), key = { it.messageId }) { message ->
+                items(visibleMessages, key = { it.messageId }) { message ->
                     MessageCard(message = message, modifier = Modifier.animateItem())
                 }
             }
@@ -159,6 +163,9 @@ fun MessageScreen(
 @Composable
 private fun MessageCard(message: TextMessage, modifier: Modifier = Modifier) {
     val outgoing = message.direction == MessageDirection.Outgoing
+    val timeText = remember(message.createdAt) {
+        DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(message.createdAt))
+    }
     
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -185,7 +192,7 @@ private fun MessageCard(message: TextMessage, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(message.createdAt)),
+                text = timeText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

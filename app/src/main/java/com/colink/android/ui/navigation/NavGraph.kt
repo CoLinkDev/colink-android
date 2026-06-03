@@ -1,15 +1,12 @@
 package com.colink.android.ui.navigation
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -21,7 +18,6 @@ import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,28 +29,26 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.compose.material3.TopAppBar
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.colink.android.R
-import androidx.compose.ui.res.stringResource
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
@@ -107,7 +101,7 @@ fun CoLinkNavGraph(
         uiState.bootstrapping -> LoadingScreen(modifier)
         else -> {
             MainScaffold(
-                cloudStatus = uiState.cloud.status,
+                cloudStatus = uiState.cloudStatus,
                 authenticated = uiState.authenticated,
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
@@ -196,8 +190,6 @@ private fun MainScaffold(
     ) {
         composable("main") {
             val nestedNavController = rememberNavController()
-            val backStack by nestedNavController.currentBackStackEntryAsState()
-            val currentDestination = backStack?.destination
 
             LaunchedEffect(pendingShare) {
                 val share = pendingShare ?: return@LaunchedEffect
@@ -252,26 +244,17 @@ private fun MainScaffold(
                     )
                 },
                 bottomBar = {
-                    NavigationBar {
-                        topLevelRoutes.forEach { item ->
-                            NavigationBarItem(
-                                selected = currentDestination?.isTopLevelSelected(item.route) == true,
-                                onClick = { nestedNavController.navigateTopLevel(item.route) },
-                                icon = { Icon(item.icon, contentDescription = null) },
-                                label = { Text(stringResource(item.labelResId)) },
-                            )
-                        }
-                    }
+                    MainBottomBar(navController = nestedNavController)
                 },
             ) { innerPadding ->
                 NavHost(
                     navController = nestedNavController,
                     startDestination = "devices",
                     modifier = Modifier.padding(innerPadding),
-                    enterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
-                    exitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
-                    popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 150, delayMillis = 50)) },
-                    popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 50)) },
+                    enterTransition = { fadeIn(animationSpec = tween(durationMillis = 90)) },
+                    exitTransition = { fadeOut(animationSpec = tween(durationMillis = 70)) },
+                    popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 90)) },
+                    popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 70)) },
                 ) {
                     composable("devices") {
                         DeviceListScreen(
@@ -362,6 +345,28 @@ private fun MainScaffold(
             CloudAccountScreen(
                 authenticated = authenticated,
                 onLogout = onLogout,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MainBottomBar(navController: NavHostController) {
+    val backStack by navController.currentBackStackEntryAsState()
+    val currentDestination = backStack?.destination
+
+    NavigationBar {
+        topLevelRoutes.forEach { item ->
+            val selected = currentDestination?.isTopLevelSelected(item.route) == true
+            NavigationBarItem(
+                selected = selected,
+                onClick = {
+                    if (!selected) {
+                        navController.navigateTopLevel(item.route)
+                    }
+                },
+                icon = { Icon(item.icon, contentDescription = null) },
+                label = { Text(stringResource(item.labelResId)) },
             )
         }
     }

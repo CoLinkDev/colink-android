@@ -8,6 +8,7 @@ import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -46,7 +47,7 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun submit(serverUrl: String, block: suspend () -> Result<Unit>) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = AuthUiState(loading = true)
             settingsDataStore.saveServerUrl(serverUrl)
             val result = block()

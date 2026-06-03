@@ -9,6 +9,7 @@ import com.colink.android.domain.repository.MessageRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +40,7 @@ class MessagesViewModel @Inject constructor(
     val uiState: StateFlow<MessagesUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val identity = deviceRepository.localDeviceIdentity()
                 ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
             _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
@@ -47,7 +48,7 @@ class MessagesViewModel @Inject constructor(
     }
 
     fun send(targetDeviceId: String?, text: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null) {
                 _uiState.update {
                     it.copy(sending = false, message = "Select a target device")

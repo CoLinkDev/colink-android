@@ -9,6 +9,7 @@ import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +44,7 @@ class DevicesViewModel @Inject constructor(
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val identity = deviceRepository.localDeviceIdentity()
                 ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
             _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
@@ -51,7 +52,7 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(loading = true, message = null) }
             val result = authRepository.currentSession()
                 .fold(
@@ -67,7 +68,7 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun rotateKey(deviceId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.rotateDeviceKey(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
@@ -79,7 +80,7 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun deleteDevice(deviceId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.deleteDevice(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
@@ -91,7 +92,7 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun forgetLanTrust(deviceId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.forgetLanTrust(deviceId)
             if (result.isSuccess) {

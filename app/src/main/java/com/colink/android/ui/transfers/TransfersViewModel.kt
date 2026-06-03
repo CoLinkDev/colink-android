@@ -11,6 +11,7 @@ import com.colink.android.network.ConnectionManager
 import com.colink.android.network.transfer.buildFileOffer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -47,7 +48,7 @@ class TransfersViewModel @Inject constructor(
     val uiState: StateFlow<TransfersUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val identity = deviceRepository.localDeviceIdentity()
                 ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
             _uiState.update { it.copy(localDeviceId = identity?.deviceId) }
@@ -55,7 +56,7 @@ class TransfersViewModel @Inject constructor(
     }
 
     fun accept(sessionId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.acceptFileOffer(sessionId)
             _uiState.update {
@@ -68,7 +69,7 @@ class TransfersViewModel @Inject constructor(
     }
 
     fun reject(sessionId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.rejectFileOffer(sessionId)
             _uiState.update {
@@ -81,7 +82,7 @@ class TransfersViewModel @Inject constructor(
     }
 
     fun send(contentResolver: ContentResolver, targetDeviceId: String?, uri: Uri?) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null || uri == null) {
                 _uiState.update {
                     it.copy(working = false, message = "Select a device and file")
