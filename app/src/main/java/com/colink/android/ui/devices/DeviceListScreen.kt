@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -42,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
-import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
@@ -60,6 +60,9 @@ fun DeviceListScreen(
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val lanPairingCandidates by viewModel.lanPairingCandidates.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val availableDeviceCount = remember(devices) {
+        devices.count { it.online || it.lanAvailable }
+    }
 
     SnackbarOnMessage(
         message = uiState.message,
@@ -71,7 +74,7 @@ fun DeviceListScreen(
         title = stringResource(R.string.nav_devices),
         subtitle = stringResource(
             R.string.devices_subtitle,
-            devices.count { it.online || it.lanAvailable },
+            availableDeviceCount,
             devices.size
         ),
         action = {
@@ -89,7 +92,7 @@ fun DeviceListScreen(
             onRefresh = viewModel::refresh,
         ) {
             if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                item {
+                item(contentType = "empty") {
                     EmptyState(
                         icon = Icons.Default.Devices,
                         title = stringResource(R.string.no_devices_title),
@@ -97,15 +100,27 @@ fun DeviceListScreen(
                     )
                 }
             } else {
-                items(devices, key = { it.deviceId }) { device ->
+                items(
+                    items = devices,
+                    key = { it.deviceId },
+                    contentType = { "device" },
+                ) { device ->
                     DeviceCard(
-                        device = device,
-                        isLocalDevice = device.deviceId == uiState.localDeviceId,
+                        name = device.name,
+                        type = device.type,
+                        lanAvailable = device.lanAvailable,
+                        online = device.online,
+                        showTrustedTag = device.type == "unknown" &&
+                            device.deviceSources.contains("trusted_peer_key"),
                         onClick = { onDeviceSelected(device.deviceId) },
                         modifier = Modifier.animateItem()
                     )
                 }
-                items(lanPairingCandidates, key = { "lan-pairing-${it.deviceId}" }) { candidate ->
+                items(
+                    items = lanPairingCandidates,
+                    key = { "lan-pairing-${it.deviceId}" },
+                    contentType = { "lanPairingCandidate" },
+                ) { candidate ->
                     LanPairingCandidateCard(
                         candidate = candidate,
                         onPair = { viewModel.startLanPairing(candidate.deviceId) },
@@ -200,8 +215,11 @@ private fun LanPairingCandidateCard(
 
 @Composable
 private fun DeviceCard(
-    device: Device,
-    isLocalDevice: Boolean,
+    name: String,
+    type: String,
+    lanAvailable: Boolean,
+    online: Boolean,
+    showTrustedTag: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -225,7 +243,7 @@ private fun DeviceCard(
                 modifier = Modifier
                     .size(40.dp)
                     .background(
-                        color = if (device.lanAvailable || device.online) {
+                        color = if (lanAvailable || online) {
                             MaterialTheme.colorScheme.primaryContainer
                         } else {
                             MaterialTheme.colorScheme.surfaceVariant
@@ -236,12 +254,12 @@ private fun DeviceCard(
             ) {
                 Icon(
                     imageVector = when {
-                        device.lanAvailable -> Icons.Default.Wifi
-                        device.online -> Icons.Default.Cloud
+                        lanAvailable -> Icons.Default.Wifi
+                        online -> Icons.Default.Cloud
                         else -> Icons.Default.Devices
                     },
                     contentDescription = null,
-                    tint = if (device.lanAvailable || device.online) {
+                    tint = if (lanAvailable || online) {
                         MaterialTheme.colorScheme.onPrimaryContainer
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
@@ -254,7 +272,7 @@ private fun DeviceCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
+                    text = name.ifBlank { stringResource(R.string.unnamed_device) },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -262,7 +280,7 @@ private fun DeviceCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = device.type.ifBlank { stringResource(R.string.unknown_type) },
+                    text = type.ifBlank { stringResource(R.string.unknown_type) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -272,14 +290,14 @@ private fun DeviceCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
-                    if (device.lanAvailable) {
+                    if (lanAvailable) {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_lan),
                             icon = Icons.Default.Wifi,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
-                    } else if (device.online) {
+                    } else if (online) {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_cloud),
                             icon = Icons.Default.Cloud,
@@ -295,7 +313,7 @@ private fun DeviceCard(
                         )
                     }
 
-                    if (device.type == "unknown" && device.deviceSources.contains("trusted_peer_key")) {
+                    if (showTrustedTag) {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_trusted),
                             icon = Icons.Default.Verified,

@@ -58,6 +58,9 @@ import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.flow.StateFlow
+
+private val openDocumentMimeTypes = arrayOf("*/*")
 
 @Composable
 fun TransfersScreen(
@@ -68,7 +71,6 @@ fun TransfersScreen(
 ) {
     val context = LocalContext.current
     val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val transfers by viewModel.transfers.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pickedFileUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var confirmTransfer by rememberSaveable { mutableStateOf<TransferDecision?>(null) }
@@ -119,7 +121,7 @@ fun TransfersScreen(
         action = {
             FilledTonalIconButton(
                 enabled = !uiState.working,
-                onClick = { filePicker.launch(arrayOf("*/*")) },
+                onClick = { filePicker.launch(openDocumentMimeTypes) },
             ) {
                 Icon(
                     imageVector = Icons.Default.UploadFile,
@@ -133,38 +135,17 @@ fun TransfersScreen(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (transfers.isEmpty()) {
-                item {
-                    EmptyState(
-                        icon = Icons.Default.FolderOff,
-                        title = stringResource(R.string.no_transfers_title),
-                        body = stringResource(R.string.no_transfers_body),
-                        action = {
-                            Button(
-                                enabled = !uiState.working,
-                                onClick = { filePicker.launch(arrayOf("*/*")) },
-                            ) {
-                                Icon(Icons.Default.FileUpload, contentDescription = null)
-                                Text(stringResource(R.string.send_file_btn))
-                            }
-                        },
-                    )
-                }
-            } else {
-                items(transfers, key = { it.sessionId }) { transfer ->
-                    TransferCard(
-                        transfer = transfer,
-                        onAccept = { confirmTransfer = TransferDecision.Accept(transfer.sessionId, transfer.fileName) },
-                        onReject = { confirmTransfer = TransferDecision.Reject(transfer.sessionId, transfer.fileName) },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-            }
-        }
+        TransferList(
+            transfers = viewModel.transfers,
+            working = uiState.working,
+            onPickFile = { filePicker.launch(openDocumentMimeTypes) },
+            onAccept = { transfer ->
+                confirmTransfer = TransferDecision.Accept(transfer.sessionId, transfer.fileName)
+            },
+            onReject = { transfer ->
+                confirmTransfer = TransferDecision.Reject(transfer.sessionId, transfer.fileName)
+            },
+        )
     }
 
     when (val decision = confirmTransfer) {
@@ -197,6 +178,54 @@ fun TransfersScreen(
         }
 
         null -> Unit
+    }
+}
+
+@Composable
+private fun TransferList(
+    transfers: StateFlow<List<FileTransfer>>,
+    working: Boolean,
+    onPickFile: () -> Unit,
+    onAccept: (FileTransfer) -> Unit,
+    onReject: (FileTransfer) -> Unit,
+) {
+    val transferItems by transfers.collectAsStateWithLifecycle()
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (transferItems.isEmpty()) {
+            item(contentType = "empty") {
+                EmptyState(
+                    icon = Icons.Default.FolderOff,
+                    title = stringResource(R.string.no_transfers_title),
+                    body = stringResource(R.string.no_transfers_body),
+                    action = {
+                        Button(
+                            enabled = !working,
+                            onClick = onPickFile,
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null)
+                            Text(stringResource(R.string.send_file_btn))
+                        }
+                    },
+                )
+            }
+        } else {
+            items(
+                items = transferItems,
+                key = { it.sessionId },
+                contentType = { "transfer" },
+            ) { transfer ->
+                TransferCard(
+                    transfer = transfer,
+                    onAccept = { onAccept(transfer) },
+                    onReject = { onReject(transfer) },
+                    modifier = Modifier.animateItem(),
+                )
+            }
+        }
     }
 }
 
@@ -359,7 +388,11 @@ private fun SelectDeviceDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(devices, key = { it.deviceId }) { device ->
+                    items(
+                        items = devices,
+                        key = { it.deviceId },
+                        contentType = { "device" },
+                    ) { device ->
                         val available = device.online || device.lanAvailable
                         Row(
                             modifier = Modifier

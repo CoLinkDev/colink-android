@@ -45,6 +45,7 @@ import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
 import java.text.DateFormat
 import java.util.Date
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun MessageScreen(
@@ -54,7 +55,6 @@ fun MessageScreen(
     viewModel: MessagesViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
@@ -80,8 +80,8 @@ fun MessageScreen(
         }
     }
 
-    val visibleMessages = remember(messages) {
-        messages.asReversed()
+    val selectedName = remember(targetDevices, selectedDeviceId) {
+        selectedDeviceName(targetDevices, selectedDeviceId)
     }
 
     SnackbarOnMessage(
@@ -92,7 +92,7 @@ fun MessageScreen(
 
     ScreenColumn(
         title = stringResource(R.string.nav_messages),
-        subtitle = selectedDeviceName(targetDevices, selectedDeviceId) ?: stringResource(R.string.messages_choose_device),
+        subtitle = selectedName ?: stringResource(R.string.messages_choose_device),
         modifier = modifier,
     ) {
         DevicePicker(
@@ -105,25 +105,10 @@ fun MessageScreen(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+        MessageList(
+            messages = viewModel.messages,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            reverseLayout = true
-        ) {
-            if (messages.isEmpty()) {
-                item {
-                    EmptyState(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        title = stringResource(R.string.no_messages_title),
-                        body = stringResource(R.string.no_messages_body),
-                    )
-                }
-            } else {
-                items(visibleMessages, key = { it.messageId }) { message ->
-                    MessageCard(message = message, modifier = Modifier.animateItem())
-                }
-            }
-        }
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -155,6 +140,41 @@ fun MessageScreen(
                     imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = stringResource(R.string.send_message_desc)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageList(
+    messages: StateFlow<List<TextMessage>>,
+    modifier: Modifier = Modifier,
+) {
+    val messageItems by messages.collectAsStateWithLifecycle()
+    val visibleMessages = remember(messageItems) {
+        messageItems.asReversed()
+    }
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier,
+        reverseLayout = true,
+    ) {
+        if (messageItems.isEmpty()) {
+            item(contentType = "empty") {
+                EmptyState(
+                    icon = Icons.AutoMirrored.Filled.Chat,
+                    title = stringResource(R.string.no_messages_title),
+                    body = stringResource(R.string.no_messages_body),
+                )
+            }
+        } else {
+            items(
+                items = visibleMessages,
+                key = { it.messageId },
+                contentType = { "message" },
+            ) { message ->
+                MessageCard(message = message, modifier = Modifier.animateItem())
             }
         }
     }

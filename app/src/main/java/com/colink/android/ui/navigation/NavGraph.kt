@@ -50,6 +50,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.colink.android.R
 import com.colink.android.domain.model.CloudStatus
+import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkService
@@ -60,6 +61,7 @@ import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.transfers.TransfersScreen
+import kotlinx.coroutines.flow.StateFlow
 
 private data class TopLevelRoute(
     val route: String,
@@ -82,87 +84,38 @@ fun CoLinkNavGraph(
     onRequestNotificationPermission: () -> Unit = {},
     viewModel: MainViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val bootstrapping by viewModel.bootstrapping.collectAsStateWithLifecycle()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    LaunchedEffect(uiState.bootstrapping) {
-        if (!uiState.bootstrapping) {
+    LaunchedEffect(bootstrapping) {
+        if (!bootstrapping) {
             CoLinkService.start(context)
         }
     }
 
-    LaunchedEffect(uiState.bootstrapping, uiState.notificationsEnabled) {
-        if (!uiState.bootstrapping && uiState.notificationsEnabled) {
+    LaunchedEffect(bootstrapping, notificationsEnabled) {
+        if (!bootstrapping && notificationsEnabled) {
             onRequestNotificationPermission()
         }
     }
 
     when {
-        uiState.bootstrapping -> LoadingScreen(modifier)
+        bootstrapping -> LoadingScreen(modifier)
         else -> {
             MainScaffold(
-                cloudStatus = uiState.cloudStatus,
-                authenticated = uiState.authenticated,
+                cloudStatus = viewModel.cloudStatus,
+                authenticated = viewModel.authenticated,
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
                 modifier = modifier,
             )
-            val request = uiState.pairingRequest
-            if (request != null) {
-                AlertDialog(
-                    onDismissRequest = {
-                        if (request.error != null) {
-                            viewModel.clearPairing(request.requestId)
-                        } else if (!request.waiting) {
-                            viewModel.respondPairing(request.requestId, false)
-                        }
-                    },
-                    icon = { Icon(Icons.Default.Devices, contentDescription = null) },
-                    title = { Text(stringResource(R.string.lan_pairing_title)) },
-                    text = {
-                        val deviceName = request.name.ifBlank { request.deviceId }
-                        val mainText = stringResource(R.string.lan_pairing_wants_to_pair, deviceName, request.code)
-                        val body = when {
-                            request.error != null ->
-                                "$mainText\n\n${request.error}"
-                            request.waiting ->
-                                "$mainText\n\n" + stringResource(R.string.lan_pairing_waiting)
-                            else ->
-                                mainText
-                        }
-                        Text(body)
-                    },
-                    confirmButton = {
-                        TextButton(
-                            enabled = !request.waiting,
-                            onClick = {
-                                if (request.error != null) {
-                                    viewModel.clearPairing(request.requestId)
-                                } else {
-                                    viewModel.respondPairing(request.requestId, true)
-                                }
-                            },
-                        ) {
-                            val btnText = if (request.error != null) {
-                                stringResource(R.string.lan_pairing_close)
-                            } else if (request.waiting) {
-                                stringResource(R.string.lan_pairing_waiting_btn)
-                            } else {
-                                stringResource(R.string.lan_pairing_accept)
-                            }
-                            Text(btnText)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            enabled = !request.waiting && request.error == null,
-                            onClick = { viewModel.respondPairing(request.requestId, false) },
-                        ) {
-                            Text(stringResource(R.string.lan_pairing_reject))
-                        }
-                    },
-                )
-            }
+            PairingRequestDialogHost(
+                pairingRequest = viewModel.pairingRequest,
+                onAccept = { requestId -> viewModel.respondPairing(requestId, true) },
+                onReject = { requestId -> viewModel.respondPairing(requestId, false) },
+                onClear = viewModel::clearPairing,
+            )
         }
     }
 }
@@ -170,8 +123,8 @@ fun CoLinkNavGraph(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainScaffold(
-    cloudStatus: CloudStatus,
-    authenticated: Boolean,
+    cloudStatus: StateFlow<CloudStatus>,
+    authenticated: StateFlow<Boolean>,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
     modifier: Modifier = Modifier,
@@ -206,41 +159,10 @@ private fun MainScaffold(
                 contentWindowInsets = WindowInsets(0.dp),
                 snackbarHost = { SnackbarHost(snackbarHostState) },
                 topBar = {
-                    TopAppBar(
-                        modifier = Modifier.statusBarsPadding(),
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                        ),
-                        title = {
-                            Text("CoLink", fontWeight = FontWeight.Bold)
-                        },
-                        actions = {
-                            Icon(
-                                imageVector = if (cloudStatus == CloudStatus.Connected) {
-                                    Icons.Default.Cloud
-                                } else {
-                                    Icons.Default.CloudOff
-                                },
-                                contentDescription = cloudStatus.name,
-                                tint = if (cloudStatus == CloudStatus.Connected) {
-                                    MaterialTheme.colorScheme.secondary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
-                            IconButton(onClick = { rootNavController.navigate("cloud-account") }) {
-                                Icon(
-                                    imageVector = if (authenticated) {
-                                        Icons.Default.AccountCircle
-                                    } else {
-                                        Icons.AutoMirrored.Filled.Login
-                                    },
-                                    contentDescription = stringResource(R.string.account_desc),
-                                )
-                            }
-                        },
+                    MainTopBar(
+                        cloudStatus = cloudStatus,
+                        authenticated = authenticated,
+                        onAccountClick = { rootNavController.navigate("cloud-account") },
                     )
                 },
                 bottomBar = {
@@ -342,12 +264,122 @@ private fun MainScaffold(
                 )
             }
         ) {
+            val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             CloudAccountScreen(
-                authenticated = authenticated,
+                authenticated = isAuthenticated,
                 onLogout = onLogout,
             )
         }
     }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun MainTopBar(
+    cloudStatus: StateFlow<CloudStatus>,
+    authenticated: StateFlow<Boolean>,
+    onAccountClick: () -> Unit,
+) {
+    val status by cloudStatus.collectAsStateWithLifecycle()
+    val isAuthenticated by authenticated.collectAsStateWithLifecycle()
+
+    TopAppBar(
+        modifier = Modifier.statusBarsPadding(),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        title = {
+            Text("CoLink", fontWeight = FontWeight.Bold)
+        },
+        actions = {
+            Icon(
+                imageVector = if (status == CloudStatus.Connected) {
+                    Icons.Default.Cloud
+                } else {
+                    Icons.Default.CloudOff
+                },
+                contentDescription = status.name,
+                tint = if (status == CloudStatus.Connected) {
+                    MaterialTheme.colorScheme.secondary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+            IconButton(onClick = onAccountClick) {
+                Icon(
+                    imageVector = if (isAuthenticated) {
+                        Icons.Default.AccountCircle
+                    } else {
+                        Icons.AutoMirrored.Filled.Login
+                    },
+                    contentDescription = stringResource(R.string.account_desc),
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun PairingRequestDialogHost(
+    pairingRequest: StateFlow<LanPairingRequest?>,
+    onAccept: (String) -> Unit,
+    onReject: (String) -> Unit,
+    onClear: (String) -> Unit,
+) {
+    val request by pairingRequest.collectAsStateWithLifecycle()
+    val current = request ?: return
+    AlertDialog(
+        onDismissRequest = {
+            if (current.error != null) {
+                onClear(current.requestId)
+            } else if (!current.waiting) {
+                onReject(current.requestId)
+            }
+        },
+        icon = { Icon(Icons.Default.Devices, contentDescription = null) },
+        title = { Text(stringResource(R.string.lan_pairing_title)) },
+        text = {
+            val deviceName = current.name.ifBlank { current.deviceId }
+            val mainText = stringResource(R.string.lan_pairing_wants_to_pair, deviceName, current.code)
+            val body = when {
+                current.error != null -> "$mainText\n\n${current.error}"
+                current.waiting -> "$mainText\n\n" + stringResource(R.string.lan_pairing_waiting)
+                else -> mainText
+            }
+            Text(body)
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !current.waiting,
+                onClick = {
+                    if (current.error != null) {
+                        onClear(current.requestId)
+                    } else {
+                        onAccept(current.requestId)
+                    }
+                },
+            ) {
+                val btnText = if (current.error != null) {
+                    stringResource(R.string.lan_pairing_close)
+                } else if (current.waiting) {
+                    stringResource(R.string.lan_pairing_waiting_btn)
+                } else {
+                    stringResource(R.string.lan_pairing_accept)
+                }
+                Text(btnText)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !current.waiting && current.error == null,
+                onClick = { onReject(current.requestId) },
+            ) {
+                Text(stringResource(R.string.lan_pairing_reject))
+            }
+        },
+    )
 }
 
 @Composable

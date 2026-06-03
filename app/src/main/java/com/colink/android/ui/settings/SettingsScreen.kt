@@ -107,18 +107,23 @@ fun SettingsScreen(
 
             // Language Dropdown
             var expanded by remember { mutableStateOf(false) }
-            val languages = listOf(
-                "system" to stringResource(R.string.lang_system),
-                "en" to "English",
-                "zh-CN" to "简体中文",
-                "zh-TW" to "繁體中文",
-                "ja" to "日本語",
-                "ko" to "한국어",
-                "es" to "Español",
-                "de" to "Deutsch",
-                "ru" to "Русский"
-            )
-            val currentLanguageLabel = languages.find { it.first == language }?.second ?: ""
+            val systemLanguage = stringResource(R.string.lang_system)
+            val languages = remember(systemLanguage) {
+                listOf(
+                    "system" to systemLanguage,
+                    "en" to "English",
+                    "zh-CN" to "简体中文",
+                    "zh-TW" to "繁體中文",
+                    "ja" to "日本語",
+                    "ko" to "한국어",
+                    "es" to "Español",
+                    "de" to "Deutsch",
+                    "ru" to "Русский"
+                )
+            }
+            val currentLanguageLabel = remember(languages, language) {
+                languages.find { it.first == language }?.second ?: ""
+            }
 
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(

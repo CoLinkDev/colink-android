@@ -12,19 +12,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
-
-data class MainUiState(
-    val bootstrapping: Boolean = true,
-    val authenticated: Boolean = false,
-    val cloudStatus: CloudStatus = CloudStatus.Disconnected,
-    val pairingRequest: LanPairingRequest? = null,
-    val notificationsEnabled: Boolean = true,
-)
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -33,29 +27,34 @@ class MainViewModel @Inject constructor(
     private val pairingCoordinator: LanPairingCoordinator,
     private val settingsDataStore: SettingsDataStore,
 ) : ViewModel() {
-    private val bootstrapping = MutableStateFlow(true)
+    private val _bootstrapping = MutableStateFlow(true)
+    val bootstrapping: StateFlow<Boolean> = _bootstrapping.asStateFlow()
 
-    val uiState: StateFlow<MainUiState> =
-        combine(
-            bootstrapping,
-            authRepository.session,
-            connectionManager.cloudState,
-            pairingCoordinator.pendingRequest,
-            settingsDataStore.settings,
-        ) { loading, session, cloud, pairingRequest, settings ->
-            MainUiState(
-                bootstrapping = loading,
-                authenticated = session != null,
-                cloudStatus = cloud.status,
-                pairingRequest = pairingRequest,
-                notificationsEnabled = settings.notifications,
-            )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
+    val authenticated: StateFlow<Boolean> =
+        authRepository.session
+            .map { it != null }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val cloudStatus: StateFlow<CloudStatus> =
+        connectionManager.cloudState
+            .map { it.status }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CloudStatus.Disconnected)
+
+    val pairingRequest: StateFlow<LanPairingRequest?> =
+        pairingCoordinator.pendingRequest
+
+    val notificationsEnabled: StateFlow<Boolean> =
+        settingsDataStore.settings
+            .map { it.notifications }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
             authRepository.bootstrap()
-            bootstrapping.value = false
+            _bootstrapping.value = false
         }
     }
 

@@ -68,7 +68,9 @@ fun DeviceDetailsScreen(
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val device = devices.firstOrNull { it.deviceId == deviceId }
+    val device = remember(devices, deviceId) {
+        devices.firstOrNull { it.deviceId == deviceId }
+    }
     val isLocalDevice = device?.deviceId == uiState.localDeviceId
     var confirmAction by remember { mutableStateOf<DeviceAction?>(null) }
 
@@ -145,7 +147,7 @@ fun DeviceDetailsScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item {
+                item(contentType = "actions") {
                     DeviceActionsCard(
                         device = device,
                         isLocalDevice = isLocalDevice,
@@ -160,7 +162,7 @@ fun DeviceDetailsScreen(
                         },
                     )
                 }
-                item {
+                item(contentType = "info") {
                     DeviceInformationCard(
                         device = device,
                         isLocalDevice = isLocalDevice,
