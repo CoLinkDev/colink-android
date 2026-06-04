@@ -48,6 +48,9 @@ import kotlinx.serialization.json.encodeToJsonElement
 const val LAN_PORT = 27_777
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
+private const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
+private const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
+private const val REASON_HANDSHAKE_USER_REJECTED = "colink:handshake.user_rejected.v1"
 
 @Singleton
 class LanWebSocketServer @Inject constructor(
@@ -180,7 +183,7 @@ class LanWebSocketServer @Inject constructor(
                 CoLinkLog.w("LAN", "rejecting inbound peer invalid signature device=${CoLinkLog.shortId(proof.deviceId)}")
                 session.sendPeerMessage(
                     "handshake.v1.reject",
-                    HandshakeRejectPayload("signature_invalid"),
+                    HandshakeRejectPayload(REASON_HANDSHAKE_SIGNATURE_INVALID),
                 )
                 return session.close()
             }
@@ -195,7 +198,7 @@ class LanWebSocketServer @Inject constructor(
                 deviceRepository.clearLanEndpoint(proof.deviceId)
                 session.sendPeerMessage(
                     "handshake.v1.reject",
-                    HandshakeRejectPayload("key_changed"),
+                    HandshakeRejectPayload(REASON_HANDSHAKE_KEY_CHANGED),
                 )
                 listener?.onKeyChanged(proof.deviceId, proof.name)
                 return session.close()
@@ -223,7 +226,7 @@ class LanWebSocketServer @Inject constructor(
                     CoLinkLog.w("Pairing", "inbound pairing rejected device=${CoLinkLog.shortId(proof.deviceId)}")
                     session.sendPeerMessage(
                         "handshake.v1.reject",
-                        HandshakeRejectPayload("user_rejected"),
+                        HandshakeRejectPayload(REASON_HANDSHAKE_USER_REJECTED),
                     )
                     return session.close()
                 }

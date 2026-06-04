@@ -106,6 +106,12 @@ private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
+private const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
+private const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
+private const val REASON_HANDSHAKE_USER_REJECTED = "colink:handshake.user_rejected.v1"
+private const val REASON_TRANSFER_USER_CANCELLED = "colink:transfer.user_cancelled.v1"
+private const val REASON_TRANSFER_USER_REJECTED = "colink:transfer.user_rejected.v1"
+private const val REASON_TRANSFER_CHECKSUM_MISMATCH = "colink:transfer.checksum_mismatch.v1"
 
 @Singleton
 class ConnectionManager @Inject constructor(
@@ -693,7 +699,7 @@ class ConnectionManager @Inject constructor(
             }
         }
 
-    suspend fun rejectFileOffer(sessionId: String, reason: String = "user rejected"): Result<Unit> =
+    suspend fun rejectFileOffer(sessionId: String, reason: String = REASON_TRANSFER_USER_REJECTED): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             fileTransferRepository.save(
@@ -1151,7 +1157,7 @@ class ConnectionManager @Inject constructor(
         val reason = when {
             success -> null
             !chunksComplete -> "missing chunks"
-            else -> "checksum mismatch"
+            else -> REASON_TRANSFER_CHECKSUM_MISMATCH
         }
         val finalUri = if (success) {
             saveReceivedFileToDownloads(state.tempFile, transfer.fileName)
@@ -1277,11 +1283,18 @@ class ConnectionManager @Inject constructor(
         when (reason) {
             "signature invalid",
             "signature_invalid",
+            REASON_HANDSHAKE_SIGNATURE_INVALID,
             "timestamp drift too large",
             -> context.getString(R.string.lan_connection_failed_time_or_signature)
 
-            "key_changed" -> context.getString(R.string.lan_connection_failed_key_changed)
-            "user_rejected" -> context.getString(R.string.lan_connection_failed_user_rejected)
+            "key_changed",
+            REASON_HANDSHAKE_KEY_CHANGED,
+            -> context.getString(R.string.lan_connection_failed_key_changed)
+
+            "user_rejected",
+            REASON_HANDSHAKE_USER_REJECTED,
+            -> context.getString(R.string.lan_connection_failed_user_rejected)
+
             "LAN device key is not trusted" -> context.getString(R.string.lan_connection_failed_untrusted)
             else -> reason.ifBlank { context.getString(R.string.lan_connection_failed_unknown) }
         }
@@ -1671,7 +1684,7 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    suspend fun cancelTransfer(sessionId: String, reason: String = "user cancelled"): Result<Unit> =
+    suspend fun cancelTransfer(sessionId: String, reason: String = REASON_TRANSFER_USER_CANCELLED): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             incomingTransfers.remove(sessionId)?.tempFile?.delete()

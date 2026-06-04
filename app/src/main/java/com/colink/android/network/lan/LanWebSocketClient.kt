@@ -41,6 +41,8 @@ class LanWebSocketClient @Inject constructor(
 ) {
     private companion object {
         const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
+        const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
+        const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -172,8 +174,13 @@ class LanWebSocketClient @Inject constructor(
                             require(proof.deviceId == expectedDeviceId) {
                                 "LAN handshake device mismatch"
                             }
-                            require(handshake.verifyProof(proof)) {
-                                "signature invalid"
+                            if (!handshake.verifyProof(proof)) {
+                                sendPeerMessage(
+                                    webSocket = webSocket,
+                                    type = "handshake.v1.reject",
+                                    payload = HandshakeRejectPayload(REASON_HANDSHAKE_SIGNATURE_INVALID),
+                                )
+                                error("signature invalid")
                             }
                             val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
                             CoLinkLog.i(
@@ -185,10 +192,10 @@ class LanWebSocketClient @Inject constructor(
                                 sendPeerMessage(
                                     webSocket = webSocket,
                                     type = "handshake.v1.reject",
-                                    payload = HandshakeRejectPayload("key_changed"),
+                                    payload = HandshakeRejectPayload(REASON_HANDSHAKE_KEY_CHANGED),
                                 )
                                 listener.onKeyChanged(proof.deviceId, proof.name)
-                                webSocket.close(1008, "key_changed")
+                                webSocket.close(1008, REASON_HANDSHAKE_KEY_CHANGED)
                                 return
                             }
                             if (trust == LanTrustState.Unknown) {
@@ -222,7 +229,7 @@ class LanWebSocketClient @Inject constructor(
                                 HandshakeRejectPayload.serializer(),
                                 envelope.payload,
                             )
-                            if (rejection.reason == "key_changed") {
+                            if (rejection.reason == REASON_HANDSHAKE_KEY_CHANGED || rejection.reason == "key_changed") {
                                 val id = peerId ?: expectedDeviceId
                                 val name = id
                                 lanTrustStore.clearLanPairing(id)
