@@ -1281,17 +1281,7 @@ class ConnectionManager @Inject constructor(
                     name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
                     val normalizedType = type.normalizedDeviceType()
                     normalizedType?.let { swimTypes[deviceId] = it }
-                    refreshPairingCandidate(deviceId)
-                    val reachable = when (swimMembership.memberState(deviceId)) {
-                        MemberState.Alive,
-                        MemberState.Suspect -> true
-                        else -> false
-                    }
-                    if (normalizedType != null && lanTrustStore.isLanTrusted(deviceId) && reachable) {
-                        val lanState = swimMembership.memberState(deviceId)?.wireValue
-                            ?: MemberState.Alive.wireValue
-                        deviceRepository.markLanEndpoint(deviceId, ip, port, normalizedType, lanState)
-                    }
+                    syncKnownLanEndpoint(deviceId)
                     val response = lanSwimClient.ping(
                         identity = identity,
                         ip = ip,
@@ -1710,6 +1700,7 @@ class ConnectionManager @Inject constructor(
                 if (!lanTrustStore.isLanTrusted(message.payload.from)) {
                     deviceRepository.clearLanEndpoint(message.payload.from)
                 }
+                syncKnownLanEndpoint(message.payload.from)
             }
         }
         observeSwimAlive(identity.deviceId, message.payload.from)
@@ -1864,6 +1855,31 @@ class ConnectionManager @Inject constructor(
         val state = swimMembership.memberState(deviceId) ?: return
         val endpoint = swimEndpoints[deviceId] ?: return
         updatePairingCandidate(deviceId, endpoint, state)
+    }
+
+    private suspend fun syncKnownLanEndpoint(deviceId: String) {
+        val state = swimMembership.memberState(deviceId) ?: return
+        val endpoint = swimEndpoints[deviceId] ?: return
+        when (state) {
+            MemberState.Alive,
+            MemberState.Suspect,
+            -> {
+                if (lanTrustStore.isLanTrusted(deviceId)) {
+                    deviceRepository.markLanEndpoint(
+                        deviceId,
+                        endpoint.ip,
+                        endpoint.port,
+                        swimTypes[deviceId],
+                        state.wireValue,
+                    )
+                }
+                updatePairingCandidate(deviceId, endpoint, state)
+            }
+
+            MemberState.Dead,
+            MemberState.Left,
+            -> removePairingCandidate(deviceId)
+        }
     }
 
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
