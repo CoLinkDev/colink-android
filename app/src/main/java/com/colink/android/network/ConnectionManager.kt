@@ -1284,8 +1284,7 @@ class ConnectionManager @Inject constructor(
             "signature invalid",
             "signature_invalid",
             REASON_HANDSHAKE_SIGNATURE_INVALID,
-            "timestamp drift too large",
-            -> context.getString(R.string.lan_connection_failed_time_or_signature)
+            -> context.getString(R.string.lan_connection_failed_signature)
 
             "key_changed",
             REASON_HANDSHAKE_KEY_CHANGED,

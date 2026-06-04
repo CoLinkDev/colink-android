@@ -31,7 +31,7 @@
     <string name="lan_pairing_waiting_btn">Ожидание</string>
     <string name="lan_connection_failed_title">Ошибка LAN-подключения</string>
     <string name="lan_connection_failed_message">Не удалось подключиться к компьютеру.\n\nПричина: %1$s</string>
-    <string name="lan_connection_failed_time_or_signature">Проверка рукопожатия не удалась. Проверьте, что системное время на обоих устройствах правильное.</string>
+    <string name="lan_connection_failed_signature">Проверка рукопожатия не удалась.</string>
     <string name="lan_connection_failed_key_changed">Ключ другого устройства изменился. Для LAN нужно выполнить сопряжение заново.</string>
     <string name="lan_connection_failed_user_rejected">Другое устройство отклонило запрос сопряжения.</string>
     <string name="lan_connection_failed_untrusted">Это устройство еще не доверено для LAN.</string>

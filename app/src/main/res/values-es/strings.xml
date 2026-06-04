@@ -31,7 +31,7 @@
     <string name="lan_pairing_waiting_btn">Esperando</string>
     <string name="lan_connection_failed_title">Error de conexión LAN</string>
     <string name="lan_connection_failed_message">No se pudo conectar con el ordenador.\n\nMotivo: %1$s</string>
-    <string name="lan_connection_failed_time_or_signature">La verificación del saludo falló. Compruebe que ambos dispositivos tengan la hora del sistema correcta.</string>
+    <string name="lan_connection_failed_signature">La verificación del saludo falló.</string>
     <string name="lan_connection_failed_key_changed">La clave del otro dispositivo cambió. Vuelve a emparejar para usar LAN.</string>
     <string name="lan_connection_failed_user_rejected">El otro dispositivo rechazó la solicitud de emparejamiento.</string>
     <string name="lan_connection_failed_untrusted">Este dispositivo aún no es de confianza para LAN.</string>

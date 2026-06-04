@@ -22,16 +22,12 @@ class Handshake @Inject constructor(
         )
     }
 
-    fun verifyProof(payload: HandshakeProofPayload, now: Long = System.currentTimeMillis()): Boolean {
-        if (kotlin.math.abs(now - payload.timestamp) > REPLAY_DRIFT_MILLIS) {
-            return false
-        }
-        return keyManager.verify(
+    fun verifyProof(payload: HandshakeProofPayload): Boolean =
+        keyManager.verify(
             publicKey = payload.publicKey,
             payload = proofBytes(payload.deviceId, payload.timestamp, payload.nonce),
             signature = payload.signature,
         )
-    }
 
     fun pairingCode(
         publicKeyA: String,
@@ -43,7 +39,4 @@ class Handshake @Inject constructor(
     private fun proofBytes(deviceId: String, timestamp: Long, nonce: String): ByteArray =
         "$deviceId$timestamp$nonce".toByteArray()
 
-    companion object {
-        private const val REPLAY_DRIFT_MILLIS = 30_000L
-    }
 }

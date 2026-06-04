@@ -28,8 +28,18 @@ class HandshakeTest {
         assertEquals(identity.deviceId, proof.deviceId)
         assertEquals(identity.publicKey, proof.publicKey)
         assertEquals(identity.name, proof.name)
-        assertTrue(handshake.verifyProof(proof, proof.timestamp))
-        assertFalse(handshake.verifyProof(proof.copy(timestamp = proof.timestamp - 31_000), proof.timestamp))
+        assertTrue(handshake.verifyProof(proof))
+
+        val oldTimestamp = proof.timestamp - 31_000
+        val oldProof = proof.copy(
+            timestamp = oldTimestamp,
+            signature = keyManager.sign(
+                keys.privateKey,
+                "${proof.deviceId}$oldTimestamp${proof.nonce}".toByteArray(),
+            ),
+        )
+        assertTrue(handshake.verifyProof(oldProof))
+        assertFalse(handshake.verifyProof(proof.copy(timestamp = oldTimestamp)))
     }
 
     @Test

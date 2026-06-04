@@ -31,7 +31,7 @@
     <string name="lan_pairing_waiting_btn">等待中</string>
     <string name="lan_connection_failed_title">LAN 連線失敗</string>
     <string name="lan_connection_failed_message">無法連接電腦。\n\n原因：%1$s</string>
-    <string name="lan_connection_failed_time_or_signature">握手驗證失敗。請檢查兩台裝置的系統時間是否正確。</string>
+    <string name="lan_connection_failed_signature">握手驗證失敗。</string>
     <string name="lan_connection_failed_key_changed">對方金鑰已變更，需要重新配對才能使用 LAN。</string>
     <string name="lan_connection_failed_user_rejected">對方拒絕了配對要求。</string>
     <string name="lan_connection_failed_untrusted">這台裝置尚未被 LAN 信任。</string>
