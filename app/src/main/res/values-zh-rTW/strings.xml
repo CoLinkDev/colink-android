@@ -45,6 +45,7 @@
     <string name="pair_btn">配對</string>
     <string name="device_tag_lan">區域網路</string>
     <string name="device_tag_cloud">雲端</string>
+    <string name="device_tag_local">本機</string>
     <string name="device_tag_offline">離線</string>
     <string name="device_tag_trusted">已信任</string>
     <string name="device_tag_lan_suspect">區域網路可能斷開</string>

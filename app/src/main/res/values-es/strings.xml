@@ -45,6 +45,7 @@
     <string name="pair_btn">Emparejar</string>
     <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">Nube</string>
+    <string name="device_tag_local">Local</string>
     <string name="device_tag_offline">Desconectado</string>
     <string name="device_tag_trusted">Confiable</string>
     <string name="device_tag_lan_suspect">LAN puede desconectarse</string>

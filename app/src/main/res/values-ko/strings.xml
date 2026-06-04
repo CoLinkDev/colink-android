@@ -45,6 +45,7 @@
     <string name="pair_btn">페어링</string>
     <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">클라우드</string>
+    <string name="device_tag_local">로컬</string>
     <string name="device_tag_offline">오프라인</string>
     <string name="device_tag_trusted">신뢰됨</string>
     <string name="device_tag_lan_suspect">LAN 연결이 끊길 수 있음</string>

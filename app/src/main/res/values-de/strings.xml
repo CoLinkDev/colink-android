@@ -45,6 +45,7 @@
     <string name="pair_btn">Koppeln</string>
     <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">Cloud</string>
+    <string name="device_tag_local">Lokal</string>
     <string name="device_tag_offline">Offline</string>
     <string name="device_tag_trusted">Vertrauenswürdig</string>
     <string name="device_tag_lan_suspect">LAN möglicherweise getrennt</string>

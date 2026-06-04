@@ -45,6 +45,7 @@
     <string name="pair_btn">ペアリング</string>
     <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">クラウド</string>
+    <string name="device_tag_local">ローカル</string>
     <string name="device_tag_offline">オフライン</string>
     <string name="device_tag_trusted">信頼済み</string>
     <string name="device_tag_lan_suspect">LAN が切断される可能性あり</string>

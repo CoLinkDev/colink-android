@@ -45,6 +45,7 @@
     <string name="pair_btn">配对</string>
     <string name="device_tag_lan">局域网</string>
     <string name="device_tag_cloud">云端</string>
+    <string name="device_tag_local">本机</string>
     <string name="device_tag_offline">离线</string>
     <string name="device_tag_trusted">已信任</string>
     <string name="device_tag_lan_suspect">局域网可能断开</string>
