@@ -43,6 +43,12 @@ class DevicesViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             emptyList(),
         )
+    val lanConnectionError: StateFlow<String?> =
+        connectionManager.lanConnectionError.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            null,
+        )
 
     private val _uiState = MutableStateFlow(DevicesUiState())
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
@@ -132,5 +138,9 @@ class DevicesViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    fun clearLanConnectionError() {
+        connectionManager.clearLanConnectionError()
     }
 }

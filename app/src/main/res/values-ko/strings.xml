@@ -29,6 +29,13 @@
     <string name="lan_pairing_reject">거절</string>
     <string name="lan_pairing_close">닫기</string>
     <string name="lan_pairing_waiting_btn">대기 중</string>
+    <string name="lan_connection_failed_title">LAN 연결 실패</string>
+    <string name="lan_connection_failed_message">컴퓨터에 연결하지 못했습니다.\n\n이유: %1$s</string>
+    <string name="lan_connection_failed_time_or_signature">핸드셰이크 검증에 실패했습니다. 두 기기의 시스템 시간이 올바른지 확인하세요.</string>
+    <string name="lan_connection_failed_key_changed">상대 키가 변경되었습니다. LAN을 사용하려면 다시 페어링하세요.</string>
+    <string name="lan_connection_failed_user_rejected">상대 기기가 페어링 요청을 거절했습니다.</string>
+    <string name="lan_connection_failed_untrusted">이 기기는 아직 LAN에서 신뢰되지 않았습니다.</string>
+    <string name="lan_connection_failed_unknown">알 수 없는 LAN 핸드셰이크 오류</string>
     
     <!-- Cloud Status -->
     <string name="cloud_status_connected">연결됨</string>

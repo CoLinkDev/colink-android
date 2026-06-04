@@ -128,6 +128,7 @@ class ConnectionManager @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _cloudState = MutableStateFlow(CloudConnectionState())
     private val _lanPairingCandidates = MutableStateFlow<List<LanPairingCandidate>>(emptyList())
+    private val _lanConnectionError = MutableStateFlow<String?>(null)
     private var connectionJob: Job? = null
     private var swimJob: Job? = null
     private var suspectJob: Job? = null
@@ -153,6 +154,7 @@ class ConnectionManager @Inject constructor(
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
         _lanPairingCandidates.asStateFlow()
+    val lanConnectionError: StateFlow<String?> = _lanConnectionError.asStateFlow()
 
     fun start() {
         notifier.ensureEventChannel()
@@ -737,6 +739,10 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    fun clearLanConnectionError() {
+        _lanConnectionError.value = null
+    }
+
     private suspend fun handleFileAccept(fromDeviceId: String, business: BusinessEnvelope) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileAcceptPayload.serializer(), business.payload)
@@ -1042,6 +1048,14 @@ class ConnectionManager @Inject constructor(
                 scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
             }
 
+            override fun onConnectionFailed(deviceId: String, reason: String) {
+                CoLinkLog.w("LAN", "outbound peer connection failed device=${CoLinkLog.shortId(deviceId)} reason=$reason")
+                _lanConnectionError.value = context.getString(
+                    R.string.lan_connection_failed_message,
+                    lanFailureReasonText(reason),
+                )
+            }
+
             override fun onDisconnected(deviceId: String) {
                 CoLinkLog.w("LAN", "outbound peer disconnected device=${CoLinkLog.shortId(deviceId)}")
                 scope.launch {
@@ -1258,6 +1272,19 @@ class ConnectionManager @Inject constructor(
             listener = nsdListener,
         )
     }
+
+    private fun lanFailureReasonText(reason: String): String =
+        when (reason) {
+            "signature invalid",
+            "signature_invalid",
+            "timestamp drift too large",
+            -> context.getString(R.string.lan_connection_failed_time_or_signature)
+
+            "key_changed" -> context.getString(R.string.lan_connection_failed_key_changed)
+            "user_rejected" -> context.getString(R.string.lan_connection_failed_user_rejected)
+            "LAN device key is not trusted" -> context.getString(R.string.lan_connection_failed_untrusted)
+            else -> reason.ifBlank { context.getString(R.string.lan_connection_failed_unknown) }
+        }
 
     private val nsdListener =
         object : NsdDiscovery.Listener {

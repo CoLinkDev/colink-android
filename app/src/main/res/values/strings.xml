@@ -29,6 +29,13 @@
     <string name="lan_pairing_reject">Reject</string>
     <string name="lan_pairing_close">Close</string>
     <string name="lan_pairing_waiting_btn">Waiting</string>
+    <string name="lan_connection_failed_title">LAN connection failed</string>
+    <string name="lan_connection_failed_message">Could not connect to the computer.\n\nReason: %1$s</string>
+    <string name="lan_connection_failed_time_or_signature">Handshake verification failed. Check that both devices have the correct system time.</string>
+    <string name="lan_connection_failed_key_changed">The peer key changed. Pair again to use LAN.</string>
+    <string name="lan_connection_failed_user_rejected">The other device rejected the pairing request.</string>
+    <string name="lan_connection_failed_untrusted">This device is not trusted for LAN yet.</string>
+    <string name="lan_connection_failed_unknown">Unknown LAN handshake error</string>
     
     <!-- Cloud Status -->
     <string name="cloud_status_connected">Connected</string>

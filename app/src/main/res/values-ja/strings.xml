@@ -29,6 +29,13 @@
     <string name="lan_pairing_reject">拒否</string>
     <string name="lan_pairing_close">閉じる</string>
     <string name="lan_pairing_waiting_btn">待機中</string>
+    <string name="lan_connection_failed_title">LAN 接続に失敗しました</string>
+    <string name="lan_connection_failed_message">コンピューターに接続できませんでした。\n\n理由: %1$s</string>
+    <string name="lan_connection_failed_time_or_signature">ハンドシェイクの検証に失敗しました。両方のデバイスのシステム時刻が正しいか確認してください。</string>
+    <string name="lan_connection_failed_key_changed">相手のキーが変更されました。LAN を使うには再度ペアリングしてください。</string>
+    <string name="lan_connection_failed_user_rejected">相手のデバイスがペアリング要求を拒否しました。</string>
+    <string name="lan_connection_failed_untrusted">このデバイスはまだ LAN で信頼されていません。</string>
+    <string name="lan_connection_failed_unknown">不明な LAN ハンドシェイクエラー</string>
     
     <!-- Cloud Status -->
     <string name="cloud_status_connected">接続済み</string>

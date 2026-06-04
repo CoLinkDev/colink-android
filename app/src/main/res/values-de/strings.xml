@@ -29,6 +29,13 @@
     <string name="lan_pairing_reject">Ablehnen</string>
     <string name="lan_pairing_close">Schließen</string>
     <string name="lan_pairing_waiting_btn">Warten</string>
+    <string name="lan_connection_failed_title">LAN-Verbindung fehlgeschlagen</string>
+    <string name="lan_connection_failed_message">Verbindung zum Computer fehlgeschlagen.\n\nGrund: %1$s</string>
+    <string name="lan_connection_failed_time_or_signature">Handshake-Prüfung fehlgeschlagen. Prüfen Sie, ob die Systemzeit auf beiden Geräten korrekt ist.</string>
+    <string name="lan_connection_failed_key_changed">Der Schlüssel der Gegenstelle wurde geändert. Für LAN erneut koppeln.</string>
+    <string name="lan_connection_failed_user_rejected">Das andere Gerät hat die Kopplungsanfrage abgelehnt.</string>
+    <string name="lan_connection_failed_untrusted">Dieses Gerät ist für LAN noch nicht vertrauenswürdig.</string>
+    <string name="lan_connection_failed_unknown">Unbekannter LAN-Handshake-Fehler</string>
     
     <!-- Cloud Status -->
     <string name="cloud_status_connected">Verbunden</string>

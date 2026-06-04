@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,6 +63,7 @@ fun DeviceListScreen(
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val lanPairingCandidates by viewModel.lanPairingCandidates.collectAsStateWithLifecycle()
+    val lanConnectionError by viewModel.lanConnectionError.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val availableDeviceCount = remember(devices) {
         devices.count { it.online || it.lanAvailable }
@@ -72,6 +74,19 @@ fun DeviceListScreen(
         snackbarHostState = snackbarHostState,
         onConsumed = viewModel::clearMessage,
     )
+
+    lanConnectionError?.let { error ->
+        AlertDialog(
+            onDismissRequest = viewModel::clearLanConnectionError,
+            title = { Text(stringResource(R.string.lan_connection_failed_title)) },
+            text = { Text(error) },
+            confirmButton = {
+                TextButton(onClick = viewModel::clearLanConnectionError) {
+                    Text(stringResource(R.string.lan_pairing_close))
+                }
+            },
+        )
+    }
 
     ScreenColumn(
         title = stringResource(R.string.nav_devices),

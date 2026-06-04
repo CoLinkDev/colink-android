@@ -85,15 +85,19 @@ class LanWebSocketClient @Inject constructor(
                 private var requestProof: HandshakeProofPayload? = null
                 private var pairingRequestId: String? = null
                 private var handshakeTimeoutJob: Job? = null
+                private var connected = false
+                private var failureReported = false
                 private val processor = scope.launch {
                     for ((webSocket, text) in messages) {
                         runCatching {
                             handleMessage(webSocket, text, identity, deviceId, allowPairing, listener)
                         }.onFailure {
                             CoLinkLog.w("LAN", "outbound peer protocol error device=${CoLinkLog.shortId(deviceId)}", it)
-                            failPairing(it.message ?: "LAN protocol error")
+                            val reason = it.message ?: "LAN protocol error"
+                            reportHandshakeFailure(deviceId, reason, listener)
+                            failPairing(reason)
                             messages.close()
-                            webSocket.close(1002, it.message ?: "LAN protocol error")
+                            webSocket.close(1002, reason)
                         }
                     }
                 }
@@ -128,6 +132,7 @@ class LanWebSocketClient @Inject constructor(
                         "outbound websocket closed device=${CoLinkLog.shortId(peerId ?: deviceId)} code=$code reason=$reason",
                     )
                     failPairing(reason.ifBlank { "LAN connection closed" })
+                    reportHandshakeFailure(deviceId, reason.ifBlank { "LAN connection closed" }, listener)
                     messages.close()
                     processor.cancel()
                     handshakeTimeoutJob?.cancel()
@@ -138,7 +143,9 @@ class LanWebSocketClient @Inject constructor(
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     CoLinkLog.w("LAN", "outbound websocket failed device=${CoLinkLog.shortId(peerId ?: deviceId)}", t)
-                    failPairing(t.message ?: "LAN connection failed")
+                    val reason = t.message ?: "LAN connection failed"
+                    failPairing(reason)
+                    reportHandshakeFailure(deviceId, reason, listener)
                     messages.close()
                     processor.cancel()
                     handshakeTimeoutJob?.cancel()
@@ -222,6 +229,7 @@ class LanWebSocketClient @Inject constructor(
                                 listener.onKeyChanged(id, name)
                             }
                             failPairing(rejection.reason)
+                            reportHandshakeFailure(expectedDeviceId, rejection.reason, listener)
                             handshakeTimeoutJob?.cancel()
                             connectingPeers.remove(peerId ?: expectedDeviceId)
                             webSocket.close(1008, rejection.reason)
@@ -284,6 +292,7 @@ class LanWebSocketClient @Inject constructor(
                             handshakeTimeoutJob?.cancel()
                             connectingPeers.remove(peerId)
                             peers[peerId] = ClientPeerConnection(webSocket, crypto)
+                            connected = true
                             CoLinkLog.i("LAN", "LAN peer ready device=${CoLinkLog.shortId(peerId)}")
                             listener.onConnected(peerId)
                         }
@@ -308,6 +317,18 @@ class LanWebSocketClient @Inject constructor(
                         CoLinkLog.w("Pairing", "outbound pairing failed request=${CoLinkLog.shortId(requestId)} reason=$reason")
                         pairingRequestId = null
                     }
+                }
+
+                private fun reportHandshakeFailure(
+                    requestedDeviceId: String,
+                    reason: String,
+                    listener: Listener,
+                ) {
+                    if (connected || failureReported) {
+                        return
+                    }
+                    failureReported = true
+                    listener.onConnectionFailed(peerId ?: requestedDeviceId, reason)
                 }
             },
         )
@@ -385,6 +406,8 @@ class LanWebSocketClient @Inject constructor(
         fun onConnected(deviceId: String)
 
         fun onMessage(fromDeviceId: String, message: BusinessEnvelope)
+
+        fun onConnectionFailed(deviceId: String, reason: String)
 
         fun onDisconnected(deviceId: String)
 
