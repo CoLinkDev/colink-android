@@ -407,7 +407,11 @@ class ConnectionManager @Inject constructor(
             }
         }
         flushPendingLanSends(deviceId)
+        val endpointSynced = syncKnownLanEndpoint(deviceId)
         removePairingCandidate(deviceId)
+        if (endpointSynced) {
+            return
+        }
         deviceRepository.listLocalDevices()
     }
 
@@ -1896,9 +1900,9 @@ class ConnectionManager @Inject constructor(
         updatePairingCandidate(deviceId, endpoint, state)
     }
 
-    private suspend fun syncKnownLanEndpoint(deviceId: String) {
-        val state = swimMembership.memberState(deviceId) ?: return
-        val endpoint = swimEndpoints[deviceId] ?: return
+    private suspend fun syncKnownLanEndpoint(deviceId: String): Boolean {
+        val state = swimMembership.memberState(deviceId) ?: return false
+        val endpoint = swimEndpoints[deviceId] ?: return false
         when (state) {
             MemberState.Alive,
             MemberState.Suspect,
@@ -1911,6 +1915,8 @@ class ConnectionManager @Inject constructor(
                         swimTypes[deviceId],
                         state.wireValue,
                     )
+                    updatePairingCandidate(deviceId, endpoint, state)
+                    return true
                 }
                 updatePairingCandidate(deviceId, endpoint, state)
             }
@@ -1919,6 +1925,7 @@ class ConnectionManager @Inject constructor(
             MemberState.Left,
             -> removePairingCandidate(deviceId)
         }
+        return false
     }
 
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
