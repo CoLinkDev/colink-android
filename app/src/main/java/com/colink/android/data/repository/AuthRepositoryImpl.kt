@@ -34,6 +34,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun bootstrap(): Result<Unit> =
         runCatching {
             deviceRepository.ensureLocalDeviceIdentity().getOrThrow()
+            deviceRepository.resetDevicePresence().getOrThrow()
             val session = settingsDataStore.currentSession()
             if (session == null) {
                 deviceRepository.listLocalDevices().getOrThrow()

@@ -43,6 +43,7 @@ data class DeviceDto(
             publicKey = publicKey,
             publicKeyUpdatedAt = parseTimestampMillis(publicKeyUpdatedAt),
             lanAvailable = false,
+            lanState = "unavailable",
             cloudAvailable = online,
             activeRoute = if (online) "cloud" else null,
         )

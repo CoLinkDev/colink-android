@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">云端</string>
     <string name="device_tag_offline">离线</string>
     <string name="device_tag_trusted">已信任</string>
+    <string name="device_tag_lan_suspect">局域网可能断开</string>
     <string name="unnamed_device">未命名设备</string>
     <string name="unknown_type">未知</string>
     
@@ -74,12 +75,15 @@
     <string name="label_device_id">设备 ID</string>
     <string name="label_platform">平台</string>
     <string name="label_fetch_source">获取来源</string>
-    <string name="label_local_reachable">本机可达</string>
-    <string name="label_cloud_available">云端可用</string>
-    <string name="label_lan_available">局域网可用</string>
+    <string name="label_local_reachable">本机</string>
+    <string name="label_cloud_available">云端可达</string>
+    <string name="label_lan_available">局域网可达</string>
     <string name="label_lan_endpoint">局域网端点</string>
     <string name="label_active_route">当前路由</string>
     <string name="label_security_state">信任状态</string>
+    <string name="label_last_alive">上次存活时间</string>
+    <string name="label_trusted_by_lan">由局域网信任</string>
+    <string name="label_trusted_by_cloud">由云端信任</string>
     <string name="label_last_seen">上次在线</string>
     <string name="label_public_key_fingerprint">公钥指纹</string>
     <string name="label_public_key">公钥</string>

@@ -20,7 +20,7 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
@@ -148,6 +148,15 @@ abstract class CoLinkDatabase : RoomDatabase() {
                     )
                     db.execSQL("DROP TABLE trusted_peer_keys")
                     db.execSQL("ALTER TABLE trusted_peer_keys_new RENAME TO trusted_peer_keys")
+                }
+            }
+
+        val MIGRATION_6_7: Migration =
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE devices ADD COLUMN lanState TEXT NOT NULL DEFAULT 'unavailable'")
+                    db.execSQL("ALTER TABLE devices ADD COLUMN trustedByLan INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("ALTER TABLE devices ADD COLUMN trustedByCloud INTEGER NOT NULL DEFAULT 0")
                 }
             }
     }

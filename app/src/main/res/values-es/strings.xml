@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">Nube</string>
     <string name="device_tag_offline">Desconectado</string>
     <string name="device_tag_trusted">Confiable</string>
+    <string name="device_tag_lan_suspect">LAN puede desconectarse</string>
     <string name="unnamed_device">Dispositivo sin nombre</string>
     <string name="unknown_type">Desconocido</string>
     
@@ -74,12 +75,15 @@
     <string name="label_device_id">ID de dispositivo</string>
     <string name="label_platform">Plataforma</string>
     <string name="label_fetch_source">Origen</string>
-    <string name="label_local_reachable">Local reachable</string>
-    <string name="label_cloud_available">Nube disponible</string>
-    <string name="label_lan_available">LAN disponible</string>
+    <string name="label_local_reachable">Local</string>
+    <string name="label_cloud_available">Nube accesible</string>
+    <string name="label_lan_available">LAN accesible</string>
     <string name="label_lan_endpoint">Punto final LAN</string>
     <string name="label_active_route">Ruta activa</string>
     <string name="label_security_state">Estado de confianza</string>
+    <string name="label_last_alive">Última actividad</string>
+    <string name="label_trusted_by_lan">Confiado por LAN</string>
+    <string name="label_trusted_by_cloud">Confiado por nube</string>
     <string name="label_last_seen">Última vez visto</string>
     <string name="label_public_key_fingerprint">Huella de clave pública</string>
     <string name="label_public_key">Clave pública</string>

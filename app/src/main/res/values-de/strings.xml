@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">Cloud</string>
     <string name="device_tag_offline">Offline</string>
     <string name="device_tag_trusted">Vertrauenswürdig</string>
+    <string name="device_tag_lan_suspect">LAN möglicherweise getrennt</string>
     <string name="unnamed_device">Unbenanntes Gerät</string>
     <string name="unknown_type">Unbekannt</string>
     
@@ -74,12 +75,15 @@
     <string name="label_device_id">Geräte-ID</string>
     <string name="label_platform">Plattform</string>
     <string name="label_fetch_source">Quelle</string>
-    <string name="label_local_reachable">Lokal erreichbar</string>
-    <string name="label_cloud_available">Cloud verfügbar</string>
-    <string name="label_lan_available">LAN verfügbar</string>
+    <string name="label_local_reachable">Lokal</string>
+    <string name="label_cloud_available">Cloud erreichbar</string>
+    <string name="label_lan_available">LAN erreichbar</string>
     <string name="label_lan_endpoint">LAN-Endpunkt</string>
     <string name="label_active_route">Aktive Route</string>
     <string name="label_security_state">Vertrauensstatus</string>
+    <string name="label_last_alive">Zuletzt aktiv</string>
+    <string name="label_trusted_by_lan">Über LAN vertraut</string>
+    <string name="label_trusted_by_cloud">Über Cloud vertraut</string>
     <string name="label_last_seen">Zuletzt gesehen</string>
     <string name="label_public_key_fingerprint">Public-Key-Fingerabdruck</string>
     <string name="label_public_key">Public Key</string>

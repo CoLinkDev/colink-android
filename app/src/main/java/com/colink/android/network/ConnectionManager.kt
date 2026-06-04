@@ -1288,7 +1288,9 @@ class ConnectionManager @Inject constructor(
                         else -> false
                     }
                     if (normalizedType != null && lanTrustStore.isLanTrusted(deviceId) && reachable) {
-                        deviceRepository.markLanEndpoint(deviceId, ip, port, normalizedType)
+                        val lanState = swimMembership.memberState(deviceId)?.wireValue
+                            ?: MemberState.Alive.wireValue
+                        deviceRepository.markLanEndpoint(deviceId, ip, port, normalizedType, lanState)
                     }
                     val response = lanSwimClient.ping(
                         identity = identity,
@@ -1768,6 +1770,7 @@ class ConnectionManager @Inject constructor(
                             endpoint.ip,
                             endpoint.port,
                             swimTypes[deviceId],
+                            state.wireValue,
                         )
                     } else {
                         CoLinkLog.d("LAN", "clearing untrusted LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
@@ -1790,7 +1793,32 @@ class ConnectionManager @Inject constructor(
                 lanWebSocketServer.disconnect(deviceId)
             }
 
-            MemberState.Suspect -> Unit
+            MemberState.Suspect -> {
+                val endpoint = swimEndpoints[deviceId]
+                val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
+                if (endpoint != null) {
+                    if (lanTrusted) {
+                        CoLinkLog.d(
+                            "LAN",
+                            "marking suspect LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=${endpoint.ip} port=${endpoint.port}",
+                        )
+                        deviceRepository.markLanEndpoint(
+                            deviceId,
+                            endpoint.ip,
+                            endpoint.port,
+                            swimTypes[deviceId],
+                            state.wireValue,
+                        )
+                    } else {
+                        CoLinkLog.d("LAN", "clearing untrusted suspect LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
+                        deviceRepository.clearLanEndpoint(deviceId)
+                    }
+                    updatePairingCandidate(deviceId, endpoint, state)
+                }
+                if (!lanTrusted) {
+                    return
+                }
+            }
         }
     }
 

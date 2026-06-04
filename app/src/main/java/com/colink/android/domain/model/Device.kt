@@ -12,7 +12,10 @@ data class Device(
     val localPort: Int? = null,
     val cloudAvailable: Boolean = online,
     val lanAvailable: Boolean = false,
+    val lanState: String = "unavailable",
     val activeRoute: String? = null,
     val deviceSources: List<String> = emptyList(),
+    val trustedByLan: Boolean = false,
+    val trustedByCloud: Boolean = false,
     val securityState: String = "unverified",
 )

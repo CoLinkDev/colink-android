@@ -27,6 +27,7 @@ object DatabaseModule {
                 CoLinkDatabase.MIGRATION_3_4,
                 CoLinkDatabase.MIGRATION_4_5,
                 CoLinkDatabase.MIGRATION_5_6,
+                CoLinkDatabase.MIGRATION_6_7,
             )
             .build()
 

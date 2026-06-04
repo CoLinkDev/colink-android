@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">Облако</string>
     <string name="device_tag_offline">Вне сети</string>
     <string name="device_tag_trusted">Доверенное</string>
+    <string name="device_tag_lan_suspect">LAN может отключиться</string>
     <string name="unnamed_device">Устройство без имени</string>
     <string name="unknown_type">Неизвестно</string>
     
@@ -74,12 +75,15 @@
     <string name="label_device_id">ID устройства</string>
     <string name="label_platform">Платформа</string>
     <string name="label_fetch_source">Источник</string>
-    <string name="label_local_reachable">Локально доступно</string>
+    <string name="label_local_reachable">Локально</string>
     <string name="label_cloud_available">Облако доступно</string>
     <string name="label_lan_available">LAN доступна</string>
     <string name="label_lan_endpoint">Точка доступа LAN</string>
     <string name="label_active_route">Активный маршрут</string>
     <string name="label_security_state">Статус доверия</string>
+    <string name="label_last_alive">Последняя активность</string>
+    <string name="label_trusted_by_lan">Доверено LAN</string>
+    <string name="label_trusted_by_cloud">Доверено облаком</string>
     <string name="label_last_seen">Последняя активность</string>
     <string name="label_public_key_fingerprint">Отпечаток публичного ключа</string>
     <string name="label_public_key">Публичный ключ</string>

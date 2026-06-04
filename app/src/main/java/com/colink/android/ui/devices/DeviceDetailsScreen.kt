@@ -320,11 +320,12 @@ private fun DeviceInformationCard(
         DetailRowData(stringResource(R.string.label_fetch_source), describeSources(device, isLocalDevice)),
         DetailRowData(stringResource(R.string.label_local_reachable), formatBoolean(isLocalDevice)),
         DetailRowData(stringResource(R.string.label_cloud_available), formatBoolean(device.cloudAvailable)),
-        DetailRowData(stringResource(R.string.label_lan_available), formatLanAvailability(device)),
+        DetailRowData(stringResource(R.string.label_lan_available), formatBoolean(device.lanAvailable)),
         DetailRowData(stringResource(R.string.label_lan_endpoint), formatLanEndpoint(device)),
         DetailRowData(stringResource(R.string.label_active_route), formatRoute(device.activeRoute)),
-        DetailRowData(stringResource(R.string.label_security_state), formatSecurityState(device.securityState)),
-        DetailRowData(stringResource(R.string.label_last_seen), device.lastSeen ?: stringResource(R.string.never_connected)),
+        DetailRowData(stringResource(R.string.label_trusted_by_lan), formatBoolean(device.trustedByLan)),
+        DetailRowData(stringResource(R.string.label_trusted_by_cloud), formatBoolean(device.trustedByCloud)),
+        DetailRowData(stringResource(R.string.label_last_alive), device.lastSeen ?: stringResource(R.string.never_connected)),
         DetailRowData(
             label = stringResource(R.string.label_public_key_fingerprint),
             value = fingerprint.ifBlank { stringResource(R.string.value_none) },
@@ -518,10 +519,6 @@ private fun describeSources(device: Device, isLocalDevice: Boolean): String {
 }
 
 @Composable
-private fun formatLanAvailability(device: Device): String =
-    if (device.lanAvailable) stringResource(R.string.device_tag_lan) else stringResource(R.string.value_no)
-
-@Composable
 private fun formatLanEndpoint(device: Device): String {
     val ip = device.localIp?.takeIf { it.isNotBlank() } ?: return stringResource(R.string.value_none)
     val port = device.localPort
@@ -535,17 +532,6 @@ private fun formatRoute(value: String?): String =
         "cloud" -> stringResource(R.string.route_cloud)
         null, "" -> stringResource(R.string.value_none)
         else -> value
-    }
-
-@Composable
-private fun formatSecurityState(value: String): String =
-    when (value) {
-        "verified" -> stringResource(R.string.security_verified)
-        "unverified" -> stringResource(R.string.security_unverified)
-        "trusted" -> stringResource(R.string.security_trusted)
-        "unknown" -> stringResource(R.string.security_unknown)
-        "key_changed" -> stringResource(R.string.security_key_changed)
-        else -> value.ifBlank { stringResource(R.string.security_unknown) }
     }
 
 private fun publicKeyFingerprint(publicKey: String): String {

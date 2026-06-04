@@ -17,8 +17,11 @@ data class DeviceEntity(
     val localPort: Int?,
     val cloudAvailable: Boolean,
     val lanAvailable: Boolean,
+    val lanState: String,
     val activeRoute: String?,
     val deviceSources: String,
+    val trustedByLan: Boolean,
+    val trustedByCloud: Boolean,
     val securityState: String,
 ) {
     fun toDomain(): Device =
@@ -34,11 +37,14 @@ data class DeviceEntity(
             localPort = localPort,
             cloudAvailable = cloudAvailable,
             lanAvailable = lanAvailable,
+            lanState = lanState,
             activeRoute = activeRoute,
             deviceSources = deviceSources
                 .split(",")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() },
+            trustedByLan = trustedByLan,
+            trustedByCloud = trustedByCloud,
             securityState = securityState,
         )
 }
@@ -56,7 +62,10 @@ fun Device.toEntity(): DeviceEntity =
         localPort = localPort,
         cloudAvailable = cloudAvailable,
         lanAvailable = lanAvailable,
+        lanState = lanState,
         activeRoute = activeRoute,
         deviceSources = deviceSources.distinct().joinToString(","),
+        trustedByLan = trustedByLan,
+        trustedByCloud = trustedByCloud,
         securityState = securityState,
     )

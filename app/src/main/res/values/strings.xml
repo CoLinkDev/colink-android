@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">Cloud</string>
     <string name="device_tag_offline">Offline</string>
     <string name="device_tag_trusted">Trusted</string>
+    <string name="device_tag_lan_suspect">LAN may disconnect</string>
     <string name="unnamed_device">Unnamed device</string>
     <string name="unknown_type">Unknown type</string>
     
@@ -74,12 +75,15 @@
     <string name="label_device_id">Device ID</string>
     <string name="label_platform">Platform</string>
     <string name="label_fetch_source">Fetch source</string>
-    <string name="label_local_reachable">Local reachable</string>
-    <string name="label_cloud_available">Cloud available</string>
-    <string name="label_lan_available">LAN available</string>
+    <string name="label_local_reachable">Local</string>
+    <string name="label_cloud_available">Cloud reachable</string>
+    <string name="label_lan_available">LAN reachable</string>
     <string name="label_lan_endpoint">LAN endpoint</string>
     <string name="label_active_route">Active route</string>
     <string name="label_security_state">Security state</string>
+    <string name="label_last_alive">Last alive</string>
+    <string name="label_trusted_by_lan">Trusted by LAN</string>
+    <string name="label_trusted_by_cloud">Trusted by Cloud</string>
     <string name="label_last_seen">Last seen</string>
     <string name="label_public_key_fingerprint">Public key fingerprint</string>
     <string name="label_public_key">Public key</string>

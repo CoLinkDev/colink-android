@@ -47,6 +47,7 @@
     <string name="device_tag_cloud">クラウド</string>
     <string name="device_tag_offline">オフライン</string>
     <string name="device_tag_trusted">信頼済み</string>
+    <string name="device_tag_lan_suspect">LAN が切断される可能性あり</string>
     <string name="unnamed_device">名前なしデバイス</string>
     <string name="unknown_type">不明</string>
     
@@ -76,10 +77,13 @@
     <string name="label_fetch_source">取得元</string>
     <string name="label_local_reachable">ローカル</string>
     <string name="label_cloud_available">クラウド到達可</string>
-    <string name="label_lan_available">LAN 利用可</string>
+    <string name="label_lan_available">LAN 到達可</string>
     <string name="label_lan_endpoint">LAN エンドポイント</string>
     <string name="label_active_route">現在の経路</string>
     <string name="label_security_state">信頼状態</string>
+    <string name="label_last_alive">最終生存時刻</string>
+    <string name="label_trusted_by_lan">LAN で信頼</string>
+    <string name="label_trusted_by_cloud">クラウドで信頼</string>
     <string name="label_last_seen">最終オンライン</string>
     <string name="label_public_key_fingerprint">公開鍵フィンガープリント</string>
     <string name="label_public_key">公開鍵</string>

@@ -104,6 +104,7 @@ fun DeviceListScreen(
                         name = device.name,
                         type = device.type,
                         lanAvailable = device.lanAvailable,
+                        lanState = device.lanState,
                         online = device.online,
                         showTrustedTag = device.deviceSources.contains("trusted_peer_key"),
                         onClick = { onDeviceSelected(device.deviceId) },
@@ -212,6 +213,7 @@ private fun DeviceCard(
     name: String,
     type: String,
     lanAvailable: Boolean,
+    lanState: String,
     online: Boolean,
     showTrustedTag: Boolean,
     onClick: () -> Unit,
@@ -279,7 +281,14 @@ private fun DeviceCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
-                    if (lanAvailable) {
+                    if (lanState == "suspect") {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_lan_suspect),
+                            icon = Icons.Default.Wifi,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    } else if (lanAvailable) {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_lan),
                             icon = Icons.Default.Wifi,

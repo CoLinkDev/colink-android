@@ -32,6 +32,7 @@ interface DeviceDao {
         SET localIp = NULL,
             localPort = NULL,
             lanAvailable = 0,
+            lanState = 'unavailable',
             online = cloudAvailable,
             activeRoute = CASE WHEN cloudAvailable = 1 THEN 'cloud' ELSE NULL END
         """,
