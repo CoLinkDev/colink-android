@@ -20,6 +20,7 @@ import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.util.CoLinkLog
+import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -121,10 +122,16 @@ class DeviceRepositoryImpl @Inject constructor(
                 ?: trustedPeerDevice(deviceId)
                 ?: return@runCatching
             val nextLanState = lanState.takeIf { it.isLiveLanState() } ?: "unavailable"
+            val lastAlive = if (nextLanState == "alive") {
+                Instant.now().toString()
+            } else {
+                current.lastSeen
+            }
             saveDevices(
                 listOf(
                     current.copy(
                         type = reconcileDeviceType(current.type, lanType = deviceType),
+                        lastSeen = lastAlive,
                         localIp = ip ?: current.localIp,
                         localPort = port ?: current.localPort,
                         lanAvailable = nextLanState.isLiveLanState(),
@@ -498,6 +505,7 @@ class DeviceRepositoryImpl @Inject constructor(
             val lanAvailable = lanState.isLiveLanState()
             val cloudAvailable = device.cloudAvailable
             device.copy(
+                lastSeen = device.lastSeen ?: existing?.lastSeen,
                 localIp = device.localIp ?: existing?.localIp,
                 localPort = device.localPort ?: existing?.localPort,
                 lanAvailable = lanAvailable,
@@ -542,7 +550,7 @@ class DeviceRepositoryImpl @Inject constructor(
                     name = record.name,
                     type = reconcileDeviceType(existing?.type ?: "unknown"),
                     online = lanAvailable,
-                    lastSeen = null,
+                    lastSeen = existing?.lastSeen,
                     publicKey = record.publicKey,
                     publicKeyUpdatedAt = record.keyUpdatedAt,
                     localIp = existing?.localIp,
