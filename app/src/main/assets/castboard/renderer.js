@@ -114,7 +114,6 @@ function createLineElement(index) {
   line.textContent = LYRICS[index].text;
   line.dataset.index = String(index);
   line.style.opacity = "0";
-  line.style.pointerEvents = "none";
   line.style.transition = "none";
   stage.appendChild(line);
   lineElements.set(index, line);
@@ -221,7 +220,6 @@ function renderLyrics() {
     line.classList.toggle("is-current", distance === 0);
     line.style.transform = `translateY(${translateY}px) scale(${scale})`;
     line.style.opacity = String(opacity);
-    line.style.pointerEvents = distance === 0 ? "auto" : "none";
     line.style.filter = blur > 0 ? `blur(${blur}px)` : "none";
     line.style.zIndex = String(20 - absDistance);
   }

@@ -75,6 +75,7 @@ fun CastBoardScreen(
 
     ScreenColumn(
         title = stringResource(R.string.nav_castboard),
+        subtitle = stringResource(R.string.castboard_subtitle),
         modifier = Modifier.fillMaxSize(),
     ) {
         if (availableDevices.isEmpty()) {

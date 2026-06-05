@@ -10,6 +10,7 @@
     <string name="nav_transfers">Transferencias</string>
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>
+    <string name="castboard_subtitle">Proyecta varios estados de un dispositivo seleccionado a este dispositivo</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">Eventos de CoLink</string>

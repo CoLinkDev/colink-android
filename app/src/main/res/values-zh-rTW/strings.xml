@@ -10,6 +10,7 @@
     <string name="nav_transfers">檔案傳輸</string>
     <string name="nav_settings">設定</string>
     <string name="castboard_start">啟動</string>
+    <string name="castboard_subtitle">將指定裝置的多項狀態投射到本機</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

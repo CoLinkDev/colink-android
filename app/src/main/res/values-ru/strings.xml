@@ -10,6 +10,7 @@
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>
     <string name="castboard_start">Запуск</string>
+    <string name="castboard_subtitle">Проецирует несколько состояний выбранного устройства на это устройство</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">События CoLink</string>
