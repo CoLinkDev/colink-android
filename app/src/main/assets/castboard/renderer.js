@@ -24,9 +24,7 @@ const detailAlbum = document.querySelector(".detail-album");
 const detailProgressFill = document.querySelector(".detail-progress-fill");
 const detailProgressElapsed = document.querySelector(".detail-progress-elapsed");
 const detailProgressDuration = document.querySelector(".detail-progress-duration");
-const cursorInverter = document.querySelector(".cursor-inverter");
-const cursorCoverClip = document.querySelector(".cursor-cover-clip");
-const cursorCoverFill = document.querySelector(".cursor-cover-fill");
+
 
 const lineElements = new Map();
 
@@ -37,12 +35,7 @@ let lastRenderedIndex = null;
 let lyricsAnimationTimer = 0;
 let detailRafId = 0;
 let detailHideTimer = 0;
-let cursorRafId = 0;
-let cursorX = 0;
-let cursorY = 0;
-let cursorVisible = false;
-let coverCursorTargetVisible = false;
-let coverCursorResizeObserver = null;
+
 let resizeTimer = 0;
 
 // ====通用工具========================
@@ -357,7 +350,6 @@ function showDetailLayer() {
   detailRafId = requestAnimationFrame(() => {
     detailRafId = 0;
     detailLayer.classList.add("is-open");
-    syncCoverCursorTarget();
   });
 }
 
@@ -366,12 +358,10 @@ function hideDetailLayer() {
   detailRafId = cancelRaf(detailRafId);
   storeDetailLayerVisible(false);
   detailLayer.classList.remove("is-open");
-  syncCoverCursorTarget();
   detailHideTimer = window.setTimeout(() => {
     detailHideTimer = 0;
     if (!detailLayer.classList.contains("is-open")) {
       detailLayer.hidden = true;
-      syncCoverCursorTarget();
     }
   }, 240);
 }
@@ -382,103 +372,6 @@ function toggleDetailLayer() {
   } else {
     hideDetailLayer();
   }
-}
-
-// ====反色光标========================
-// 白色圆形遮罩使用 difference 混合模式反色；封面区域叠加纯白圆形裁剪层。
-
-function isMousePointer(event) {
-  return event.pointerType === "mouse";
-}
-
-function isCoverCursorTargetReady() {
-  return (
-    !detailLayer.hidden &&
-    detailLayer.classList.contains("is-open") &&
-    !detailCover.hidden &&
-    detailCover.getAttribute("src") !== null
-  );
-}
-
-function syncCoverCursorVisibility() {
-  cursorCoverClip.classList.toggle("is-visible", cursorVisible && coverCursorTargetVisible);
-}
-
-function setCoverCursorTargetVisible(isVisible) {
-  coverCursorTargetVisible = isVisible;
-  syncCoverCursorVisibility();
-}
-
-function syncCoverCursorTarget() {
-  if (!isCoverCursorTargetReady()) {
-    setCoverCursorTargetVisible(false);
-    return;
-  }
-
-  const rect = detailArt.getBoundingClientRect();
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const left = Math.min(viewportWidth, Math.max(0, rect.left));
-  const top = Math.min(viewportHeight, Math.max(0, rect.top));
-  const right = Math.min(viewportWidth, Math.max(0, rect.right));
-  const bottom = Math.min(viewportHeight, Math.max(0, rect.bottom));
-
-  if (right <= left || bottom <= top) {
-    setCoverCursorTargetVisible(false);
-    return;
-  }
-
-  cursorCoverClip.style.setProperty("--cursor-cover-top", `${top.toFixed(2)}px`);
-  cursorCoverClip.style.setProperty("--cursor-cover-right", `${(viewportWidth - right).toFixed(2)}px`);
-  cursorCoverClip.style.setProperty("--cursor-cover-bottom", `${(viewportHeight - bottom).toFixed(2)}px`);
-  cursorCoverClip.style.setProperty("--cursor-cover-left", `${left.toFixed(2)}px`);
-  setCoverCursorTargetVisible(true);
-}
-
-function setCursorVisible(isVisible) {
-  cursorVisible = isVisible;
-  cursorInverter.classList.toggle("is-visible", isVisible);
-  syncCoverCursorVisibility();
-}
-
-function renderCursorInverter() {
-  cursorRafId = 0;
-  const transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%)`;
-  cursorInverter.style.transform = transform;
-  cursorCoverFill.style.transform = transform;
-}
-
-function scheduleCursorRender() {
-  if (cursorRafId) return;
-  cursorRafId = requestAnimationFrame(renderCursorInverter);
-}
-
-function onPointerMove(event) {
-  if (!isMousePointer(event)) {
-    setCursorVisible(false);
-    return;
-  }
-
-  cursorX = event.clientX;
-  cursorY = event.clientY;
-  setCursorVisible(true);
-  scheduleCursorRender();
-}
-
-function onPointerLeave(event) {
-  if (isMousePointer(event)) {
-    setCursorVisible(false);
-  }
-}
-
-function onPointerOut(event) {
-  if (!event.relatedTarget && isMousePointer(event)) {
-    setCursorVisible(false);
-  }
-}
-
-function hideCursorInverter() {
-  setCursorVisible(false);
 }
 
 // ====事件入口========================
@@ -506,7 +399,6 @@ function onResize() {
     cacheLayoutMetrics();
     renderLyrics();
     updateDetailTitleSize();
-    syncCoverCursorTarget();
   }, 80);
 }
 
@@ -517,18 +409,14 @@ function preventContextMenu(event) {
 function onCoverError() {
   detailCover.hidden = true;
   detailCover.removeAttribute("src");
-  syncCoverCursorTarget();
 }
 
 function onCoverLoad() {
   detailCover.hidden = false;
-  syncCoverCursorTarget();
 }
 
 function onDetailLayerTransitionEnd(event) {
-  if (event.target === detailLayer && event.propertyName === "transform") {
-    syncCoverCursorTarget();
-  }
+  //
 }
 
 function callBackend(name) {
@@ -546,44 +434,13 @@ function callBackend(name) {
   }
 }
 
-function preserveCursorAfterTouch() {
-  callBackend("preserveCursorAfterTouch");
-}
 
-function onTouchPointer(event) {
-  if (event.pointerType === "touch") {
-    preserveCursorAfterTouch();
-  }
-}
-
-function bindTouchCursorPreservation() {
-  if ("PointerEvent" in window) {
-    window.addEventListener("pointerdown", onTouchPointer, { passive: true });
-    window.addEventListener("pointerup", onTouchPointer, { passive: true });
-    return;
-  }
-
-  window.addEventListener("touchstart", preserveCursorAfterTouch, { passive: true });
-  window.addEventListener("touchend", preserveCursorAfterTouch, { passive: true });
-}
 
 function cleanupScheduledWork() {
   lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
   detailRafId = cancelRaf(detailRafId);
   detailHideTimer = clearTimer(detailHideTimer);
-  cursorRafId = cancelRaf(cursorRafId);
   resizeTimer = clearTimer(resizeTimer);
-  if (coverCursorResizeObserver !== null) {
-    coverCursorResizeObserver.disconnect();
-    coverCursorResizeObserver = null;
-  }
-}
-
-function bindCoverCursorResizeObserver() {
-  if (!("ResizeObserver" in window)) return;
-
-  coverCursorResizeObserver = new ResizeObserver(syncCoverCursorTarget);
-  coverCursorResizeObserver.observe(detailArt);
 }
 
 function bindEvents() {
@@ -592,15 +449,9 @@ function bindEvents() {
   window.addEventListener("lyrics-progress-change", onProgressChange);
   window.addEventListener("lyrics-lines-change", layoutLyrics);
   window.addEventListener("click", toggleDetailLayer);
-  window.addEventListener("pointermove", onPointerMove, { passive: true });
-  window.addEventListener("pointerleave", onPointerLeave, { passive: true });
-  window.addEventListener("pointerout", onPointerOut, { passive: true });
-  window.addEventListener("blur", hideCursorInverter);
   detailCover.addEventListener("load", onCoverLoad);
   detailCover.addEventListener("error", onCoverError);
   detailLayer.addEventListener("transitionend", onDetailLayerTransitionEnd);
-  bindCoverCursorResizeObserver();
-  bindTouchCursorPreservation();
   window.addEventListener("contextmenu", preventContextMenu);
   window.addEventListener("beforeunload", cleanupScheduledWork);
 }

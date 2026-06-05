@@ -39,6 +39,9 @@
 
       body {
         font-family:
+          system-ui,
+          -apple-system,
+          "Roboto",
           "SF Pro Display",
           "Segoe UI Variable Display",
           "Segoe UI",
@@ -282,80 +285,13 @@
         line-height: 1.2;
       }
 
-      .cursor-inverter,
-      .cursor-cover-fill {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: var(--cursor-inverter-size);
-        height: var(--cursor-inverter-size);
-        border-radius: 50%;
-        transform: translate3d(-200px, -200px, 0) translate(-50%, -50%);
-        will-change: transform;
-      }
 
-      .cursor-inverter {
-        z-index: 2147483646;
-        background: #fff;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 120ms ease-out;
-        will-change: transform, opacity;
-        contain: layout paint style;
-        display: none;
-      }
-
-      .cursor-inverter.is-visible {
-        opacity: 1;
-        display: block;
-        mix-blend-mode: difference;
-      }
-
-      .cursor-cover-clip {
-        --cursor-cover-top: 0px;
-        --cursor-cover-right: 100vw;
-        --cursor-cover-bottom: 100vh;
-        --cursor-cover-left: 0px;
-        position: fixed;
-        inset: 0;
-        z-index: 2147483647;
-        overflow: hidden;
-        clip-path: inset(
-          var(--cursor-cover-top)
-          var(--cursor-cover-right)
-          var(--cursor-cover-bottom)
-          var(--cursor-cover-left)
-          round 8px
-        );
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 120ms ease-out;
-        will-change: clip-path, opacity;
-        contain: layout paint style;
-        display: none;
-      }
-
-      .cursor-cover-clip.is-visible {
-        opacity: 1;
-        display: block;
-      }
-
-      .cursor-cover-fill {
-        position: absolute;
-        background: #fff;
-      }
-
-      @media (pointer: coarse) {
-        .cursor-inverter,
-        .cursor-cover-clip {
-          display: none;
-        }
-      }
 
       @media (max-width: 900px) {
         :root {
           --lyric-left: clamp(20px, 5vw, 40px);
           --lyric-width: calc(100vw - var(--lyric-left) * 2);
+          --line-gap: clamp(16px, 3vh, 32px);
         }
 
         .line {
@@ -365,7 +301,9 @@
         .track-info {
           max-width: calc(100vw - 40px);
         }
+      }
 
+      @media (max-width: 900px) and (orientation: portrait) {
         .detail-layer {
           place-items: start stretch;
           padding: 32px 24px;
@@ -409,7 +347,7 @@
         }
       }
 
-      @media (max-width: 520px) {
+      @media (max-width: 520px) and (orientation: portrait) {
         .detail-layer {
           padding: 26px 20px;
         }
@@ -463,10 +401,7 @@
         </div>
       </div>
     </section>
-    <div class="cursor-inverter" aria-hidden="true"></div>
-    <div class="cursor-cover-clip" aria-hidden="true">
-      <div class="cursor-cover-fill"></div>
-    </div>
+
     <script src="data.js"></script>
     <script src="renderer.js"></script>
   </body>
