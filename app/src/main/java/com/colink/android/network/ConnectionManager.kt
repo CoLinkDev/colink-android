@@ -42,6 +42,14 @@ import com.colink.android.network.message.FILE_OFFER_TYPE
 import com.colink.android.network.message.FILE_READY_TYPE
 import com.colink.android.network.message.FILE_REJECT_TYPE
 import com.colink.android.network.message.FILE_RETRANSMIT_TYPE
+import com.colink.android.network.message.MUSIC_ALIVE_TYPE
+import com.colink.android.network.message.MUSIC_LYRIC_TYPE
+import com.colink.android.network.message.MUSIC_PROGRESS_TYPE
+import com.colink.android.network.message.MUSIC_TRACK_TYPE
+import com.colink.android.network.message.MusicAlivePayload
+import com.colink.android.network.message.MusicLyricPayload
+import com.colink.android.network.message.MusicProgressPayload
+import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
 import com.colink.android.network.message.FileCancelPayload
@@ -59,6 +67,7 @@ import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.blake3Checksum
+import com.colink.android.network.music.MusicSyncManager
 import java.io.File
 import java.io.InterruptedIOException
 import java.io.InputStream
@@ -129,6 +138,7 @@ class ConnectionManager @Inject constructor(
     private val lanSwimClient: LanSwimClient,
     private val lanTrustStore: LanTrustStore,
     private val nsdDiscovery: NsdDiscovery,
+    private val musicSyncManager: MusicSyncManager,
     private val notifier: CoLinkNotifier,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -193,6 +203,7 @@ class ConnectionManager @Inject constructor(
         stopClipboardSync()
         broadcastLeft()
         stopLan()
+        musicSyncManager.reset()
         incomingTransfers.clear()
         outgoingTransfers.clear()
         ackSignals.values.forEach { it.complete(Unit) }
@@ -244,6 +255,15 @@ class ConnectionManager @Inject constructor(
             }
         }
     }
+
+    suspend fun sendMusicAlive(targetDeviceId: String): Result<Unit> =
+        sendBusinessMessage(
+            targetDeviceId,
+            BusinessEnvelope(
+                type = MUSIC_ALIVE_TYPE,
+                payload = json.encodeToJsonElement(MusicAlivePayload),
+            ),
+        ).map { Unit }
 
     private fun startLan() {
         CoLinkLog.i("LAN", "starting LAN services")
@@ -503,6 +523,15 @@ class ConnectionManager @Inject constructor(
             FILE_REJECT_TYPE -> handleFileReject(business)
             FILE_CANCEL_TYPE -> handleFileCancel(business)
             FILE_DONE_TYPE -> handleFileDone(business)
+            MUSIC_TRACK_TYPE -> runCatching {
+                json.decodeFromJsonElement(MusicTrackPayload.serializer(), business.payload)
+            }.getOrNull()?.let { musicSyncManager.acceptTrack(fromDeviceId, it) }
+            MUSIC_LYRIC_TYPE -> runCatching {
+                json.decodeFromJsonElement(MusicLyricPayload.serializer(), business.payload)
+            }.getOrNull()?.let { musicSyncManager.acceptLyric(fromDeviceId, it) }
+            MUSIC_PROGRESS_TYPE -> runCatching {
+                json.decodeFromJsonElement(MusicProgressPayload.serializer(), business.payload)
+            }.getOrNull()?.let { musicSyncManager.acceptProgress(fromDeviceId, it) }
         }
     }
 

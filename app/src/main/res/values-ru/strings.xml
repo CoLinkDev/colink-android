@@ -6,8 +6,10 @@
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
     <string name="nav_messages">Сообщения и файлы</string>
+    <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>
+    <string name="castboard_start">Запуск</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">События CoLink</string>

@@ -6,8 +6,10 @@
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
     <string name="nav_messages">消息与文件</string>
+    <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">文件传输</string>
     <string name="nav_settings">设置</string>
+    <string name="castboard_start">启动</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

@@ -15,6 +15,10 @@ const val FILE_CHUNK_TYPE = "file.v2.chunk"
 const val FILE_ACK_TYPE = "file.v2.ack"
 const val FILE_RETRANSMIT_TYPE = "file.v2.retransmit"
 const val FILE_DONE_TYPE = "file.v2.done"
+const val MUSIC_TRACK_TYPE = "music.v1.track"
+const val MUSIC_LYRIC_TYPE = "music.v1.lyric"
+const val MUSIC_PROGRESS_TYPE = "music.v1.progress"
+const val MUSIC_ALIVE_TYPE = "music.v1.alive"
 
 @Serializable
 data class BusinessEnvelope(
@@ -111,6 +115,40 @@ data class FileDonePayload(
     val success: Boolean,
     val reason: String? = null,
 )
+
+@Serializable
+data class MusicTrackPayload(
+    val trackId: String? = null,
+    val title: String? = null,
+    val artists: List<String>? = null,
+    val album: String? = null,
+    val coverUrl: String? = null,
+    val coverData: String? = null,
+    val duration: Long? = null,
+)
+
+@Serializable
+data class MusicLyricLinePayload(
+    val time: Long,
+    val text: String,
+)
+
+@Serializable
+data class MusicLyricPayload(
+    val trackId: String,
+    val lines: List<MusicLyricLinePayload>? = null,
+    val translatedLines: List<MusicLyricLinePayload>? = null,
+)
+
+@Serializable
+data class MusicProgressPayload(
+    val trackId: String,
+    val progress: Long,
+    val paused: Boolean,
+)
+
+@Serializable
+object MusicAlivePayload
 
 @Serializable
 data class DeviceOnlinePayload(

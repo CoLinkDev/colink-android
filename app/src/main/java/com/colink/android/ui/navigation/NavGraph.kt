@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Settings
@@ -46,11 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavType
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.colink.android.R
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.LanPairingRequest
@@ -61,6 +64,8 @@ import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
+import com.colink.android.ui.castboard.CastBoardFullScreen
+import com.colink.android.ui.castboard.CastBoardScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
@@ -76,6 +81,7 @@ private val topLevelRoutes =
     listOf(
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
         TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
+        TopLevelRoute("castboard", R.string.nav_castboard, Icons.Default.Cast),
         TopLevelRoute("settings", R.string.nav_settings, Icons.Default.Settings),
     )
 
@@ -213,6 +219,13 @@ private fun MainScaffold(
                             },
                         )
                     }
+                    composable("castboard") {
+                        CastBoardScreen(
+                            onStartFullscreen = { deviceId ->
+                                rootNavController.navigate("castboard/fullscreen/${Uri.encode(deviceId)}")
+                            },
+                        )
+                    }
                     composable("settings") { SettingsScreen() }
                 }
             }
@@ -296,6 +309,31 @@ private fun MainScaffold(
                 pendingShareStore = pendingShareStore,
                 fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = "castboard/fullscreen/{sourceDeviceId}",
+            arguments = listOf(
+                navArgument("sourceDeviceId") {
+                    type = NavType.StringType
+                },
+            ),
+            enterTransition = {
+                fadeIn(animationSpec = tween(120))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(120))
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(120))
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(120))
+            },
+        ) {
+            CastBoardFullScreen(
+                onClose = { rootNavController.popBackStack() },
             )
         }
     }

@@ -120,6 +120,92 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesMusicTrackPayload() {
+        val envelope = BusinessEnvelope(
+            type = MUSIC_TRACK_TYPE,
+            payload = json.encodeToJsonElement(
+                MusicTrackPayload(
+                    trackId = "abc123",
+                    title = "Song Title",
+                    artists = listOf("Artist A", "Artist B"),
+                    album = "Album Name",
+                    coverUrl = "https://example.com/cover.jpg",
+                    coverData = "iVBORw0KGgoAAAANSUhEUgAA",
+                    duration = 234500,
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"music.v1.track","payload":{"trackId":"abc123","title":"Song Title","artists":["Artist A","Artist B"],"album":"Album Name","coverUrl":"https://example.com/cover.jpg","coverData":"iVBORw0KGgoAAAANSUhEUgAA","duration":234500}}""",
+            encoded,
+        )
+    }
+
+    @Test
+    fun serializesMusicLyricPayload() {
+        val envelope = BusinessEnvelope(
+            type = MUSIC_LYRIC_TYPE,
+            payload = json.encodeToJsonElement(
+                MusicLyricPayload(
+                    trackId = "abc123",
+                    lines = listOf(
+                        MusicLyricLinePayload(time = 12_500, text = "First line"),
+                    ),
+                    translatedLines = listOf(
+                        MusicLyricLinePayload(time = 12_500, text = "第一行"),
+                    ),
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"music.v1.lyric","payload":{"trackId":"abc123","lines":[{"time":12500,"text":"First line"}],"translatedLines":[{"time":12500,"text":"第一行"}]}}""",
+            encoded,
+        )
+    }
+
+    @Test
+    fun serializesMusicProgressPayload() {
+        val envelope = BusinessEnvelope(
+            type = MUSIC_PROGRESS_TYPE,
+            payload = json.encodeToJsonElement(
+                MusicProgressPayload(
+                    trackId = "abc123",
+                    progress = 45_200,
+                    paused = false,
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"music.v1.progress","payload":{"trackId":"abc123","progress":45200,"paused":false}}""",
+            encoded,
+        )
+    }
+
+    @Test
+    fun serializesMusicAlivePayload() {
+        val envelope = BusinessEnvelope(
+            type = MUSIC_ALIVE_TYPE,
+            payload = json.encodeToJsonElement(MusicAlivePayload),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"music.v1.alive","payload":{}}""",
+            encoded,
+        )
+    }
+
+    @Test
     fun serializesFileRetransmitPayload() {
         val envelope = BusinessEnvelope(
             type = FILE_RETRANSMIT_TYPE,
