@@ -175,19 +175,24 @@
       }
 
       .detail-shell {
-        --detail-art-size: min(clamp(260px, 31vw, 390px), calc(100vh - 144px));
-        display: grid;
-        grid-template-columns: var(--detail-art-size) minmax(0, 1fr);
-        align-items: start;
+        display: flex;
+        align-items: stretch;
         gap: 64px;
-        width: min(1180px, 100%);
+        width: 100%;
+        max-width: 1180px;
         max-height: 100%;
       }
 
       .detail-art {
-        aspect-ratio: 1;
-        width: var(--detail-art-size);
-        height: var(--detail-art-size);
+        flex: 0 0 auto;
+        width: 31vw;
+        height: 31vw;
+        min-width: 260px;
+        min-height: 260px;
+        max-width: 390px;
+        max-height: 390px;
+        width: min(clamp(260px, 31vw, 390px), calc(100vh - 144px));
+        height: min(clamp(260px, 31vw, 390px), calc(100vh - 144px));
         overflow: hidden;
         border: 1px solid rgba(248, 250, 252, 0.1);
         border-radius: 8px;
@@ -212,10 +217,10 @@
         --detail-title-max: 86px;
         --detail-title-min: 46px;
         --detail-title-size: var(--detail-title-max);
-        --detail-progress-bottom-offset: clamp(10px, 1.6vh, 22px);
-        position: relative;
-        height: var(--detail-art-size);
+        flex: 1 1 0;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
       }
 
       .detail-title {
@@ -247,10 +252,8 @@
       }
 
       .detail-progress {
-        position: absolute;
-        right: 0;
-        bottom: var(--detail-progress-bottom-offset);
-        left: 0;
+        margin-top: auto;
+        padding-top: 20px;
         width: 100%;
       }
 
@@ -310,23 +313,23 @@
         }
 
         .detail-shell {
-          --detail-art-size: min(260px, 58vw);
-          grid-template-columns: 1fr;
+          flex-direction: column;
           align-items: start;
           gap: 30px;
           width: 100%;
         }
 
         .detail-art {
-          width: var(--detail-art-size);
-          height: var(--detail-art-size);
+          width: 58vw;
+          height: 58vw;
+          max-width: 260px;
+          max-height: 260px;
         }
 
         .detail-copy {
           --detail-title-max: 58px;
           --detail-title-min: 36px;
-          position: static;
-          height: auto;
+          width: 100%;
         }
 
         .detail-title {
@@ -342,7 +345,6 @@
         }
 
         .detail-progress {
-          position: static;
           margin-top: 40px;
         }
       }
