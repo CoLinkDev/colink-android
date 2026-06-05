@@ -34,6 +34,7 @@ private data class LegacyTrackEvent(
 @Serializable
 private data class LegacyLyricEvent(
     val lines: List<LegacyLyricLine> = emptyList(),
+    val translatedLines: List<LegacyLyricLine> = emptyList(),
     val title: String = "",
     val author: String = "",
     val duration: Long = 0,
@@ -134,6 +135,7 @@ class MusicBridge {
         val durationSeconds = (track?.duration ?: 0L) / 1000L
         return LegacyLyricEvent(
             lines = lyric.lines.orEmpty().map { it.toLegacyLine() },
+            translatedLines = lyric.translatedLines.orEmpty().map { it.toLegacyLine() },
             title = title,
             author = author,
             duration = durationSeconds,
