@@ -3,6 +3,7 @@ package com.colink.android.ui.castboard
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebSettings
@@ -128,6 +129,8 @@ fun CastBoardFullScreen(
 
     DisposableEffect(Unit) {
         val activity = context.findActivity()
+        val previousOrientation = activity.requestedOrientation
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
         val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
@@ -135,6 +138,7 @@ fun CastBoardFullScreen(
 
         onDispose {
             controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            activity.requestedOrientation = previousOrientation
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             bridge.unbind()
             webView?.destroy()

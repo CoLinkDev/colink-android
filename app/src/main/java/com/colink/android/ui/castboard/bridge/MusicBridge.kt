@@ -120,7 +120,7 @@ class MusicBridge {
         forceSync = false
     }
 
-    private fun dispatch(view: WebView, event: String, payload: Any) {
+    private inline fun <reified T> dispatch(view: WebView, event: String, payload: T) {
         val script = "window.handleMusicEvent(${json.encodeToString(event)}, ${json.encodeToString(payload)})"
         view.post {
             view.evaluateJavascript(script, null)
