@@ -31,10 +31,9 @@ class CastBoardViewModel @Inject constructor(
     private val musicSyncManager: MusicSyncManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val sourceDeviceId: String? =
-        savedStateHandle.get<String>(SOURCE_DEVICE_ID_ARG)?.trim()?.takeIf { it.isNotBlank() }
-    private val heartbeatJob: Job?
-    private val _selectedDeviceId = MutableStateFlow(sourceDeviceId)
+    private var sourceDeviceId: String? = null
+    private var heartbeatJob: Job? = null
+    private val _selectedDeviceId = MutableStateFlow<String?>(null)
 
     val devices: StateFlow<List<Device>> =
         deviceRepository.devices.stateIn(
@@ -53,17 +52,26 @@ class CastBoardViewModel @Inject constructor(
         )
 
     init {
-        val sourceId = sourceDeviceId
-        heartbeatJob = if (sourceId != null) {
-            musicSyncManager.beginSession(sourceId)
-            viewModelScope.launch(Dispatchers.IO) {
-                while (isActive) {
-                    connectionManager.sendMusicAlive(sourceId)
-                    delay(HEARTBEAT_INTERVAL_MILLIS)
-                }
+        savedStateHandle.get<String>(SOURCE_DEVICE_ID_ARG)?.let(::bindSourceDevice)
+    }
+
+    fun bindSourceDevice(deviceId: String?) {
+        val normalized = deviceId?.trim()?.takeIf { it.isNotBlank() } ?: return
+        if (normalized == sourceDeviceId) {
+            return
+        }
+        heartbeatJob?.cancel()
+        if (sourceDeviceId != null) {
+            musicSyncManager.endSession()
+        }
+        sourceDeviceId = normalized
+        _selectedDeviceId.value = normalized
+        musicSyncManager.beginSession(normalized)
+        heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                connectionManager.sendMusicAlive(normalized)
+                delay(HEARTBEAT_INTERVAL_MILLIS)
             }
-        } else {
-            null
         }
     }
 

@@ -18,6 +18,15 @@
         android:theme="@style/Theme.CoLink">
 
         <activity
+            android:name=".ui.castboard.CastBoardActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.colink.android.action.CASTBOARD" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop">

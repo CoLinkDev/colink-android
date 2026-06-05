@@ -109,6 +109,7 @@ fun CastBoardScreen(
 
 @Composable
 fun CastBoardFullScreen(
+    requestedSourceDeviceId: String? = null,
     onClose: () -> Unit,
     viewModel: CastBoardViewModel = hiltViewModel(),
 ) {
@@ -136,6 +137,10 @@ fun CastBoardFullScreen(
         } else {
             "--"
         }
+    }
+
+    LaunchedEffect(requestedSourceDeviceId) {
+        viewModel.bindSourceDevice(requestedSourceDeviceId)
     }
 
     LaunchedEffect(musicState) {

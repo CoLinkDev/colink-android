@@ -47,13 +47,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavType
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.colink.android.R
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.LanPairingRequest
@@ -64,7 +62,7 @@ import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
-import com.colink.android.ui.castboard.CastBoardFullScreen
+import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.castboard.CastBoardScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
@@ -143,6 +141,7 @@ private fun MainScaffold(
     onLaunchTargetConsumed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
@@ -222,7 +221,7 @@ private fun MainScaffold(
                     composable("castboard") {
                         CastBoardScreen(
                             onStartFullscreen = { deviceId ->
-                                rootNavController.navigate("castboard/fullscreen/${Uri.encode(deviceId)}")
+                                context.startActivity(CastBoardActivity.createIntent(context, deviceId))
                             },
                         )
                     }
@@ -312,30 +311,6 @@ private fun MainScaffold(
             )
         }
 
-        composable(
-            route = "castboard/fullscreen/{sourceDeviceId}",
-            arguments = listOf(
-                navArgument("sourceDeviceId") {
-                    type = NavType.StringType
-                },
-            ),
-            enterTransition = {
-                fadeIn(animationSpec = tween(120))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(120))
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(120))
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(120))
-            },
-        ) {
-            CastBoardFullScreen(
-                onClose = { rootNavController.popBackStack() },
-            )
-        }
     }
 }
 
