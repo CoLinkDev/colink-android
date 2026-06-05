@@ -3,6 +3,8 @@ package com.colink.android.ui.castboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
@@ -13,9 +15,12 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
@@ -27,13 +32,17 @@ private const val SOURCE_DEVICE_ID_ARG = "sourceDeviceId"
 @HiltViewModel
 class CastBoardViewModel @Inject constructor(
     deviceRepository: DeviceRepository,
+    private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
     private val musicSyncManager: MusicSyncManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private var sourceDeviceId: String? = null
     private var heartbeatJob: Job? = null
+    private val _resolutionSavedEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val _selectedDeviceId = MutableStateFlow<String?>(null)
+
+    val resolutionSavedEvents: SharedFlow<Unit> = _resolutionSavedEvents.asSharedFlow()
 
     val devices: StateFlow<List<Device>> =
         deviceRepository.devices.stateIn(
@@ -43,6 +52,13 @@ class CastBoardViewModel @Inject constructor(
         )
 
     val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
+
+    val settings: StateFlow<AppSettings> =
+        settingsDataStore.settings.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = AppSettings(serverUrl = ""),
+        )
 
     val musicState: StateFlow<MusicSyncState> =
         musicSyncManager.state.stateIn(
@@ -89,6 +105,13 @@ class CastBoardViewModel @Inject constructor(
         val currentSourceId = sourceDeviceId ?: return true
         val device = devices.value.firstOrNull { it.deviceId == currentSourceId } ?: return false
         return device.online || device.lanAvailable
+    }
+
+    fun saveCastBoardResolution(width: Int, height: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.saveCastBoardResolution(width, height)
+            _resolutionSavedEvents.emit(Unit)
+        }
     }
 
     override fun onCleared() {

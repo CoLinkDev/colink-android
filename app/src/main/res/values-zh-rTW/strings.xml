@@ -11,6 +11,12 @@
     <string name="nav_settings">設定</string>
     <string name="castboard_start">啟動</string>
     <string name="castboard_subtitle">將指定裝置的多項狀態投射到本機</string>
+    <string name="castboard_resolution_title">顯示解析度</string>
+    <string name="castboard_resolution_body">預設會依本機解析度縮放：%1$s</string>
+    <string name="castboard_resolution_native">原生</string>
+    <string name="castboard_resolution_width">寬度</string>
+    <string name="castboard_resolution_height">高度</string>
+    <string name="castboard_resolution_apply">套用</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

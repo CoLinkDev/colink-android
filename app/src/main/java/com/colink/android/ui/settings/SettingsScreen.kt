@@ -175,7 +175,7 @@ fun SettingsScreen(
             Button(
                 onClick = {
                     viewModel.save(
-                        AppSettings(
+                        settings.copy(
                             serverUrl = serverUrl,
                             deviceName = settings.deviceName,
                             autoStartOnBoot = autoStart,

@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.colink.android.BuildConfig
@@ -28,6 +30,7 @@ class SettingsDataStore @Inject constructor(
 
     val settings: Flow<AppSettings> =
         dataStore.data.map { preferences ->
+            val castBoardResolution = castBoardResolution(preferences)
             AppSettings(
                 serverUrl = preferences[SERVER_URL] ?: BuildConfig.SERVER_BASE_URL,
                 autoStartOnBoot = preferences[AUTO_START_ON_BOOT] ?: false,
@@ -35,6 +38,8 @@ class SettingsDataStore @Inject constructor(
                 notifications = preferences[NOTIFICATIONS] ?: true,
                 deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
                 language = preferences[LANGUAGE] ?: "system",
+                castBoardResolutionWidth = castBoardResolution.first,
+                castBoardResolutionHeight = castBoardResolution.second,
             )
         }
 
@@ -95,6 +100,13 @@ class SettingsDataStore @Inject constructor(
             preferences[NOTIFICATIONS] = settings.notifications
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
             preferences[LANGUAGE] = settings.language
+            saveCastBoardResolution(preferences, settings.castBoardResolutionWidth, settings.castBoardResolutionHeight)
+        }
+    }
+
+    suspend fun saveCastBoardResolution(width: Int, height: Int) {
+        dataStore.edit { preferences ->
+            saveCastBoardResolution(preferences, width, height)
         }
     }
 
@@ -150,6 +162,8 @@ class SettingsDataStore @Inject constructor(
 
     companion object {
         private val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
+        private val CASTBOARD_RESOLUTION_HEIGHT = intPreferencesKey("castboard_resolution_height")
+        private val CASTBOARD_RESOLUTION_WIDTH = intPreferencesKey("castboard_resolution_width")
         private val DEVICE_ID = stringPreferencesKey("device_id")
         private val DEVICE_CLOUD_KEY_SYNC_PENDING = booleanPreferencesKey("device_cloud_key_sync_pending")
         private val DEVICE_NAME = stringPreferencesKey("device_name")
@@ -167,6 +181,31 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_REFRESH_TOKEN = stringPreferencesKey("session_refresh_token")
         private val SESSION_USER_ID = stringPreferencesKey("session_user_id")
         private val LANGUAGE = stringPreferencesKey("language")
+        private const val MAX_CASTBOARD_RESOLUTION_DIMENSION = 7680
+
+        private fun castBoardResolution(preferences: Preferences): Pair<Int, Int> {
+            val width = preferences[CASTBOARD_RESOLUTION_WIDTH]
+                ?.coerceIn(0, MAX_CASTBOARD_RESOLUTION_DIMENSION)
+                ?: 0
+            val height = preferences[CASTBOARD_RESOLUTION_HEIGHT]
+                ?.coerceIn(0, MAX_CASTBOARD_RESOLUTION_DIMENSION)
+                ?: 0
+            return if (width > 0 && height > 0) {
+                width to height
+            } else {
+                0 to 0
+            }
+        }
+
+        private fun saveCastBoardResolution(preferences: MutablePreferences, width: Int, height: Int) {
+            if (width > 0 && height > 0) {
+                preferences[CASTBOARD_RESOLUTION_WIDTH] = width.coerceAtMost(MAX_CASTBOARD_RESOLUTION_DIMENSION)
+                preferences[CASTBOARD_RESOLUTION_HEIGHT] = height.coerceAtMost(MAX_CASTBOARD_RESOLUTION_DIMENSION)
+            } else {
+                preferences.remove(CASTBOARD_RESOLUTION_WIDTH)
+                preferences.remove(CASTBOARD_RESOLUTION_HEIGHT)
+            }
+        }
 
         private fun normalizeServerUrl(serverUrl: String): String {
             val trimmed = serverUrl.trim().trimEnd('/').ifBlank {

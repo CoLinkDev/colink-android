@@ -7,5 +7,6 @@ data class AppSettings(
     val notifications: Boolean = true,
     val deviceName: String = "",
     val language: String = "system",
+    val castBoardResolutionWidth: Int = 0,
+    val castBoardResolutionHeight: Int = 0,
 )
-

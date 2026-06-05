@@ -11,6 +11,12 @@
     <string name="nav_settings">Settings</string>
     <string name="castboard_start">Start</string>
     <string name="castboard_subtitle">Cast multiple states from a selected device to this device</string>
+    <string name="castboard_resolution_title">Display resolution</string>
+    <string name="castboard_resolution_body">Presets scale from this device: %1$s</string>
+    <string name="castboard_resolution_native">Native</string>
+    <string name="castboard_resolution_width">Width</string>
+    <string name="castboard_resolution_height">Height</string>
+    <string name="castboard_resolution_apply">Apply</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink events</string>

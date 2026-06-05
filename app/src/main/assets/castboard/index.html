@@ -11,35 +11,49 @@
         const params = new URLSearchParams(hostParams);
         const isAndroidHost = params.get("host") === "android";
 
+        function parsePositiveInteger(value) {
+          const number = Number.parseInt(value, 10);
+          return Number.isFinite(number) && number > 0 ? number : 0;
+        }
+
         function clamp(min, value, max) {
           return Math.min(max, Math.max(min, value));
         }
 
         function syncViewportMetrics() {
           const density = isAndroidHost ? Math.max(1, Number(window.devicePixelRatio) || 1) : 1;
-          const physicalWidth = window.innerWidth * density;
-          const physicalHeight = window.innerHeight * density;
-          const isNarrow = physicalWidth <= 900;
+          const viewportWidth = window.innerWidth * density;
+          const viewportHeight = window.innerHeight * density;
+          const requestedWidth = parsePositiveInteger(params.get("width"));
+          const requestedHeight = parsePositiveInteger(params.get("height"));
+          const hasRequestedResolution = requestedWidth > 0 && requestedHeight > 0;
+          const layoutWidth = hasRequestedResolution ? requestedWidth : viewportWidth;
+          const layoutHeight = hasRequestedResolution ? requestedHeight : viewportHeight;
+          const viewportScale = hasRequestedResolution
+            ? Math.min(viewportWidth / layoutWidth, viewportHeight / layoutHeight)
+            : 1;
+          const cssScale = viewportScale / density;
+          const isNarrow = layoutWidth <= 900;
           const lyricLeft = isNarrow
-            ? clamp(20, physicalWidth * 0.05, 40)
-            : clamp(34, physicalWidth * 0.062, 112);
+            ? clamp(20, layoutWidth * 0.05, 40)
+            : clamp(34, layoutWidth * 0.062, 112);
           const detailArtSize = isNarrow
-            ? Math.min(260, physicalWidth * 0.58)
-            : Math.min(clamp(260, physicalWidth * 0.31, 390), physicalHeight - 144);
+            ? Math.min(260, layoutWidth * 0.58)
+            : Math.min(clamp(260, layoutWidth * 0.31, 390), layoutHeight - 144);
 
-          root.style.setProperty("--castboard-rem-base", `${100 / density}px`);
-          root.style.setProperty("--line-gap", `${clamp(22, physicalHeight * 0.042, 54) / density}px`);
-          root.style.setProperty("--lyric-left", `${lyricLeft / density}px`);
+          root.style.setProperty("--castboard-rem-base", `${100 * cssScale}px`);
+          root.style.setProperty("--line-gap", `${clamp(22, layoutHeight * 0.042, 54) * cssScale}px`);
+          root.style.setProperty("--lyric-left", `${lyricLeft * cssScale}px`);
           root.style.setProperty(
             "--lyric-width",
             isNarrow
-              ? `calc(100vw - ${lyricLeft / density}px - ${lyricLeft / density}px)`
+              ? `calc(100vw - ${lyricLeft * cssScale}px - ${lyricLeft * cssScale}px)`
               : "80vw",
           );
-          root.style.setProperty("--detail-art-size", `${Math.max(1, detailArtSize) / density}px`);
+          root.style.setProperty("--detail-art-size", `${Math.max(1, detailArtSize) * cssScale}px`);
           root.classList.toggle("is-android-host", isAndroidHost);
           root.classList.toggle("is-castboard-narrow", isNarrow);
-          root.classList.toggle("is-castboard-compact", physicalWidth <= 520);
+          root.classList.toggle("is-castboard-compact", layoutWidth <= 520);
         }
 
         window.__syncCastBoardViewport = syncViewportMetrics;

@@ -87,6 +87,11 @@ class MusicBridge {
         flush()
     }
 
+    fun markPageLoading() {
+        pageReady = false
+        forceSync = true
+    }
+
     fun sync(state: MusicSyncState) {
         lastState = state
         flush()
