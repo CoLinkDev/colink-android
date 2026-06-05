@@ -404,6 +404,12 @@ function preventContextMenu(event) {
   event.preventDefault();
 }
 
+function preventWheelZoom(event) {
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+  }
+}
+
 function onCoverError() {
   detailCover.hidden = true;
   detailCover.removeAttribute("src");
@@ -451,6 +457,7 @@ function bindEvents() {
   detailCover.addEventListener("error", onCoverError);
   detailLayer.addEventListener("transitionend", onDetailLayerTransitionEnd);
   window.addEventListener("contextmenu", preventContextMenu);
+  window.addEventListener("wheel", preventWheelZoom, { passive: false });
   window.addEventListener("beforeunload", cleanupScheduledWork);
 }
 
