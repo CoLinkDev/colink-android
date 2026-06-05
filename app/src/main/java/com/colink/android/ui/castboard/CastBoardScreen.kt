@@ -154,10 +154,19 @@ fun CastBoardFullScreen(
             factory = { webViewContext ->
                 WebView(webViewContext).apply {
                     setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    overScrollMode = View.OVER_SCROLL_NEVER
+                    isHorizontalScrollBarEnabled = false
+                    isVerticalScrollBarEnabled = false
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = true
                     settings.allowContentAccess = true
+                    settings.textZoom = 100
+                    settings.setSupportZoom(false)
+                    settings.builtInZoomControls = false
+                    settings.displayZoomControls = false
+                    settings.loadWithOverviewMode = false
+                    settings.useWideViewPort = false
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                         @Suppress("DEPRECATION")
                         settings.forceDark = WebSettings.FORCE_DARK_OFF
