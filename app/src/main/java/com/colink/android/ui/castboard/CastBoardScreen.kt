@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebSettings
@@ -14,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -36,9 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -50,6 +54,7 @@ import com.colink.android.ui.components.DevicePicker
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.castboard.bridge.MusicBridge
+import kotlinx.coroutines.delay
 
 @Composable
 fun CastBoardScreen(
@@ -116,9 +121,32 @@ fun CastBoardFullScreen(
     }
     val bridge = remember { MusicBridge() }
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var controlsVisible by remember { mutableStateOf(true) }
+    var controlsRevealTick by remember { mutableStateOf(0) }
+    var viewportSize by remember { mutableStateOf(IntSize.Zero) }
+
+    fun revealControls() {
+        controlsVisible = true
+        controlsRevealTick += 1
+    }
+
+    val resolutionText = remember(viewportSize) {
+        if (viewportSize.width > 0 && viewportSize.height > 0) {
+            "${viewportSize.width} x ${viewportSize.height}"
+        } else {
+            "--"
+        }
+    }
 
     LaunchedEffect(musicState) {
         bridge.sync(musicState)
+    }
+
+    LaunchedEffect(controlsVisible, controlsRevealTick) {
+        if (controlsVisible) {
+            delay(5_000)
+            controlsVisible = false
+        }
     }
 
     LaunchedEffect(sourceDeviceId, sourceDevice?.online, sourceDevice?.lanAvailable) {
@@ -148,7 +176,12 @@ fun CastBoardFullScreen(
 
     BackHandler(onBack = onClose)
 
-    Box(modifier = Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF050608))) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(androidx.compose.ui.graphics.Color(0xFF050608))
+            .onSizeChanged { viewportSize = it },
+    ) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { webViewContext ->
@@ -167,6 +200,12 @@ fun CastBoardFullScreen(
                     settings.displayZoomControls = false
                     settings.loadWithOverviewMode = false
                     settings.useWideViewPort = false
+                    setOnTouchListener { _, event ->
+                        if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                            revealControls()
+                        }
+                        false
+                    }
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                         @Suppress("DEPRECATION")
                         settings.forceDark = WebSettings.FORCE_DARK_OFF
@@ -189,38 +228,44 @@ fun CastBoardFullScreen(
             },
         )
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .statusBarsPadding()
-                .padding(12.dp),
-            tonalElevation = 3.dp,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+        if (controlsVisible) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(12.dp),
+                tonalElevation = 3.dp,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
             ) {
-                Text(
-                    text = stringResource(R.string.nav_castboard),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = sourceDevice?.name ?: sourceDeviceId.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 4.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                        horizontalAlignment = Alignment.End,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.nav_castboard),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = sourceDevice?.name ?: sourceDeviceId.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = resolutionText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel_btn))
+                    }
+                }
             }
-        }
-
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(8.dp),
-        ) {
-            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel_btn))
         }
     }
 }
