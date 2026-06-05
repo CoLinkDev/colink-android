@@ -42,10 +42,63 @@ let resizeTimer = 0;
 // 处理 CSS 长度、时间格式、比例裁剪和调度清理。这里保持无业务状态，供歌词和详情渲染复用。
 
 function parseCssLength(raw, fallback) {
+  const value = resolveCssLength(String(raw ?? "").trim());
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function resolveCssLength(raw) {
+  if (raw === "") return NaN;
+
+  const clampArgs = cssFunctionArgs(raw, "clamp");
+  if (clampArgs?.length === 3) {
+    const min = resolveCssLength(clampArgs[0]);
+    const preferred = resolveCssLength(clampArgs[1]);
+    const max = resolveCssLength(clampArgs[2]);
+    if ([min, preferred, max].every(Number.isFinite)) {
+      return Math.min(max, Math.max(min, preferred));
+    }
+  }
+
   const value = parseFloat(raw);
-  if (!Number.isFinite(value)) return fallback;
-  if (raw.endsWith("vh") || raw.endsWith("%")) return (window.innerHeight * value) / 100;
+  if (!Number.isFinite(value)) return NaN;
+  if (raw.endsWith("rem")) {
+    return value * readRootFontSize();
+  }
+  if (raw.endsWith("vh") || raw.endsWith("%")) {
+    return (window.innerHeight * value) / 100;
+  }
+  if (raw.endsWith("vw")) {
+    return (window.innerWidth * value) / 100;
+  }
   return value;
+}
+
+function cssFunctionArgs(raw, name) {
+  const prefix = `${name}(`;
+  if (!raw.startsWith(prefix) || !raw.endsWith(")")) return null;
+
+  const body = raw.slice(prefix.length, -1);
+  const args = [];
+  let depth = 0;
+  let start = 0;
+
+  for (let i = 0; i < body.length; i += 1) {
+    const char = body[i];
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      args.push(body.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+
+  args.push(body.slice(start).trim());
+  return args;
+}
+
+function readRootFontSize() {
+  const value = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return Number.isFinite(value) ? value : 100;
 }
 
 function cacheLayoutMetrics() {
@@ -69,7 +122,7 @@ function clampUnit(value) {
 }
 
 function readCssNumber(element, name, fallback) {
-  const value = parseFloat(getComputedStyle(element).getPropertyValue(name));
+  const value = parseCssLength(getComputedStyle(element).getPropertyValue(name), NaN);
   return Number.isFinite(value) ? value : fallback;
 }
 
@@ -394,6 +447,7 @@ function onResize() {
   resizeTimer = clearTimer(resizeTimer);
   resizeTimer = window.setTimeout(() => {
     resizeTimer = 0;
+    window.__syncCastBoardViewport?.();
     cacheLayoutMetrics();
     renderLyrics();
     updateDetailTitleSize();

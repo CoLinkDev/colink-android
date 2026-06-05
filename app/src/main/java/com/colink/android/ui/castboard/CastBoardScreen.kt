@@ -205,7 +205,7 @@ fun CastBoardFullScreen(
                     settings.builtInZoomControls = false
                     settings.displayZoomControls = false
                     settings.loadWithOverviewMode = false
-                    settings.useWideViewPort = false
+                    settings.useWideViewPort = true
                     setOnTouchListener { _, event ->
                         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                             revealControls()
@@ -224,7 +224,7 @@ fun CastBoardFullScreen(
                         }
                     }
                     bridge.bind(this)
-                    loadUrl("file:///android_asset/castboard/index.html")
+                    loadUrl("file:///android_asset/castboard/index.html#host=android")
                 }.also {
                     webView = it
                 }
