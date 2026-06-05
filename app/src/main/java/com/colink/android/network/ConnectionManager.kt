@@ -45,10 +45,12 @@ import com.colink.android.network.message.FILE_RETRANSMIT_TYPE
 import com.colink.android.network.message.MUSIC_ALIVE_TYPE
 import com.colink.android.network.message.MUSIC_LYRIC_TYPE
 import com.colink.android.network.message.MUSIC_PROGRESS_TYPE
+import com.colink.android.network.message.MUSIC_REQUEST_TYPE
 import com.colink.android.network.message.MUSIC_TRACK_TYPE
 import com.colink.android.network.message.MusicAlivePayload
 import com.colink.android.network.message.MusicLyricPayload
 import com.colink.android.network.message.MusicProgressPayload
+import com.colink.android.network.message.MusicRequestPayload
 import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
@@ -262,6 +264,15 @@ class ConnectionManager @Inject constructor(
             BusinessEnvelope(
                 type = MUSIC_ALIVE_TYPE,
                 payload = json.encodeToJsonElement(MusicAlivePayload),
+            ),
+        ).map { Unit }
+
+    suspend fun sendMusicRequest(targetDeviceId: String): Result<Unit> =
+        sendBusinessMessage(
+            targetDeviceId,
+            BusinessEnvelope(
+                type = MUSIC_REQUEST_TYPE,
+                payload = json.encodeToJsonElement(MusicRequestPayload),
             ),
         ).map { Unit }
 

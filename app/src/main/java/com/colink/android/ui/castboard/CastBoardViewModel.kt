@@ -84,9 +84,11 @@ class CastBoardViewModel @Inject constructor(
         _selectedDeviceId.value = normalized
         musicSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
+            connectionManager.sendMusicAlive(normalized)
+            connectionManager.sendMusicRequest(normalized)
             while (isActive) {
-                connectionManager.sendMusicAlive(normalized)
                 delay(HEARTBEAT_INTERVAL_MILLIS)
+                connectionManager.sendMusicAlive(normalized)
             }
         }
     }

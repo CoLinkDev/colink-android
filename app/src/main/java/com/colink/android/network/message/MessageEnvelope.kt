@@ -19,6 +19,7 @@ const val MUSIC_TRACK_TYPE = "music.v1.track"
 const val MUSIC_LYRIC_TYPE = "music.v1.lyric"
 const val MUSIC_PROGRESS_TYPE = "music.v1.progress"
 const val MUSIC_ALIVE_TYPE = "music.v1.alive"
+const val MUSIC_REQUEST_TYPE = "music.v1.request"
 
 @Serializable
 data class BusinessEnvelope(
@@ -149,6 +150,9 @@ data class MusicProgressPayload(
 
 @Serializable
 object MusicAlivePayload
+
+@Serializable
+object MusicRequestPayload
 
 @Serializable
 data class DeviceOnlinePayload(

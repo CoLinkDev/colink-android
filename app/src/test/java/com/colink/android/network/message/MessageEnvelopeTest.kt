@@ -206,6 +206,21 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesMusicRequestPayload() {
+        val envelope = BusinessEnvelope(
+            type = MUSIC_REQUEST_TYPE,
+            payload = json.encodeToJsonElement(MusicRequestPayload),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"music.v1.request","payload":{}}""",
+            encoded,
+        )
+    }
+
+    @Test
     fun serializesFileRetransmitPayload() {
         val envelope = BusinessEnvelope(
             type = FILE_RETRANSMIT_TYPE,
