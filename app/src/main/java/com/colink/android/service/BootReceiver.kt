@@ -20,7 +20,7 @@ class BootReceiver : BroadcastReceiver() {
             val settings = dataStore.currentSettings()
             if (settings.autoStartOnBoot) {
                 CoLinkLog.i("Service", "boot receiver starting service")
-                CoLinkService.start(context.applicationContext)
+                CoLinkRuntimeStarter.ensureStarted(context)
             } else {
                 CoLinkLog.d("Service", "boot receiver skipped service start")
             }

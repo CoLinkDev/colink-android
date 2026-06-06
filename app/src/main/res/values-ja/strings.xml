@@ -11,12 +11,6 @@
     <string name="nav_settings">設定</string>
     <string name="castboard_start">開始</string>
     <string name="castboard_subtitle">指定したデバイスの複数の状態をこのデバイスに投影します</string>
-    <string name="castboard_resolution_title">表示解像度</string>
-    <string name="castboard_resolution_body">プリセットはこのデバイスの解像度から縮小します: %1$s</string>
-    <string name="castboard_resolution_native">ネイティブ</string>
-    <string name="castboard_resolution_width">幅</string>
-    <string name="castboard_resolution_height">高さ</string>
-    <string name="castboard_resolution_apply">適用</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLinkイベント</string>

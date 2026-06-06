@@ -11,12 +11,6 @@
     <string name="nav_settings">설정</string>
     <string name="castboard_start">시작</string>
     <string name="castboard_subtitle">선택한 디바이스의 여러 상태를 이 디바이스에 투사합니다</string>
-    <string name="castboard_resolution_title">표시 해상도</string>
-    <string name="castboard_resolution_body">프리셋은 이 기기 해상도 기준으로 조정됩니다: %1$s</string>
-    <string name="castboard_resolution_native">기본</string>
-    <string name="castboard_resolution_width">너비</string>
-    <string name="castboard_resolution_height">높이</string>
-    <string name="castboard_resolution_apply">적용</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 이벤트</string>

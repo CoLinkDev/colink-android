@@ -11,12 +11,6 @@
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>
     <string name="castboard_subtitle">Proyecta varios estados de un dispositivo seleccionado a este dispositivo</string>
-    <string name="castboard_resolution_title">Resolución de pantalla</string>
-    <string name="castboard_resolution_body">Los ajustes escalan desde este dispositivo: %1$s</string>
-    <string name="castboard_resolution_native">Nativa</string>
-    <string name="castboard_resolution_width">Ancho</string>
-    <string name="castboard_resolution_height">Alto</string>
-    <string name="castboard_resolution_apply">Aplicar</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">Eventos de CoLink</string>

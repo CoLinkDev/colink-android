@@ -9,6 +9,10 @@ const TRACK_INFO = {
 let duration = 0;
 let progressPosition = 0;
 let activeIndex = 0;
+let progressAnchorPosition = 0;
+let progressAnchorTime = 0;
+let progressPaused = true;
+let progressRafId = 0;
 
 const LYRICS_LINES_CHANGE_EVENT = "lyrics-lines-change";
 const LYRICS_TRACK_CHANGE_EVENT = "lyrics-track-change";
@@ -114,6 +118,47 @@ function mergeTranslatedLines(lines, translatedLines) {
   });
 }
 
+function stopProgressInterpolation() {
+  if (progressRafId) {
+    cancelAnimationFrame(progressRafId);
+    progressRafId = 0;
+  }
+}
+
+function clampProgressPosition(value) {
+  if (!Number.isFinite(value)) return 0;
+  const normalized = Math.max(0, value);
+  return duration > 0 ? Math.min(duration, normalized) : normalized;
+}
+
+function applyProgressPosition(nextPosition) {
+  const clamped = clampProgressPosition(nextPosition);
+  if (clamped === progressPosition) return false;
+
+  progressPosition = clamped;
+
+  if (LYRICS.length > 0) {
+    activeIndex = _calcActiveIndex(progressPosition);
+  }
+
+  notifyLyricsProgressChanged();
+  return true;
+}
+
+function tickProgressInterpolation(now) {
+  progressRafId = 0;
+  if (progressPaused) return;
+
+  const elapsed = (now - progressAnchorTime) / 1000;
+  applyProgressPosition(progressAnchorPosition + elapsed);
+  progressRafId = requestAnimationFrame(tickProgressInterpolation);
+}
+
+function startProgressInterpolation() {
+  if (progressPaused || progressRafId) return;
+  progressRafId = requestAnimationFrame(tickProgressInterpolation);
+}
+
 function onLyric(data) {
   if (!data) return;
 
@@ -145,15 +190,16 @@ function onPlayerProgress(data) {
   if (!data || typeof data.progress !== "number") return;
 
   const nextPosition = data.progress / 1000;
-  if (nextPosition === progressPosition) return;
+  progressPaused = data.paused !== false;
+  progressAnchorPosition = clampProgressPosition(nextPosition);
+  progressAnchorTime = performance.now();
 
-  progressPosition = nextPosition;
-
-  if (LYRICS.length > 0) {
-    activeIndex = _calcActiveIndex(progressPosition);
+  applyProgressPosition(progressAnchorPosition);
+  if (progressPaused) {
+    stopProgressInterpolation();
+  } else {
+    startProgressInterpolation();
   }
-
-  notifyLyricsProgressChanged();
 }
 
 function onTrack(data) {
@@ -168,6 +214,10 @@ function onTrack(data) {
   }
 
   if (isEmptyTrack(data)) {
+    stopProgressInterpolation();
+    progressPaused = true;
+    progressAnchorPosition = 0;
+    progressAnchorTime = 0;
     linesChanged = clearLyricsData();
     if (progressPosition !== 0) {
       progressPosition = 0;
@@ -195,6 +245,7 @@ function requestCachedState() {
 }
 
 window.addEventListener("pywebviewready", requestCachedState);
+window.addEventListener("beforeunload", stopProgressInterpolation);
 
 function handleEvent(event, data) {
   switch (event) {

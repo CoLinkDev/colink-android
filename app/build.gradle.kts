@@ -21,6 +21,10 @@ val serverBaseUrl = localProperties
     .trim()
     .trimEnd('/')
 
+val castBoardDevUrl = localProperties
+    .getProperty("CASTBOARD_DEV_URL", "")
+    .trim()
+
 android {
     namespace = "com.colink.android"
     compileSdk = 35
@@ -34,6 +38,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "SERVER_BASE_URL", "\"$serverBaseUrl\"")
+        buildConfigField("String", "CASTBOARD_DEV_URL", "\"$castBoardDevUrl\"")
     }
 
     buildFeatures {

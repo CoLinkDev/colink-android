@@ -57,7 +57,7 @@ import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
-import com.colink.android.service.CoLinkService
+import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
@@ -98,7 +98,7 @@ fun CoLinkNavGraph(
 
     LaunchedEffect(bootstrapping) {
         if (!bootstrapping) {
-            CoLinkService.start(context)
+            CoLinkRuntimeStarter.ensureStarted(context)
         }
     }
 

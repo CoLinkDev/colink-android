@@ -19,7 +19,9 @@
 
         <activity
             android:name=".ui.castboard.CastBoardActivity"
-            android:exported="true">
+            android:configChanges="keyboardHidden|orientation|screenSize"
+            android:exported="true"
+            android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="com.colink.android.action.CASTBOARD" />
                 <category android:name="android.intent.category.DEFAULT" />

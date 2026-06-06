@@ -2,12 +2,18 @@ package com.colink.android.ui.castboard
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
+import androidx.activity.SystemBarStyle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.theme.CoLinkTheme
 import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -21,7 +27,13 @@ class CastBoardActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         val sourceDeviceId = intent.sourceDeviceId()
         if (sourceDeviceId == null) {
@@ -29,7 +41,8 @@ class CastBoardActivity : ComponentActivity() {
             return
         }
 
-        enableEdgeToEdge()
+        CoLinkRuntimeStarter.ensureStarted(this)
+
         setContent {
             CoLinkTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
@@ -39,6 +52,15 @@ class CastBoardActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
         }
     }
 

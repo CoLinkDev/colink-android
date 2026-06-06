@@ -105,6 +105,11 @@ function cacheLayoutMetrics() {
   const root = getComputedStyle(document.documentElement);
   cachedGap = parseCssLength(root.getPropertyValue("--line-gap"), 36);
   cachedActiveY = parseCssLength(root.getPropertyValue("--active-y"), window.innerHeight * 0.35);
+
+  const clamped = window.innerWidth * 0.31; // 595px at 1920px width (31%)
+  const maxByHeight = window.innerHeight * 0.88; // 950px at 1080px height (88%)
+  const artSize = Math.min(clamped, maxByHeight);
+  document.documentElement.style.setProperty("--detail-art-size", artSize + "px");
 }
 
 function formatSeconds(value) {
@@ -333,8 +338,8 @@ function titleVisualLength(value) {
 
 function titleSizeByLength(title, minSize, maxSize) {
   const length = titleVisualLength(title);
-  const ratio = clampUnit((length - 12) / 24);
-  const easedRatio = ratio * ratio * (3 - 2 * ratio);
+  const ratio = clampUnit((length - 10) / 18);
+  const easedRatio = 1 - Math.pow(1 - ratio, 2);
   return maxSize - (maxSize - minSize) * easedRatio;
 }
 
@@ -447,7 +452,6 @@ function onResize() {
   resizeTimer = clearTimer(resizeTimer);
   resizeTimer = window.setTimeout(() => {
     resizeTimer = 0;
-    window.__syncCastBoardViewport?.();
     cacheLayoutMetrics();
     renderLyrics();
     updateDetailTitleSize();
