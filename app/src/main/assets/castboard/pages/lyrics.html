@@ -1,0 +1,330 @@
+<!doctype html>
+<html>
+  <body>
+    <div class="page page-lyrics">
+      <style>
+        .page-lyrics {
+          z-index: 1;
+        }
+
+        .stage {
+          position: fixed;
+          inset: 0;
+          overflow: hidden;
+          opacity: 0;
+          transition: opacity 220ms ease-out;
+        }
+
+        .stage.is-ready {
+          opacity: 1;
+        }
+
+        .stage::before,
+        .stage::after {
+          content: "";
+          position: absolute;
+          left: 0;
+          width: 100%;
+          height: 24vh;
+          z-index: 2;
+          pointer-events: none;
+          will-change: transform;
+          transform: translateZ(0);
+        }
+
+        .stage::before {
+          top: 0;
+          background: linear-gradient(to bottom, #050608 4%, rgba(5, 6, 8, 0));
+        }
+
+        .stage::after {
+          bottom: 0;
+          background: linear-gradient(to top, #050608 6%, rgba(5, 6, 8, 0));
+        }
+
+        .line {
+          position: absolute;
+          top: 0;
+          left: var(--lyric-left);
+          width: var(--lyric-width);
+          margin: 0;
+          text-align: left;
+          color: #d8dee8;
+          font-size: clamp(45px, min(6.4vw, 13vh), 100px);
+          font-weight: 900;
+          letter-spacing: 0;
+          line-height: 1.16;
+          overflow-wrap: break-word;
+          word-break: normal;
+          white-space: pre-line;
+          transform-origin: left center;
+          transform: translateY(var(--active-y)) scale(0.96);
+          opacity: 0;
+          pointer-events: none;
+          will-change: transform, opacity;
+          contain: layout style;
+        }
+
+        .line.is-current {
+          color: #fffaf0;
+        }
+
+        .track-info {
+          position: fixed;
+          right: 4vw;
+          bottom: 2vw;
+          display: flex;
+          align-items: baseline;
+          justify-content: flex-end;
+          gap: 0.55em;
+          z-index: 4;
+          width: 90vw;
+          pointer-events: none;
+        }
+
+        .track-info-title,
+        .track-info-author {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: clamp(18px, 2.6vh, 34px);
+          font-weight: 700;
+          line-height: 1.2;
+        }
+
+        .track-info-title {
+          color: rgba(255, 250, 240, 0.84);
+          flex: 0 0 auto;
+          max-width: 80%;
+        }
+
+        .track-info-author {
+          color: rgba(216, 222, 232, 0.58);
+          flex: 0 1 auto;
+        }
+      </style>
+
+      <main class="stage" aria-label="Lyrics"></main>
+      <aside class="track-info" aria-label="Playback Info" aria-live="polite" hidden>
+        <span class="track-info-title"></span>
+        <span class="track-info-author"></span>
+      </aside>
+    </div>
+
+    <script>
+      (function() {
+        const { clearTimer, pages } = parent;
+
+        let stage = null;
+        let trackInfo = null;
+        let trackInfoTitle = null;
+        let trackInfoAuthor = null;
+
+        const OPACITY_TABLE = [1, 0.58, 0.28, 0.13, 0.04];
+        const BLUR_TABLE = [0, 2.7, 3.9, 5.1, 6.3];
+        const VISIBLE_BEFORE = 3;
+        const VISIBLE_AFTER = 5;
+        const LYRIC_TRANSITION_MS = 1260;
+        const LYRIC_TRANSITION = "transform 1180ms var(--ease), opacity 980ms var(--ease)";
+
+        const lineElements = new Map();
+        let currentIndex = 0;
+        let lastRenderedIndex = null;
+        let lyricsAnimationTimer = 0;
+
+        function resetLyricsDom() {
+          if (stage) stage.replaceChildren();
+          lineElements.clear();
+          lastRenderedIndex = null;
+        }
+
+        function createLineElement(index) {
+          const line = document.createElement("p");
+          line.className = "line";
+          line.textContent = parent.LYRICS[index].text;
+          line.dataset.index = String(index);
+          line.style.opacity = "0";
+          line.style.transition = "none";
+          stage.appendChild(line);
+          lineElements.set(index, line);
+          return line;
+        }
+
+        function visibleRangeFor(activeIndex) {
+          return [
+            Math.max(0, activeIndex - VISIBLE_BEFORE),
+            Math.min(parent.LYRICS.length - 1, activeIndex + VISIBLE_AFTER),
+          ];
+        }
+
+        function syncVisibleLineElements(start, end) {
+          const createdLines = new Set();
+          for (const [index, line] of lineElements) {
+            if (index < start || index > end) {
+              line.remove();
+              lineElements.delete(index);
+            }
+          }
+          for (let index = start; index <= end; index += 1) {
+            if (!lineElements.has(index)) {
+              createdLines.add(createLineElement(index));
+            }
+          }
+          return createdLines;
+        }
+
+        function getLineHeights() {
+          const heights = new Map();
+          for (const [index, line] of lineElements) {
+            heights.set(index, line.offsetHeight);
+          }
+          return heights;
+        }
+
+        function offsetsForVisibleRange(start, end, activeIndex, heights) {
+          const offsets = new Map([[activeIndex, 0]]);
+          const gap = parent.cachedGap;
+          let offset = 0;
+          for (let i = activeIndex + 1; i <= end; i += 1) {
+            offset += (heights.get(i - 1) ?? 0) / 2 + gap + (heights.get(i) ?? 0) / 2;
+            offsets.set(i, offset);
+          }
+          offset = 0;
+          for (let i = activeIndex - 1; i >= start; i -= 1) {
+            offset -= (heights.get(i + 1) ?? 0) / 2 + gap + (heights.get(i) ?? 0) / 2;
+            offsets.set(i, offset);
+          }
+          return offsets;
+        }
+
+        function disableLyricsTransitions() {
+          for (const line of lineElements.values()) {
+            line.style.transition = "none";
+          }
+        }
+
+        function scheduleLyricsTransitionDisable() {
+          lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+          lyricsAnimationTimer = window.setTimeout(() => {
+            lyricsAnimationTimer = 0;
+            disableLyricsTransitions();
+          }, LYRIC_TRANSITION_MS);
+        }
+
+        function renderLyrics() {
+          if (!stage) return;
+          if (parent.LYRICS.length === 0) {
+            resetLyricsDom();
+            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+            if (stage) stage.classList.remove("is-ready");
+            return;
+          }
+
+          const active = currentIndex;
+          const shouldAnimate = lastRenderedIndex !== null && Math.abs(active - lastRenderedIndex) === 1;
+          const activeY = parent.cachedActiveY;
+          const [start, end] = visibleRangeFor(active);
+          const createdLines = syncVisibleLineElements(start, end);
+          const heights = getLineHeights();
+          const offsets = offsetsForVisibleRange(start, end, active, heights);
+
+          for (const [index, line] of lineElements) {
+            const distance = index - active;
+            const absDistance = Math.abs(distance);
+            const offset = offsets.get(index) ?? 0;
+            const height = heights.get(index) ?? 0;
+            const translateY = activeY - height / 2 + offset;
+            const scale = Math.max(0.84, 1.08 - absDistance * 0.075);
+            const opacity = OPACITY_TABLE[absDistance] ?? 0;
+            const blur = BLUR_TABLE[absDistance] ?? 0;
+
+            line.style.transition = shouldAnimate && !createdLines.has(line) ? LYRIC_TRANSITION : "none";
+            line.classList.toggle("is-current", distance === 0);
+            line.style.transform = `translateY(${translateY}px) scale(${scale})`;
+            line.style.opacity = String(opacity);
+            line.style.filter = blur > 0 ? `blur(${blur}px)` : "none";
+            line.style.zIndex = String(20 - absDistance);
+          }
+
+          if (shouldAnimate) {
+            scheduleLyricsTransitionDisable();
+          } else {
+            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+          }
+
+          lastRenderedIndex = active;
+        }
+
+        function layoutLyrics() {
+          if (parent.currentPageName !== "lyrics") return;
+          if (stage) stage.classList.remove("is-ready");
+          lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+
+          currentIndex = parent.activeIndex;
+          resetLyricsDom();
+          renderLyrics();
+
+          if (lineElements.size > 0 && stage) {
+            stage.classList.add("is-ready");
+          }
+        }
+
+        function renderTrackSummary() {
+          if (!trackInfo) return;
+          const title = parent.TRACK_INFO.title;
+          const author = parent.TRACK_INFO.author;
+          const hasInfo = title !== "" || author !== "";
+
+          trackInfo.hidden = !hasInfo;
+          trackInfoTitle.hidden = title === "";
+          trackInfoAuthor.hidden = author === "";
+          trackInfoTitle.textContent = title;
+          trackInfoAuthor.textContent = author;
+        }
+
+        pages.lyrics = {
+          template: document.body.innerHTML,
+          mount(container) {
+            stage = container.querySelector(".stage");
+            trackInfo = container.querySelector(".track-info");
+            trackInfoTitle = container.querySelector(".track-info-title");
+            trackInfoAuthor = container.querySelector(".track-info-author");
+
+            resetLyricsDom();
+            renderTrackSummary();
+            layoutLyrics();
+          },
+          unmount() {
+            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+            resetLyricsDom();
+            stage = null;
+            trackInfo = null;
+            trackInfoTitle = null;
+            trackInfoAuthor = null;
+          },
+          onTrackChange() {
+            renderTrackSummary();
+          },
+          onProgressChange() {
+            const nextIndex = parent.activeIndex;
+            if (nextIndex !== currentIndex) {
+              currentIndex = nextIndex;
+              renderLyrics();
+            }
+          },
+          onResize() {
+            renderLyrics();
+          },
+          layoutLyrics() {
+            layoutLyrics();
+          },
+          cleanup() {
+            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
+            resetLyricsDom();
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>

@@ -279,3 +279,27 @@ function _calcActiveIndex(t) {
 
   return active;
 }
+
+window.LYRICS = LYRICS;
+window.TRACK_INFO = TRACK_INFO;
+
+Object.defineProperty(window, "duration", {
+  get() { return duration; },
+  set(v) { duration = v; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window, "progressPosition", {
+  get() { return progressPosition; },
+  set(v) { progressPosition = v; },
+  configurable: true,
+  enumerable: true
+});
+
+Object.defineProperty(window, "activeIndex", {
+  get() { return activeIndex; },
+  set(v) { activeIndex = v; },
+  configurable: true,
+  enumerable: true
+});

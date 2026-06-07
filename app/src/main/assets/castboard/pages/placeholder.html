@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <body>
+    <div class="page page-placeholder">
+      <style>
+        .page-placeholder {
+          z-index: 3;
+          display: grid;
+          place-items: center;
+          background: #050608;
+        }
+
+        .placeholder-content {
+          font-size: clamp(24px, 4vh, 48px);
+          font-weight: 700;
+          color: rgba(216, 222, 232, 0.5);
+        }
+      </style>
+      <div class="placeholder-content">占位文本</div>
+    </div>
+
+    <script>
+      (function() {
+        parent.pages.placeholder = {
+          template: document.body.innerHTML,
+          mount(container) {},
+          unmount() {},
+          onTrackChange() {},
+          onProgressChange() {},
+          onResize() {},
+          cleanup() {}
+        };
+      })();
+    </script>
+  </body>
+</html>
