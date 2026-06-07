@@ -17,6 +17,24 @@ let progressRafId = 0;
 const LYRICS_LINES_CHANGE_EVENT = "lyrics-lines-change";
 const LYRICS_TRACK_CHANGE_EVENT = "lyrics-track-change";
 const LYRICS_PROGRESS_CHANGE_EVENT = "lyrics-progress-change";
+const DEBUG_OVERLAY_ENABLED = new URLSearchParams(window.location.search).has("debug");
+
+function updateDebugOverlay(event, data) {
+  if (!DEBUG_OVERLAY_ENABLED) return;
+  const el = document.getElementById("castboard-debug");
+  if (!el) return;
+
+  el.hidden = false;
+  el.textContent = [
+    `event=${event}`,
+    `page=${window.currentPageName || "<none>"}`,
+    `track=${TRACK_INFO.title || "<empty>"}`,
+    `lyrics=${LYRICS.length}`,
+    `active=${activeIndex}`,
+    `progress=${progressPosition.toFixed(1)}`,
+    `rawLines=${Array.isArray(data?.lines) ? data.lines.length : "-"}`,
+  ].join("\n");
+}
 
 function notifyLyricsLinesChanged() {
   window.dispatchEvent(new Event(LYRICS_LINES_CHANGE_EVENT));
@@ -259,6 +277,7 @@ function handleEvent(event, data) {
       onTrack(data);
       break;
   }
+  updateDebugOverlay(event, data);
 }
 
 function _calcActiveIndex(t) {
