@@ -176,7 +176,7 @@
         margin: 0;
         text-align: left;
         color: #d8dee8;
-        font-size: clamp(42px, min(6.4vw, 13vh), 100px);
+        font-size: clamp(45px, min(6.4vw, 13vh), 100px);
         font-weight: 900;
         letter-spacing: 0;
         line-height: 1.16;
@@ -204,7 +204,7 @@
         justify-content: flex-end;
         gap: 0.55em;
         z-index: 4;
-        max-width: 90vw;
+        width: 90vw;
         pointer-events: none;
       }
 
@@ -221,13 +221,13 @@
 
       .track-info-title {
         color: rgba(255, 250, 240, 0.84);
-        flex: 0 1 auto;
+        flex: 0 0 auto;
+        max-width: 80%;
       }
 
       .track-info-author {
         color: rgba(216, 222, 232, 0.58);
-        flex: 0 1000 auto;
-        min-width: 20%;
+        flex: 0 1 auto;
       }
 
       .detail-layer[hidden] {
