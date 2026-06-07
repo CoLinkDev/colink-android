@@ -7,6 +7,8 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.webkit.WebSettings
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.colink.android.BuildConfig
@@ -48,6 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.webkit.WebViewAssetLoader
 import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.DevicePicker
@@ -132,6 +135,11 @@ fun CastBoardFullScreen(
     var controlsRevealTick by remember { mutableStateOf(0) }
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
     val castBoardUrl = remember { castBoardUrl() }
+    val assetLoader = remember(context) {
+        WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+    }
 
     fun revealControls() {
         controlsVisible = true
@@ -191,8 +199,9 @@ fun CastBoardFullScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { webViewContext ->
+                WebView.setWebContentsDebuggingEnabled(true)
                 if (BuildConfig.DEBUG) {
-                    WebView.setWebContentsDebuggingEnabled(true)
+                    
                 }
                 WebView(webViewContext).apply {
                     tag = castBoardUrl
@@ -203,18 +212,15 @@ fun CastBoardFullScreen(
                     val webSettings = this.settings
                     webSettings.javaScriptEnabled = true
                     webSettings.domStorageEnabled = true
-                    webSettings.allowFileAccess = true
+                    webSettings.allowFileAccess = false
                     webSettings.allowContentAccess = true
-                    @Suppress("DEPRECATION")
-                    webSettings.allowFileAccessFromFileURLs = true
-                    @Suppress("DEPRECATION")
-                    webSettings.allowUniversalAccessFromFileURLs = true
                     webSettings.textZoom = 100
                     webSettings.setSupportZoom(false)
                     webSettings.builtInZoomControls = false
                     webSettings.displayZoomControls = false
                     webSettings.loadWithOverviewMode = false
                     webSettings.useWideViewPort = true
+                    webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                     setOnTouchListener { _, event ->
                         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                             revealControls()
@@ -227,6 +233,12 @@ fun CastBoardFullScreen(
                     }
                     webSettings.cacheMode = WebSettings.LOAD_DEFAULT
                     webViewClient = object : WebViewClient() {
+                        override fun shouldInterceptRequest(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                        ): WebResourceResponse? =
+                            request?.url?.let(assetLoader::shouldInterceptRequest)
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             bridge.markPageReady()
@@ -296,9 +308,9 @@ private fun castBoardUrl(): String {
     return if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
         devUrl
     } else if (BuildConfig.DEBUG) {
-        "file:///android_asset/castboard/index.html?debug=1"
+        "https://appassets.androidplatform.net/assets/castboard/index.html?debug=1"
     } else {
-        "file:///android_asset/castboard/index.html"
+        "https://appassets.androidplatform.net/assets/castboard/index.html"
     }
 }
 
