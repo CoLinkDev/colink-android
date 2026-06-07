@@ -11,6 +11,8 @@
     <string name="nav_settings">设置</string>
     <string name="castboard_start">启动</string>
     <string name="castboard_subtitle">将指定设备的多项状态投射到本机</string>
+    <string name="castboard_status_waiting">等待设备上线...</string>
+    <string name="castboard_status_connected">已连接</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

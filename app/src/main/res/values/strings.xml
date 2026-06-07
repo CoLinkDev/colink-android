@@ -11,6 +11,8 @@
     <string name="nav_settings">Settings</string>
     <string name="castboard_start">Start</string>
     <string name="castboard_subtitle">Cast multiple states from a selected device to this device</string>
+    <string name="castboard_status_waiting">Waiting for device...</string>
+    <string name="castboard_status_connected">Connected</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink events</string>

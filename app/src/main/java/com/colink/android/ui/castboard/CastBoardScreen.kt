@@ -126,6 +126,7 @@ fun CastBoardFullScreen(
     val musicState by viewModel.musicState.collectAsStateWithLifecycle()
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val sourceDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
+    val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val sourceDevice = remember(devices, sourceDeviceId) {
         devices.firstOrNull { it.deviceId == sourceDeviceId }
     }
@@ -163,17 +164,22 @@ fun CastBoardFullScreen(
         bridge.sync(musicState)
     }
 
-    LaunchedEffect(controlsVisible, controlsRevealTick) {
-        if (controlsVisible) {
-            delay(5_000)
-            controlsVisible = false
-        }
+    val statusText = when (connectionStatus) {
+        CastBoardConnectionStatus.WaitingForDevice -> stringResource(R.string.castboard_status_waiting)
+        CastBoardConnectionStatus.Connected -> stringResource(R.string.castboard_status_connected)
+        CastBoardConnectionStatus.Idle -> null
+    }
+    val statusColor = when (connectionStatus) {
+        CastBoardConnectionStatus.Connected -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    LaunchedEffect(sourceDeviceId, sourceDevice?.online, sourceDevice?.lanAvailable) {
-        val unavailable = sourceDeviceId != null && sourceDevice != null && !sourceDevice.online && !sourceDevice.lanAvailable
-        if (unavailable) {
-            onClose()
+    LaunchedEffect(controlsVisible, controlsRevealTick, connectionStatus) {
+        if (connectionStatus == CastBoardConnectionStatus.WaitingForDevice) {
+            controlsVisible = true
+        } else if (controlsVisible && connectionStatus == CastBoardConnectionStatus.Connected) {
+            delay(5_000)
+            controlsVisible = false
         }
     }
 
@@ -288,6 +294,13 @@ fun CastBoardFullScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (statusText != null) {
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = statusColor,
+                            )
+                        }
                         Text(
                             text = resolutionText,
                             style = MaterialTheme.typography.bodySmall,

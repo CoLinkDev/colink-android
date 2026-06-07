@@ -17,12 +17,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val HEARTBEAT_INTERVAL_MILLIS = 5_000L
 private const val SOURCE_DEVICE_ID_ARG = "sourceDeviceId"
+
+enum class CastBoardConnectionStatus {
+    Idle,
+    WaitingForDevice,
+    Connected,
+}
 
 @HiltViewModel
 class CastBoardViewModel @Inject constructor(
@@ -43,6 +52,22 @@ class CastBoardViewModel @Inject constructor(
         )
 
     val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
+
+    val connectionStatus: StateFlow<CastBoardConnectionStatus> =
+        combine(_selectedDeviceId, devices) { selectedDeviceId, devices ->
+            when {
+                selectedDeviceId == null -> CastBoardConnectionStatus.Idle
+                devices.firstOrNull { it.deviceId == selectedDeviceId }?.let { it.online || it.lanAvailable } == true ->
+                    CastBoardConnectionStatus.Connected
+                else -> CastBoardConnectionStatus.WaitingForDevice
+            }
+        }
+            .distinctUntilChanged()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = CastBoardConnectionStatus.Idle,
+            )
 
     val musicState: StateFlow<MusicSyncState> =
         musicSyncManager.state.stateIn(
@@ -68,13 +93,18 @@ class CastBoardViewModel @Inject constructor(
         _selectedDeviceId.value = normalized
         musicSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
-            connectionManager.sendMusicAlive(normalized)
-            connectionManager.sendMusicRequest(normalized)
-            while (isActive) {
-                delay(HEARTBEAT_INTERVAL_MILLIS)
+            connectionStatus.collectLatest { status ->
+                if (status != CastBoardConnectionStatus.Connected) {
+                    return@collectLatest
+                }
                 connectionManager.sendMusicAlive(normalized)
-                if (musicSyncManager.state.value.track == null) {
-                    connectionManager.sendMusicRequest(normalized)
+                connectionManager.sendMusicRequest(normalized)
+                while (isActive) {
+                    delay(HEARTBEAT_INTERVAL_MILLIS)
+                    connectionManager.sendMusicAlive(normalized)
+                    if (musicSyncManager.state.value.track == null) {
+                        connectionManager.sendMusicRequest(normalized)
+                    }
                 }
             }
         }
@@ -89,12 +119,6 @@ class CastBoardViewModel @Inject constructor(
 
     fun selectedDevice(): Device? =
         devices.value.firstOrNull { it.deviceId == selectedDeviceId.value }
-
-    fun isSourceAvailable(): Boolean {
-        val currentSourceId = sourceDeviceId ?: return true
-        val device = devices.value.firstOrNull { it.deviceId == currentSourceId } ?: return false
-        return device.online || device.lanAvailable
-    }
 
     override fun onCleared() {
         heartbeatJob?.cancel()
