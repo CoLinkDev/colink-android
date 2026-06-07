@@ -73,6 +73,9 @@ class CastBoardViewModel @Inject constructor(
             while (isActive) {
                 delay(HEARTBEAT_INTERVAL_MILLIS)
                 connectionManager.sendMusicAlive(normalized)
+                if (musicSyncManager.state.value.track == null) {
+                    connectionManager.sendMusicRequest(normalized)
+                }
             }
         }
     }

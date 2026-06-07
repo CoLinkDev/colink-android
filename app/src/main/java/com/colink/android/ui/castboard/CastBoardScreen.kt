@@ -205,6 +205,10 @@ fun CastBoardFullScreen(
                     webSettings.domStorageEnabled = true
                     webSettings.allowFileAccess = true
                     webSettings.allowContentAccess = true
+                    @Suppress("DEPRECATION")
+                    webSettings.allowFileAccessFromFileURLs = true
+                    @Suppress("DEPRECATION")
+                    webSettings.allowUniversalAccessFromFileURLs = true
                     webSettings.textZoom = 100
                     webSettings.setSupportZoom(false)
                     webSettings.builtInZoomControls = false
@@ -291,6 +295,8 @@ private fun castBoardUrl(): String {
     val devUrl = BuildConfig.CASTBOARD_DEV_URL.trim()
     return if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
         devUrl
+    } else if (BuildConfig.DEBUG) {
+        "file:///android_asset/castboard/index.html?debug=1"
     } else {
         "file:///android_asset/castboard/index.html"
     }
