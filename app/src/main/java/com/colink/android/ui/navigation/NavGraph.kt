@@ -160,6 +160,12 @@ private fun MainScaffold(
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
 
+            LaunchedEffect(isAuthenticated) {
+                if (isAuthenticated) {
+                    showAccountDialog = false
+                }
+            }
+
             LaunchedEffect(pendingShare) {
                 if (pendingShare == null) {
                     return@LaunchedEffect

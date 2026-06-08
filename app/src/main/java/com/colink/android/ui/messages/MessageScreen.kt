@@ -92,9 +92,9 @@ import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
-import com.colink.android.ui.components.SnackbarOnMessage
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.transfers.TransfersViewModel
+import android.widget.Toast
 import java.text.DateFormat
 import java.util.Date
 
@@ -224,16 +224,20 @@ fun MessageScreen(
         }
     }
 
-    SnackbarOnMessage(
-        message = messageUiState.message,
-        snackbarHostState = snackbarHostState,
-        onConsumed = viewModel::clearMessage,
-    )
-    SnackbarOnMessage(
-        message = transferUiState.message,
-        snackbarHostState = snackbarHostState,
-        onConsumed = transferViewModel::clearMessage,
-    )
+    LaunchedEffect(messageUiState.message) {
+        val msg = messageUiState.message
+        if (!msg.isNullOrBlank()) {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
+    }
+    LaunchedEffect(transferUiState.message) {
+        val msg = transferUiState.message
+        if (!msg.isNullOrBlank()) {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            transferViewModel.clearMessage()
+        }
+    }
 
     if (!isConversationRoute) {
         ScreenColumn(

@@ -55,7 +55,7 @@ import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
-import com.colink.android.ui.components.SnackbarOnMessage
+import android.widget.Toast
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.flow.StateFlow
@@ -110,11 +110,13 @@ fun TransfersScreen(
         )
     }
 
-    SnackbarOnMessage(
-        message = uiState.message,
-        snackbarHostState = snackbarHostState,
-        onConsumed = viewModel::clearMessage,
-    )
+    LaunchedEffect(uiState.message) {
+        val msg = uiState.message
+        if (!msg.isNullOrBlank()) {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
+    }
 
     ScreenColumn(
         title = stringResource(R.string.nav_transfers),
