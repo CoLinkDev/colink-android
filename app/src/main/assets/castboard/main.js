@@ -1,3 +1,12 @@
+// Sync document language from URL query string on startup
+(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const lang = urlParams.get('lang');
+  if (lang) {
+    document.documentElement.setAttribute('lang', lang);
+  }
+})();
+
 // ==== 全局配置与公共状态 ====
 window.pages = {};
 window.currentPageName = null;
@@ -351,6 +360,17 @@ let bootCalled = false;
 
 window.onIframeLoad = function(pageName) {
   loadedPages.add(pageName);
+
+  // Sync language to the loaded iframe
+  const urlParams = new URLSearchParams(window.location.search);
+  const lang = urlParams.get('lang');
+  if (lang) {
+    const iframe = document.getElementById(`iframe-${pageName}`);
+    if (iframe?.contentDocument?.documentElement) {
+      iframe.contentDocument.documentElement.setAttribute('lang', lang);
+    }
+  }
+
   if (totalPages.every(p => loadedPages.has(p))) {
     if (!bootCalled) {
       bootCalled = true;

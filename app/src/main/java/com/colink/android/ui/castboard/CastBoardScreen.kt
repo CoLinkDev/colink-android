@@ -138,7 +138,7 @@ fun CastBoardFullScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     var controlsRevealTick by remember { mutableStateOf(0) }
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
-    val castBoardUrl = remember { castBoardUrl() }
+    val castBoardUrl = remember(context) { castBoardUrl(context) }
     val assetLoader = remember(context) {
         WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -319,14 +319,25 @@ fun CastBoardFullScreen(
     }
 }
 
-private fun castBoardUrl(): String {
+private fun castBoardUrl(context: Context): String {
     val devUrl = BuildConfig.CASTBOARD_DEV_URL.trim()
-    return if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
+    val rawLang = com.colink.android.util.LocaleHelper.cachedLanguage(context)
+    val lang = if (rawLang == "system") {
+        java.util.Locale.getDefault().toLanguageTag()
+    } else {
+        rawLang
+    }
+    val baseUrl = if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
         devUrl
     } else if (BuildConfig.DEBUG) {
         "https://appassets.androidplatform.net/assets/castboard/index.html?debug=1"
     } else {
         "https://appassets.androidplatform.net/assets/castboard/index.html"
+    }
+    return if (baseUrl.contains("?")) {
+        "$baseUrl&lang=$lang"
+    } else {
+        "$baseUrl?lang=$lang"
     }
 }
 

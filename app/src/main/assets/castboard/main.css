@@ -68,7 +68,8 @@
 
 @font-face {
   font-family: "CastBoard Source Han Sans SC";
-  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2");
+  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2"),
+       url("fonts/SourceHanSansCN-VF.ttf.woff2") format("woff2");
   font-style: normal;
   font-weight: 250 899;
   font-display: block;
@@ -76,7 +77,8 @@
 
 @font-face {
   font-family: "CastBoard Source Han Sans SC";
-  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2");
+  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2"),
+       url("fonts/SourceHanSansCN-VF.ttf.woff2") format("woff2");
   font-style: normal;
   font-weight: 900 1000;
   font-display: block;
@@ -84,7 +86,8 @@
 
 @font-face {
   font-family: "CastBoard Source Han Sans SC";
-  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2");
+  src: url("fonts/SourceHanSansSC-VF.ttf.woff2") format("woff2"),
+       url("fonts/SourceHanSansCN-VF.ttf.woff2") format("woff2");
   font-style: normal;
   font-weight: 900 1000;
   font-variation-settings: "wght" 750;
