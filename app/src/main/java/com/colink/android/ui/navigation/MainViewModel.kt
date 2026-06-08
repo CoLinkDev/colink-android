@@ -72,4 +72,9 @@ class MainViewModel @Inject constructor(
     fun clearPairing(requestId: String) {
         pairingCoordinator.clear(requestId)
     }
+
+    fun cancelPairing(request: LanPairingRequest) {
+        pairingCoordinator.cancel(request.requestId)
+        connectionManager.cancelLanPairing(request.deviceId)
+    }
 }

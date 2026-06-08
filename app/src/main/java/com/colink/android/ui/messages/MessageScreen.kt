@@ -148,6 +148,9 @@ fun MessageScreen(
     val targetDevices = remember(devices, messageUiState.localDeviceId) {
         devicesWithoutLocalDevice(devices, messageUiState.localDeviceId)
     }
+    val availableTargetDevices = remember(targetDevices) {
+        targetDevices.filter { it.online || it.lanAvailable }
+    }
 
     val selectedDevice = remember(targetDevices, selectedDeviceId) {
         targetDevices.firstOrNull { it.deviceId == selectedDeviceId }
@@ -382,7 +385,7 @@ fun MessageScreen(
     val pendingUri = pendingFileUri
     if (pendingUri != null) {
         SelectDeviceDialog(
-            devices = targetDevices,
+            devices = availableTargetDevices,
             initialDeviceId = selectedDeviceId,
             onDismiss = {
                 pendingFileUri = null
@@ -591,22 +594,25 @@ private fun ChatInputBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 2.dp,
-        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 3.dp,
+        shadowElevation = 10.dp,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            IconButton(onClick = onSendFile) {
+            FilledTonalIconButton(
+                onClick = onSendFile,
+                modifier = Modifier.size(44.dp),
+            ) {
                 Icon(
                     imageVector = Icons.Default.AttachFile,
                     contentDescription = stringResource(R.string.send_file_desc),
-                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
@@ -616,19 +622,19 @@ private fun ChatInputBar(
                 modifier = Modifier.weight(1f),
                 placeholder = { Text(placeholderText) },
                 maxLines = 4,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
             )
 
             FilledIconButton(
                 enabled = sendEnabled,
                 onClick = onSendText,
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier.size(44.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
@@ -918,15 +924,13 @@ private fun SelectDeviceDialog(
     var selectedId by remember(devices, initialDeviceId) {
         mutableStateOf(
             devices.firstOrNull { it.deviceId == initialDeviceId }?.deviceId
-                ?: devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
                 ?: devices.firstOrNull()?.deviceId,
         )
     }
 
     LaunchedEffect(devices) {
         if (selectedId == null || devices.none { it.deviceId == selectedId }) {
-            selectedId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
-                ?: devices.firstOrNull()?.deviceId
+            selectedId = devices.firstOrNull()?.deviceId
         }
     }
 
@@ -945,11 +949,10 @@ private fun SelectDeviceDialog(
                         items = devices,
                         key = { it.deviceId },
                     ) { device ->
-                        val available = device.online || device.lanAvailable
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = available) { selectedId = device.deviceId }
+                                .clickable { selectedId = device.deviceId }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -957,7 +960,6 @@ private fun SelectDeviceDialog(
                             RadioButton(
                                 selected = selectedId == device.deviceId,
                                 onClick = { selectedId = device.deviceId },
-                                enabled = available,
                             )
                             Column {
                                 Text(
@@ -971,11 +973,7 @@ private fun SelectDeviceDialog(
                                         else -> stringResource(R.string.device_tag_offline)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (available) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                    color = MaterialTheme.colorScheme.primary,
                                 )
                             }
                         }

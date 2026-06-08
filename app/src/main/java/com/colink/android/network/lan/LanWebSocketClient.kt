@@ -52,6 +52,7 @@ class LanWebSocketClient @Inject constructor(
         .newBuilder()
         .pingInterval(15, TimeUnit.SECONDS)
         .build()
+    private val connectingWebSockets = ConcurrentHashMap<String, WebSocket>()
 
     fun connect(
         identity: DeviceIdentity,
@@ -106,6 +107,7 @@ class LanWebSocketClient @Inject constructor(
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     CoLinkLog.d("LAN", "outbound websocket opened device=${CoLinkLog.shortId(deviceId)}")
+                    connectingWebSockets[deviceId] = webSocket
                     handshakeTimeoutJob = scope.launch {
                         delay(HANDSHAKE_TIMEOUT_MILLIS)
                         if (connectingPeers.contains(deviceId)) {
@@ -139,6 +141,7 @@ class LanWebSocketClient @Inject constructor(
                     processor.cancel()
                     handshakeTimeoutJob?.cancel()
                     connectingPeers.remove(peerId ?: deviceId)
+                    connectingWebSockets.remove(deviceId)
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
@@ -152,6 +155,7 @@ class LanWebSocketClient @Inject constructor(
                     processor.cancel()
                     handshakeTimeoutJob?.cancel()
                     connectingPeers.remove(peerId ?: deviceId)
+                    connectingWebSockets.remove(deviceId)
                     peerId?.let { peers.remove(it) }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
@@ -239,6 +243,7 @@ class LanWebSocketClient @Inject constructor(
                             reportHandshakeFailure(expectedDeviceId, rejection.reason, listener)
                             handshakeTimeoutJob?.cancel()
                             connectingPeers.remove(peerId ?: expectedDeviceId)
+                            connectingWebSockets.remove(expectedDeviceId)
                             webSocket.close(1008, rejection.reason)
                         }
 
@@ -298,6 +303,7 @@ class LanWebSocketClient @Inject constructor(
                             }
                             handshakeTimeoutJob?.cancel()
                             connectingPeers.remove(peerId)
+                            connectingWebSockets.remove(expectedDeviceId)
                             peers[peerId] = ClientPeerConnection(webSocket, crypto)
                             connected = true
                             CoLinkLog.i("LAN", "LAN peer ready device=${CoLinkLog.shortId(peerId)}")
@@ -357,11 +363,15 @@ class LanWebSocketClient @Inject constructor(
 
     fun disconnect(deviceId: String) {
         connectingPeers.remove(deviceId)
+        connectingWebSockets.remove(deviceId)?.close(1000, "client closing")
         peers.remove(deviceId)?.webSocket?.close(1000, "client closing")
     }
 
     fun disconnectAll() {
         connectingPeers.clear()
+        connectingWebSockets.keys.toList().forEach { deviceId ->
+            connectingWebSockets.remove(deviceId)?.close(1000, "client closing")
+        }
         peers.keys.toList().forEach(::disconnect)
     }
 

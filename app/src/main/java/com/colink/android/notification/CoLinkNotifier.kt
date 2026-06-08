@@ -17,7 +17,10 @@ import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.notification.ACTION_FILE_TRANSFER_ACCEPT
 import com.colink.android.notification.ACTION_FILE_TRANSFER_REJECT
+import com.colink.android.notification.ACTION_LAN_PAIRING_ACCEPT
+import com.colink.android.notification.ACTION_LAN_PAIRING_REJECT
 import com.colink.android.notification.EXTRA_FILE_SESSION_ID
+import com.colink.android.notification.EXTRA_PAIRING_REQUEST_ID
 import com.colink.android.notification.EXTRA_TARGET_DEVICE_ID
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -154,6 +157,24 @@ class CoLinkNotifier @Inject constructor(
         val title = context.getString(R.string.notification_lan_pairing_title)
         val text = context.getString(R.string.notification_lan_pairing_text, deviceName, request.code)
         val body = context.getString(R.string.notification_lan_pairing_body, deviceName, request.code)
+        val acceptIntent = PendingIntent.getBroadcast(
+            context,
+            PAIRING_NOTIFICATION_ID,
+            Intent(context, com.colink.android.service.LanPairingActionReceiver::class.java).apply {
+                action = ACTION_LAN_PAIRING_ACCEPT
+                putExtra(EXTRA_PAIRING_REQUEST_ID, request.requestId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val rejectIntent = PendingIntent.getBroadcast(
+            context,
+            PAIRING_NOTIFICATION_ID + 1,
+            Intent(context, com.colink.android.service.LanPairingActionReceiver::class.java).apply {
+                action = ACTION_LAN_PAIRING_REJECT
+                putExtra(EXTRA_PAIRING_REQUEST_ID, request.requestId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
             .setSmallIcon(R.drawable.colink_logo)
             .setContentTitle(title)
@@ -164,6 +185,17 @@ class CoLinkNotifier @Inject constructor(
             )
             .setContentIntent(mainActivityIntent())
             .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .addAction(
+                android.R.drawable.ic_menu_save,
+                context.getString(R.string.accept_btn),
+                acceptIntent,
+            )
+            .addAction(
+                android.R.drawable.ic_delete,
+                context.getString(R.string.reject_btn),
+                rejectIntent,
+            )
             .build()
         NotificationManagerCompat.from(context).notify(PAIRING_NOTIFICATION_ID, notification)
         CoLinkLog.i("Notification", "posted LAN pairing notification device=${CoLinkLog.shortId(request.deviceId)}")

@@ -76,6 +76,7 @@ fun TransfersScreen(
     var confirmTransfer by rememberSaveable { mutableStateOf<TransferDecision?>(null) }
     val targetDevices = remember(devices, uiState.localDeviceId) {
         devicesWithoutLocalDevice(devices, uiState.localDeviceId)
+            .filter { it.online || it.lanAvailable }
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -369,11 +370,11 @@ private fun SelectDeviceDialog(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit
 ) {
-    var selectedId by remember { mutableStateOf(devices.firstOrNull { it.online || it.lanAvailable }?.deviceId) }
+    var selectedId by remember { mutableStateOf(devices.firstOrNull()?.deviceId) }
 
     LaunchedEffect(devices) {
         if (selectedId == null || devices.none { it.deviceId == selectedId }) {
-            selectedId = devices.firstOrNull { it.online || it.lanAvailable }?.deviceId
+            selectedId = devices.firstOrNull()?.deviceId
         }
     }
 
@@ -393,11 +394,10 @@ private fun SelectDeviceDialog(
                         key = { it.deviceId },
                         contentType = { "device" },
                     ) { device ->
-                        val available = device.online || device.lanAvailable
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = available) { selectedId = device.deviceId }
+                                .clickable { selectedId = device.deviceId }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -405,7 +405,6 @@ private fun SelectDeviceDialog(
                             RadioButton(
                                 selected = selectedId == device.deviceId,
                                 onClick = { selectedId = device.deviceId },
-                                enabled = available
                             )
                             Column {
                                 Text(device.name.ifBlank { stringResource(R.string.unnamed_device) }, fontWeight = FontWeight.SemiBold)
@@ -416,7 +415,7 @@ private fun SelectDeviceDialog(
                                         else -> stringResource(R.string.device_tag_offline)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                         }

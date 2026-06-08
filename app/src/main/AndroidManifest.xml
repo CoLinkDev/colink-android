@@ -74,6 +74,15 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".service.LanPairingActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.colink.android.action.LAN_PAIRING_ACCEPT" />
+                <action android:name="com.colink.android.action.LAN_PAIRING_REJECT" />
+            </intent-filter>
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

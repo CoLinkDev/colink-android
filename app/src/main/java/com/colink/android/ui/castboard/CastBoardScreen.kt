@@ -54,6 +54,7 @@ import androidx.webkit.WebViewAssetLoader
 import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.DevicePicker
+import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.castboard.bridge.MusicBridge
@@ -65,9 +66,11 @@ fun CastBoardScreen(
     viewModel: CastBoardViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
+    val localDeviceId by viewModel.localDeviceId.collectAsStateWithLifecycle()
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
-    val availableDevices = remember(devices) {
-        devices.filter { it.online || it.lanAvailable }
+    val availableDevices = remember(devices, localDeviceId) {
+        devicesWithoutLocalDevice(devices, localDeviceId)
+            .filter { it.online || it.lanAvailable }
     }
 
     LaunchedEffect(availableDevices, selectedDeviceId) {

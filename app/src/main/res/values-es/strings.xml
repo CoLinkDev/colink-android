@@ -11,7 +11,7 @@
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>
     <string name="castboard_subtitle">Proyecta varios estados de un dispositivo seleccionado a este dispositivo</string>
-    <string name="castboard_status_waiting">Esperando al dispositivo...</string>
+    <string name="castboard_status_waiting">Esperando a que el dispositivo se conecte...</string>
     <string name="castboard_status_connected">Conectado</string>
 
     <!-- Notifications -->
@@ -35,7 +35,7 @@
     <string name="lan_pairing_close">Cerrar</string>
     <string name="lan_pairing_waiting_btn">Esperando</string>
     <string name="lan_connection_failed_title">Error de conexión LAN</string>
-    <string name="lan_connection_failed_message">No se pudo conectar con el ordenador.\n\nMotivo: %1$s</string>
+    <string name="lan_connection_failed_message">No se pudo conectar con el dispositivo.\n\nMotivo: %1$s</string>
     <string name="lan_connection_failed_signature">La verificación del saludo falló.</string>
     <string name="lan_connection_failed_key_changed">La clave del otro dispositivo cambió. Vuelve a emparejar para usar LAN.</string>
     <string name="lan_connection_failed_user_rejected">El otro dispositivo rechazó la solicitud de emparejamiento.</string>
@@ -123,6 +123,7 @@
     <string name="messages_contacts_empty_title">Todavía no hay contactos</string>
     <string name="messages_contacts_empty_body">Inicie sesión en otro dispositivo y aparecerá aquí.</string>
     <string name="message_select_target_device">Seleccione un dispositivo de destino</string>
+    <string name="message_route_unavailable">No se puede entregar el mensaje</string>
     <string name="no_messages_title">No hay mensajes</string>
     <string name="no_messages_body">Elija un dispositivo y envíe el primer mensaje.</string>
     <string name="message_placeholder">Message</string>

@@ -11,7 +11,7 @@
     <string name="nav_settings">设置</string>
     <string name="castboard_start">启动</string>
     <string name="castboard_subtitle">将指定设备的多项状态投射到本机</string>
-    <string name="castboard_status_waiting">等待设备上线...</string>
+    <string name="castboard_status_waiting">等待设备连接...</string>
     <string name="castboard_status_connected">已连接</string>
 
     <!-- Notifications -->
@@ -35,7 +35,7 @@
     <string name="lan_pairing_close">关闭</string>
     <string name="lan_pairing_waiting_btn">等待中</string>
     <string name="lan_connection_failed_title">LAN 连接失败</string>
-    <string name="lan_connection_failed_message">无法连接电脑。\n\n原因：%1$s</string>
+    <string name="lan_connection_failed_message">无法连接设备。\n\n原因：%1$s</string>
     <string name="lan_connection_failed_signature">握手校验失败。</string>
     <string name="lan_connection_failed_key_changed">对方密钥已变更，需要重新配对才能使用 LAN。</string>
     <string name="lan_connection_failed_user_rejected">对方拒绝了配对请求。</string>
@@ -123,6 +123,7 @@
     <string name="messages_contacts_empty_title">还没有联系人</string>
     <string name="messages_contacts_empty_body">在另一台设备上登录后，这里会显示联系人。</string>
     <string name="message_select_target_device">选择目标设备</string>
+    <string name="message_route_unavailable">消息无法送达</string>
     <string name="no_messages_title">暂无消息</string>
     <string name="no_messages_body">选择一个设备并发送第一条消息。</string>
     <string name="message_placeholder">消息</string>

@@ -35,7 +35,7 @@ enum class CastBoardConnectionStatus {
 
 @HiltViewModel
 class CastBoardViewModel @Inject constructor(
-    deviceRepository: DeviceRepository,
+    private val deviceRepository: DeviceRepository,
     private val connectionManager: ConnectionManager,
     private val musicSyncManager: MusicSyncManager,
     savedStateHandle: SavedStateHandle,
@@ -52,6 +52,9 @@ class CastBoardViewModel @Inject constructor(
         )
 
     val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
+
+    private val _localDeviceId = MutableStateFlow<String?>(null)
+    val localDeviceId: StateFlow<String?> = _localDeviceId.asStateFlow()
 
     val connectionStatus: StateFlow<CastBoardConnectionStatus> =
         combine(_selectedDeviceId, devices) { selectedDeviceId, devices ->
@@ -77,6 +80,11 @@ class CastBoardViewModel @Inject constructor(
         )
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            val identity = deviceRepository.localDeviceIdentity()
+                ?: deviceRepository.ensureLocalDeviceIdentity().getOrNull()
+            _localDeviceId.value = identity?.deviceId
+        }
         savedStateHandle.get<String>(SOURCE_DEVICE_ID_ARG)?.let(::bindSourceDevice)
     }
 

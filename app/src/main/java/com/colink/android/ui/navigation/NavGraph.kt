@@ -125,6 +125,7 @@ fun CoLinkNavGraph(
                 onAccept = { requestId -> viewModel.respondPairing(requestId, true) },
                 onReject = { requestId -> viewModel.respondPairing(requestId, false) },
                 onClear = viewModel::clearPairing,
+                onCancel = viewModel::cancelPairing,
             )
         }
     }
@@ -415,6 +416,7 @@ private fun PairingRequestDialogHost(
     onAccept: (String) -> Unit,
     onReject: (String) -> Unit,
     onClear: (String) -> Unit,
+    onCancel: (LanPairingRequest) -> Unit,
 ) {
     val request by pairingRequest.collectAsStateWithLifecycle()
     val current = request ?: return
@@ -461,10 +463,22 @@ private fun PairingRequestDialogHost(
         },
         dismissButton = {
             TextButton(
-                enabled = !current.waiting && current.error == null,
-                onClick = { onReject(current.requestId) },
+                enabled = current.error == null,
+                onClick = {
+                    if (current.waiting) {
+                        onCancel(current)
+                    } else {
+                        onReject(current.requestId)
+                    }
+                },
             ) {
-                Text(stringResource(R.string.lan_pairing_reject))
+                Text(
+                    if (current.waiting) {
+                        stringResource(R.string.cancel_btn)
+                    } else {
+                        stringResource(R.string.lan_pairing_reject)
+                    },
+                )
             }
         },
     )

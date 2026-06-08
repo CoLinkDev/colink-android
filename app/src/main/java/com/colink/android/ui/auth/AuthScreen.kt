@@ -3,9 +3,11 @@ package com.colink.android.ui.auth
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,7 +65,7 @@ fun AuthScreen(
             .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
         showHeader = true,
         onAuthenticated = onAuthenticated,
         viewModel = viewModel,
@@ -120,6 +124,9 @@ private fun AuthContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (showHeader) {
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        if (showHeader) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -142,92 +149,103 @@ private fun AuthContent(
             }
         }
 
-        Column(
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
         ) {
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.server_url_label)) },
-                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Next
-                ),
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = identifier,
-                onValueChange = { identifier = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.email_or_username_label)) },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.password_label)) },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
-                ),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc),
-                        )
-                    }
-                },
-                singleLine = true,
-            )
-
-            val errorMsg = when {
-                localErrorResId != null -> stringResource(localErrorResId!!)
-                uiState.error != null -> uiState.error
-                else -> null
-            }
-            StateMessage(errorMsg)
-
-            Button(
-                onClick = {
-                    localErrorResId = validate(
-                        serverUrl = serverUrl,
-                        identifier = identifier,
-                        password = password,
-                    )
-                    if (localErrorResId != null) {
-                        return@Button
-                    }
-                    val normalizedServerUrl = serverUrl.trim()
-                    viewModel.login(normalizedServerUrl, identifier, password)
-                },
-                enabled = !uiState.loading,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                if (uiState.loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(stringResource(R.string.login_btn))
+                OutlinedTextField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.server_url_label)) },
+                    leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Next
+                    ),
+                    singleLine = true,
+                )
+
+                OutlinedTextField(
+                    value = identifier,
+                    onValueChange = { identifier = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.email_or_username_label)) },
+                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    singleLine = true,
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.password_label)) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc),
+                            )
+                        }
+                    },
+                    singleLine = true,
+                )
+
+                val errorMsg = when {
+                    localErrorResId != null -> stringResource(localErrorResId!!)
+                    uiState.error != null -> uiState.error
+                    else -> null
+                }
+                StateMessage(errorMsg)
+
+                Button(
+                    onClick = {
+                        localErrorResId = validate(
+                            serverUrl = serverUrl,
+                            identifier = identifier,
+                            password = password,
+                        )
+                        if (localErrorResId != null) {
+                            return@Button
+                        }
+                        val normalizedServerUrl = serverUrl.trim()
+                        viewModel.login(normalizedServerUrl, identifier, password)
+                    },
+                    enabled = !uiState.loading,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                ) {
+                    if (uiState.loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(stringResource(R.string.login_btn))
+                    }
                 }
             }
+        }
+        if (showHeader) {
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

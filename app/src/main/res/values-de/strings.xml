@@ -11,7 +11,7 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="castboard_start">Starten</string>
     <string name="castboard_subtitle">Projiziert mehrere Zustände eines ausgewählten Geräts auf dieses Gerät</string>
-    <string name="castboard_status_waiting">Warten auf Gerät...</string>
+    <string name="castboard_status_waiting">Warten auf Geräteverbindung...</string>
     <string name="castboard_status_connected">Verbunden</string>
 
     <!-- Notifications -->
@@ -35,7 +35,7 @@
     <string name="lan_pairing_close">Schließen</string>
     <string name="lan_pairing_waiting_btn">Warten</string>
     <string name="lan_connection_failed_title">LAN-Verbindung fehlgeschlagen</string>
-    <string name="lan_connection_failed_message">Verbindung zum Computer fehlgeschlagen.\n\nGrund: %1$s</string>
+    <string name="lan_connection_failed_message">Verbindung zum Gerät fehlgeschlagen.\n\nGrund: %1$s</string>
     <string name="lan_connection_failed_signature">Handshake-Prüfung fehlgeschlagen.</string>
     <string name="lan_connection_failed_key_changed">Der Schlüssel der Gegenstelle wurde geändert. Für LAN erneut koppeln.</string>
     <string name="lan_connection_failed_user_rejected">Das andere Gerät hat die Kopplungsanfrage abgelehnt.</string>
@@ -123,6 +123,7 @@
     <string name="messages_contacts_empty_title">Noch keine Kontakte</string>
     <string name="messages_contacts_empty_body">Melden Sie sich auf einem anderen Gerät an, dann wird es hier angezeigt.</string>
     <string name="message_select_target_device">Wählen Sie ein Zielgerät</string>
+    <string name="message_route_unavailable">Nachricht kann nicht zugestellt werden</string>
     <string name="no_messages_title">Keine Nachrichten</string>
     <string name="no_messages_body">Wählen Sie ein Gerät aus und senden Sie die erste Nachricht.</string>
     <string name="message_placeholder">Nachricht</string>

@@ -783,6 +783,16 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    fun cancelLanPairing(deviceId: String) {
+        scope.launch {
+            lanWebSocketClient.disconnect(deviceId)
+            lanWebSocketServer.disconnect(deviceId)
+            synchronized(lanPeerLock) {
+                lanConnectingPeers.remove(deviceId)
+            }
+        }
+    }
+
     fun refreshLanPairingCandidate(deviceId: String) {
         scope.launch {
             refreshPairingCandidate(deviceId)
@@ -1064,7 +1074,7 @@ class ConnectionManager @Inject constructor(
         val lanError = lanResult.exceptionOrNull()
         val cloudError = cloudResult.exceptionOrNull()
         val error = IllegalStateException(
-            "message route unavailable: lan=${lanError?.message ?: "failed"}; cloud=${cloudError?.message ?: "failed"}",
+            context.getString(R.string.message_route_unavailable),
             cloudError ?: lanError,
         )
         CoLinkLog.w(

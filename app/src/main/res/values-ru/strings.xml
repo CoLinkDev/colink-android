@@ -11,7 +11,7 @@
     <string name="nav_settings">Настройки</string>
     <string name="castboard_start">Запуск</string>
     <string name="castboard_subtitle">Проецирует несколько состояний выбранного устройства на это устройство</string>
-    <string name="castboard_status_waiting">Ожидание устройства...</string>
+    <string name="castboard_status_waiting">Ожидание подключения устройства...</string>
     <string name="castboard_status_connected">Подключено</string>
 
     <!-- Notifications -->
@@ -35,7 +35,7 @@
     <string name="lan_pairing_close">Закрыть</string>
     <string name="lan_pairing_waiting_btn">Ожидание</string>
     <string name="lan_connection_failed_title">Ошибка LAN-подключения</string>
-    <string name="lan_connection_failed_message">Не удалось подключиться к компьютеру.\n\nПричина: %1$s</string>
+    <string name="lan_connection_failed_message">Не удалось подключиться к устройству.\n\nПричина: %1$s</string>
     <string name="lan_connection_failed_signature">Проверка рукопожатия не удалась.</string>
     <string name="lan_connection_failed_key_changed">Ключ другого устройства изменился. Для LAN нужно выполнить сопряжение заново.</string>
     <string name="lan_connection_failed_user_rejected">Другое устройство отклонило запрос сопряжения.</string>
@@ -123,6 +123,7 @@
     <string name="messages_contacts_empty_title">Контактов пока нет</string>
     <string name="messages_contacts_empty_body">Войдите на другом устройстве, и они появятся здесь.</string>
     <string name="message_select_target_device">Выберите устройство назначения</string>
+    <string name="message_route_unavailable">Сообщение не может быть доставлено</string>
     <string name="no_messages_title">Сообщений нет</string>
     <string name="no_messages_body">Выберите устройство и отправьте первое сообщение.</string>
     <string name="message_placeholder">Сообщение</string>

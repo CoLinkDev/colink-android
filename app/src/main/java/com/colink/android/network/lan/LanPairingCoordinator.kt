@@ -102,4 +102,10 @@ class LanPairingCoordinator @Inject constructor(
         }
         notifier.cancelLanPairingRequest()
     }
+
+    fun cancel(requestId: String) {
+        pendingDecisions.remove(requestId)?.complete(false)
+        clear(requestId)
+        CoLinkLog.i("Pairing", "LAN pairing cancelled request=${CoLinkLog.shortId(requestId)}")
+    }
 }

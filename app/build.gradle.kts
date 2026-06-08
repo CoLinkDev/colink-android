@@ -17,7 +17,7 @@ val localProperties = Properties().apply {
 }
 
 val serverBaseUrl = localProperties
-    .getProperty("SERVER_BASE_URL", "http://10.0.2.2:8080")
+    .getProperty("SERVER_BASE_URL", "https://sync.colink.evative7.host")
     .trim()
     .trimEnd('/')
 
