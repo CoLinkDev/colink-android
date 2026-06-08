@@ -5,6 +5,7 @@ window.currentPageName = null;
 window.cachedGap = 36;
 window.cachedActiveY = window.innerHeight * 0.35;
 window.resizeTimer = 0;
+window.pageCleanupTimer = 0;
 
 // ==== 通用工具函数 ====
 function parseCssLength(raw, fallback) {
@@ -143,11 +144,16 @@ function navigateTo(newPageName) {
   if (currentPageName === newPageName) return;
 
   const root = document.getElementById("app-root");
-  const oldPageDom = root.querySelector(".page");
+  const oldPageDoms = Array.from(root.querySelectorAll(".page"));
   const oldPageName = currentPageName;
 
   const config = pages[newPageName];
   if (!config) return;
+
+  pageCleanupTimer = clearTimer(pageCleanupTimer);
+  if (oldPageName && pages[oldPageName] && typeof pages[oldPageName].unmount === "function") {
+    pages[oldPageName].unmount();
+  }
 
   const div = document.createElement("div");
   div.innerHTML = config.template;
@@ -167,7 +173,7 @@ function navigateTo(newPageName) {
 
   requestAnimationFrame(() => {
     newPageDom.getBoundingClientRect();
-    if (oldPageDom) {
+    for (const oldPageDom of oldPageDoms) {
       oldPageDom.classList.remove("page-active");
       oldPageDom.classList.add("page-leave");
     }
@@ -175,10 +181,12 @@ function navigateTo(newPageName) {
     newPageDom.classList.add("page-active");
   });
 
-  if (oldPageDom && oldPageName) {
-    setTimeout(() => {
-      pages[oldPageName].unmount();
-      oldPageDom.remove();
+  if (oldPageDoms.length > 0) {
+    pageCleanupTimer = window.setTimeout(() => {
+      pageCleanupTimer = 0;
+      for (const oldPageDom of oldPageDoms) {
+        oldPageDom.remove();
+      }
     }, 220);
   }
 }
@@ -227,6 +235,7 @@ function preventWheelZoom(event) {
 
 function cleanupScheduledWork() {
   resizeTimer = clearTimer(resizeTimer);
+  pageCleanupTimer = clearTimer(pageCleanupTimer);
   Object.values(pages).forEach(page => {
     if (typeof page.cleanup === "function") {
       page.cleanup();
