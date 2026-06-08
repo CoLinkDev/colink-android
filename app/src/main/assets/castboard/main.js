@@ -7,7 +7,7 @@
   }
 })();
 
-// ==== 全局配置与公共状态 ====
+// ==== Global Config & Public State ====
 window.pages = {};
 window.currentPageName = null;
 window.cachedGap = 36;
@@ -15,7 +15,7 @@ window.cachedActiveY = window.innerHeight * 0.35;
 window.resizeTimer = 0;
 window.navManager = null;
 
-// ==== 通用工具函数 ====
+// ==== Common Utility Functions ====
 function parseCssLength(raw, fallback) {
   const value = resolveCssLength(String(raw ?? "").trim());
   return Number.isFinite(value) ? value : fallback;
@@ -129,11 +129,11 @@ function callBackend(name) {
       result.catch(() => {});
     }
   } catch {
-    // 后端桥接未就绪时忽略，不能影响触摸打开详情。
+    // Ignore if backend bridge is not ready; must not affect touch to open details.
   }
 }
 
-// ==== 路由与导航管理机制 ====
+// ==== Routing and Navigation Management ====
 class NavigationManager {
   constructor(pages) {
     this.pages = pages;
@@ -141,7 +141,7 @@ class NavigationManager {
     this.pageCleanupTimer = 0;
     this.storageKey = "lyrics2screen.detailLayerVisible";
 
-    // 瞬态（临时跳转）状态
+    // Transient (temporary navigation) state
     this.transientTimer = 0;
     this.transientOriginalPage = null;
     this.isTransientActive = false;
@@ -159,7 +159,7 @@ class NavigationManager {
     try {
       window.localStorage.setItem(this.storageKey, isVisible ? "1" : "0");
     } catch {
-      // 存储不可用时忽略
+      // Ignore if storage is unavailable
     }
   }
 
@@ -282,7 +282,7 @@ class NavigationManager {
 
 window.navManager = new NavigationManager(window.pages);
 
-// ==== 全局事件分发 ====
+// ==== Global Event Dispatching ====
 function onTrackChange() {
   if (window.navManager) {
     window.navManager.showTransient("detail", 2000);
@@ -379,7 +379,7 @@ window.onIframeLoad = function(pageName) {
   }
 };
 
-// ==== 启动流程 ====
+// ==== Boot Flow ====
 function boot() {
   bindEvents();
   cacheLayoutMetrics();
