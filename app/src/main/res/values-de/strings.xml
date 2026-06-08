@@ -114,6 +114,8 @@
     <string name="security_key_changed">Schlüssel geändert</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Cloud-Relais</string>
+    <string name="route_sending">Wird gesendet...</string>
+    <string name="route_failed">Fehlgeschlagen</string>
     <string name="never_connected">Nie verbunden</string>
     <string name="err_device_name_required">Gerätename ist erforderlich</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">LAN verfügbar</string>
     <string name="cloud_available_tag">Cloud verfügbar</string>
     <string name="offline_tag">Offline</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">Übertragung akzeptiert</string>
+    <string name="toast_transfer_rejected">Übertragung abgelehnt</string>
+    <string name="toast_select_device_and_file">Wählen Sie ein Gerät und eine Datei</string>
+    <string name="toast_file_offer_sent">Dateiangebot gesendet</string>
+    <string name="err_transfer_user_rejected">Empfänger hat die Übertragung abgelehnt</string>
+    <string name="err_transfer_user_cancelled">Übertragung abgebrochen</string>
+    <string name="err_transfer_checksum_mismatch">Prüfsummenfehler</string>
+    <string name="err_transfer_storage_full">Speicherplatz am Zielort voll</string>
+    <string name="err_handshake_signature_invalid">Handshake-Signatur ungültig</string>
+    <string name="err_handshake_key_changed">Identitätsschlüssel geändert</string>
+    <string name="err_handshake_user_rejected">Kopplungsanfrage abgelehnt</string>
     
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>

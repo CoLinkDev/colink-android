@@ -4,12 +4,15 @@ import android.content.ContentResolver
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import com.colink.android.R
 import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.transfer.buildFileOffer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,8 +31,9 @@ data class TransfersUiState(
 
 @HiltViewModel
 class TransfersViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     fileTransferRepository: FileTransferRepository,
-    deviceRepository: DeviceRepository,
+    private val deviceRepository: DeviceRepository,
     private val connectionManager: ConnectionManager,
 ) : ViewModel() {
     val transfers: StateFlow<List<FileTransfer>> =
@@ -62,7 +66,7 @@ class TransfersViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: "Transfer accepted",
+                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_transfer_accepted),
                 )
             }
         }
@@ -75,7 +79,7 @@ class TransfersViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: "Transfer rejected",
+                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_transfer_rejected),
                 )
             }
         }
@@ -85,7 +89,7 @@ class TransfersViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null || uri == null) {
                 _uiState.update {
-                    it.copy(working = false, message = "Select a device and file")
+                    it.copy(working = false, message = context.getString(R.string.toast_select_device_and_file))
                 }
                 return@launch
             }
@@ -101,7 +105,7 @@ class TransfersViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: "File offer sent",
+                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_file_offer_sent),
                 )
             }
         }

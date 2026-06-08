@@ -332,7 +332,7 @@ private fun TransferCard(
 
             transfer.error?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    text = it,
+                    text = com.colink.android.util.ProtocolReasonFormatter.format(LocalContext.current, it),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

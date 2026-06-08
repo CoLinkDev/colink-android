@@ -114,6 +114,8 @@
     <string name="security_key_changed">キー変更</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">クラウドリレー</string>
+    <string name="route_sending">送信中...</string>
+    <string name="route_failed">送信失敗</string>
     <string name="never_connected">未接続</string>
     <string name="err_device_name_required">デバイス名を入力してください</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">LAN 利用可能</string>
     <string name="cloud_available_tag">クラウド利用可能</string>
     <string name="offline_tag">オフライン</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">転送が受け入れられました</string>
+    <string name="toast_transfer_rejected">転送が拒否されました</string>
+    <string name="toast_select_device_and_file">デバイスとファイルを選択してください</string>
+    <string name="toast_file_offer_sent">ファイルの送信リクエストを送信しました</string>
+    <string name="err_transfer_user_rejected">受信者が転送を拒否しました</string>
+    <string name="err_transfer_user_cancelled">転送がキャンセルされました</string>
+    <string name="err_transfer_checksum_mismatch">チェックサムが一致しません</string>
+    <string name="err_transfer_storage_full">送信先のストレージ容量が不足しています</string>
+    <string name="err_handshake_signature_invalid">ハンドシェイク署名が無効です</string>
+    <string name="err_handshake_key_changed">識別キーが変更されました</string>
+    <string name="err_handshake_user_rejected">ペアリング要求が拒否されました</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

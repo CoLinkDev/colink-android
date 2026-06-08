@@ -114,6 +114,8 @@
     <string name="security_key_changed">Ключ изменен</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Облачный ретранслятор</string>
+    <string name="route_sending">Отправка...</string>
+    <string name="route_failed">Ошибка отправки</string>
     <string name="never_connected">Никогда не подключалось</string>
     <string name="err_device_name_required">Введите имя устройства</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">LAN доступна</string>
     <string name="cloud_available_tag">Облако доступно</string>
     <string name="offline_tag">Вне сети</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">Передача принята</string>
+    <string name="toast_transfer_rejected">Передача отклонена</string>
+    <string name="toast_select_device_and_file">Выберите устройство и файл</string>
+    <string name="toast_file_offer_sent">Предложение файла отправлено</string>
+    <string name="err_transfer_user_rejected">Получатель отклонил передачу</string>
+    <string name="err_transfer_user_cancelled">Передача отменена</string>
+    <string name="err_transfer_checksum_mismatch">Несоответствие контрольной суммы</string>
+    <string name="err_transfer_storage_full">Недостаточно места на целевом устройстве</string>
+    <string name="err_handshake_signature_invalid">Недействительная подпись рукопожатия</string>
+    <string name="err_handshake_key_changed">Ключ идентификации изменен</string>
+    <string name="err_handshake_user_rejected">Запрос на сопряжение отклонен</string>
     
     <!-- Settings -->
     <string name="settings_title">Настройки</string>

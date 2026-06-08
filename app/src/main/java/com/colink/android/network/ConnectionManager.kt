@@ -322,14 +322,31 @@ class ConnectionManager @Inject constructor(
                 type = TEXT_MESSAGE_TYPE,
                 payload = json.encodeToJsonElement(payload),
             )
-            val route = sendBusinessMessage(targetDeviceId, business).getOrThrow()
+
+            // Save outgoing message to DB immediately in "sending" state
             messageRepository.saveTextMessage(
                 messageId = messageId,
                 deviceId = targetDeviceId,
                 direction = MessageDirection.Outgoing,
                 text = trimmed,
-                route = route,
+                route = "sending",
             )
+
+            val routeResult = runCatching {
+                sendBusinessMessage(targetDeviceId, business).getOrThrow()
+            }
+
+            val finalRoute = if (routeResult.isSuccess) routeResult.getOrThrow() else "failed"
+            messageRepository.saveTextMessage(
+                messageId = messageId,
+                deviceId = targetDeviceId,
+                direction = MessageDirection.Outgoing,
+                text = trimmed,
+                route = finalRoute,
+            )
+
+            routeResult.getOrThrow()
+            Unit
         }
 
     private suspend fun sendViaLan(targetDeviceId: String, business: BusinessEnvelope): Result<String> =

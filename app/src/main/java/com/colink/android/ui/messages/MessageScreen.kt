@@ -661,7 +661,16 @@ private fun ConversationThread(
     onRejectTransfer: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    LaunchedEffect(timelineItems.size) {
+        if (timelineItems.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
+
     LazyColumn(
+        state = listState,
         modifier = modifier,
         reverseLayout = true,
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -733,15 +742,24 @@ private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
             )
         }
 
+        val isFailed = message.route == "failed"
+        val isSending = message.route == "sending"
         val routeName = when (message.route) {
             "lan" -> stringResource(R.string.route_lan)
             "cloud" -> stringResource(R.string.route_cloud)
+            "sending" -> stringResource(R.string.route_sending)
+            "failed" -> stringResource(R.string.route_failed)
             else -> message.route
+        }
+        val textColor = when {
+            isFailed -> MaterialTheme.colorScheme.error
+            isSending -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         }
         Text(
             text = "${timeText} · ${routeName}",
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            color = textColor,
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
         )
     }
@@ -900,7 +918,7 @@ private fun TransferBubble(
 
                 transfer.error?.takeIf { it.isNotBlank() }?.let {
                     Text(
-                        text = it,
+                        text = com.colink.android.util.ProtocolReasonFormatter.format(LocalContext.current, it),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

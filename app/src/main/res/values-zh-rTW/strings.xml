@@ -114,6 +114,8 @@
     <string name="security_key_changed">金鑰變更</string>
     <string name="route_lan">區域網路</string>
     <string name="route_cloud">雲端</string>
+    <string name="route_sending">傳送中...</string>
+    <string name="route_failed">傳送失敗</string>
     <string name="never_connected">從未連線</string>
     <string name="err_device_name_required">請輸入裝置名稱</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">區域網路可用</string>
     <string name="cloud_available_tag">雲端可用</string>
     <string name="offline_tag">離線</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">已接受檔案傳輸</string>
+    <string name="toast_transfer_rejected">已拒絕檔案傳輸</string>
+    <string name="toast_select_device_and_file">請選擇裝置和檔案</string>
+    <string name="toast_file_offer_sent">檔案傳送請求已傳送</string>
+    <string name="err_transfer_user_rejected">接收方拒絕了檔案傳輸</string>
+    <string name="err_transfer_user_cancelled">傳輸已取消</string>
+    <string name="err_transfer_checksum_mismatch">檔案總和檢查碼不符，傳輸失敗</string>
+    <string name="err_transfer_storage_full">接收方儲存空間不足</string>
+    <string name="err_handshake_signature_invalid">配對簽章無效</string>
+    <string name="err_handshake_key_changed">裝置識別金鑰已變更</string>
+    <string name="err_handshake_user_rejected">配對請求已被拒絕</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

@@ -43,7 +43,7 @@ class CoLinkNotifier @Inject constructor(
         val channel = NotificationChannel(
             EVENT_CHANNEL_ID,
             context.getString(R.string.notification_events_channel_name),
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_HIGH,
         )
         manager.createNotificationChannel(channel)
     }
@@ -59,6 +59,8 @@ class CoLinkNotifier @Inject constructor(
             .setContentText(text)
             .setContentIntent(mainActivityIntent())
             .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
         NotificationManagerCompat.from(context).notify(uniqueNotificationId(), notification)
         CoLinkLog.d("Notification", "posted event notification title=$title")
@@ -80,6 +82,8 @@ class CoLinkNotifier @Inject constructor(
             .setContentIntent(mainActivityIntent(deviceId))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
         NotificationManagerCompat.from(context).notify(uniqueNotificationId(), notification)
         CoLinkLog.d("Notification", "posted message notification device=${CoLinkLog.shortId(deviceId)}")
@@ -126,6 +130,8 @@ class CoLinkNotifier @Inject constructor(
             .setContentIntent(mainActivityIntent(deviceId))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
                 android.R.drawable.ic_menu_save,
                 context.getString(R.string.accept_btn),
@@ -186,6 +192,8 @@ class CoLinkNotifier @Inject constructor(
             .setContentIntent(mainActivityIntent())
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
                 android.R.drawable.ic_menu_save,
                 context.getString(R.string.accept_btn),

@@ -114,6 +114,8 @@
     <string name="security_key_changed">키 변경됨</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">클라우드 릴레이</string>
+    <string name="route_sending">전송 중...</string>
+    <string name="route_failed">전송 실패</string>
     <string name="never_connected">연결된 적 없음</string>
     <string name="err_device_name_required">디바이스 이름을 입력하세요</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">LAN 사용 가능</string>
     <string name="cloud_available_tag">클라우드 사용 가능</string>
     <string name="offline_tag">오프라인</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">전송이 수락되었습니다</string>
+    <string name="toast_transfer_rejected">전송이 거절되었습니다</string>
+    <string name="toast_select_device_and_file">기기와 파일을 선택하세요</string>
+    <string name="toast_file_offer_sent">파일 전송 요청이 전송되었습니다</string>
+    <string name="err_transfer_user_rejected">수신자가 전송을 거절했습니다</string>
+    <string name="err_transfer_user_cancelled">전송이 취소되었습니다</string>
+    <string name="err_transfer_checksum_mismatch">체크섬 불일치</string>
+    <string name="err_transfer_storage_full">대상 기기의 저장 공간이 부족합니다</string>
+    <string name="err_handshake_signature_invalid">핸드셰이크 서명이 잘못되었습니다</string>
+    <string name="err_handshake_key_changed">식별 키가 변경되었습니다</string>
+    <string name="err_handshake_user_rejected">페어링 요청이 거절되었습니다</string>
     
     <!-- Settings -->
     <string name="settings_title">설정</string>

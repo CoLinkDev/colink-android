@@ -443,7 +443,13 @@ private fun PairingRequestDialogHost(
             val deviceName = current.name.ifBlank { current.deviceId }
             val mainText = stringResource(R.string.lan_pairing_wants_to_pair, deviceName, current.code)
             val body = when {
-                current.error != null -> "$mainText\n\n${current.error}"
+                current.error != null -> {
+                    val errMsg = com.colink.android.util.ProtocolReasonFormatter.format(
+                        androidx.compose.ui.platform.LocalContext.current,
+                        current.error
+                    )
+                    "$mainText\n\n$errMsg"
+                }
                 current.waiting -> "$mainText\n\n" + stringResource(R.string.lan_pairing_waiting)
                 else -> mainText
             }

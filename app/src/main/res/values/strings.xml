@@ -114,6 +114,8 @@
     <string name="security_key_changed">Key changed</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Cloud</string>
+    <string name="route_sending">Sending...</string>
+    <string name="route_failed">Failed</string>
     <string name="never_connected">Never connected</string>
     <string name="err_device_name_required">Device name is required</string>
     
@@ -152,6 +154,19 @@
     <string name="lan_available_tag">LAN Available</string>
     <string name="cloud_available_tag">Cloud Available</string>
     <string name="offline_tag">Offline</string>
+
+    <!-- Toasts & Protocol Errors -->
+    <string name="toast_transfer_accepted">Transfer accepted</string>
+    <string name="toast_transfer_rejected">Transfer rejected</string>
+    <string name="toast_select_device_and_file">Select a device and file</string>
+    <string name="toast_file_offer_sent">File offer sent</string>
+    <string name="err_transfer_user_rejected">Recipient rejected the transfer</string>
+    <string name="err_transfer_user_cancelled">Transfer cancelled</string>
+    <string name="err_transfer_checksum_mismatch">Checksum mismatch</string>
+    <string name="err_transfer_storage_full">Storage full at destination</string>
+    <string name="err_handshake_signature_invalid">Handshake signature invalid</string>
+    <string name="err_handshake_key_changed">Identity key changed</string>
+    <string name="err_handshake_user_rejected">Pairing request rejected</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
