@@ -2,6 +2,7 @@
     <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink 연결</string>
     <string name="service_notification_title">CoLink</string>
+    <string name="service_notification_desc">CoLink 서비스 실행 중</string>
     
     <!-- Navigation -->
     <string name="nav_devices">디바이스</string>

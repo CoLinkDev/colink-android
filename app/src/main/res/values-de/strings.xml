@@ -2,6 +2,7 @@
     <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink-Verbindung</string>
     <string name="service_notification_title">CoLink</string>
+    <string name="service_notification_desc">CoLink-Dienst wird ausgeführt</string>
     
     <!-- Navigation -->
     <string name="nav_devices">Geräte</string>

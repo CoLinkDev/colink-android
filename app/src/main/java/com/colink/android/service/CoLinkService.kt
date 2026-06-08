@@ -42,7 +42,7 @@ class CoLinkService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         CoLinkLog.i("Service", "CoLink service start command startId=$startId")
-        startForegroundCompat(buildNotification("Connecting..."))
+        startForegroundCompat(buildNotification())
         connectionManager.start()
         startNotificationUpdates()
         return START_STICKY
@@ -69,7 +69,7 @@ class CoLinkService : Service() {
         }
     }
 
-    private fun buildNotification(statusText: String): Notification {
+    private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -81,7 +81,7 @@ class CoLinkService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.colink_logo)
             .setContentTitle(getString(R.string.service_notification_title))
-            .setContentText(statusText)
+            .setContentText(getString(R.string.service_notification_desc))
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setShowWhen(false)
@@ -94,15 +94,7 @@ class CoLinkService : Service() {
         }
         notificationJob = scope.launch {
             connectionManager.cloudState.collectLatest { state ->
-                val text = when (state.status) {
-                    CloudStatus.Connected -> "CoLink connected"
-                    CloudStatus.Connecting -> "Connecting..."
-                    CloudStatus.Reconnecting -> "Reconnecting..."
-                    CloudStatus.Disconnected -> "Offline"
-                }
-                getSystemService(NotificationManager::class.java)
-                    .notify(NOTIFICATION_ID, buildNotification(text))
-                CoLinkLog.d("Service", "foreground notification updated status=${state.status}")
+                CoLinkLog.d("Service", "cloud status changed status=${state.status}")
             }
         }
     }

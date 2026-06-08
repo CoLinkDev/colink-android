@@ -350,6 +350,7 @@ private fun AccountDialog(
             } else {
                 AuthDialogContent(
                     onAuthenticated = onAuthenticated,
+                    onDismiss = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -362,8 +363,10 @@ private fun AccountDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel_btn))
+            if (authenticated) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel_btn))
+                }
             }
         },
     )

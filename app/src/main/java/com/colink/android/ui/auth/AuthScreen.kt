@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -32,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,12 +72,14 @@ fun AuthScreen(
         showHeader = true,
         onAuthenticated = onAuthenticated,
         viewModel = viewModel,
+        onDismiss = null,
     )
 }
 
 @Composable
 fun AuthDialogContent(
     onAuthenticated: () -> Unit,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AuthViewModel = hiltViewModel(),
 ) {
@@ -86,6 +91,7 @@ fun AuthDialogContent(
         showHeader = false,
         onAuthenticated = onAuthenticated,
         viewModel = viewModel,
+        onDismiss = onDismiss,
     )
 }
 
@@ -96,6 +102,7 @@ private fun AuthContent(
     showHeader: Boolean,
     onAuthenticated: () -> Unit,
     viewModel: AuthViewModel,
+    onDismiss: (() -> Unit)?,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -149,72 +156,103 @@ private fun AuthContent(
             }
         }
 
-        Card(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                OutlinedTextField(
-                    value = serverUrl,
-                    onValueChange = { serverUrl = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.server_url_label)) },
-                    leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Next
-                    ),
-                    singleLine = true,
-                )
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = { serverUrl = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.server_url_label)) },
+                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Uri,
+                    imeAction = ImeAction.Next
+                ),
+                singleLine = true,
+            )
 
-                OutlinedTextField(
-                    value = identifier,
-                    onValueChange = { identifier = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.email_or_username_label)) },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true,
-                )
+            OutlinedTextField(
+                value = identifier,
+                onValueChange = { identifier = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.email_or_username_label)) },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                singleLine = true,
+            )
 
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.password_label)) },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                shape = RoundedCornerShape(12.dp),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc),
+                        )
+                    }
+                },
+                singleLine = true,
+            )
+
+            val errorMsg = when {
+                localErrorResId != null -> stringResource(localErrorResId!!)
+                uiState.error != null -> uiState.error
+                else -> null
+            }
+            StateMessage(errorMsg)
+
+            if (onDismiss != null) {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.password_label)) },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                    shape = RoundedCornerShape(12.dp),
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done
-                    ),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = if (passwordVisible) stringResource(R.string.hide_password_desc) else stringResource(R.string.show_password_desc),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.cancel_btn))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            localErrorResId = validate(
+                                serverUrl = serverUrl,
+                                identifier = identifier,
+                                password = password,
                             )
+                            if (localErrorResId != null) {
+                                return@Button
+                            }
+                            val normalizedServerUrl = serverUrl.trim()
+                            viewModel.login(normalizedServerUrl, identifier, password)
+                        },
+                        enabled = !uiState.loading,
+                        shape = RoundedCornerShape(24.dp),
+                    ) {
+                        if (uiState.loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(stringResource(R.string.login_btn))
                         }
-                    },
-                    singleLine = true,
-                )
-
-                val errorMsg = when {
-                    localErrorResId != null -> stringResource(localErrorResId!!)
-                    uiState.error != null -> uiState.error
-                    else -> null
+                    }
                 }
-                StateMessage(errorMsg)
-
+            } else {
                 Button(
                     onClick = {
                         localErrorResId = validate(

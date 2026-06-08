@@ -2,6 +2,7 @@
     <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink 连接</string>
     <string name="service_notification_title">CoLink</string>
+    <string name="service_notification_desc">CoLink 服务运行中</string>
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
