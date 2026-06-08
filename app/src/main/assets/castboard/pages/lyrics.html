@@ -187,12 +187,12 @@
           const gap = parent.cachedGap;
           let offset = 0;
           for (let i = activeIndex + 1; i <= end; i += 1) {
-            offset += (heights.get(i - 1) ?? 0) / 2 + gap + (heights.get(i) ?? 0) / 2;
+            offset += (heights.get(i - 1) ?? 0) + gap;
             offsets.set(i, offset);
           }
           offset = 0;
           for (let i = activeIndex - 1; i >= start; i -= 1) {
-            offset -= (heights.get(i + 1) ?? 0) / 2 + gap + (heights.get(i) ?? 0) / 2;
+            offset -= gap + (heights.get(i) ?? 0);
             offsets.set(i, offset);
           }
           return offsets;
@@ -220,7 +220,7 @@
             const absDistance = Math.abs(distance);
             const offset = offsets.get(index) ?? 0;
             const height = heights.get(index) ?? 0;
-            const translateY = activeY - height / 2 + offset;
+            const translateY = activeY + offset;
             const scale = Math.max(0.84, 1.08 - absDistance * 0.075);
             const opacity = OPACITY_TABLE[absDistance] ?? 0;
             const blur = BLUR_TABLE[absDistance] ?? 0;

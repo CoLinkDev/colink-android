@@ -2,7 +2,7 @@
   color-scheme: dark;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --line-gap: clamp(22px, 4.2vh, 54px);
-  --active-y: 30vh;
+  --active-y: 15vh;
   --lyric-left: 1em;
   --lyric-width: 80vw;
   --detail-art-size: 0px;
