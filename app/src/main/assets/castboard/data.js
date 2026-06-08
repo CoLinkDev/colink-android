@@ -12,7 +12,7 @@ let activeIndex = 0;
 let progressAnchorPosition = 0;
 let progressAnchorTime = 0;
 let progressPaused = true;
-let progressRafId = 0;
+let progressTimerId = 0;
 
 const LYRICS_LINES_CHANGE_EVENT = "lyrics-lines-change";
 const LYRICS_TRACK_CHANGE_EVENT = "lyrics-track-change";
@@ -137,9 +137,9 @@ function mergeTranslatedLines(lines, translatedLines) {
 }
 
 function stopProgressInterpolation() {
-  if (progressRafId) {
-    cancelAnimationFrame(progressRafId);
-    progressRafId = 0;
+  if (progressTimerId) {
+    clearTimeout(progressTimerId);
+    progressTimerId = 0;
   }
 }
 
@@ -163,18 +163,19 @@ function applyProgressPosition(nextPosition) {
   return true;
 }
 
-function tickProgressInterpolation(now) {
-  progressRafId = 0;
+function tickProgressInterpolation() {
+  progressTimerId = 0;
   if (progressPaused) return;
 
+  const now = performance.now();
   const elapsed = (now - progressAnchorTime) / 1000;
   applyProgressPosition(progressAnchorPosition + elapsed);
-  progressRafId = requestAnimationFrame(tickProgressInterpolation);
+  progressTimerId = setTimeout(tickProgressInterpolation, 500);
 }
 
 function startProgressInterpolation() {
-  if (progressPaused || progressRafId) return;
-  progressRafId = requestAnimationFrame(tickProgressInterpolation);
+  if (progressPaused || progressTimerId) return;
+  progressTimerId = setTimeout(tickProgressInterpolation, 500);
 }
 
 function onLyric(data) {

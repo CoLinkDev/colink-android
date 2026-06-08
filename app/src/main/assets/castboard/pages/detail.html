@@ -111,10 +111,12 @@
         }
 
         .detail-progress-fill {
-          width: 0;
+          width: 100%;
           height: 100%;
           border-radius: inherit;
           background: #f8fafc;
+          transform: scaleX(0);
+          transform-origin: left;
         }
 
         .detail-progress-elapsed,
@@ -131,7 +133,7 @@
 
       <div class="detail-shell">
         <div class="detail-art" aria-hidden="true">
-          <img class="detail-cover" alt="" hidden />
+          <img class="detail-cover" alt="" decoding="async" hidden />
         </div>
         <div class="detail-copy">
           <h1 class="detail-title"></h1>
@@ -171,6 +173,7 @@
 
         let detailRafId = 0;
         let detailHideTimer = 0;
+        let lastElapsedSecond = -1;
 
         function titleVisualLength(value) {
           let length = 0;
@@ -243,8 +246,18 @@
           const durationSeconds = Number.isFinite(parent.duration) && parent.duration > 0 ? parent.duration : 0;
           const progress = durationSeconds > 0 ? clampUnit(elapsed / durationSeconds) : 0;
 
-          detailProgressFill.style.width = `${(progress * 100).toFixed(2)}%`;
-          detailProgressElapsed.textContent = formatSeconds(elapsed);
+          const elapsedSec = Math.floor(elapsed);
+          if (elapsedSec !== lastElapsedSecond) {
+            const isNormalStep = lastElapsedSecond !== -1 && Math.abs(elapsedSec - lastElapsedSecond) === 1;
+            if (isNormalStep) {
+              detailProgressFill.style.transition = "transform 1s linear";
+            } else {
+              detailProgressFill.style.transition = "none";
+            }
+            lastElapsedSecond = elapsedSec;
+            detailProgressFill.style.transform = `scaleX(${progress})`;
+            detailProgressElapsed.textContent = formatSeconds(elapsed);
+          }
         }
 
         function renderDetailPanel() {
@@ -268,6 +281,7 @@
         pages.detail = {
           template: document.body.innerHTML,
           mount(container) {
+            lastElapsedSecond = -1;
             detailLayer = container;
             detailArt = container.querySelector(".detail-art");
             detailCover = container.querySelector(".detail-cover");
@@ -301,6 +315,7 @@
             detailProgressDuration = null;
           },
           onTrackChange() {
+            lastElapsedSecond = -1;
             renderDetailPanel();
           },
           onProgressChange() {

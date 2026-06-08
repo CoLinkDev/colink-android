@@ -11,36 +11,8 @@
           position: fixed;
           inset: 0;
           overflow: hidden;
-          opacity: 0;
-          transition: opacity 220ms ease-out;
         }
 
-        .stage.is-ready {
-          opacity: 1;
-        }
-
-        .stage::before,
-        .stage::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          width: 100%;
-          height: 24vh;
-          z-index: 2;
-          pointer-events: none;
-          will-change: transform;
-          transform: translateZ(0);
-        }
-
-        .stage::before {
-          top: 0;
-          background: linear-gradient(to bottom, #050608 4%, rgba(5, 6, 8, 0));
-        }
-
-        .stage::after {
-          bottom: 0;
-          background: linear-gradient(to top, #050608 6%, rgba(5, 6, 8, 0));
-        }
 
         .line {
           position: absolute;
@@ -131,24 +103,13 @@
         const lineElements = new Map();
         let currentIndex = 0;
         let lastRenderedIndex = null;
+        const heightCache = new Map();
 
         function resetLyricsDom() {
           if (stage) stage.replaceChildren();
           lineElements.clear();
+          heightCache.clear();
           lastRenderedIndex = null;
-        }
-
-        function createLineElement(index) {
-          const line = document.createElement("p");
-          line.className = "line";
-          line.textContent = parent.LYRICS[index].text;
-          line.dataset.index = String(index);
-          line.style.opacity = "0";
-          line.style.transition = "none";
-          line._activeTransition = "none";
-          stage.appendChild(line);
-          lineElements.set(index, line);
-          return line;
         }
 
         function visibleRangeFor(activeIndex) {
@@ -156,30 +117,6 @@
             Math.max(0, activeIndex - VISIBLE_BEFORE),
             Math.min(parent.LYRICS.length - 1, activeIndex + VISIBLE_AFTER),
           ];
-        }
-
-        function syncVisibleLineElements(start, end) {
-          const createdLines = new Set();
-          for (const [index, line] of lineElements) {
-            if (index < start || index > end) {
-              line.remove();
-              lineElements.delete(index);
-            }
-          }
-          for (let index = start; index <= end; index += 1) {
-            if (!lineElements.has(index)) {
-              createdLines.add(createLineElement(index));
-            }
-          }
-          return createdLines;
-        }
-
-        function getLineHeights() {
-          const heights = new Map();
-          for (const [index, line] of lineElements) {
-            heights.set(index, line.offsetHeight);
-          }
-          return heights;
         }
 
         function offsetsForVisibleRange(start, end, activeIndex, heights) {
@@ -211,31 +148,44 @@
           const shouldAnimate = lastRenderedIndex !== null && diff >= 1 && diff <= 2;
           const activeY = parent.cachedActiveY;
           const [start, end] = visibleRangeFor(active);
-          const createdLines = syncVisibleLineElements(start, end);
-          const heights = getLineHeights();
-          const offsets = offsetsForVisibleRange(start, end, active, heights);
+          const offsets = offsetsForVisibleRange(start, end, active, heightCache);
 
           for (const [index, line] of lineElements) {
+            const isVisible = index >= start && index <= end;
+            if (!isVisible) {
+              if (line._wasVisible !== false) {
+                line.style.visibility = "hidden";
+                line.style.opacity = "0";
+                line.style.transition = "none";
+                line.style.filter = "none";
+                line._activeTransition = "none";
+                line._wasVisible = false;
+              }
+              continue;
+            }
+
+            line.style.visibility = "visible";
+
             const distance = index - active;
             const absDistance = Math.abs(distance);
             const offset = offsets.get(index) ?? 0;
-            const height = heights.get(index) ?? 0;
             const translateY = activeY + offset;
             const scale = Math.max(0.84, 1.08 - absDistance * 0.075);
             const opacity = OPACITY_TABLE[absDistance] ?? 0;
             const blur = BLUR_TABLE[absDistance] ?? 0;
 
-            const targetTransition = shouldAnimate && !createdLines.has(line) ? LYRIC_TRANSITION : "none";
+            const targetTransition = shouldAnimate && line._wasVisible ? LYRIC_TRANSITION : "none";
             if (line._activeTransition !== targetTransition) {
               line.style.transition = targetTransition;
               line._activeTransition = targetTransition;
             }
 
             line.classList.toggle("is-current", distance === 0);
-            line.style.transform = `translateY(${translateY}px) scale(${scale})`;
+            line.style.transform = `translate3d(0, ${translateY}px, 0) scale(${scale})`;
             line.style.opacity = String(opacity);
             line.style.filter = blur > 0 ? `blur(${blur}px)` : "none";
             line.style.zIndex = String(20 - absDistance);
+            line._wasVisible = true;
           }
 
           lastRenderedIndex = active;
@@ -247,6 +197,30 @@
 
           currentIndex = parent.activeIndex;
           resetLyricsDom();
+
+          if (parent.LYRICS.length === 0) return;
+
+          const fragment = document.createDocumentFragment();
+          for (let i = 0; i < parent.LYRICS.length; i += 1) {
+            const line = document.createElement("p");
+            line.className = "line";
+            line.textContent = parent.LYRICS[i].text;
+            line.dataset.index = String(i);
+            line.style.opacity = "0";
+            line.style.visibility = "hidden";
+            line.style.transition = "none";
+            line._activeTransition = "none";
+            line._wasVisible = false;
+            fragment.appendChild(line);
+            lineElements.set(i, line);
+          }
+          stage.appendChild(fragment);
+
+          for (let i = 0; i < parent.LYRICS.length; i += 1) {
+            const line = lineElements.get(i);
+            heightCache.set(i, line.offsetHeight);
+          }
+
           renderLyrics();
 
           if (lineElements.size > 0 && stage) {
@@ -297,6 +271,10 @@
             }
           },
           onResize() {
+            heightCache.clear();
+            for (const [index, line] of lineElements) {
+              heightCache.set(index, line.offsetHeight);
+            }
             renderLyrics();
           },
           layoutLyrics() {
