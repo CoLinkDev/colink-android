@@ -131,7 +131,6 @@
         const lineElements = new Map();
         let currentIndex = 0;
         let lastRenderedIndex = null;
-        let lyricsAnimationTimer = 0;
 
         function resetLyricsDom() {
           if (stage) stage.replaceChildren();
@@ -146,6 +145,7 @@
           line.dataset.index = String(index);
           line.style.opacity = "0";
           line.style.transition = "none";
+          line._activeTransition = "none";
           stage.appendChild(line);
           lineElements.set(index, line);
           return line;
@@ -198,31 +198,17 @@
           return offsets;
         }
 
-        function disableLyricsTransitions() {
-          for (const line of lineElements.values()) {
-            line.style.transition = "none";
-          }
-        }
-
-        function scheduleLyricsTransitionDisable() {
-          lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
-          lyricsAnimationTimer = window.setTimeout(() => {
-            lyricsAnimationTimer = 0;
-            disableLyricsTransitions();
-          }, LYRIC_TRANSITION_MS);
-        }
-
         function renderLyrics() {
           if (!stage) return;
           if (parent.LYRICS.length === 0) {
             resetLyricsDom();
-            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
             if (stage) stage.classList.remove("is-ready");
             return;
           }
 
           const active = currentIndex;
-          const shouldAnimate = lastRenderedIndex !== null && Math.abs(active - lastRenderedIndex) === 1;
+          const diff = lastRenderedIndex !== null ? Math.abs(active - lastRenderedIndex) : 0;
+          const shouldAnimate = lastRenderedIndex !== null && diff >= 1 && diff <= 2;
           const activeY = parent.cachedActiveY;
           const [start, end] = visibleRangeFor(active);
           const createdLines = syncVisibleLineElements(start, end);
@@ -239,18 +225,17 @@
             const opacity = OPACITY_TABLE[absDistance] ?? 0;
             const blur = BLUR_TABLE[absDistance] ?? 0;
 
-            line.style.transition = shouldAnimate && !createdLines.has(line) ? LYRIC_TRANSITION : "none";
+            const targetTransition = shouldAnimate && !createdLines.has(line) ? LYRIC_TRANSITION : "none";
+            if (line._activeTransition !== targetTransition) {
+              line.style.transition = targetTransition;
+              line._activeTransition = targetTransition;
+            }
+
             line.classList.toggle("is-current", distance === 0);
             line.style.transform = `translateY(${translateY}px) scale(${scale})`;
             line.style.opacity = String(opacity);
             line.style.filter = blur > 0 ? `blur(${blur}px)` : "none";
             line.style.zIndex = String(20 - absDistance);
-          }
-
-          if (shouldAnimate) {
-            scheduleLyricsTransitionDisable();
-          } else {
-            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
           }
 
           lastRenderedIndex = active;
@@ -259,7 +244,6 @@
         function layoutLyrics() {
           if (parent.currentPageName !== "lyrics") return;
           if (stage) stage.classList.remove("is-ready");
-          lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
 
           currentIndex = parent.activeIndex;
           resetLyricsDom();
@@ -296,7 +280,6 @@
             layoutLyrics();
           },
           unmount() {
-            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
             resetLyricsDom();
             stage = null;
             trackInfo = null;
@@ -320,7 +303,6 @@
             layoutLyrics();
           },
           cleanup() {
-            lyricsAnimationTimer = clearTimer(lyricsAnimationTimer);
             resetLyricsDom();
           }
         };
