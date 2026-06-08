@@ -1,11 +1,10 @@
 // ==== 全局配置与公共状态 ====
-const DETAIL_LAYER_VISIBLE_KEY = "lyrics2screen.detailLayerVisible";
 window.pages = {};
 window.currentPageName = null;
 window.cachedGap = 36;
 window.cachedActiveY = window.innerHeight * 0.35;
 window.resizeTimer = 0;
-window.pageCleanupTimer = 0;
+window.navManager = null;
 
 // ==== 通用工具函数 ====
 function parseCssLength(raw, fallback) {
@@ -63,6 +62,7 @@ function cssFunctionArgs(raw, name) {
   return args;
 }
 
+// Read computed css font size of root element
 function readRootFontSize() {
   const value = parseFloat(getComputedStyle(document.documentElement).fontSize);
   return Number.isFinite(value) ? value : 100;
@@ -103,25 +103,10 @@ function cancelRaf(id) {
   return 0;
 }
 
+// Clear active timers
 function clearTimer(id) {
   if (id) window.clearTimeout(id);
   return 0;
-}
-
-function readStoredDetailLayerVisible() {
-  try {
-    return window.localStorage.getItem(DETAIL_LAYER_VISIBLE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function storeDetailLayerVisible(isVisible) {
-  try {
-    window.localStorage.setItem(DETAIL_LAYER_VISIBLE_KEY, isVisible ? "1" : "0");
-  } catch {
-    // 存储不可用时只影响刷新后恢复，不影响当前交互。
-  }
 }
 
 function callBackend(name) {
@@ -139,60 +124,161 @@ function callBackend(name) {
   }
 }
 
-// ==== 页面导航与路由管理 ====
-function navigateTo(newPageName) {
-  if (currentPageName === newPageName) return;
+// ==== 路由与导航管理机制 ====
+class NavigationManager {
+  constructor(pages) {
+    this.pages = pages;
+    this.currentPageName = null;
+    this.pageCleanupTimer = 0;
+    this.storageKey = "lyrics2screen.detailLayerVisible";
 
-  const root = document.getElementById("app-root");
-  const oldPageDoms = Array.from(root.querySelectorAll(".page"));
-  const oldPageName = currentPageName;
-
-  const config = pages[newPageName];
-  if (!config) return;
-
-  pageCleanupTimer = clearTimer(pageCleanupTimer);
-  if (oldPageName && pages[oldPageName] && typeof pages[oldPageName].unmount === "function") {
-    pages[oldPageName].unmount();
+    // 瞬态（临时跳转）状态
+    this.transientTimer = 0;
+    this.transientOriginalPage = null;
+    this.isTransientActive = false;
   }
 
-  const div = document.createElement("div");
-  div.innerHTML = config.template;
-  const newPageDom = div.firstElementChild;
-
-  newPageDom.classList.add("page-enter");
-  root.appendChild(newPageDom);
-
-  currentPageName = newPageName;
-  config.mount(newPageDom);
-
-  if (newPageName === "detail") {
-    storeDetailLayerVisible(true);
-  } else if (newPageName === "lyrics") {
-    storeDetailLayerVisible(false);
-  }
-
-  requestAnimationFrame(() => {
-    newPageDom.getBoundingClientRect();
-    for (const oldPageDom of oldPageDoms) {
-      oldPageDom.classList.remove("page-active");
-      oldPageDom.classList.add("page-leave");
+  getStoredDetailLayerVisible() {
+    try {
+      return window.localStorage.getItem(this.storageKey) === "1";
+    } catch {
+      return false;
     }
-    newPageDom.classList.remove("page-enter");
-    newPageDom.classList.add("page-active");
-  });
+  }
 
-  if (oldPageDoms.length > 0) {
-    pageCleanupTimer = window.setTimeout(() => {
-      pageCleanupTimer = 0;
-      for (const oldPageDom of oldPageDoms) {
-        oldPageDom.remove();
+  storeDetailLayerVisible(isVisible) {
+    try {
+      window.localStorage.setItem(this.storageKey, isVisible ? "1" : "0");
+    } catch {
+      // 存储不可用时忽略
+    }
+  }
+
+  navigateTo(newPageName, isTemporary = false) {
+    if (this.currentPageName === newPageName) return;
+
+    if (this.transientTimer && !isTemporary) {
+      this.cancelTransient();
+    }
+
+    const root = document.getElementById("app-root");
+    const oldPageDoms = Array.from(root.querySelectorAll(".page"));
+    const oldPageName = this.currentPageName;
+
+    const config = this.pages[newPageName];
+    if (!config) return;
+
+    if (this.pageCleanupTimer) {
+      window.clearTimeout(this.pageCleanupTimer);
+      this.pageCleanupTimer = 0;
+    }
+
+    if (oldPageName && this.pages[oldPageName] && typeof this.pages[oldPageName].unmount === "function") {
+      this.pages[oldPageName].unmount();
+    }
+
+    const div = document.createElement("div");
+    div.innerHTML = config.template;
+    const newPageDom = div.firstElementChild;
+
+    newPageDom.classList.add("page-enter");
+    root.appendChild(newPageDom);
+
+    this.currentPageName = newPageName;
+    window.currentPageName = newPageName;
+    config.mount(newPageDom);
+
+    if (!isTemporary) {
+      if (newPageName === "detail") {
+        this.storeDetailLayerVisible(true);
+      } else if (newPageName === "lyrics") {
+        this.storeDetailLayerVisible(false);
       }
-    }, 220);
+    }
+
+    requestAnimationFrame(() => {
+      newPageDom.getBoundingClientRect();
+      for (const oldPageDom of oldPageDoms) {
+        oldPageDom.classList.remove("page-active");
+        oldPageDom.classList.add("page-leave");
+      }
+      newPageDom.classList.remove("page-enter");
+      newPageDom.classList.add("page-active");
+    });
+
+    if (oldPageDoms.length > 0) {
+      this.pageCleanupTimer = window.setTimeout(() => {
+        this.pageCleanupTimer = 0;
+        for (const oldPageDom of oldPageDoms) {
+          oldPageDom.remove();
+        }
+      }, 220);
+    }
+  }
+
+  toggle() {
+    if (this.currentPageName === "lyrics") {
+      this.navigateTo("detail");
+    } else if (this.currentPageName === "detail") {
+      this.navigateTo("lyrics");
+    }
+  }
+
+  showTransient(targetPage, durationMs) {
+    if (this.currentPageName !== targetPage) {
+      if (!this.isTransientActive) {
+        this.transientOriginalPage = this.currentPageName;
+      }
+      this.isTransientActive = true;
+      this.navigateTo(targetPage, true);
+    }
+
+    this.clearTransientTimer();
+    this.transientTimer = window.setTimeout(() => this.restoreTransient(), durationMs);
+  }
+
+  restoreTransient() {
+    this.clearTransientTimer();
+    if (this.transientOriginalPage && this.currentPageName !== this.transientOriginalPage) {
+      this.navigateTo(this.transientOriginalPage, true);
+    }
+    this.resetTransientState();
+  }
+
+  cancelTransient() {
+    this.clearTransientTimer();
+    this.resetTransientState();
+  }
+
+  clearTransientTimer() {
+    if (this.transientTimer) {
+      window.clearTimeout(this.transientTimer);
+      this.transientTimer = 0;
+    }
+  }
+
+  resetTransientState() {
+    this.transientOriginalPage = null;
+    this.isTransientActive = false;
+  }
+
+  destroy() {
+    if (this.pageCleanupTimer) {
+      window.clearTimeout(this.pageCleanupTimer);
+      this.pageCleanupTimer = 0;
+    }
+    this.cancelTransient();
   }
 }
 
+window.navManager = new NavigationManager(window.pages);
+
 // ==== 全局事件分发 ====
 function onTrackChange() {
+  if (window.navManager) {
+    window.navManager.showTransient("detail", 2000);
+  }
+
   if (pages[currentPageName] && typeof pages[currentPageName].onTrackChange === "function") {
     pages[currentPageName].onTrackChange();
   }
@@ -204,6 +290,7 @@ function onProgressChange() {
   }
 }
 
+// Handle resize event
 function onResize() {
   resizeTimer = clearTimer(resizeTimer);
   resizeTimer = window.setTimeout(() => {
@@ -216,10 +303,8 @@ function onResize() {
 }
 
 function onPageClick() {
-  if (currentPageName === "lyrics") {
-    navigateTo("detail");
-  } else if (currentPageName === "detail") {
-    navigateTo("lyrics");
+  if (window.navManager) {
+    window.navManager.toggle();
   }
 }
 
@@ -235,7 +320,9 @@ function preventWheelZoom(event) {
 
 function cleanupScheduledWork() {
   resizeTimer = clearTimer(resizeTimer);
-  pageCleanupTimer = clearTimer(pageCleanupTimer);
+  if (window.navManager) {
+    window.navManager.destroy();
+  }
   Object.values(pages).forEach(page => {
     if (typeof page.cleanup === "function") {
       page.cleanup();
@@ -279,7 +366,7 @@ function boot() {
 
   const ready = document.fonts?.ready ?? Promise.resolve();
   ready.then(() => {
-    const initialPage = readStoredDetailLayerVisible() ? "detail" : "lyrics";
-    navigateTo(initialPage);
+    const initialPage = window.navManager.getStoredDetailLayerVisible() ? "detail" : "lyrics";
+    window.navManager.navigateTo(initialPage);
   });
 }
