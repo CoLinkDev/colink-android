@@ -39,6 +39,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "SERVER_BASE_URL", "\"$serverBaseUrl\"")
         buildConfigField("String", "CASTBOARD_DEV_URL", "\"$castBoardDevUrl\"")
+        manifestPlaceholders["appName"] = "CoLink"
     }
 
     signingConfigs {
@@ -54,8 +55,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            manifestPlaceholders["appName"] = "CoLink Debug"
+        }
         release {
             isMinifyEnabled = false
+            manifestPlaceholders["appName"] = "CoLink"
             signingConfig = if (file("release.jks").exists()) {
                 signingConfigs.getByName("release")
             } else {
