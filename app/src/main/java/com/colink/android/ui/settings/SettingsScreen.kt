@@ -164,6 +164,7 @@ fun SettingsScreen(
                 checked = notifications,
                 onCheckedChange = { notifications = it },
             )
+            /*
             SettingSwitchRow(
                 icon = Icons.Default.PowerSettingsNew,
                 label = stringResource(R.string.auto_start_label),
@@ -171,6 +172,7 @@ fun SettingsScreen(
                 checked = autoStart,
                 onCheckedChange = { autoStart = it },
             )
+            */
 
             Button(
                 onClick = {

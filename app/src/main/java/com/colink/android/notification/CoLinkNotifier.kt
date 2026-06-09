@@ -133,14 +133,14 @@ class CoLinkNotifier @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
-                android.R.drawable.ic_menu_save,
-                context.getString(R.string.accept_btn),
-                acceptIntent,
-            )
-            .addAction(
                 android.R.drawable.ic_delete,
                 context.getString(R.string.reject_btn),
                 rejectIntent,
+            )
+            .addAction(
+                android.R.drawable.ic_menu_save,
+                context.getString(R.string.accept_btn),
+                acceptIntent,
             )
             .build()
         NotificationManagerCompat.from(context).notify(notificationId, notification)
@@ -195,14 +195,14 @@ class CoLinkNotifier @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
-                android.R.drawable.ic_menu_save,
-                context.getString(R.string.accept_btn),
-                acceptIntent,
-            )
-            .addAction(
                 android.R.drawable.ic_delete,
                 context.getString(R.string.reject_btn),
                 rejectIntent,
+            )
+            .addAction(
+                android.R.drawable.ic_menu_save,
+                context.getString(R.string.accept_btn),
+                acceptIntent,
             )
             .build()
         NotificationManagerCompat.from(context).notify(PAIRING_NOTIFICATION_ID, notification)

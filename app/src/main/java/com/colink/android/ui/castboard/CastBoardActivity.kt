@@ -13,6 +13,7 @@ import androidx.compose.material3.Surface
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.colink.android.MainActivity
 import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.theme.CoLinkTheme
 import com.colink.android.util.LocaleHelper
@@ -48,7 +49,12 @@ class CastBoardActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     CastBoardFullScreen(
                         requestedSourceDeviceId = sourceDeviceId,
-                        onClose = ::finish,
+                        onClose = {
+                            if (isTaskRoot) {
+                                startActivity(Intent(this, MainActivity::class.java))
+                            }
+                            finish()
+                        },
                     )
                 }
             }
