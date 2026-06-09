@@ -9,4 +9,13 @@
         <item name="colorPrimary">#0B57D0</item>
         <item name="colorSecondary">#146C43</item>
     </style>
+
+    <style name="Theme.CoLink.Transparent" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
 </resources>
