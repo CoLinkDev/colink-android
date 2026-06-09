@@ -101,6 +101,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
@@ -1148,6 +1150,19 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun handleTransferFrame(sessionId: String, frame: FileDataFrame) {
         val state = incomingTransfers[sessionId] ?: return
+        state.frameMutex.withLock {
+            if (incomingTransfers[sessionId] !== state) {
+                return
+            }
+            handleTransferFrameLocked(sessionId, frame, state)
+        }
+    }
+
+    private suspend fun handleTransferFrameLocked(
+        sessionId: String,
+        frame: FileDataFrame,
+        state: IncomingTransferState,
+    ) {
         val transfer = fileTransferRepository.get(sessionId) ?: return
         when (frame.kind) {
             FileDataFrameKind.Chunk -> {
@@ -1163,6 +1178,7 @@ class ConnectionManager @Inject constructor(
             }
 
             FileDataFrameKind.Finish -> {
+                state.finishReceived = true
                 if (state.receivedChunks < state.expectedChunks) {
                     sendRetransmit(state.deviceId, sessionId, state.receivedChunks, lan = true)
                 } else {
@@ -1566,6 +1582,13 @@ class ConnectionManager @Inject constructor(
                 }
                 if (finishWhenComplete && state.receivedChunks == state.expectedChunks) {
                     finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
+                }
+                if (!finishWhenComplete && state.finishReceived) {
+                    if (state.receivedChunks == state.expectedChunks) {
+                        finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
+                    } else {
+                        sendRetransmit(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
+                    }
                 }
             }
         }
@@ -2298,6 +2321,8 @@ private data class IncomingTransferState(
     var route: String = "cloud",
     val windowSize: Long = LAN_SEND_WINDOW_CHUNKS,
     val reorderBuffer: TreeMap<Long, ByteArray> = TreeMap(),
+    var finishReceived: Boolean = false,
+    val frameMutex: Mutex = Mutex(),
 )
 
 private data class OutgoingTransferState(
