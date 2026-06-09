@@ -3,6 +3,7 @@ const TRACK_INFO = {
   title: "",
   author: "",
   album: "",
+  source: "",
   cover: "",
   durationHuman: "",
 };
@@ -66,6 +67,7 @@ function hasTrackFields(data) {
     typeof data.title === "string" ||
     typeof data.author === "string" ||
     typeof data.album === "string" ||
+    typeof data.source === "string" ||
     typeof data.cover === "string" ||
     typeof data.durationHuman === "string"
   );
@@ -91,7 +93,7 @@ function updateTrackInfo(data) {
   if (!data) return false;
 
   let changed = false;
-  for (const key of ["title", "author", "album", "cover", "durationHuman"]) {
+  for (const key of ["title", "author", "album", "source", "cover", "durationHuman"]) {
     if (!Object.prototype.hasOwnProperty.call(data, key)) continue;
 
     const nextValue = normalizeTrackText(data[key]);

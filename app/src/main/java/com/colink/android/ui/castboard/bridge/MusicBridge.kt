@@ -21,6 +21,7 @@ private data class LegacyTrackEvent(
     val author: String = "",
     val title: String = "",
     val album: String = "",
+    val source: String = "",
     val cover: String = "",
     val duration: Long = 0,
     val durationHuman: String = "0:00",
@@ -166,6 +167,7 @@ class MusicBridge {
             author = track.artists.orEmpty().joinToString(", "),
             title = track.title.orEmpty(),
             album = track.album.orEmpty(),
+            source = track.source.orEmpty(),
             cover = track.coverUrl.orEmpty().ifBlank {
                 track.coverData?.let { "data:image/png;base64,$it" }.orEmpty()
             },

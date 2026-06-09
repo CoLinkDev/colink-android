@@ -129,6 +129,7 @@ class MessageEnvelopeTest {
                     title = "Song Title",
                     artists = listOf("Artist A", "Artist B"),
                     album = "Album Name",
+                    source = "ncm",
                     coverUrl = "https://example.com/cover.jpg",
                     coverData = "iVBORw0KGgoAAAANSUhEUgAA",
                     duration = 234500,
@@ -139,7 +140,7 @@ class MessageEnvelopeTest {
         val encoded = json.encodeToString(envelope)
 
         assertEquals(
-            """{"type":"music.v1.track","payload":{"trackId":"abc123","title":"Song Title","artists":["Artist A","Artist B"],"album":"Album Name","coverUrl":"https://example.com/cover.jpg","coverData":"iVBORw0KGgoAAAANSUhEUgAA","duration":234500}}""",
+            """{"type":"music.v1.track","payload":{"trackId":"abc123","title":"Song Title","artists":["Artist A","Artist B"],"album":"Album Name","source":"ncm","coverUrl":"https://example.com/cover.jpg","coverData":"iVBORw0KGgoAAAANSUhEUgAA","duration":234500}}""",
             encoded,
         )
     }

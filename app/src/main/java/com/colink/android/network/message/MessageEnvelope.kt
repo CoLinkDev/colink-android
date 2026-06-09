@@ -123,6 +123,7 @@ data class MusicTrackPayload(
     val title: String? = null,
     val artists: List<String>? = null,
     val album: String? = null,
+    val source: String? = null,
     val coverUrl: String? = null,
     val coverData: String? = null,
     val duration: Long? = null,
