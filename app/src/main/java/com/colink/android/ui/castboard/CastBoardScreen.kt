@@ -70,7 +70,7 @@ fun CastBoardScreen(
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val availableDevices = remember(devices, localDeviceId) {
         devicesWithoutLocalDevice(devices, localDeviceId)
-            .filter { it.online || it.lanAvailable }
+            .filter { (it.online || it.lanAvailable) && isComputer(it.type) }
     }
 
     LaunchedEffect(availableDevices, selectedDeviceId) {
@@ -348,3 +348,9 @@ private tailrec fun Context.findActivity(): Activity {
         else -> error("Activity context required")
     }
 }
+
+private fun isComputer(type: String): Boolean {
+    val lower = type.lowercase()
+    return lower == "windows" || lower == "macos" || lower == "linux"
+}
+
