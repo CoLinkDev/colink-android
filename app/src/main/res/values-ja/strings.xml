@@ -48,6 +48,12 @@
     <string name="cloud_status_disconnected">未接続</string>
     <string name="cloud_status_connecting">接続中</string>
     <string name="account_desc">クラウド接続</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">新しいバージョンがあります</string>
+    <string name="update_available_body">バージョン %1$s が利用できます。</string>
+    <string name="update_download_btn">ダウンロード</string>
+    <string name="update_later_btn">後で</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>

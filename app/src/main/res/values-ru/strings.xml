@@ -48,6 +48,12 @@
     <string name="cloud_status_disconnected">Не подключено</string>
     <string name="cloud_status_connecting">Подключение</string>
     <string name="account_desc">Облачный аккаунт</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">Доступно обновление</string>
+    <string name="update_available_body">Доступна версия %1$s.</string>
+    <string name="update_download_btn">Скачать</string>
+    <string name="update_later_btn">Позже</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">Доступно %1$d · Всего %2$d</string>

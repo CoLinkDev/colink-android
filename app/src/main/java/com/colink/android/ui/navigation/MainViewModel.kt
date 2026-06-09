@@ -3,11 +3,14 @@ package com.colink.android.ui.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.domain.model.CloudStatus
+import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.domain.repository.AuthRepository
+import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.lan.LanPairingCoordinator
 import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,9 +29,12 @@ class MainViewModel @Inject constructor(
     private val connectionManager: ConnectionManager,
     private val pairingCoordinator: LanPairingCoordinator,
     private val settingsDataStore: SettingsDataStore,
+    private val updateRepository: UpdateRepository,
 ) : ViewModel() {
     private val _bootstrapping = MutableStateFlow(true)
     val bootstrapping: StateFlow<Boolean> = _bootstrapping.asStateFlow()
+    private val _availableUpdate = MutableStateFlow<AppUpdate?>(null)
+    val availableUpdate: StateFlow<AppUpdate?> = _availableUpdate.asStateFlow()
 
     val authenticated: StateFlow<Boolean> =
         authRepository.session
@@ -55,6 +61,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             authRepository.bootstrap()
             _bootstrapping.value = false
+            checkForUpdates()
         }
     }
 
@@ -76,5 +83,15 @@ class MainViewModel @Inject constructor(
     fun cancelPairing(request: LanPairingRequest) {
         pairingCoordinator.cancel(request.requestId)
         connectionManager.cancelLanPairing(request.deviceId)
+    }
+
+    fun dismissUpdate() {
+        _availableUpdate.value = null
+    }
+
+    private suspend fun checkForUpdates() {
+        updateRepository.checkForUpdate()
+            .onSuccess { update -> _availableUpdate.value = update }
+            .onFailure { error -> CoLinkLog.w("Update", "update check failed", error) }
     }
 }

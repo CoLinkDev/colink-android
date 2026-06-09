@@ -48,6 +48,12 @@
     <string name="cloud_status_disconnected">Nicht verbunden</string>
     <string name="cloud_status_connecting">Verbinden</string>
     <string name="account_desc">Cloud-Konto</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">Update verfügbar</string>
+    <string name="update_available_body">Version %1$s ist verfügbar.</string>
+    <string name="update_download_btn">Herunterladen</string>
+    <string name="update_later_btn">Später</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d verfügbar · %2$d insgesamt</string>

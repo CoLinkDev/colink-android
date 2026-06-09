@@ -1,5 +1,6 @@
 package com.colink.android.ui.navigation
 
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
@@ -53,6 +54,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.colink.android.R
+import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.share.PendingShare
@@ -67,6 +69,7 @@ import com.colink.android.ui.castboard.CastBoardScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
+import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.flow.StateFlow
 
 private data class TopLevelRoute(
@@ -94,6 +97,7 @@ fun CoLinkNavGraph(
 ) {
     val bootstrapping by viewModel.bootstrapping.collectAsStateWithLifecycle()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(bootstrapping) {
@@ -127,8 +131,57 @@ fun CoLinkNavGraph(
                 onClear = viewModel::clearPairing,
                 onCancel = viewModel::cancelPairing,
             )
+            UpdateDialogHost(
+                update = availableUpdate,
+                onDismiss = viewModel::dismissUpdate,
+            )
         }
     }
+}
+
+@Composable
+private fun UpdateDialogHost(
+    update: AppUpdate?,
+    onDismiss: () -> Unit,
+) {
+    val current = update ?: return
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val asset = current.assets.firstOrNull()
+    val body = buildString {
+        append(stringResource(R.string.update_available_body, current.version))
+        val notes = current.releaseNotes.trim()
+        if (notes.isNotEmpty()) {
+            append("\n\n")
+            append(notes)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.update_available_title)) },
+        text = { Text(body) },
+        confirmButton = {
+            if (asset != null) {
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(asset.downloadUrl)))
+                        }.onFailure { error ->
+                            CoLinkLog.w("Update", "open update download failed", error)
+                        }
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.update_download_btn))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.update_later_btn))
+            }
+        },
+    )
 }
 
 @Composable

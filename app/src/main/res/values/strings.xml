@@ -48,6 +48,12 @@
     <string name="cloud_status_disconnected">Disconnected</string>
     <string name="cloud_status_connecting">Connecting</string>
     <string name="account_desc">Cloud account</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_body">Version %1$s is available.</string>
+    <string name="update_download_btn">Download</string>
+    <string name="update_later_btn">Later</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d available · %2$d total</string>

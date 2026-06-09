@@ -2,6 +2,7 @@ package com.colink.android.di
 
 import com.colink.android.data.remote.api.AuthApi
 import com.colink.android.data.remote.api.DeviceApi
+import com.colink.android.data.remote.api.UpdateApi
 import com.colink.android.data.remote.api.WsApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
@@ -57,6 +58,11 @@ object NetworkModule {
     @Singleton
     fun provideDeviceApi(retrofit: Retrofit): DeviceApi =
         retrofit.create(DeviceApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideUpdateApi(retrofit: Retrofit): UpdateApi =
+        retrofit.create(UpdateApi::class.java)
 
     @Provides
     @Singleton

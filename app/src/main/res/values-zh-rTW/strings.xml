@@ -48,6 +48,12 @@
     <string name="cloud_status_disconnected">未連線</string>
     <string name="cloud_status_connecting">連線中</string>
     <string name="account_desc">雲端帳戶</string>
+
+    <!-- Updates -->
+    <string name="update_available_title">發現新版本</string>
+    <string name="update_available_body">版本 %1$s 可用。</string>
+    <string name="update_download_btn">下載</string>
+    <string name="update_later_btn">稍後</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
