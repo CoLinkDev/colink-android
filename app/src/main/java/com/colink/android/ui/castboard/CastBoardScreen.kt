@@ -327,12 +327,19 @@ private fun castBoardUrl(context: Context): String {
     } else {
         rawLang
     }
-    val baseUrl = if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
+    var baseUrl = if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
         devUrl
     } else if (BuildConfig.DEBUG) {
         "https://appassets.androidplatform.net/assets/castboard/index.html?debug=1"
     } else {
         "https://appassets.androidplatform.net/assets/castboard/index.html"
+    }
+    if (BuildConfig.DEBUG && !baseUrl.contains("debug=")) {
+        baseUrl = if (baseUrl.contains("?")) {
+            "$baseUrl&debug=1"
+        } else {
+            "$baseUrl?debug=1"
+        }
     }
     return if (baseUrl.contains("?")) {
         "$baseUrl&lang=$lang"

@@ -145,6 +145,7 @@ class NavigationManager {
     this.transientTimer = 0;
     this.transientOriginalPage = null;
     this.isTransientActive = false;
+    this.preDebugPage = null;
   }
 
   getStoredDetailLayerVisible() {
@@ -195,6 +196,9 @@ class NavigationManager {
 
     this.currentPageName = newPageName;
     window.currentPageName = newPageName;
+    if (typeof window.updateDebugButtonState === "function") {
+      window.updateDebugButtonState(newPageName);
+    }
     config.mount(newPageDom);
 
     if (!isTemporary) {
@@ -231,6 +235,18 @@ class NavigationManager {
     } else if (this.currentPageName === "detail") {
       this.navigateTo("lyrics");
     }
+  }
+
+  navigateToDebug() {
+    if (this.currentPageName === "debug") return;
+    this.preDebugPage = this.currentPageName;
+    this.navigateTo("debug");
+  }
+
+  restoreFromDebug() {
+    if (this.currentPageName !== "debug") return;
+    const target = this.preDebugPage || "lyrics";
+    this.navigateTo(target);
   }
 
   showTransient(targetPage, durationMs) {
@@ -312,6 +328,7 @@ function onResize() {
 }
 
 function onPageClick() {
+  if (window.currentPageName === "debug") return;
   if (window.navManager) {
     window.navManager.toggle();
   }
@@ -355,7 +372,11 @@ function bindEvents() {
 }
 
 const loadedPages = new Set();
+const isDebugActive = new URLSearchParams(window.location.search).has("debug");
 const totalPages = ["lyrics", "detail"];
+if (isDebugActive) {
+  totalPages.push("debug");
+}
 let bootCalled = false;
 
 window.onIframeLoad = function(pageName) {

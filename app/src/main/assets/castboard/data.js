@@ -19,9 +19,25 @@ const LYRICS_LINES_CHANGE_EVENT = "lyrics-lines-change";
 const LYRICS_TRACK_CHANGE_EVENT = "lyrics-track-change";
 const LYRICS_PROGRESS_CHANGE_EVENT = "lyrics-progress-change";
 const DEBUG_OVERLAY_ENABLED = new URLSearchParams(window.location.search).has("debug");
+window.debugEvents = [];
 
 function updateDebugOverlay(event, data) {
   if (!DEBUG_OVERLAY_ENABLED) return;
+
+  // Add event to history
+  window.debugEvents.push({
+    id: Date.now() + "-" + Math.random().toString(36).substring(2, 6),
+    time: new Date().toLocaleTimeString() + "." + String(Date.now() % 1000).padStart(3, "0"),
+    event,
+    data: data ? JSON.parse(JSON.stringify(data)) : null
+  });
+  if (window.debugEvents.length > 50) {
+    window.debugEvents.shift();
+  }
+
+  // Dispatch custom event to notify listeners
+  window.dispatchEvent(new CustomEvent("debug-event-logged"));
+
   const el = document.getElementById("castboard-debug");
   if (!el) return;
 

@@ -6,25 +6,52 @@
     <title>CastBoard</title>
     <link rel="stylesheet" href="main.css" />
     <style>
-      .debug-overlay {
+      .debug-toggle-btn {
         position: fixed;
-        left: 12px;
-        bottom: 12px;
-        z-index: 9999;
-        margin: 0;
-        padding: 8px 10px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.82);
-        color: #111827;
-        font: 18px monospace;
-        line-height: 1.35;
-        pointer-events: none;
+        left: 20px;
+        bottom: 20px;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(20, 20, 25, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        color: #e4e4e7;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+      }
+      .debug-toggle-btn:hover {
+        background: rgba(30, 30, 35, 0.85);
+        border-color: rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+      }
+      .debug-toggle-btn.active {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.4);
+        color: #fca5a5;
+      }
+      .debug-toggle-btn.active:hover {
+        background: rgba(239, 68, 68, 0.35);
+        border-color: rgba(239, 68, 68, 0.6);
+        color: #ffffff;
       }
     </style>
   </head>
   <body>
     <div id="app-root"></div>
-    <pre id="castboard-debug" class="debug-overlay" hidden></pre>
+
+    <button id="debug-toggle-btn" class="debug-toggle-btn" style="display: none;" onclick="event.stopPropagation(); toggleDebugPage();">
+      <span style="font-size: 15px; line-height: 1;">🐞</span>
+      <span>Debug</span>
+    </button>
 
     <script src="data.js"></script>
     <script src="main.js"></script>
@@ -33,5 +60,51 @@
     <iframe id="iframe-lyrics" src="pages/lyrics.html" style="display: none;" onload="onIframeLoad('lyrics')"></iframe>
     <iframe id="iframe-detail" src="pages/detail.html" style="display: none;" onload="onIframeLoad('detail')"></iframe>
     <!-- <iframe id="iframe-placeholder" src="pages/placeholder.html" style="display: none;" onload="onIframeLoad('placeholder')"></iframe> -->
+
+    <script>
+      (function() {
+        const isDebug = new URLSearchParams(window.location.search).has("debug");
+        if (isDebug) {
+          // Show the toggle button
+          const btn = document.getElementById("debug-toggle-btn");
+          if (btn) btn.style.display = "flex";
+
+          // Dynamically load the debug iframe
+          const iframe = document.createElement("iframe");
+          iframe.id = "iframe-debug";
+          iframe.src = "pages/debug.html";
+          iframe.style.display = "none";
+          iframe.onload = () => {
+            if (typeof window.onIframeLoad === "function") {
+              window.onIframeLoad("debug");
+            }
+          };
+          document.body.appendChild(iframe);
+        }
+      })();
+
+      function toggleDebugPage() {
+        if (window.navManager) {
+          if (window.navManager.currentPageName === "debug") {
+            window.navManager.restoreFromDebug();
+          } else {
+            window.navManager.navigateToDebug();
+          }
+        }
+      }
+
+      window.updateDebugButtonState = function(pageName) {
+        const btn = document.getElementById("debug-toggle-btn");
+        if (!btn) return;
+        
+        if (pageName === "debug") {
+          btn.classList.add("active");
+          btn.innerHTML = `<span style="font-size: 12px; line-height: 1;">✕</span><span>Close</span>`;
+        } else {
+          btn.classList.remove("active");
+          btn.innerHTML = `<span style="font-size: 15px; line-height: 1;">🐞</span><span>Debug</span>`;
+        }
+      };
+    </script>
   </body>
 </html>
