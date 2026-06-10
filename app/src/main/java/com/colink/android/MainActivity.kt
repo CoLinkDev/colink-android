@@ -28,17 +28,27 @@ import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.theme.CoLinkTheme
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.LocaleHelper
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.colink.android.network.lan.LAN_PORT
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
     @Inject lateinit var settingsDataStore: SettingsDataStore
     private var launchTarget by mutableStateOf<LaunchTarget?>(null)
+
+    private var checkComplete by mutableStateOf(false)
+    private var isPortOccupied by mutableStateOf(false)
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -55,6 +65,56 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         lifecycleScope.launch {
+            val occupied = withContext(Dispatchers.IO) {
+                try {
+                    java.net.ServerSocket(LAN_PORT).use { false }
+                } catch (e: Exception) {
+                    true
+                }
+            }
+            if (occupied) {
+                isPortOccupied = true
+                checkComplete = true
+            } else {
+                isPortOccupied = false
+                checkComplete = true
+                initNormalFlow(savedInstanceState)
+            }
+        }
+
+        enableEdgeToEdge()
+
+        setContent {
+            CoLinkTheme {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    if (!checkComplete) {
+                        // Empty screen while checking port
+                    } else if (isPortOccupied) {
+                        AlertDialog(
+                            onDismissRequest = { },
+                            title = { Text(stringResource(R.string.port_occupied_title)) },
+                            text = { Text(stringResource(R.string.port_occupied_message)) },
+                            confirmButton = {
+                                TextButton(onClick = { finish() }) {
+                                    Text(stringResource(R.string.exit_btn))
+                                }
+                            }
+                        )
+                    } else {
+                        CoLinkNavGraph(
+                            pendingShareStore = pendingShareStore,
+                            launchTarget = launchTarget,
+                            onLaunchTargetConsumed = { launchTarget = null },
+                            onRequestNotificationPermission = ::requestNotificationPermission,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun initNormalFlow(savedInstanceState: Bundle?) {
+        lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 settingsDataStore.settings
                     .map { it.language }
@@ -67,29 +127,17 @@ class MainActivity : ComponentActivity() {
                     }
             }
         }
-
-        enableEdgeToEdge()
         handleShareIntent(intent)
         handleLaunchIntent(intent)
-        setContent {
-            CoLinkTheme {
-                Surface(color = MaterialTheme.colorScheme.background) {
-                    CoLinkNavGraph(
-                        pendingShareStore = pendingShareStore,
-                        launchTarget = launchTarget,
-                        onLaunchTargetConsumed = { launchTarget = null },
-                        onRequestNotificationPermission = ::requestNotificationPermission,
-                    )
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleShareIntent(intent)
-        handleLaunchIntent(intent)
+        if (checkComplete && !isPortOccupied) {
+            handleShareIntent(intent)
+            handleLaunchIntent(intent)
+        }
     }
 
     private fun requestNotificationPermission() {

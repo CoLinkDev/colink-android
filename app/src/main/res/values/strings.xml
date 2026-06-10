@@ -229,4 +229,7 @@
     <string name="status_failed">Failed</string>
     <string name="status_rejected">Rejected</string>
     <string name="status_cancelled">Cancelled</string>
+    <string name="port_occupied_title">Launch failed</string>
+    <string name="port_occupied_message">Port 27777 is occupied by another application. CoLink cannot start.</string>
+    <string name="exit_btn">Exit</string>
 </resources>

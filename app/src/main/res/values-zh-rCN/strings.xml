@@ -229,4 +229,7 @@
     <string name="status_failed">失败</string>
     <string name="status_rejected">已拒绝</string>
     <string name="status_cancelled">已取消</string>
+    <string name="port_occupied_title">启动失败</string>
+    <string name="port_occupied_message">端口 27777 已被其他应用程序占用，CoLink无法启动。</string>
+    <string name="exit_btn">退出</string>
 </resources>

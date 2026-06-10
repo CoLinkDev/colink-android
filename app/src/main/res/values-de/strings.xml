@@ -229,4 +229,7 @@
     <string name="status_failed">Fehlgeschlagen</string>
     <string name="status_rejected">Abgelehnt</string>
     <string name="status_cancelled">Abgebrochen</string>
+    <string name="port_occupied_title">Start fehlgeschlagen</string>
+    <string name="port_occupied_message">Port 27777 ist von einer anderen Anwendung belegt. CoLink kann nicht gestartet werden.</string>
+    <string name="exit_btn">Beenden</string>
 </resources>

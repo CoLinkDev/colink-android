@@ -229,4 +229,7 @@
     <string name="status_failed">失敗</string>
     <string name="status_rejected">拒否されました</string>
     <string name="status_cancelled">キャンセルされました</string>
+    <string name="port_occupied_title">起動失敗</string>
+    <string name="port_occupied_message">ポート27777は別のアプリケーションによって使用されています。CoLinkを起動できません。</string>
+    <string name="exit_btn">終了</string>
 </resources>

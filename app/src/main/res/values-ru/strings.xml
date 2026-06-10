@@ -229,4 +229,7 @@
     <string name="status_failed">Ошибка</string>
     <string name="status_rejected">Отклонено</string>
     <string name="status_cancelled">Отменено</string>
+    <string name="port_occupied_title">Ошибка запуска</string>
+    <string name="port_occupied_message">Порт 27777 занят другим приложением. CoLink не может быть запущен.</string>
+    <string name="exit_btn">Выход</string>
 </resources>

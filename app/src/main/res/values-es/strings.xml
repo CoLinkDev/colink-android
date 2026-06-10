@@ -229,4 +229,7 @@
     <string name="status_failed">Fallido</string>
     <string name="status_rejected">Rechazado</string>
     <string name="status_cancelled">Cancelado</string>
+    <string name="port_occupied_title">Error de inicio</string>
+    <string name="port_occupied_message">El puerto 27777 está ocupado por otra aplicación. CoLink no puede iniciarse.</string>
+    <string name="exit_btn">Salir</string>
 </resources>
