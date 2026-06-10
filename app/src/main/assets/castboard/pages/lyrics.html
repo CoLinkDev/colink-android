@@ -58,6 +58,7 @@
           height: calc(clamp(18px, 2.6vh, 34px) * 0.85);
           margin-right: 0.25em;
           object-fit: contain;
+          filter: url(#colorize-title-color);
         }
 
         .track-info-text {
@@ -91,6 +92,16 @@
         }
       </style>
 
+      <svg width="0" height="0" style="position: absolute; width: 0; height: 0;" aria-hidden="true">
+        <filter id="colorize-title-color">
+          <feColorMatrix type="matrix" values="
+            1    0    0    0    0
+            0    0.98 0    0    0
+            0    0    0.94 0    0
+            0    0    0    0.84 0
+          "/>
+        </filter>
+      </svg>
       <main class="stage" aria-label="Lyrics"></main>
       <aside class="track-info" aria-label="Playback Info" aria-live="polite" hidden>
         <img class="track-info-source-icon" alt="" aria-hidden="true" hidden>
