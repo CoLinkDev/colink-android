@@ -208,9 +208,8 @@ fun CastBoardFullScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { webViewContext ->
-                WebView.setWebContentsDebuggingEnabled(true)
                 if (BuildConfig.DEBUG) {
-                    
+                    WebView.setWebContentsDebuggingEnabled(true)
                 }
                 WebView(webViewContext).apply {
                     tag = castBoardUrl
