@@ -33,6 +33,7 @@ class LanSwimClient @Inject constructor(
         identity: DeviceIdentity,
         ip: String,
         port: Int,
+        incarnation: Long,
         seq: Long,
         gossip: List<SwimGossip>,
     ): Result<SwimEnvelope> =
@@ -44,6 +45,7 @@ class LanSwimClient @Inject constructor(
                 payload = SwimPayload(
                     seq = seq,
                     from = identity.deviceId,
+                    incarnation = incarnation,
                     gossip = gossip,
                 ),
             ),
@@ -55,6 +57,7 @@ class LanSwimClient @Inject constructor(
         ip: String,
         port: Int,
         targetDeviceId: String,
+        incarnation: Long,
         seq: Long,
         gossip: List<SwimGossip>,
     ): Result<SwimEnvelope> =
@@ -66,6 +69,7 @@ class LanSwimClient @Inject constructor(
                 payload = SwimPayload(
                     seq = seq,
                     from = identity.deviceId,
+                    incarnation = incarnation,
                     target = targetDeviceId,
                     gossip = gossip,
                 ),

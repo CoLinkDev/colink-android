@@ -1,11 +1,19 @@
 package com.colink.android.data.remote.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class ApiEnvelope<T>(
     val code: Int,
     val data: T? = null,
+    val message: String,
+)
+
+@Serializable
+data class ErrorEnvelope(
+    val code: Int,
+    val data: JsonElement? = null,
     val message: String,
 )
 

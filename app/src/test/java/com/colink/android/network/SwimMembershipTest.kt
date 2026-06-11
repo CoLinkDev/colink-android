@@ -54,11 +54,23 @@ class SwimMembershipTest {
         val initial = membership.ensureLocalStarted("local")!!
 
         now = initial.incarnation
-        val refutation = membership.refuteSelf("local")
+        val refutation = membership.refuteSelf("local", observedSuspicionIncarnation = initial.incarnation)
 
         assertTrue(refutation.incarnation > initial.incarnation)
         assertEquals("local", refutation.deviceId)
         assertEquals("alive", refutation.state)
+        assertEquals(refutation, membership.gossipBatch().first())
+    }
+
+    @Test
+    fun refuteSelfUsesObservedSuspicionIncarnation() {
+        val membership = membership()
+        membership.ensureLocalStarted("local")
+        now = 1_001L
+
+        val refutation = membership.refuteSelf("local", observedSuspicionIncarnation = 5_000L)
+
+        assertEquals(5_001L, refutation.incarnation)
         assertEquals(refutation, membership.gossipBatch().first())
     }
 
@@ -158,7 +170,7 @@ class SwimMembershipTest {
         assertNotNull(
             membership.markMember("local", "peer", MemberState.Suspect, 100L, explicit = false),
         )
-        val update = membership.observeAlive("local", "peer")
+        val update = membership.observeAlive("local", "peer", incarnation = null)
 
         assertNotNull(update)
         assertEquals(MemberState.Alive, membership.memberState("peer"))
@@ -174,8 +186,34 @@ class SwimMembershipTest {
         )
         assertEquals(1, membership.recordProbeMiss("peer"))
 
-        assertNull(membership.observeAlive("local", "peer"))
+        assertNull(membership.observeAlive("local", "peer", incarnation = null))
 
         assertEquals(1, membership.recordProbeMiss("peer"))
+    }
+
+    @Test
+    fun directObservationWithIncarnationCannotReviveSameIncarnationDead() {
+        val membership = membership()
+
+        assertNotNull(
+            membership.markMember("local", "peer", MemberState.Dead, 100L, explicit = true),
+        )
+
+        assertNull(membership.observeAlive("local", "peer", incarnation = 100L))
+        assertEquals(MemberState.Dead, membership.memberState("peer"))
+    }
+
+    @Test
+    fun directObservationWithHigherIncarnationRevivesDead() {
+        val membership = membership()
+
+        assertNotNull(
+            membership.markMember("local", "peer", MemberState.Dead, 100L, explicit = true),
+        )
+
+        val update = membership.observeAlive("local", "peer", incarnation = 101L)
+        assertNotNull(update)
+        assertEquals(MemberState.Alive, membership.memberState("peer"))
+        assertEquals(101L, update!!.incarnation)
     }
 }

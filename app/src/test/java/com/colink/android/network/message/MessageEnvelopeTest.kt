@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class MessageEnvelopeTest {
@@ -60,6 +61,7 @@ class MessageEnvelopeTest {
             payload = SwimPayload(
                 seq = 1,
                 from = "device-a",
+                incarnation = 2,
                 gossip = listOf(
                     SwimGossip(
                         deviceId = "device-a",
@@ -73,7 +75,7 @@ class MessageEnvelopeTest {
         val encoded = json.encodeToString(envelope)
 
         assertEquals(
-            """{"type":"swim.ping","payload":{"seq":1,"from":"device-a","gossip":[{"deviceId":"device-a","state":"alive","incarnation":2}]}}""",
+            """{"type":"swim.ping","payload":{"seq":1,"from":"device-a","incarnation":2,"gossip":[{"deviceId":"device-a","state":"alive","incarnation":2}]}}""",
             encoded,
         )
     }
@@ -85,6 +87,7 @@ class MessageEnvelopeTest {
             payload = SwimPayload(
                 seq = 2,
                 from = "device-a",
+                incarnation = 3,
                 target = "device-b",
                 gossip = emptyList(),
             ),
@@ -93,9 +96,19 @@ class MessageEnvelopeTest {
         val encoded = json.encodeToString(envelope)
 
         assertEquals(
-            """{"type":"swim.ping-req","payload":{"seq":2,"from":"device-a","target":"device-b","gossip":[]}}""",
+            """{"type":"swim.ping-req","payload":{"seq":2,"from":"device-a","incarnation":3,"target":"device-b","gossip":[]}}""",
             encoded,
         )
+    }
+
+    @Test
+    fun deserializesLegacySwimEnvelopeWithoutSenderIncarnation() {
+        val envelope = json.decodeFromString(
+            SwimEnvelope.serializer(),
+            """{"type":"swim.ping","payload":{"seq":1,"from":"device-a","gossip":[]}}""",
+        )
+
+        assertNull(envelope.payload.incarnation)
     }
 
     @Test

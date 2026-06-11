@@ -33,13 +33,13 @@ internal class SwimMembership(
             ).also(::pushGossipLocked)
         }
 
-    fun refuteSelf(deviceId: String): SwimGossip =
+    fun refuteSelf(deviceId: String, observedSuspicionIncarnation: Long): SwimGossip =
         synchronized(lock) {
             if (localDeviceId != null && localDeviceId != deviceId) {
                 clearLocked()
             }
             localDeviceId = deviceId
-            val incarnation = max(nowMillis(), (localIncarnation ?: 0L) + 1)
+            val incarnation = maxOf(nowMillis(), (localIncarnation ?: 0L) + 1, observedSuspicionIncarnation + 1)
             localIncarnation = incarnation
             SwimGossip(
                 deviceId = deviceId,
@@ -63,12 +63,30 @@ internal class SwimMembership(
             ).also(::pushGossipLocked)
         }
 
-    fun observeAlive(localDeviceId: String, deviceId: String): MemberUpdate? {
+    fun observeAlive(localDeviceId: String, deviceId: String, incarnation: Long?): MemberUpdate? {
+        if (incarnation != null && incarnation > nowMillis() + MAX_FUTURE_INCARNATION_MILLIS) {
+            return null
+        }
         synchronized(lock) {
             clearProbeMissesLocked(deviceId)
         }
-        return markMember(localDeviceId, deviceId, MemberState.Alive, incarnation = null, explicit = false)
+        return markMember(
+            localDeviceId,
+            deviceId,
+            MemberState.Alive,
+            incarnation = incarnation,
+            explicit = incarnation != null,
+        )
     }
+
+    fun localIncarnation(deviceId: String): Long =
+        synchronized(lock) {
+            if (localDeviceId != null && localDeviceId != deviceId) {
+                clearLocked()
+            }
+            localDeviceId = deviceId
+            localIncarnation ?: nowMillis().also { localIncarnation = it }
+        }
 
     fun mergeMember(
         localDeviceId: String,

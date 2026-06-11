@@ -4,6 +4,7 @@ import com.colink.android.data.remote.api.AuthApi
 import com.colink.android.data.remote.api.DeviceApi
 import com.colink.android.data.remote.api.UpdateApi
 import com.colink.android.data.remote.api.WsApi
+import com.colink.android.data.remote.ApiResultCallAdapterFactory
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -46,6 +47,7 @@ object NetworkModule {
         Retrofit.Builder()
             .baseUrl("http://127.0.0.1/")
             .client(okHttpClient)
+            .addCallAdapterFactory(ApiResultCallAdapterFactory(json))
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
 

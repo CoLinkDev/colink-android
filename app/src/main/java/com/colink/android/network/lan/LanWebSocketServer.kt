@@ -386,6 +386,7 @@ class LanWebSocketServer @Inject constructor(
                                 identity = identity,
                                 ip = device.localIp,
                                 port = device.localPort,
+                                incarnation = currentSwimIncarnation(identity),
                                 seq = swimRequest.payload.seq,
                                 gossip = swimGossip(identity),
                             )
@@ -481,9 +482,13 @@ class LanWebSocketServer @Inject constructor(
             payload = SwimPayload(
                 seq = seq,
                 from = identity.deviceId,
+                incarnation = currentSwimIncarnation(identity),
                 gossip = swimGossip(identity),
             ),
         )
+
+    private fun currentSwimIncarnation(identity: DeviceIdentity): Long =
+        listener?.currentSwimIncarnation(identity.deviceId) ?: System.currentTimeMillis()
 
     private fun selfGossip(identity: DeviceIdentity): List<SwimGossip> =
         listOf(
@@ -567,6 +572,8 @@ class LanWebSocketServer @Inject constructor(
         fun onSwimMessage(message: SwimEnvelope, sourceIp: String?)
 
         fun currentSwimGossip(localDeviceId: String): List<SwimGossip>
+
+        fun currentSwimIncarnation(localDeviceId: String): Long
     }
 }
 

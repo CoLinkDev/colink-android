@@ -112,7 +112,7 @@ private const val CLIPBOARD_MAX_BYTES = 1_048_576
 private const val FILE_ACK_INTERVAL_CHUNKS = 7L
 private const val LAN_SEND_WINDOW_CHUNKS = 8L
 private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
-private const val SWIM_PERIOD_MILLIS = 2_000L
+private const val SWIM_PERIOD_MILLIS = 3_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 5_000L
 private const val SWIM_MAX_GOSSIP = 10
 private const val SWIM_SUSPECT_MISSES = 2
@@ -396,6 +396,19 @@ class ConnectionManager @Inject constructor(
                 id = UUID.randomUUID().toString(),
                 type = "relay",
                 to = targetDeviceId,
+                payload = json.encodeToJsonElement(business),
+            )
+
+            check(cloudWebSocketClient.send(envelope)) { "cloud connection is not ready" }
+            "cloud"
+        }
+
+    private fun sendCloudBroadcast(business: BusinessEnvelope): Result<String> =
+        runCatching {
+            check(_cloudState.value.connected) { "cloud connection is not ready" }
+            val envelope = CloudClientEnvelope(
+                id = UUID.randomUUID().toString(),
+                type = "broadcast",
                 payload = json.encodeToJsonElement(business),
             )
 
@@ -1349,6 +1362,9 @@ class ConnectionManager @Inject constructor(
 
             override fun currentSwimGossip(localDeviceId: String): List<SwimGossip> =
                 gossipBatch(localDeviceId)
+
+            override fun currentSwimIncarnation(localDeviceId: String): Long =
+                swimMembership.localIncarnation(localDeviceId)
         }
 
     private fun startLanDiscovery(identity: DeviceIdentity) {
@@ -1412,6 +1428,7 @@ class ConnectionManager @Inject constructor(
                         identity = identity,
                         ip = ip,
                         port = port,
+                        incarnation = swimMembership.localIncarnation(identity.deviceId),
                         seq = nextSwimSeq(),
                         gossip = gossipBatch(identity.deviceId),
                     ).onFailure { error ->
@@ -1512,7 +1529,7 @@ class ConnectionManager @Inject constructor(
                 val session = authRepository.currentSession().getOrNull() ?: return
                 deviceRepository.syncDevices(session)
             }
-            "relay" -> {
+            "relay", "broadcast" -> {
                 val from = message.from ?: return
                 val payload = message.payload ?: return
                 val business = runCatching {
@@ -1836,19 +1853,19 @@ class ConnectionManager @Inject constructor(
                 syncKnownLanEndpoint(message.payload.from)
             }
         }
-        observeSwimAlive(identity.deviceId, message.payload.from)
+        observeSwimAlive(identity.deviceId, message.payload.from, message.payload.incarnation)
         message.payload.gossip.forEach { entry ->
             if (entry.deviceId == identity.deviceId && entry.state == MemberState.Suspect.wireValue) {
                 CoLinkLog.d("SWIM", "received suspicion for local device; refuting")
-                swimMembership.refuteSelf(identity.deviceId)
+                swimMembership.refuteSelf(identity.deviceId, entry.incarnation)
             } else {
                 mergeSwimMember(identity.deviceId, message.payload.from, entry)
             }
         }
     }
 
-    private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String) {
-        swimMembership.observeAlive(localDeviceId, deviceId)
+    private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String, incarnation: Long?) {
+        swimMembership.observeAlive(localDeviceId, deviceId, incarnation)
             ?.let { applyMemberUpdate(it) }
     }
 
@@ -2058,6 +2075,7 @@ class ConnectionManager @Inject constructor(
             identity = identity,
             ip = endpoint.ip,
             port = endpoint.port,
+            incarnation = swimMembership.localIncarnation(identity.deviceId),
             seq = nextSwimSeq(),
             gossip = gossipBatch(identity.deviceId),
         ).onFailure { error ->
@@ -2069,7 +2087,6 @@ class ConnectionManager @Inject constructor(
         }.getOrNull()
         if (ack != null) {
             processSwimMessage(ack, null)
-            markMember(identity.deviceId, target, MemberState.Alive, null, explicit = false)
             return
         }
 
@@ -2081,13 +2098,13 @@ class ConnectionManager @Inject constructor(
                     ip = intermediaryEndpoint.ip,
                     port = intermediaryEndpoint.port,
                     targetDeviceId = target,
+                    incarnation = swimMembership.localIncarnation(identity.deviceId),
                     seq = nextSwimSeq(),
                     gossip = gossipBatch(identity.deviceId),
                 ).getOrNull()
             }
         if (indirectAck != null) {
             processSwimMessage(indirectAck, null)
-            markMember(identity.deviceId, target, MemberState.Alive, null, explicit = false)
         } else {
             val missedProbes = swimMembership.recordProbeMiss(target)
             if (missedProbes < SWIM_SUSPECT_MISSES) {
@@ -2165,6 +2182,7 @@ class ConnectionManager @Inject constructor(
                         identity = identity,
                         ip = endpoint.ip,
                         port = endpoint.port,
+                        incarnation = swimMembership.localIncarnation(identity.deviceId),
                         seq = nextSwimSeq(),
                         gossip = listOf(entry),
                     )
@@ -2203,16 +2221,28 @@ class ConnectionManager @Inject constructor(
         }
         clipboardLastSentHash = hash
         val identity = deviceRepository.localDeviceIdentity()
+        val business = BusinessEnvelope(
+            type = CLIPBOARD_SYNC_TYPE,
+            payload = json.encodeToJsonElement(payload),
+        )
+        val cloudSent = sendCloudBroadcast(business).isSuccess
         deviceRepository.devices.first()
-            .filter { it.deviceId != identity?.deviceId && (it.online || it.lanAvailable) }
+            .filter {
+                it.deviceId != identity?.deviceId && if (cloudSent) {
+                    it.lanAvailable && !it.online
+                } else {
+                    it.online || it.lanAvailable
+                }
+            }
             .forEach { device ->
-                sendBusinessMessage(
-                    targetDeviceId = device.deviceId,
-                    business = BusinessEnvelope(
-                        type = CLIPBOARD_SYNC_TYPE,
-                        payload = json.encodeToJsonElement(payload),
-                    ),
-                )
+                if (cloudSent) {
+                    sendViaLan(device.deviceId, business)
+                } else {
+                    sendBusinessMessage(
+                        targetDeviceId = device.deviceId,
+                        business = business,
+                    )
+                }
             }
     }
 

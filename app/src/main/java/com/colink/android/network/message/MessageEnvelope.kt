@@ -209,6 +209,7 @@ data class SwimEnvelope(
 data class SwimPayload(
     val seq: Long,
     val from: String,
+    val incarnation: Long? = null,
     val target: String? = null,
     val gossip: List<SwimGossip>,
 )
