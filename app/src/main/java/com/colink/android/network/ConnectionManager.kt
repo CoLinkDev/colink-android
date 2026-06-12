@@ -646,10 +646,6 @@ class ConnectionManager @Inject constructor(
 
             else -> Unit
         }
-        notifyEvent(
-            title = context.getString(R.string.notification_clipboard_synced_title),
-            text = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
-        )
     }
 
     private suspend fun handleFileOffer(

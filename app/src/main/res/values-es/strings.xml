@@ -17,7 +17,6 @@
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">Eventos de CoLink</string>
-    <string name="notification_clipboard_synced_title">Portapapeles sincronizado</string>
     <string name="notification_file_received_title">Archivo recibido</string>
     <string name="notification_file_transfer_failed_title">Error en la transferencia de archivos</string>
     <string name="notification_lan_pairing_title">Solicitud de emparejamiento LAN</string>

@@ -17,7 +17,6 @@
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>
-    <string name="notification_clipboard_synced_title">剪贴板已同步</string>
     <string name="notification_file_received_title">文件已接收</string>
     <string name="notification_file_transfer_failed_title">文件传输失败</string>
     <string name="notification_lan_pairing_title">局域网配对请求</string>

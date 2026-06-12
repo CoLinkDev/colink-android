@@ -17,7 +17,6 @@
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink events</string>
-    <string name="notification_clipboard_synced_title">Clipboard synced</string>
     <string name="notification_file_received_title">File received</string>
     <string name="notification_file_transfer_failed_title">File transfer failed</string>
     <string name="notification_lan_pairing_title">LAN pairing request</string>

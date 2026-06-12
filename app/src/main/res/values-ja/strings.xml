@@ -17,7 +17,6 @@
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLinkイベント</string>
-    <string name="notification_clipboard_synced_title">クリップボードを同期しました</string>
     <string name="notification_file_received_title">ファイルを受信しました</string>
     <string name="notification_file_transfer_failed_title">ファイル転送に失敗しました</string>
     <string name="notification_lan_pairing_title">LAN ペアリング要求</string>

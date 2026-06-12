@@ -17,7 +17,6 @@
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink-Ereignisse</string>
-    <string name="notification_clipboard_synced_title">Zwischenablage synchronisiert</string>
     <string name="notification_file_received_title">Datei empfangen</string>
     <string name="notification_file_transfer_failed_title">Dateiübertragung fehlgeschlagen</string>
     <string name="notification_lan_pairing_title">LAN-Kopplungsanfrage</string>
