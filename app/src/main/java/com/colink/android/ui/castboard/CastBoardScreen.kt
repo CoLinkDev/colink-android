@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
@@ -176,6 +177,12 @@ fun CastBoardFullScreen(
         CastBoardConnectionStatus.Connected -> MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val sourceDeviceName = sourceDevice?.name ?: sourceDeviceId.orEmpty()
+    val sourceStatusText = if (statusText != null) {
+        "$sourceDeviceName · $statusText"
+    } else {
+        sourceDeviceName
+    }
 
     LaunchedEffect(controlsVisible, controlsRevealTick, connectionStatus) {
         if (connectionStatus == CastBoardConnectionStatus.WaitingForDevice) {
@@ -292,17 +299,12 @@ fun CastBoardFullScreen(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = sourceDevice?.name ?: sourceDeviceId.orEmpty(),
+                            text = sourceStatusText,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = statusColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        if (statusText != null) {
-                            Text(
-                                text = statusText,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = statusColor,
-                            )
-                        }
                         Text(
                             text = resolutionText,
                             style = MaterialTheme.typography.bodySmall,
