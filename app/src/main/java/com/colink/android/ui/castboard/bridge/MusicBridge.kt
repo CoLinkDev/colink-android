@@ -168,9 +168,9 @@ class MusicBridge {
             title = track.title.orEmpty(),
             album = track.album.orEmpty(),
             source = track.source.orEmpty(),
-            cover = track.coverUrl.orEmpty().ifBlank {
-                track.coverData?.let { "data:image/png;base64,$it" }.orEmpty()
-            },
+            cover = track.coverData?.let {
+                "data:image/png;base64,$it"
+            }.orEmpty().ifBlank { track.coverUrl.orEmpty() },
             duration = durationSeconds,
             durationHuman = formatDuration(durationSeconds),
             id = track.trackId.orEmpty(),
