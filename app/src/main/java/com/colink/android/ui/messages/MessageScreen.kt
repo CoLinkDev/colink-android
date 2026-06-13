@@ -203,7 +203,7 @@ fun MessageScreen(
             modifier = modifier,
         ) {
             ContactList(
-                devices = targetDevices,
+                devices = availableTargetDevices,
                 onSelect = {
                     viewModel.selectDevice(it)
                     onConversationSelected(it)
