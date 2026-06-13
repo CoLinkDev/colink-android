@@ -47,9 +47,7 @@ private fun buildFileChecksum(input: InputStream, algorithm: String): String {
 
 private fun String.splitChecksum(): Pair<String, String> {
     val index = indexOf(':')
-    if (index < 0) {
-        return "sha256" to this
-    }
+    require(index > 0) { "checksum must include an algorithm prefix" }
     return substring(0, index).lowercase() to substring(index + 1)
 }
 
