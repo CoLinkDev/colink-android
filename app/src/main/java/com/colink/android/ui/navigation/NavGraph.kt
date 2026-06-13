@@ -9,6 +9,7 @@ import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
@@ -259,10 +260,42 @@ private fun MainScaffold(
                     navController = nestedNavController,
                     startDestination = "devices",
                     modifier = Modifier.padding(innerPadding),
-                    enterTransition = { fadeIn(animationSpec = tween(durationMillis = 90)) },
-                    exitTransition = { fadeOut(animationSpec = tween(durationMillis = 70)) },
-                    popEnterTransition = { fadeIn(animationSpec = tween(durationMillis = 90)) },
-                    popExitTransition = { fadeOut(animationSpec = tween(durationMillis = 70)) },
+                    enterTransition = {
+                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val isLeftToRight = targetIndex >= initialIndex
+                        slideIntoContainer(
+                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(300)
+                        ) + fadeIn(animationSpec = tween(300))
+                    },
+                    exitTransition = {
+                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val isLeftToRight = targetIndex >= initialIndex
+                        slideOutOfContainer(
+                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(300)
+                        ) + fadeOut(animationSpec = tween(300))
+                    },
+                    popEnterTransition = {
+                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val isLeftToRight = targetIndex >= initialIndex
+                        slideIntoContainer(
+                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(300)
+                        ) + fadeIn(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                        val isLeftToRight = targetIndex >= initialIndex
+                        slideOutOfContainer(
+                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(300)
+                        ) + fadeOut(animationSpec = tween(300))
+                    },
                 ) {
                     composable("devices") {
                         DeviceListScreen(

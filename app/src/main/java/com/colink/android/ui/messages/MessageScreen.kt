@@ -100,26 +100,7 @@ import java.util.Date
 
 private val openDocumentMimeTypes = arrayOf("*/*")
 
-private sealed interface TimelineItem {
-    val id: String
-    val timestamp: Long
-    val direction: MessageDirection
-    val route: String
 
-    data class Message(val message: TextMessage) : TimelineItem {
-        override val id: String get() = message.messageId
-        override val timestamp: Long get() = message.createdAt
-        override val direction: MessageDirection get() = message.direction
-        override val route: String get() = message.route
-    }
-
-    data class Transfer(val transfer: FileTransfer) : TimelineItem {
-        override val id: String get() = transfer.sessionId
-        override val timestamp: Long get() = transfer.updatedAt
-        override val direction: MessageDirection get() = if (transfer.direction == FileTransferDirection.Incoming) MessageDirection.Incoming else MessageDirection.Outgoing
-        override val route: String get() = transfer.route
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,53 +115,30 @@ fun MessageScreen(
     transferViewModel: TransfersViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val targetDevices by viewModel.targetDevices.collectAsStateWithLifecycle()
+    val availableTargetDevices by viewModel.availableTargetDevices.collectAsStateWithLifecycle()
+    val selectedDevice by viewModel.selectedDevice.collectAsStateWithLifecycle()
+    val timelineItems by viewModel.timelineItems.collectAsStateWithLifecycle()
+    val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val messageUiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val transfers by transferViewModel.transfers.collectAsStateWithLifecycle()
     val transferUiState by transferViewModel.uiState.collectAsStateWithLifecycle()
 
     val isConversationRoute = !fixedDeviceId.isNullOrBlank()
-    var selectedDeviceId by rememberSaveable(fixedDeviceId) { mutableStateOf(fixedDeviceId) }
     var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
     var pendingFileUri by remember { mutableStateOf<Uri?>(null) }
     var pendingFileTargetDeviceId by remember { mutableStateOf<String?>(null) }
 
-    val targetDevices = remember(devices, messageUiState.localDeviceId) {
-        devicesWithoutLocalDevice(devices, messageUiState.localDeviceId)
-    }
-    val availableTargetDevices = remember(targetDevices) {
-        targetDevices.filter { it.online || it.lanAvailable }
-    }
 
-    val selectedDevice = remember(targetDevices, selectedDeviceId) {
-        targetDevices.firstOrNull { it.deviceId == selectedDeviceId }
-    }
-    val conversationMessages = remember(messages, selectedDeviceId) {
-        selectedDeviceId?.let { deviceId ->
-            messages.filter { it.deviceId == deviceId }
-        }.orEmpty()
-    }
-    val conversationTransfers = remember(transfers, selectedDeviceId) {
-        selectedDeviceId?.let { deviceId ->
-            transfers.filter { it.deviceId == deviceId }
-        }.orEmpty()
-    }
-    val timelineItems = remember(conversationMessages, conversationTransfers) {
-        val msgItems = conversationMessages.map { TimelineItem.Message(it) }
-        val transferItems = conversationTransfers.map { TimelineItem.Transfer(it) }
-        (msgItems + transferItems).sortedByDescending { it.timestamp }
-    }
 
     LaunchedEffect(fixedDeviceId) {
         if (!fixedDeviceId.isNullOrBlank()) {
-            selectedDeviceId = fixedDeviceId
+            viewModel.selectDevice(fixedDeviceId)
         }
     }
 
     LaunchedEffect(targetDevices, selectedDeviceId, isConversationRoute) {
         if (!isConversationRoute) {
-            selectedDeviceId = null
+            viewModel.selectDevice(null)
             return@LaunchedEffect
         }
         val current = selectedDeviceId
@@ -247,7 +205,10 @@ fun MessageScreen(
         ) {
             ContactList(
                 devices = targetDevices,
-                onSelect = onConversationSelected,
+                onSelect = {
+                    viewModel.selectDevice(it)
+                    onConversationSelected(it)
+                },
             )
         }
     } else {
@@ -256,7 +217,8 @@ fun MessageScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        if (selectedDevice != null) {
+                        val device = selectedDevice
+                        if (device != null) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -265,7 +227,7 @@ fun MessageScreen(
                                     modifier = Modifier
                                         .size(36.dp)
                                         .background(
-                                            color = if (selectedDevice.online || selectedDevice.lanAvailable) {
+                                            color = if (device.online || device.lanAvailable) {
                                                 MaterialTheme.colorScheme.primaryContainer
                                             } else {
                                                 MaterialTheme.colorScheme.surfaceVariant
@@ -275,9 +237,9 @@ fun MessageScreen(
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
-                                        imageVector = deviceTypeIcon(selectedDevice.type),
+                                        imageVector = deviceTypeIcon(device.type),
                                         contentDescription = null,
-                                        tint = if (selectedDevice.online || selectedDevice.lanAvailable) {
+                                        tint = if (device.online || device.lanAvailable) {
                                             MaterialTheme.colorScheme.onPrimaryContainer
                                         } else {
                                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -287,7 +249,7 @@ fun MessageScreen(
                                 }
                                 Column {
                                     Text(
-                                        text = selectedDevice.name.ifBlank { stringResource(R.string.unnamed_device) },
+                                        text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1,
@@ -298,20 +260,20 @@ fun MessageScreen(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = selectedDevice.type.ifBlank { stringResource(R.string.unknown_type) },
+                                            text = device.type.ifBlank { stringResource(R.string.unknown_type) },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
-                                        if (selectedDevice.lanAvailable) {
+                                        if (device.lanAvailable) {
                                             BadgeChip(
                                                 text = stringResource(R.string.device_tag_lan),
                                                 icon = Icons.Default.Wifi,
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                             )
-                                        } else if (selectedDevice.online) {
+                                        } else if (device.online) {
                                             BadgeChip(
                                                 text = stringResource(R.string.device_tag_cloud),
                                                 icon = Icons.Default.Cloud,
@@ -347,9 +309,10 @@ fun MessageScreen(
                 )
             }
         ) { innerPadding ->
-            if (selectedDevice != null) {
+            val device = selectedDevice
+            if (device != null) {
                 ConversationScreen(
-                    device = selectedDevice,
+                    device = device,
                     timelineItems = timelineItems,
                     isSendingMessage = messageUiState.sending,
                     isWorkingFiles = transferUiState.working,

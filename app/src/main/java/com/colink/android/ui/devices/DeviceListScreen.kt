@@ -62,12 +62,10 @@ fun DeviceListScreen(
     viewModel: DevicesViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
+    val availableDeviceCount by viewModel.availableDeviceCount.collectAsStateWithLifecycle()
     val lanPairingCandidates by viewModel.lanPairingCandidates.collectAsStateWithLifecycle()
     val lanConnectionError by viewModel.lanConnectionError.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val availableDeviceCount = remember(devices) {
-        devices.count { it.online || it.lanAvailable }
-    }
 
     SnackbarOnMessage(
         message = uiState.message,
