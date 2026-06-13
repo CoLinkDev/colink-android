@@ -3,6 +3,9 @@ package com.colink.android.ui.navigation
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -53,6 +56,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +88,8 @@ import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.flow.StateFlow
+
+private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
 
 private data class TopLevelRoute(
     val route: String,
@@ -220,7 +226,11 @@ private fun MainScaffold(
         startDestination = "main",
         modifier = modifier,
     ) {
-        composable("main") {
+        composable(
+            route = "main",
+            exitTransition = { ExitTransition.None },
+            popEnterTransition = { EnterTransition.None }
+        ) {
             val nestedNavController = rememberNavController()
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
@@ -273,8 +283,8 @@ private fun MainScaffold(
                         val isLeftToRight = targetIndex >= initialIndex
                         slideIntoContainer(
                             towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(380, easing = PageTransitionEasing)
+                        ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
                     },
                     exitTransition = {
                         val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
@@ -282,8 +292,8 @@ private fun MainScaffold(
                         val isLeftToRight = targetIndex >= initialIndex
                         slideOutOfContainer(
                             towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(380, easing = PageTransitionEasing)
+                        ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
                     },
                     popEnterTransition = {
                         val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
@@ -291,8 +301,8 @@ private fun MainScaffold(
                         val isLeftToRight = targetIndex >= initialIndex
                         slideIntoContainer(
                             towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(300)
-                        ) + fadeIn(animationSpec = tween(300))
+                            animationSpec = tween(380, easing = PageTransitionEasing)
+                        ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
                     },
                     popExitTransition = {
                         val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
@@ -300,8 +310,8 @@ private fun MainScaffold(
                         val isLeftToRight = targetIndex >= initialIndex
                         slideOutOfContainer(
                             towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(300)
-                        ) + fadeOut(animationSpec = tween(300))
+                            animationSpec = tween(380, easing = PageTransitionEasing)
+                        ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
                     },
                 ) {
                     composable("devices") {
@@ -352,31 +362,32 @@ private fun MainScaffold(
             enterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             popEnterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             popExitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             }
         ) { entry ->
             DeviceDetailsScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
+                modifier = Modifier.shadow(4.dp)
             )
         }
 
@@ -385,25 +396,25 @@ private fun MainScaffold(
             enterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             exitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             popEnterTransition = {
                 slideIntoContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             },
             popExitTransition = {
                 slideOutOfContainer(
                     towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(300)
+                    animationSpec = tween(380, easing = PageTransitionEasing)
                 )
             }
         ) { entry ->
@@ -411,6 +422,7 @@ private fun MainScaffold(
                 pendingShareStore = pendingShareStore,
                 fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
+                modifier = Modifier.shadow(4.dp)
             )
         }
 
