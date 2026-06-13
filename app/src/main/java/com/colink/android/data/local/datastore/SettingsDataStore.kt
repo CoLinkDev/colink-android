@@ -30,8 +30,8 @@ class SettingsDataStore @Inject constructor(
             AppSettings(
                 serverUrl = preferences[SERVER_URL] ?: BuildConfig.SERVER_BASE_URL,
                 autoStartOnBoot = preferences[AUTO_START_ON_BOOT] ?: false,
-                lanDiscovery = preferences[LAN_DISCOVERY] ?: true,
-                notifications = preferences[NOTIFICATIONS] ?: true,
+                lanDiscovery = true,
+                notifications = true,
                 deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
                 language = preferences[LANGUAGE] ?: "system",
             )
@@ -90,8 +90,8 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { preferences ->
             preferences[SERVER_URL] = normalizeServerUrl(settings.serverUrl)
             preferences[AUTO_START_ON_BOOT] = settings.autoStartOnBoot
-            preferences[LAN_DISCOVERY] = settings.lanDiscovery
-            preferences[NOTIFICATIONS] = settings.notifications
+            preferences[LAN_DISCOVERY] = true
+            preferences[NOTIFICATIONS] = true
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
             preferences[LANGUAGE] = settings.language
         }

@@ -64,6 +64,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun CastBoardScreen(
     onStartFullscreen: (String) -> Unit,
+    modifier: Modifier = Modifier,
     viewModel: CastBoardViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
@@ -83,7 +84,7 @@ fun CastBoardScreen(
     ScreenColumn(
         title = stringResource(R.string.nav_castboard),
         subtitle = stringResource(R.string.castboard_subtitle),
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier,
     ) {
         if (availableDevices.isEmpty()) {
             EmptyState(
@@ -361,4 +362,3 @@ private fun isComputer(type: String): Boolean {
     val lower = type.lowercase()
     return lower == "windows" || lower == "macos" || lower == "linux"
 }
-

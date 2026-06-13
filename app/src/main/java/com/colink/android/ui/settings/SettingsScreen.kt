@@ -25,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import com.colink.android.R
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.ui.components.ScreenColumn
@@ -63,11 +66,20 @@ fun SettingsScreen(
     var language by rememberSaveable { mutableStateOf("system") }
 
     LaunchedEffect(settings) {
-        serverUrl = settings.serverUrl
+        if (serverUrl.isEmpty()) {
+            serverUrl = settings.serverUrl
+        }
         autoStart = settings.autoStartOnBoot
         lanDiscovery = settings.lanDiscovery
         notifications = settings.notifications
         language = settings.language
+    }
+
+    LaunchedEffect(serverUrl) {
+        if (serverUrl.isNotEmpty() && serverUrl != settings.serverUrl) {
+            delay(500)
+            viewModel.updateServerUrl(serverUrl)
+        }
     }
 
     LaunchedEffect(uiState.message) {
@@ -108,6 +120,11 @@ fun SettingsScreen(
                 label = { Text(stringResource(R.string.server_url_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                )
             )
 
             // Language Dropdown
@@ -119,6 +136,11 @@ fun SettingsScreen(
                     readOnly = true,
                     label = { Text(stringResource(R.string.language_label)) },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    ),
                     trailingIcon = {
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -144,19 +166,14 @@ fun SettingsScreen(
                             onClick = {
                                 language = code
                                 expanded = false
+                                viewModel.updateLanguage(code)
                             }
                         )
                     }
                 }
             }
 
-            SettingSwitchRow(
-                icon = Icons.Default.Lan,
-                label = stringResource(R.string.lan_discovery_label),
-                body = stringResource(R.string.lan_discovery_body),
-                checked = lanDiscovery,
-                onCheckedChange = { lanDiscovery = it },
-            )
+            /*
             SettingSwitchRow(
                 icon = Icons.Default.Notifications,
                 label = stringResource(R.string.notifications_label),
@@ -164,38 +181,7 @@ fun SettingsScreen(
                 checked = notifications,
                 onCheckedChange = { notifications = it },
             )
-            /*
-            SettingSwitchRow(
-                icon = Icons.Default.PowerSettingsNew,
-                label = stringResource(R.string.auto_start_label),
-                body = stringResource(R.string.auto_start_body),
-                checked = autoStart,
-                onCheckedChange = { autoStart = it },
-            )
             */
-
-            Button(
-                onClick = {
-                    viewModel.save(
-                        settings.copy(
-                            serverUrl = serverUrl,
-                            deviceName = settings.deviceName,
-                            autoStartOnBoot = autoStart,
-                            lanDiscovery = lanDiscovery,
-                            notifications = notifications,
-                            language = language,
-                        ),
-                    )
-                },
-                enabled = !uiState.saving,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Text(
-                    text = stringResource(R.string.save_btn),
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
         }
     }
 }

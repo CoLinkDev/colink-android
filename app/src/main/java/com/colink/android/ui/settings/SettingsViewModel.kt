@@ -40,17 +40,25 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    fun save(settings: AppSettings) {
+    fun updateServerUrl(url: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.value = SettingsUiState(saving = true)
-            val result = runCatching {
-                settingsDataStore.saveSettings(settings)
-                connectionManager.applySettings(settings)
+            val current = settingsDataStore.currentSettings()
+            if (current.serverUrl != url) {
+                val updated = current.copy(serverUrl = url)
+                settingsDataStore.saveSettings(updated)
+                connectionManager.applySettings(updated)
             }
-            _uiState.value = SettingsUiState(
-                message = result.exceptionOrNull()?.message
-                    ?: context.getString(R.string.settings_saved),
-            )
+        }
+    }
+
+    fun updateLanguage(lang: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = settingsDataStore.currentSettings()
+            if (current.language != lang) {
+                val updated = current.copy(language = lang)
+                settingsDataStore.saveSettings(updated)
+                connectionManager.applySettings(updated)
+            }
         }
     }
 
