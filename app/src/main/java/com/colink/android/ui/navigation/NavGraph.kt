@@ -39,8 +39,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -212,7 +210,6 @@ private fun MainScaffold(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
-    val snackbarHostState = remember { SnackbarHostState() }
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
@@ -255,7 +252,6 @@ private fun MainScaffold(
 
             Scaffold(
                 contentWindowInsets = WindowInsets(0.dp),
-                snackbarHost = { SnackbarHost(snackbarHostState) },
                 topBar = {
                     MainTopBar(
                         cloudStatus = cloudStatus,
@@ -310,7 +306,6 @@ private fun MainScaffold(
                 ) {
                     composable("devices") {
                         DeviceListScreen(
-                            snackbarHostState = snackbarHostState,
                             onDeviceSelected = { deviceId ->
                                 if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
                                     rootNavController.navigate("device/${Uri.encode(deviceId)}")
@@ -320,7 +315,6 @@ private fun MainScaffold(
                     }
                     composable("messages") {
                         MessageScreen(
-                            snackbarHostState = snackbarHostState,
                             pendingShareStore = pendingShareStore,
                             onConversationSelected = { deviceId ->
                                 if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
@@ -382,7 +376,6 @@ private fun MainScaffold(
         ) { entry ->
             DeviceDetailsScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                snackbarHostState = snackbarHostState,
                 onBack = { rootNavController.popBackStack() },
             )
         }
@@ -415,7 +408,6 @@ private fun MainScaffold(
             }
         ) { entry ->
             MessageScreen(
-                snackbarHostState = snackbarHostState,
                 pendingShareStore = pendingShareStore,
                 fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },

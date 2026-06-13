@@ -36,7 +36,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,9 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.SnackbarOnMessage
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
@@ -67,7 +67,6 @@ import java.security.MessageDigest
 @Composable
 fun DeviceDetailsScreen(
     deviceId: String,
-    snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DevicesViewModel = hiltViewModel(),
@@ -79,12 +78,52 @@ fun DeviceDetailsScreen(
     }
     val isLocalDevice = device?.deviceId == uiState.localDeviceId
     var confirmAction by remember { mutableStateOf<DeviceAction?>(null) }
+    var runningAction by remember { mutableStateOf<DeviceAction?>(null) }
+    val context = LocalContext.current
 
-    SnackbarOnMessage(
-        message = uiState.message,
-        snackbarHostState = snackbarHostState,
-        onConsumed = viewModel::clearMessage,
-    )
+    LaunchedEffect(uiState.message) {
+        val msg = uiState.message
+        if (!msg.isNullOrBlank() && runningAction == null) {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
+    }
+
+    if (runningAction != null && uiState.message != null) {
+        val dialogTitle = when (runningAction) {
+            is DeviceAction.RotateKey -> stringResource(R.string.rotate_key_title)
+            is DeviceAction.Rename -> stringResource(R.string.rename_device_title)
+            is DeviceAction.Delete -> stringResource(R.string.delete_device_title)
+            is DeviceAction.ForgetTrust -> stringResource(R.string.forget_lan_trust_title)
+            null -> ""
+        }
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.clearMessage()
+                val wasDestructive = runningAction is DeviceAction.Delete || runningAction is DeviceAction.ForgetTrust
+                runningAction = null
+                if (wasDestructive) {
+                    onBack()
+                }
+            },
+            title = { Text(dialogTitle) },
+            text = { Text(uiState.message.orEmpty()) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearMessage()
+                        val wasDestructive = runningAction is DeviceAction.Delete || runningAction is DeviceAction.ForgetTrust
+                        runningAction = null
+                        if (wasDestructive) {
+                            onBack()
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.confirm_btn))
+                }
+            }
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -191,8 +230,8 @@ fun DeviceDetailsScreen(
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.deleteDevice(action.deviceId)
+                    runningAction = action
                     confirmAction = null
-                    onBack()
                 },
             )
         }
@@ -206,6 +245,7 @@ fun DeviceDetailsScreen(
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.rotateKey(action.deviceId)
+                    runningAction = action
                     confirmAction = null
                 },
             )
@@ -217,6 +257,7 @@ fun DeviceDetailsScreen(
                 onDismiss = { confirmAction = null },
                 onConfirm = { name ->
                     viewModel.renameDevice(action.deviceId, name)
+                    runningAction = action
                     confirmAction = null
                 },
             )
@@ -231,8 +272,8 @@ fun DeviceDetailsScreen(
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.forgetLanTrust(action.deviceId)
+                    runningAction = action
                     confirmAction = null
-                    onBack()
                 },
             )
         }
