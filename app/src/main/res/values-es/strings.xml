@@ -3,6 +3,15 @@
     <string name="service_channel_name">Conexión CoLink</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">Servicio CoLink en ejecución</string>
+    <string name="service_transfer_sending_title">Enviando archivo</string>
+    <string name="service_transfer_receiving_title">Recibiendo archivo</string>
+    <string name="service_transfer_verifying_title">Comprobando archivo</string>
+    <string name="service_transfer_completed_title">Transferencia completada</string>
+    <string name="service_transfer_failed_title">Error en la transferencia</string>
+    <string name="service_transfer_cancelled_title">Transferencia cancelada</string>
+    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
+    <string name="service_transfer_verifying_text">Comprobando integridad: %1$s</string>
+    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">Dispositivos</string>
@@ -224,6 +233,7 @@
     <string name="status_completed">Completado</string>
     <string name="status_receiving">Recibiendo</string>
     <string name="status_sending">Enviando</string>
+    <string name="status_verifying">Comprobando integridad</string>
     <string name="status_offered">Ofrecido</string>
     <string name="status_failed">Fallido</string>
     <string name="status_rejected">Rechazado</string>

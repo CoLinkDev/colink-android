@@ -17,7 +17,7 @@ interface FileTransferDao {
     @Upsert
     suspend fun upsert(transfer: FileTransferEntity)
 
-    @Query("DELETE FROM file_transfers WHERE status NOT IN ('offered', 'sending', 'receiving')")
+    @Query("DELETE FROM file_transfers WHERE status NOT IN ('offered', 'sending', 'receiving', 'verifying')")
     suspend fun clearFinished()
 
     @Query(
@@ -26,7 +26,7 @@ interface FileTransferDao {
         SET status = 'failed',
             error = :reason,
             updatedAt = :updatedAt
-        WHERE status IN ('offered', 'accepted', 'sending', 'receiving')
+        WHERE status IN ('offered', 'accepted', 'sending', 'receiving', 'verifying')
         """,
     )
     suspend fun failUnfinished(reason: String, updatedAt: Long)

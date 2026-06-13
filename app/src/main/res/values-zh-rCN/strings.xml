@@ -3,6 +3,15 @@
     <string name="service_channel_name">CoLink 连接</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink 服务运行中</string>
+    <string name="service_transfer_sending_title">正在发送文件</string>
+    <string name="service_transfer_receiving_title">正在接收文件</string>
+    <string name="service_transfer_verifying_title">正在检查文件</string>
+    <string name="service_transfer_completed_title">文件传输完成</string>
+    <string name="service_transfer_failed_title">文件传输失败</string>
+    <string name="service_transfer_cancelled_title">文件传输已取消</string>
+    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
+    <string name="service_transfer_verifying_text">正在检查文件完整性：%1$s</string>
+    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
@@ -224,6 +233,7 @@
     <string name="status_completed">已完成</string>
     <string name="status_receiving">接收中</string>
     <string name="status_sending">发送中</string>
+    <string name="status_verifying">正在检查完整性</string>
     <string name="status_offered">已提供</string>
     <string name="status_failed">失败</string>
     <string name="status_rejected">已拒绝</string>

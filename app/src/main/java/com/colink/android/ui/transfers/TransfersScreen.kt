@@ -290,13 +290,17 @@ private fun TransferCard(
                 }
             }
 
-            if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending")) {
-                LinearProgressIndicator(
-                    progress = {
-                        (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending", "verifying")) {
+                if (transfer.status == "verifying") {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                } else {
+                    LinearProgressIndicator(
+                        progress = {
+                            (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             Row(
@@ -447,6 +451,7 @@ private fun statusLabel(status: String): String =
         "completed" -> stringResource(R.string.status_completed)
         "receiving" -> stringResource(R.string.status_receiving)
         "sending" -> stringResource(R.string.status_sending)
+        "verifying" -> stringResource(R.string.status_verifying)
         "offered" -> stringResource(R.string.status_offered)
         "failed" -> stringResource(R.string.status_failed)
         "rejected" -> stringResource(R.string.status_rejected)

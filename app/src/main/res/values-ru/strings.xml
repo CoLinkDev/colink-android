@@ -3,6 +3,15 @@
     <string name="service_channel_name">Подключение CoLink</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">Служба CoLink запущена</string>
+    <string name="service_transfer_sending_title">Отправка файла</string>
+    <string name="service_transfer_receiving_title">Получение файла</string>
+    <string name="service_transfer_verifying_title">Проверка файла</string>
+    <string name="service_transfer_completed_title">Передача файла завершена</string>
+    <string name="service_transfer_failed_title">Ошибка передачи файла</string>
+    <string name="service_transfer_cancelled_title">Передача файла отменена</string>
+    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
+    <string name="service_transfer_verifying_text">Проверка целостности файла: %1$s</string>
+    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
@@ -224,6 +233,7 @@
     <string name="status_completed">Завершено</string>
     <string name="status_receiving">Получение</string>
     <string name="status_sending">Отправка</string>
+    <string name="status_verifying">Проверка целостности</string>
     <string name="status_offered">Предложено</string>
     <string name="status_failed">Ошибка</string>
     <string name="status_rejected">Отклонено</string>

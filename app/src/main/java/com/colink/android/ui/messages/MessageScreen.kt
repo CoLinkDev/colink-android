@@ -859,18 +859,30 @@ private fun TransferBubble(
                     }
                 }
 
-                if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending")) {
+                if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending", "verifying")) {
                     val progress = (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
-                        trackColor = if (outgoing) {
-                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        }
-                    )
+                    if (transfer.status == "verifying") {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                            trackColor = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                            trackColor = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                    }
                 }
 
                 Row(
@@ -1029,6 +1041,7 @@ private fun statusLabel(status: String): String =
         "completed" -> stringResource(R.string.status_completed)
         "receiving" -> stringResource(R.string.status_receiving)
         "sending" -> stringResource(R.string.status_sending)
+        "verifying" -> stringResource(R.string.status_verifying)
         "offered" -> stringResource(R.string.status_offered)
         "failed" -> stringResource(R.string.status_failed)
         "rejected" -> stringResource(R.string.status_rejected)

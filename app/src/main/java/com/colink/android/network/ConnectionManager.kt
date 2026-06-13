@@ -1264,7 +1264,16 @@ class ConnectionManager @Inject constructor(
         transfer: FileTransfer,
     ) {
         val chunksComplete = state.receivedChunks == state.expectedChunks
-        val checksumMatches = chunksComplete && state.tempFile.blake3Checksum() == transfer.checksum
+        val verifyingTransfer = if (chunksComplete) {
+            transfer.copy(
+                status = "verifying",
+                transferredBytes = transfer.fileSize,
+                updatedAt = System.currentTimeMillis(),
+            ).also { fileTransferRepository.save(it) }
+        } else {
+            transfer
+        }
+        val checksumMatches = chunksComplete && state.tempFile.blake3Checksum() == verifyingTransfer.checksum
         val success = chunksComplete && checksumMatches
         val reason = when {
             success -> null
@@ -1272,16 +1281,16 @@ class ConnectionManager @Inject constructor(
             else -> REASON_TRANSFER_CHECKSUM_MISMATCH
         }
         val finalUri = if (success) {
-            saveReceivedFileToDownloads(state.tempFile, transfer.fileName)
+            saveReceivedFileToDownloads(state.tempFile, verifyingTransfer.fileName)
         } else {
             state.tempFile.delete()
             null
         }
         fileTransferRepository.save(
-            transfer.copy(
+            verifyingTransfer.copy(
                 status = if (success) "completed" else "failed",
-                transferredBytes = if (success) transfer.fileSize else transfer.transferredBytes,
-                localUri = finalUri ?: transfer.localUri,
+                transferredBytes = if (success) verifyingTransfer.fileSize else transfer.transferredBytes,
+                localUri = finalUri ?: verifyingTransfer.localUri,
                 error = reason,
                 updatedAt = System.currentTimeMillis(),
             ),
@@ -1307,7 +1316,7 @@ class ConnectionManager @Inject constructor(
             } else {
                 context.getString(R.string.notification_file_transfer_failed_title)
             },
-            text = transfer.fileName,
+            text = verifyingTransfer.fileName,
         )
     }
 

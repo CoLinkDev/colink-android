@@ -3,6 +3,15 @@
     <string name="service_channel_name">CoLink 연결</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink 서비스 실행 중</string>
+    <string name="service_transfer_sending_title">파일 보내는 중</string>
+    <string name="service_transfer_receiving_title">파일 받는 중</string>
+    <string name="service_transfer_verifying_title">파일 확인 중</string>
+    <string name="service_transfer_completed_title">파일 전송 완료</string>
+    <string name="service_transfer_failed_title">파일 전송 실패</string>
+    <string name="service_transfer_cancelled_title">파일 전송 취소됨</string>
+    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
+    <string name="service_transfer_verifying_text">파일 무결성 확인 중: %1$s</string>
+    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">디바이스</string>
@@ -224,6 +233,7 @@
     <string name="status_completed">완료됨</string>
     <string name="status_receiving">받는 중</string>
     <string name="status_sending">보내는 중</string>
+    <string name="status_verifying">무결성 확인 중</string>
     <string name="status_offered">제안됨</string>
     <string name="status_failed">실패함</string>
     <string name="status_rejected">거절됨</string>
