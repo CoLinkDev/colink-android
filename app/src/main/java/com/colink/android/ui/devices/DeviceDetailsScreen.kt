@@ -25,7 +25,8 @@ import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -257,7 +258,13 @@ private fun DeviceActionsCard(
         return
     }
 
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        shape = MaterialTheme.shapes.large,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -334,7 +341,13 @@ private fun DeviceInformationCard(
         DetailRowData(stringResource(R.string.label_public_key), device.publicKey.ifBlank { stringResource(R.string.value_none) }, mono = true, maxLines = 6),
     )
 
-    ElevatedCard(modifier = modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        shape = MaterialTheme.shapes.large,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
