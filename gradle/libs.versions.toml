@@ -1,9 +1,9 @@
 [versions]
 activityCompose = "1.9.3"
-agp = "8.7.3"
+agp = "8.9.1"
 bcprov = "1.78.1"
 composeBom = "2024.10.01"
-coreKtx = "1.15.0"
+coreKtx = "1.17.0"
 datastore = "1.1.1"
 hilt = "2.52"
 hiltNavigation = "1.2.0"
