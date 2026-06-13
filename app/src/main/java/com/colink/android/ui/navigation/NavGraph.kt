@@ -60,6 +60,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
@@ -311,7 +312,9 @@ private fun MainScaffold(
                         DeviceListScreen(
                             snackbarHostState = snackbarHostState,
                             onDeviceSelected = { deviceId ->
-                                rootNavController.navigate("device/${Uri.encode(deviceId)}")
+                                if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                                    rootNavController.navigate("device/${Uri.encode(deviceId)}")
+                                }
                             },
                         )
                     }
@@ -320,7 +323,9 @@ private fun MainScaffold(
                             snackbarHostState = snackbarHostState,
                             pendingShareStore = pendingShareStore,
                             onConversationSelected = { deviceId ->
-                                rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
+                                if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                                    rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
+                                }
                             },
                         )
                     }
