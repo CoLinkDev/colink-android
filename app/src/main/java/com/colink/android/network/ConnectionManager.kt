@@ -95,6 +95,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -165,7 +167,8 @@ class ConnectionManager @Inject constructor(
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
     private var swimSeq = 0L
-    private var probeCursor = 0
+    private val probeQueue = ArrayDeque<String>()
+    private var probeRoundCandidates = emptyList<String>()
     private val clipboardManager = context.getSystemService(ClipboardManager::class.java)
     private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
     private var clipboardSuppressedHash: String? = null
@@ -220,7 +223,8 @@ class ConnectionManager @Inject constructor(
         _lanPairingCandidates.value = emptyList()
         failPendingLanSends("LAN services stopped")
         synchronized(swimLock) {
-            probeCursor = 0
+            probeQueue.clear()
+            probeRoundCandidates = emptyList()
         }
         cloudWebSocketClient.close()
         _cloudState.value = CloudConnectionState()
@@ -308,7 +312,8 @@ class ConnectionManager @Inject constructor(
         swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
-            probeCursor = 0
+            probeQueue.clear()
+            probeRoundCandidates = emptyList()
         }
         scope.launch { deviceRepository.clearAllLanEndpoints() }
     }
@@ -2097,19 +2102,7 @@ class ConnectionManager @Inject constructor(
             return
         }
 
-        val indirectAck = indirectTargets(identity.deviceId, target)
-            .firstNotNullOfOrNull { intermediary ->
-                val intermediaryEndpoint = swimEndpoints[intermediary] ?: return@firstNotNullOfOrNull null
-                lanSwimClient.pingReq(
-                    identity = identity,
-                    ip = intermediaryEndpoint.ip,
-                    port = intermediaryEndpoint.port,
-                    targetDeviceId = target,
-                    incarnation = swimMembership.localIncarnation(identity.deviceId),
-                    seq = nextSwimSeq(),
-                    gossip = gossipBatch(identity.deviceId),
-                ).getOrNull()
-            }
+        val indirectAck = firstSuccessfulIndirectAck(identity, target)
         if (indirectAck != null) {
             processSwimMessage(indirectAck, null)
         } else {
@@ -2126,6 +2119,55 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    private suspend fun firstSuccessfulIndirectAck(
+        identity: DeviceIdentity,
+        target: String,
+    ): SwimEnvelope? = coroutineScope {
+        val requests = indirectTargets(identity.deviceId, target)
+            .mapNotNull { intermediary ->
+                swimEndpoints[intermediary]?.let { endpoint -> intermediary to endpoint }
+            }
+        if (requests.isEmpty()) {
+            return@coroutineScope null
+        }
+
+        val results = Channel<Pair<String, Result<SwimEnvelope>>>(Channel.UNLIMITED)
+        val jobs = requests.map { (intermediary, endpoint) ->
+            launch {
+                val result = lanSwimClient.pingReq(
+                    identity = identity,
+                    ip = endpoint.ip,
+                    port = endpoint.port,
+                    targetDeviceId = target,
+                    incarnation = swimMembership.localIncarnation(identity.deviceId),
+                    seq = nextSwimSeq(),
+                    gossip = gossipBatch(identity.deviceId),
+                )
+                results.send(intermediary to result)
+            }
+        }
+
+        try {
+            repeat(jobs.size) {
+                val (intermediary, result) = results.receive()
+                result.getOrNull()?.let { ack ->
+                    jobs.forEach { it.cancel() }
+                    return@coroutineScope ack
+                }
+                result.exceptionOrNull()?.let { error ->
+                    CoLinkLog.d(
+                        "SWIM",
+                        "indirect probe failed target=${CoLinkLog.shortId(target)} intermediary=${CoLinkLog.shortId(intermediary)} error=${error.message}",
+                    )
+                }
+            }
+            null
+        } finally {
+            jobs.forEach { it.cancel() }
+            results.close()
+        }
+    }
+
     private fun nextProbeTarget(localDeviceId: String): String? {
         val candidates = swimMembership.membersSnapshot()
             .filter { (deviceId, member) ->
@@ -2136,11 +2178,20 @@ class ConnectionManager @Inject constructor(
             .keys
             .sorted()
         if (candidates.isEmpty()) {
+            synchronized(swimLock) {
+                probeQueue.clear()
+                probeRoundCandidates = emptyList()
+            }
             return null
         }
-        val target = candidates[probeCursor % candidates.size]
-        probeCursor = (probeCursor + 1) % candidates.size
-        return target
+        return synchronized(swimLock) {
+            if (probeQueue.isEmpty() || probeRoundCandidates != candidates) {
+                probeRoundCandidates = candidates
+                probeQueue.clear()
+                probeQueue.addAll(candidates.shuffled())
+            }
+            if (probeQueue.isEmpty()) null else probeQueue.removeFirst()
+        }
     }
 
     private fun indirectTargets(localDeviceId: String, targetDeviceId: String): List<String> =
