@@ -7,7 +7,6 @@ import com.colink.android.network.message.FileOfferPayload
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.bouncycastle.crypto.digests.Blake3Digest
 
 private const val FILE_CHUNK_SIZE = 512 * 1024L
 
@@ -31,7 +30,7 @@ suspend fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFil
                 fileSize = metadata.size,
                 totalChunks = totalChunks,
                 chunkSize = FILE_CHUNK_SIZE,
-                checksum = contentResolver.blake3Checksum(uri),
+                checksum = contentResolver.fileChecksum(uri),
             ),
             localUri = uri.toString(),
         )
@@ -63,22 +62,4 @@ private fun ContentResolver.readFileMetadata(uri: Uri): FileMetadata {
     }
     require(size >= 0) { "file size is unavailable" }
     return FileMetadata(name = name, size = size)
-}
-
-private fun ContentResolver.blake3Checksum(uri: Uri): String {
-    val digest = Blake3Digest(256)
-    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-    openInputStream(uri)?.use { input ->
-        while (true) {
-            val read = input.read(buffer)
-            if (read <= 0) {
-                break
-            }
-            digest.update(buffer, 0, read)
-        }
-    } ?: error("file is unavailable")
-
-    val output = ByteArray(32)
-    digest.doFinal(output, 0)
-    return "blake3:${output.joinToString("") { "%02x".format(it) }}"
 }

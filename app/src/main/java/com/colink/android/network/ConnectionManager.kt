@@ -68,7 +68,7 @@ import com.colink.android.network.message.TextMessagePayload
 import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
-import com.colink.android.network.transfer.blake3Checksum
+import com.colink.android.network.transfer.FileChecksumVerifier
 import com.colink.android.network.music.MusicSyncManager
 import java.io.File
 import java.io.InterruptedIOException
@@ -705,6 +705,7 @@ class ConnectionManager @Inject constructor(
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             require(transfer.status == "offered") { "transfer is no longer available" }
             val token = UUID.randomUUID().toString().replace("-", "")
+            val verifier = FileChecksumVerifier.from(transfer.checksum)
             val tempFile = File.createTempFile(
                 "colink-${sessionId}-",
                 ".part",
@@ -714,6 +715,7 @@ class ConnectionManager @Inject constructor(
                 expectedChunks = transfer.totalChunks,
                 receivedChunks = 0,
                 tempFile = tempFile,
+                verifier = verifier,
                 route = transfer.route,
             )
             lanWebSocketServer.registerTransferToken(sessionId, token)
@@ -1273,7 +1275,7 @@ class ConnectionManager @Inject constructor(
         } else {
             transfer
         }
-        val checksumMatches = chunksComplete && state.tempFile.blake3Checksum() == verifyingTransfer.checksum
+        val checksumMatches = chunksComplete && state.verifier.verify()
         val success = chunksComplete && checksumMatches
         val reason = when {
             success -> null
@@ -1653,6 +1655,7 @@ class ConnectionManager @Inject constructor(
 
     private fun appendIncomingChunk(state: IncomingTransferState, bytes: ByteArray): Int {
         state.tempFile.appendBytes(bytes)
+        state.verifier.update(bytes)
         state.receivedChunks += 1
         return bytes.size
     }
@@ -2431,6 +2434,7 @@ private data class IncomingTransferState(
     val expectedChunks: Long,
     var receivedChunks: Long,
     val tempFile: File,
+    val verifier: FileChecksumVerifier,
     var route: String = "cloud",
     val windowSize: Long = LAN_SEND_WINDOW_CHUNKS,
     val reorderBuffer: TreeMap<Long, ByteArray> = TreeMap(),
