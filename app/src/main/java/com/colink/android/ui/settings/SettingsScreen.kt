@@ -93,17 +93,16 @@ fun SettingsScreen(
         subtitle = stringResource(R.string.settings_subtitle),
         modifier = modifier,
     ) {
-        val systemLanguage = stringResource(R.string.lang_system)
         val languages = listOf(
-            "system" to systemLanguage,
-            "en" to stringResource(R.string.lang_english),
-            "zh-CN" to stringResource(R.string.lang_simplified_chinese),
-            "zh-TW" to stringResource(R.string.lang_traditional_chinese),
-            "ja" to stringResource(R.string.lang_japanese),
-            "ko" to stringResource(R.string.lang_korean),
-            "es" to stringResource(R.string.lang_spanish),
-            "de" to stringResource(R.string.lang_german),
-            "ru" to stringResource(R.string.lang_russian),
+            "system" to "System Default",
+            "en" to "English",
+            "zh-CN" to "简体中文",
+            "zh-TW" to "繁體中文",
+            "ja" to "日本語",
+            "ko" to "한국어",
+            "es" to "Español",
+            "de" to "Deutsch",
+            "ru" to "Русский",
         )
         val currentLanguageLabel = languages.find { it.first == language }?.second.orEmpty()
 
