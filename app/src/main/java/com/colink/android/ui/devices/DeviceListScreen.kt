@@ -48,9 +48,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.LanPairingCandidate
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.RefreshableList
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.SnackbarOnMessage
 
@@ -95,9 +97,10 @@ fun DeviceListScreen(
         ),
         modifier = modifier,
     ) {
-        RefreshableList(
-            isRefreshing = uiState.loading,
-            onRefresh = viewModel::refresh,
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                 item(contentType = "empty") {

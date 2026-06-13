@@ -18,12 +18,10 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -167,28 +165,7 @@ fun EmptyState(
     }
 }
 
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-fun RefreshableList(
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-    modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(bottom = 16.dp),
-    content: LazyListScope.() -> Unit,
-) {
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-        modifier = modifier.fillMaxSize(),
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = content,
-        )
-    }
-}
+
 
 @Composable
 fun SnackbarOnMessage(
