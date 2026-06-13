@@ -304,8 +304,8 @@ private fun DeviceCard(
                         BadgeChip(
                             text = stringResource(R.string.device_tag_local),
                             icon = Icons.Default.Computer,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     } else if (lanState == "suspect") {
                         BadgeChip(
