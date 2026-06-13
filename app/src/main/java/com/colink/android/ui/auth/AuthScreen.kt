@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -85,8 +86,7 @@ fun AuthDialogContent(
 ) {
     AuthContent(
         modifier = modifier
-            .fillMaxWidth()
-            .imePadding(),
+            .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         showHeader = false,
         onAuthenticated = onAuthenticated,
@@ -138,19 +138,6 @@ private fun AuthContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(modifier = Modifier.size(72.dp)) {
-                    Image(
-                        painter = painterResource(R.drawable.colink_logo_body),
-                        contentDescription = null,
-                        modifier = Modifier.size(72.dp),
-                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
-                    )
-                    Image(
-                        painter = painterResource(R.drawable.colink_logo_dot),
-                        contentDescription = null,
-                        modifier = Modifier.size(72.dp),
-                    )
-                }
                 Text(
                     text = "CoLink",
                     style = MaterialTheme.typography.headlineLarge,
@@ -174,7 +161,13 @@ private fun AuthContent(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.server_url_label)) },
                 leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Next
@@ -188,7 +181,13 @@ private fun AuthContent(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.email_or_username_label)) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 singleLine = true,
             )
@@ -199,7 +198,13 @@ private fun AuthContent(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.password_label)) },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
@@ -224,15 +229,10 @@ private fun AuthContent(
             StateMessage(errorMsg)
 
             if (onDismiss != null) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel_btn))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
                             localErrorResId = validate(
@@ -247,6 +247,7 @@ private fun AuthContent(
                             viewModel.login(normalizedServerUrl, identifier, password)
                         },
                         enabled = !uiState.loading,
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
                     ) {
                         if (uiState.loading) {
@@ -258,6 +259,12 @@ private fun AuthContent(
                         } else {
                             Text(stringResource(R.string.login_btn))
                         }
+                    }
+                    TextButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.cancel_btn))
                     }
                 }
             } else {
