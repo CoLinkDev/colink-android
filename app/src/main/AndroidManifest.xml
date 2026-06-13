@@ -17,6 +17,7 @@
         android:label="${appName}"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="false"
         android:theme="@style/Theme.CoLink">
 
         <activity
