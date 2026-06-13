@@ -628,7 +628,7 @@ private fun MainBottomBar(navController: NavHostController) {
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    if (!selected) {
+                    if (!selected && navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
                         navController.navigateTopLevel(item.route)
                     }
                 },
