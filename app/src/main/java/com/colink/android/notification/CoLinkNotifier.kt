@@ -54,7 +54,7 @@ class CoLinkNotifier @Inject constructor(
             return
         }
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(mainActivityIntent())
@@ -72,7 +72,7 @@ class CoLinkNotifier @Inject constructor(
             return
         }
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(deviceName)
             .setContentText(text)
             .setStyle(
@@ -120,7 +120,7 @@ class CoLinkNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(deviceName)
             .setContentText(body)
             .setStyle(
@@ -182,7 +182,7 @@ class CoLinkNotifier @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(

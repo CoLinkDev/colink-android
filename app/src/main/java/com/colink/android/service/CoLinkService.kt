@@ -79,11 +79,13 @@ class CoLinkService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.colink_logo)
+            .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(getString(R.string.service_notification_title))
             .setContentText(getString(R.string.service_notification_desc))
+            .setStyle(NotificationCompat.BigTextStyle())
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setRequestPromotedOngoing(true)
             .setShowWhen(false)
             .build()
     }
