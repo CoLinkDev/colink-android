@@ -78,6 +78,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import androidx.core.text.HtmlCompat
 import com.colink.android.util.CoLinkLog
 import java.net.URI
 import java.net.URLEncoder
@@ -610,12 +611,22 @@ class ConnectionManager @Inject constructor(
         val hash = payload.clipboardHash()
         clipboardSuppressedHash = hash
         when (payload.contentType) {
-            "text/plain", "text/html" -> {
+            "text/plain" -> {
                 val content = payload.content ?: return
                 if (content.toByteArray().size > CLIPBOARD_MAX_BYTES) {
                     return
                 }
                 clipboardManager.setPrimaryClip(ClipData.newPlainText("CoLink", content))
+            }
+
+            "text/html" -> {
+                val content = payload.content ?: return
+                if (content.toByteArray().size > CLIPBOARD_MAX_BYTES) {
+                    return
+                }
+                clipboardManager.setPrimaryClip(
+                    ClipData.newHtmlText("CoLink", htmlClipboardPlainText(content), content),
+                )
             }
 
             "image/png", "image/jpeg" -> {
@@ -2264,6 +2275,15 @@ class ConnectionManager @Inject constructor(
                 }
             }
         }
+        val html = item.htmlText?.takeIf { it.isNotBlank() }
+        if (html != null && html.toByteArray().size <= CLIPBOARD_MAX_BYTES) {
+            return ClipboardSyncPayload(
+                contentType = "text/html",
+                content = html,
+                data = null,
+            )
+        }
+
         val text = item.coerceToText(context)?.toString()?.takeIf { it.isNotBlank() } ?: return null
         if (text.toByteArray().size > CLIPBOARD_MAX_BYTES) {
             return null
@@ -2329,6 +2349,13 @@ class ConnectionManager @Inject constructor(
         content?.let { digest.update(it.toByteArray()) }
         data?.let { digest.update(it.toByteArray()) }
         return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private fun htmlClipboardPlainText(html: String): String {
+        return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
+            .toString()
+            .trim()
+            .ifBlank { html }
     }
 
     private fun String.normalizedDeviceType(): String? {
