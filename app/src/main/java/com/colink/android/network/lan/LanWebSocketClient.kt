@@ -41,6 +41,7 @@ class LanWebSocketClient @Inject constructor(
 ) {
     private companion object {
         const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
+        const val BUSINESS_IDLE_TIMEOUT_MILLIS = 10 * 60 * 1_000L
         const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
         const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
     }
@@ -142,7 +143,7 @@ class LanWebSocketClient @Inject constructor(
                     handshakeTimeoutJob?.cancel()
                     connectingPeers.remove(peerId ?: deviceId)
                     connectingWebSockets.remove(deviceId)
-                    peerId?.let { peers.remove(it) }
+                    peerId?.let { peers.remove(it)?.idleJob?.cancel() }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
 
@@ -156,7 +157,7 @@ class LanWebSocketClient @Inject constructor(
                     handshakeTimeoutJob?.cancel()
                     connectingPeers.remove(peerId ?: deviceId)
                     connectingWebSockets.remove(deviceId)
-                    peerId?.let { peers.remove(it) }
+                    peerId?.let { peers.remove(it)?.idleJob?.cancel() }
                     listener.onDisconnected(peerId ?: deviceId)
                 }
 
@@ -304,7 +305,9 @@ class LanWebSocketClient @Inject constructor(
                             handshakeTimeoutJob?.cancel()
                             connectingPeers.remove(peerId)
                             connectingWebSockets.remove(expectedDeviceId)
-                            peers[peerId] = ClientPeerConnection(webSocket, crypto)
+                            val connection = ClientPeerConnection(webSocket, crypto)
+                            peers[peerId] = connection
+                            connection.idleJob = launchBusinessIdleMonitor(peerId, webSocket)
                             connected = true
                             CoLinkLog.i("LAN", "LAN peer ready device=${CoLinkLog.shortId(peerId)}")
                             listener.onConnected(peerId)
@@ -320,6 +323,7 @@ class LanWebSocketClient @Inject constructor(
                                 fromDeviceId = requireNotNull(peerId),
                                 message = sessionCrypto.decrypt(payload),
                             )
+                            peers[peerId]?.touchBusinessActivity()
                         }
                     }
                 }
@@ -353,7 +357,11 @@ class LanWebSocketClient @Inject constructor(
         val payload = crypto.encrypt(message)
         val sent = sendPeerMessage(connection.webSocket, "business.v1.message", payload)
         if (!sent) {
-            peers.remove(deviceId, connection)
+            if (peers.remove(deviceId, connection)) {
+                connection.idleJob?.cancel()
+            }
+        } else {
+            connection.touchBusinessActivity()
         }
         return sent
     }
@@ -364,7 +372,10 @@ class LanWebSocketClient @Inject constructor(
     fun disconnect(deviceId: String) {
         connectingPeers.remove(deviceId)
         connectingWebSockets.remove(deviceId)?.close(1000, "client closing")
-        peers.remove(deviceId)?.webSocket?.close(1000, "client closing")
+        peers.remove(deviceId)?.let { connection ->
+            connection.idleJob?.cancel()
+            connection.webSocket.close(1000, "client closing")
+        }
     }
 
     fun disconnectAll() {
@@ -419,6 +430,23 @@ class LanWebSocketClient @Inject constructor(
         return webSocket.send(json.encodeToString(envelope))
     }
 
+    private fun launchBusinessIdleMonitor(deviceId: String, webSocket: WebSocket): Job =
+        scope.launch {
+            while (true) {
+                val connection = peers[deviceId] ?: return@launch
+                val idleMillis = System.currentTimeMillis() - connection.lastBusinessActivityMillis
+                val remainingMillis = BUSINESS_IDLE_TIMEOUT_MILLIS - idleMillis
+                if (remainingMillis <= 0) {
+                    CoLinkLog.w("LAN", "closing outbound LAN peer for business idle timeout device=${CoLinkLog.shortId(deviceId)}")
+                    if (peers.remove(deviceId, connection)) {
+                        webSocket.close(1000, "LAN business idle timeout")
+                    }
+                    return@launch
+                }
+                delay(remainingMillis)
+            }
+        }
+
     interface Listener {
         fun onConnected(deviceId: String)
 
@@ -454,4 +482,15 @@ class TransferConnection internal constructor(
 private data class ClientPeerConnection(
     val webSocket: WebSocket,
     val crypto: LanSessionCrypto?,
-)
+) {
+    @Volatile
+    var lastBusinessActivityMillis: Long = System.currentTimeMillis()
+        private set
+
+    @Volatile
+    var idleJob: Job? = null
+
+    fun touchBusinessActivity() {
+        lastBusinessActivityMillis = System.currentTimeMillis()
+    }
+}

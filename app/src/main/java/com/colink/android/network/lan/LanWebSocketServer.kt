@@ -47,6 +47,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 
 const val LAN_PORT = 27_777
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
+private const val BUSINESS_IDLE_TIMEOUT_MILLIS = 10 * 60 * 1_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 private const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
 private const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
@@ -114,6 +115,8 @@ class LanWebSocketServer @Inject constructor(
         }.getOrDefault(false)
         if (!sent) {
             peers.remove(deviceId, connection)
+        } else {
+            connection.touchBusinessActivity()
         }
         return sent
     }
@@ -288,12 +291,23 @@ class LanWebSocketServer @Inject constructor(
             peers.remove(proof.deviceId)?.let { existing ->
                 runCatching { existing.session.close() }
             }
-            peers[proof.deviceId] = ServerPeerConnection(session, crypto)
+            val connection = ServerPeerConnection(session, crypto)
+            peers[proof.deviceId] = connection
             markPeerEndpoint(proof.deviceId, session)
             CoLinkLog.i("LAN", "inbound LAN peer ready device=${CoLinkLog.shortId(proof.deviceId)}")
             listener?.onConnected(proof.deviceId)
 
-            for (frame in session.incoming) {
+            while (true) {
+                val idleMillis = System.currentTimeMillis() - connection.lastBusinessActivityMillis
+                val remainingMillis = BUSINESS_IDLE_TIMEOUT_MILLIS - idleMillis
+                if (remainingMillis <= 0) {
+                    CoLinkLog.w("LAN", "closing inbound LAN peer for business idle timeout device=${CoLinkLog.shortId(proof.deviceId)}")
+                    session.close()
+                    break
+                }
+                val frame = withTimeoutOrNull(remainingMillis) {
+                    session.incoming.receiveCatching().getOrNull()
+                } ?: continue
                 val text = (frame as? Frame.Text)?.readText() ?: continue
                 val envelope = json.decodeFromString(PeerEnvelope.serializer(), text)
                 if (envelope.type != "business.v1.message") {
@@ -304,6 +318,7 @@ class LanWebSocketServer @Inject constructor(
                     envelope.payload,
                 )
                 listener?.onMessage(proof.deviceId, crypto.decrypt(payload))
+                connection.touchBusinessActivity()
             }
         } catch (error: Throwable) {
             CoLinkLog.w("LAN", "inbound peer handler failed device=${CoLinkLog.shortId(connectedPeerId)}", error)
@@ -580,7 +595,15 @@ class LanWebSocketServer @Inject constructor(
 private data class ServerPeerConnection(
     val session: DefaultWebSocketServerSession,
     val crypto: LanSessionCrypto,
-)
+) {
+    @Volatile
+    var lastBusinessActivityMillis: Long = System.currentTimeMillis()
+        private set
+
+    fun touchBusinessActivity() {
+        lastBusinessActivityMillis = System.currentTimeMillis()
+    }
+}
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
     this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
