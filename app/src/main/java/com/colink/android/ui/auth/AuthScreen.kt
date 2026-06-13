@@ -2,6 +2,7 @@ package com.colink.android.ui.auth
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,8 +27,6 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -138,11 +138,19 @@ private fun AuthContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Image(
-                    painter = painterResource(R.drawable.colink_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(72.dp),
-                )
+                Box(modifier = Modifier.size(72.dp)) {
+                    Image(
+                        painter = painterResource(R.drawable.colink_logo_body),
+                        contentDescription = null,
+                        modifier = Modifier.size(72.dp),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
+                    )
+                    Image(
+                        painter = painterResource(R.drawable.colink_logo_dot),
+                        contentDescription = null,
+                        modifier = Modifier.size(72.dp),
+                    )
+                }
                 Text(
                     text = "CoLink",
                     style = MaterialTheme.typography.headlineLarge,
