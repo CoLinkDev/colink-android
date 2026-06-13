@@ -64,21 +64,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        lifecycleScope.launch {
-            val occupied = withContext(Dispatchers.IO) {
-                try {
-                    java.net.ServerSocket(LAN_PORT).use { false }
-                } catch (e: Exception) {
-                    true
-                }
-            }
-            if (occupied) {
-                isPortOccupied = true
-                checkComplete = true
-            } else {
-                isPortOccupied = false
-                checkComplete = true
+        if (isPortCheckDone) {
+            isPortOccupied = isPortOccupiedCache
+            checkComplete = true
+            if (!isPortOccupied) {
                 initNormalFlow(savedInstanceState)
+            }
+        } else {
+            lifecycleScope.launch {
+                val occupied = withContext(Dispatchers.IO) {
+                    try {
+                        java.net.ServerSocket(LAN_PORT).use { false }
+                    } catch (e: Exception) {
+                        true
+                    }
+                }
+                isPortOccupiedCache = occupied
+                isPortCheckDone = true
+                isPortOccupied = occupied
+                checkComplete = true
+                if (!occupied) {
+                    initNormalFlow(savedInstanceState)
+                }
             }
         }
 
@@ -189,5 +196,10 @@ class MainActivity : ComponentActivity() {
         } else if (intent?.action != Intent.ACTION_SEND) {
             launchTarget = null
         }
+    }
+
+    companion object {
+        private var isPortCheckDone = false
+        private var isPortOccupiedCache = false
     }
 }
