@@ -207,10 +207,13 @@ class LanWebSocketServer @Inject constructor(
                 return session.close()
             }
 
-            val exchangeProof = handshake.buildProof(identity)
+            val exchangeProof = handshake.buildProof(
+                identity = identity,
+                hasTrust = trust == LanTrustState.Trusted,
+            )
             session.sendPeerMessage("handshake.v1.exchange", exchangeProof)
 
-            if (trust == LanTrustState.Unknown) {
+            if (trust == LanTrustState.Unknown || !proof.hasTrust) {
                 val decision = pairingCoordinator.request(
                     deviceId = proof.deviceId,
                     name = proof.name,

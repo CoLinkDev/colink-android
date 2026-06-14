@@ -18,15 +18,14 @@ class LanTrustStore @Inject constructor(
         if (!record.isTrusted) {
             return LanTrustState.Unknown
         }
-        return if (record.publicKey == publicKey) {
-            LanTrustState.Trusted
-        } else {
-            LanTrustState.KeyChanged
+        if (record.publicKey != publicKey) {
+            return LanTrustState.KeyChanged
         }
+        return if (record.trustedByLan) LanTrustState.Trusted else LanTrustState.Unknown
     }
 
     suspend fun isLanTrusted(deviceId: String): Boolean =
-        trustedPeerKeyDao.get(deviceId)?.isTrusted == true
+        trustedPeerKeyDao.get(deviceId)?.trustedByLan == true
 
     suspend fun trust(
         deviceId: String,

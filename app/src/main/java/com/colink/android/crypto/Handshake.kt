@@ -8,7 +8,7 @@ import javax.inject.Inject
 class Handshake @Inject constructor(
     private val keyManager: KeyManager,
 ) {
-    fun buildProof(identity: DeviceIdentity): HandshakeProofPayload {
+    fun buildProof(identity: DeviceIdentity, hasTrust: Boolean): HandshakeProofPayload {
         val nonce = UUID.randomUUID().toString().replace("-", "")
         val timestamp = System.currentTimeMillis()
         val proof = proofBytes(identity.deviceId, timestamp, nonce)
@@ -19,6 +19,7 @@ class Handshake @Inject constructor(
             timestamp = timestamp,
             nonce = nonce,
             signature = keyManager.sign(identity.privateKey, proof),
+            hasTrust = hasTrust,
         )
     }
 

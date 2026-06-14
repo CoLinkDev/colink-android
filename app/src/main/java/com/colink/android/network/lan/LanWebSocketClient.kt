@@ -116,13 +116,18 @@ class LanWebSocketClient @Inject constructor(
                             webSocket.close(1002, "LAN handshake timed out")
                         }
                     }
-                    val proof = handshake.buildProof(identity)
-                    requestProof = proof
-                    sendPeerMessage(
-                        webSocket = webSocket,
-                        type = "handshake.v1.request",
-                        payload = proof,
-                    )
+                    scope.launch {
+                        val proof = handshake.buildProof(
+                            identity = identity,
+                            hasTrust = lanTrustStore.isLanTrusted(deviceId),
+                        )
+                        requestProof = proof
+                        sendPeerMessage(
+                            webSocket = webSocket,
+                            type = "handshake.v1.request",
+                            payload = proof,
+                        )
+                    }
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -203,9 +208,9 @@ class LanWebSocketClient @Inject constructor(
                                 webSocket.close(1008, REASON_HANDSHAKE_KEY_CHANGED)
                                 return
                             }
-                            if (trust == LanTrustState.Unknown) {
+                            val localProof = requireNotNull(requestProof) { "LAN request proof missing" }
+                            if (trust == LanTrustState.Unknown || !localProof.hasTrust || !proof.hasTrust) {
                                 require(allowPairing) { "LAN device key is not trusted" }
-                                val localProof = requireNotNull(requestProof) { "LAN request proof missing" }
                                 val decision = pairingCoordinator.request(
                                     deviceId = proof.deviceId,
                                     name = proof.name,

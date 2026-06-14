@@ -175,6 +175,7 @@ data class HandshakeProofPayload(
     val timestamp: Long,
     val nonce: String,
     val signature: String,
+    val hasTrust: Boolean = true,
 )
 
 @Serializable

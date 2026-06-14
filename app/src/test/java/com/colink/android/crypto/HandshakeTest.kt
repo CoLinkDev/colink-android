@@ -1,6 +1,8 @@
 package com.colink.android.crypto
 
 import com.colink.android.domain.model.DeviceIdentity
+import com.colink.android.network.message.HandshakeProofPayload
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,11 +24,12 @@ class HandshakeTest {
             privateKey = keys.privateKey,
         )
 
-        val proof = handshake.buildProof(identity)
+        val proof = handshake.buildProof(identity, hasTrust = false)
 
         assertEquals(identity.deviceId, proof.deviceId)
         assertEquals(identity.publicKey, proof.publicKey)
         assertEquals(identity.name, proof.name)
+        assertFalse(proof.hasTrust)
         assertTrue(handshake.verifyProof(proof))
 
         val oldTimestamp = proof.timestamp - 31_000
@@ -48,5 +51,24 @@ class HandshakeTest {
 
         assertEquals(codeA, codeB)
         assertEquals(6, codeA.length)
+    }
+
+    @Test
+    fun missingHasTrustDefaultsToTrue() {
+        val payload = Json.decodeFromString(
+            HandshakeProofPayload.serializer(),
+            """
+            {
+              "deviceId": "device",
+              "publicKey": "key",
+              "name": "Android",
+              "timestamp": 1716451200000,
+              "nonce": "nonce",
+              "signature": "signature"
+            }
+            """.trimIndent(),
+        )
+
+        assertTrue(payload.hasTrust)
     }
 }
