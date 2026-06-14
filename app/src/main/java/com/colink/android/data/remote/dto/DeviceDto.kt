@@ -53,6 +53,11 @@ data class DeviceNameUpdateRequestDto(
     val name: String,
 )
 
+@Serializable
+data class DeviceKeyUpdateRequestDto(
+    val publicKey: String,
+)
+
 private fun parseTimestampMillis(value: String?): Long? =
     value
         ?.trim()

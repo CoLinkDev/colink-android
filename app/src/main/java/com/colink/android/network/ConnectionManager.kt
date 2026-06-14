@@ -1506,6 +1506,7 @@ class ConnectionManager @Inject constructor(
                         CoLinkLog.i("Cloud", "cloud websocket connected")
                         scope.launch {
                             val session = authRepository.currentSession().getOrNull() ?: return@launch
+                            deviceRepository.syncPendingDeviceKey(session)
                             deviceRepository.syncDevices(session)
                         }
                     }

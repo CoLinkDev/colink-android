@@ -16,6 +16,8 @@ interface DeviceRepository {
 
     suspend fun syncDevices(session: Session): Result<List<Device>>
 
+    suspend fun syncPendingDeviceKey(session: Session): Result<Unit>
+
     suspend fun getDevice(deviceId: String): Device?
 
     suspend fun markLanEndpoint(

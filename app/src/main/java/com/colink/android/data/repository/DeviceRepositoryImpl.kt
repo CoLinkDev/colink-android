@@ -11,6 +11,7 @@ import com.colink.android.data.local.db.entity.toEntity
 import com.colink.android.data.remote.api.DeviceApi
 import com.colink.android.data.remote.api.apiEndpoint
 import com.colink.android.data.remote.dto.DeviceNameUpdateRequestDto
+import com.colink.android.data.remote.dto.DeviceKeyUpdateRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterRequestDto
 import com.colink.android.data.remote.dto.requireData
 import com.colink.android.data.remote.dto.requireOk
@@ -96,6 +97,16 @@ class DeviceRepositoryImpl @Inject constructor(
             saveDevices(reconciled)
             CoLinkLog.i("Device", "synced devices count=${reconciled.size}")
             reconciled
+        }
+
+    override suspend fun syncPendingDeviceKey(session: Session): Result<Unit> =
+        runCatching {
+            val identity = settingsDataStore.currentDeviceIdentity() ?: return@runCatching
+            if (!identity.cloudKeySyncPending || identity.userId != session.userId) {
+                return@runCatching
+            }
+
+            syncLocalDeviceKey(session, identity)
         }
 
     override suspend fun getDevice(deviceId: String): Device? =
@@ -368,6 +379,24 @@ class DeviceRepositoryImpl @Inject constructor(
                 error,
             )
         }
+    }
+
+    private suspend fun syncLocalDeviceKey(session: Session, identity: DeviceIdentity) {
+        deviceApi
+            .updateDeviceKey(
+                url = apiEndpoint(
+                    settingsDataStore.currentSettings().serverUrl,
+                    "/api/v1/devices/${identity.deviceId}/key",
+                ),
+                authorization = bearer(session.accessToken),
+                request = DeviceKeyUpdateRequestDto(identity.publicKey),
+            )
+            .requireOk()
+        settingsDataStore.saveDeviceIdentity(identity.copy(cloudKeySyncPending = false))
+        CoLinkLog.i(
+            "Device",
+            "synced pending local device key device=${CoLinkLog.shortId(identity.deviceId)}",
+        )
     }
 
     private suspend fun ensureTrustedPeerKeysForDevices(

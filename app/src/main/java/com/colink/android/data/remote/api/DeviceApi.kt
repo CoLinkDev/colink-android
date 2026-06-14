@@ -2,6 +2,7 @@ package com.colink.android.data.remote.api
 
 import com.colink.android.data.remote.dto.ApiEnvelope
 import com.colink.android.data.remote.dto.DeviceListResponseDto
+import com.colink.android.data.remote.dto.DeviceKeyUpdateRequestDto
 import com.colink.android.data.remote.dto.DeviceNameUpdateRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterResponseDto
@@ -33,6 +34,13 @@ interface DeviceApi {
         @Url url: String,
         @Header("Authorization") authorization: String,
         @Body request: DeviceNameUpdateRequestDto,
+    ): ApiEnvelope<JsonElement>
+
+    @PUT
+    suspend fun updateDeviceKey(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
+        @Body request: DeviceKeyUpdateRequestDto,
     ): ApiEnvelope<JsonElement>
 
     @DELETE
