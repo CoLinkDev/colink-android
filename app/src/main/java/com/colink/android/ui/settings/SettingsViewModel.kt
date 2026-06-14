@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.AppSettings
+import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -21,6 +23,8 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val saving: Boolean = false,
+    val checkingUpdate: Boolean = false,
+    val availableUpdate: AppUpdate? = null,
     val message: String? = null,
 )
 
@@ -29,6 +33,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
+    private val updateRepository: UpdateRepository,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> =
         settingsDataStore.settings.stateIn(
@@ -64,5 +69,36 @@ class SettingsViewModel @Inject constructor(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    fun checkForUpdate() {
+        if (_uiState.value.checkingUpdate) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(checkingUpdate = true, message = null) }
+            updateRepository.checkForUpdate()
+                .onSuccess { update ->
+                    _uiState.update {
+                        it.copy(
+                            checkingUpdate = false,
+                            availableUpdate = update,
+                            message = if (update == null) context.getString(R.string.update_up_to_date) else null,
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            checkingUpdate = false,
+                            message = context.getString(R.string.update_check_failed),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun dismissUpdate() {
+        _uiState.update { it.copy(availableUpdate = null) }
     }
 }

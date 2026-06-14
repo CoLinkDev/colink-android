@@ -62,6 +62,10 @@
     <string name="update_available_body">Version %1$s is available.</string>
     <string name="update_download_btn">Download</string>
     <string name="update_later_btn">Later</string>
+    <string name="update_check_btn">Check for updates</string>
+    <string name="update_checking_btn">Checking...</string>
+    <string name="update_up_to_date">You are up to date</string>
+    <string name="update_check_failed">Update check failed</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d available · %2$d total</string>

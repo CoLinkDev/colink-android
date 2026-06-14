@@ -62,6 +62,10 @@
     <string name="update_available_body">バージョン %1$s が利用できます。</string>
     <string name="update_download_btn">ダウンロード</string>
     <string name="update_later_btn">後で</string>
+    <string name="update_check_btn">更新を確認</string>
+    <string name="update_checking_btn">確認中...</string>
+    <string name="update_up_to_date">最新バージョンです</string>
+    <string name="update_check_failed">更新の確認に失敗しました</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>

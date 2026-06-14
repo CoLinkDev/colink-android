@@ -1,13 +1,17 @@
 package com.colink.android.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,8 +22,10 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +39,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,8 +59,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import com.colink.android.R
+import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.ui.components.ScreenColumn
+import com.colink.android.util.CoLinkLog
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,6 +101,11 @@ fun SettingsScreen(
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.clearMessage()
     }
+
+    SettingsUpdateDialog(
+        update = uiState.availableUpdate,
+        onDismiss = viewModel::dismissUpdate,
+    )
 
     ScreenColumn(
         title = stringResource(R.string.settings_title),
@@ -188,8 +202,70 @@ fun SettingsScreen(
                 onCheckedChange = { notifications = it },
             )
             */
+
+            Button(
+                onClick = viewModel::checkForUpdate,
+                enabled = !uiState.checkingUpdate,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (uiState.checkingUpdate) {
+                        stringResource(R.string.update_checking_btn)
+                    } else {
+                        stringResource(R.string.update_check_btn)
+                    },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun SettingsUpdateDialog(
+    update: AppUpdate?,
+    onDismiss: () -> Unit,
+) {
+    val current = update ?: return
+    val context = LocalContext.current
+    val asset = current.assets.firstOrNull()
+    val body = buildString {
+        append(stringResource(R.string.update_available_body, current.version))
+        val notes = current.releaseNotes.trim()
+        if (notes.isNotEmpty()) {
+            append("\n\n")
+            append(notes)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.update_available_title)) },
+        text = { Text(body) },
+        confirmButton = {
+            if (asset != null) {
+                TextButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(asset.downloadUrl)))
+                        }.onFailure { error ->
+                            CoLinkLog.w("Update", "open update download failed", error)
+                        }
+                        onDismiss()
+                    },
+                ) {
+                    Text(stringResource(R.string.update_download_btn))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.update_later_btn))
+            }
+        },
+    )
 }
 
 @Composable

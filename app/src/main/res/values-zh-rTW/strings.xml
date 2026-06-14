@@ -62,6 +62,10 @@
     <string name="update_available_body">版本 %1$s 可用。</string>
     <string name="update_download_btn">下載</string>
     <string name="update_later_btn">稍後</string>
+    <string name="update_check_btn">檢查更新</string>
+    <string name="update_checking_btn">正在檢查...</string>
+    <string name="update_up_to_date">目前已是最新版本</string>
+    <string name="update_check_failed">檢查更新失敗</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
