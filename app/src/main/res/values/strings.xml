@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_subtitle">Connection, startup and notifications</string>
-    <string name="server_url_label">Server URL</string>
+    <string name="settings_subtitle">Connection and startup</string>
+    <string name="server_url_label">Server address</string>
     <string name="device_name_label">Device name</string>
-    <string name="lan_discovery_label">LAN discovery</string>
-    <string name="lan_discovery_body">Find nearby CoLink devices on the same network.</string>
-    <string name="notifications_label">Notifications</string>
-    <string name="notifications_body">Show incoming messages and transfer offers.</string>
     <string name="auto_start_label">Auto-start on boot</string>
     <string name="auto_start_body">Start CoLink after this device restarts.</string>
     <string name="language_label">Language</string>
@@ -221,7 +217,7 @@
     <string name="password_label">Password</string>
     <string name="show_password_desc">Show password</string>
     <string name="hide_password_desc">Hide password</string>
-    <string name="err_server_url_required">Server URL is required</string>
+    <string name="err_server_url_required">Server address is required</string>
     <string name="err_email_or_username_required">Email or username is required</string>
     <string name="err_password_required">Password is required</string>
     <string name="login_btn">Login</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">Send</string>
     <string name="message_sent">Message sent</string>
     <string name="settings_saved">Settings saved</string>
+    <string name="settings_about_title">About</string>
+    <string name="settings_project_url">Project URL</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_open_project">Open project</string>
     <string name="device_key_rotated">Device key rotated</string>
     <string name="device_renamed">Device renamed</string>
     <string name="device_deleted">Device deleted</string>

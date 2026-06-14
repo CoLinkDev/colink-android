@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
-    <string name="settings_subtitle">Conexión, inicio y notificaciones</string>
-    <string name="server_url_label">URL del servidor</string>
+    <string name="settings_subtitle">Conexión e inicio</string>
+    <string name="server_url_label">Dirección del servidor</string>
     <string name="device_name_label">Nombre del dispositivo</string>
-    <string name="lan_discovery_label">Descubrimiento de red local</string>
-    <string name="lan_discovery_body">Buscar dispositivos CoLink cercanos en la misma red.</string>
-    <string name="notifications_label">Notificaciones</string>
-    <string name="notifications_body">Mostrar mensajes entrantes y ofertas de transferencia.</string>
     <string name="auto_start_label">Iniciar al encender</string>
     <string name="auto_start_body">Iniciar CoLink después de que este dispositivo se reinicie.</string>
     <string name="language_label">Idioma</string>
@@ -221,7 +217,7 @@
     <string name="password_label">Contraseña</string>
     <string name="show_password_desc">Mostrar contraseña</string>
     <string name="hide_password_desc">Ocultar contraseña</string>
-    <string name="err_server_url_required">Se requiere la URL del servidor</string>
+    <string name="err_server_url_required">Se requiere la dirección del servidor</string>
     <string name="err_email_or_username_required">Se requiere correo o nombre de usuario</string>
     <string name="err_password_required">Se requiere contraseña</string>
     <string name="login_btn">Iniciar sesión</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">Enviar</string>
     <string name="message_sent">Mensaje enviado</string>
     <string name="settings_saved">Ajustes guardados</string>
+    <string name="settings_about_title">Acerca de</string>
+    <string name="settings_project_url">URL del proyecto</string>
+    <string name="settings_version">Versión</string>
+    <string name="settings_open_project">Abrir proyecto</string>
     <string name="device_key_rotated">Clave del dispositivo rotada</string>
     <string name="device_renamed">Nombre del dispositivo cambiado</string>
     <string name="device_deleted">Dispositivo eliminado</string>

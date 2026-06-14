@@ -187,9 +187,7 @@ class ConnectionManager @Inject constructor(
             deviceRepository.ensureLocalDeviceIdentity()
                 .onFailure { error -> CoLinkLog.e("Connection", "failed to ensure local identity", error) }
             fileTransferRepository.failUnfinished("app restarted")
-            if (settingsDataStore.currentSettings().lanDiscovery) {
-                startLan()
-            }
+            startLan()
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
             } else if (settingsDataStore.currentSession() == null) {
@@ -249,15 +247,8 @@ class ConnectionManager @Inject constructor(
     }
 
     fun applySettings(settings: AppSettings) {
-        CoLinkLog.i(
-            "Settings",
-            "applying settings lanDiscovery=${settings.lanDiscovery} notifications=${settings.notifications}",
-        )
-        if (settings.lanDiscovery) {
-            startLan()
-        } else {
-            stopLan()
-        }
+        CoLinkLog.i("Settings", "applying settings")
+        startLan()
         scope.launch {
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }

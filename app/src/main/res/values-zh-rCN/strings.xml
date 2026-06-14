@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">设置</string>
-    <string name="settings_subtitle">连接、启动和通知</string>
+    <string name="settings_subtitle">连接和启动</string>
     <string name="server_url_label">服务器地址</string>
     <string name="device_name_label">设备名称</string>
-    <string name="lan_discovery_label">局域网发现</string>
-    <string name="lan_discovery_body">在同一网络上发现附近的 CoLink 设备。</string>
-    <string name="notifications_label">通知</string>
-    <string name="notifications_body">显示接收到的消息和文件传输请求。</string>
     <string name="auto_start_label">开机启动</string>
     <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
     <string name="language_label">语言</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">发送</string>
     <string name="message_sent">消息已发送</string>
     <string name="settings_saved">设置已保存</string>
+    <string name="settings_about_title">关于</string>
+    <string name="settings_project_url">项目地址</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_open_project">打开项目</string>
     <string name="device_key_rotated">设备密钥已轮换</string>
     <string name="device_renamed">设备名称已修改</string>
     <string name="device_deleted">设备已删除</string>

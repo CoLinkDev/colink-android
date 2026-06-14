@@ -3,8 +3,8 @@ package com.colink.android.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,32 +12,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Lan
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,17 +45,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.domain.model.AppUpdate
-import com.colink.android.domain.model.AppSettings
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.util.CoLinkLog
 
@@ -74,18 +67,12 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var serverUrl by rememberSaveable { mutableStateOf("") }
-    var autoStart by rememberSaveable { mutableStateOf(false) }
-    var lanDiscovery by rememberSaveable { mutableStateOf(true) }
-    var notifications by rememberSaveable { mutableStateOf(true) }
     var language by rememberSaveable { mutableStateOf("system") }
 
     LaunchedEffect(settings) {
         if (serverUrl.isEmpty()) {
             serverUrl = settings.serverUrl
         }
-        autoStart = settings.autoStartOnBoot
-        lanDiscovery = settings.lanDiscovery
-        notifications = settings.notifications
         language = settings.language
     }
 
@@ -193,16 +180,6 @@ fun SettingsScreen(
                 }
             }
 
-            /*
-            SettingSwitchRow(
-                icon = Icons.Default.Notifications,
-                label = stringResource(R.string.notifications_label),
-                body = stringResource(R.string.notifications_body),
-                checked = notifications,
-                onCheckedChange = { notifications = it },
-            )
-            */
-
             Button(
                 onClick = viewModel::checkForUpdate,
                 enabled = !uiState.checkingUpdate,
@@ -219,7 +196,71 @@ fun SettingsScreen(
                     },
                 )
             }
+
+            AboutCard(
+                onProjectClick = {
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
+                    }.onFailure { error ->
+                        CoLinkLog.w("Settings", "open project url failed", error)
+                    }
+                },
+            )
         }
+    }
+}
+
+private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
+
+@Composable
+private fun AboutCard(
+    onProjectClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = stringResource(R.string.settings_about_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            InfoRow(label = stringResource(R.string.settings_project_url), value = PROJECT_URL)
+            InfoRow(label = stringResource(R.string.settings_version), value = BuildConfig.VERSION_NAME)
+            TextButton(onClick = onProjectClick) {
+                Text(stringResource(R.string.settings_open_project))
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -266,48 +307,4 @@ private fun SettingsUpdateDialog(
             }
         },
     )
-}
-
-@Composable
-private fun SettingSwitchRow(
-    icon: ImageVector,
-    label: String,
-    body: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-        )
-    }
 }

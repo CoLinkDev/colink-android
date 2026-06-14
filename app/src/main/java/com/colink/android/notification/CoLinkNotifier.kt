@@ -13,7 +13,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.colink.android.MainActivity
 import com.colink.android.R
-import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.notification.ACTION_FILE_TRANSFER_ACCEPT
 import com.colink.android.notification.ACTION_FILE_TRANSFER_REJECT
@@ -33,7 +32,6 @@ private const val PAIRING_NOTIFICATION_ID = 2001
 @Singleton
 class CoLinkNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val settingsDataStore: SettingsDataStore,
 ) {
     fun ensureEventChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -214,10 +212,6 @@ class CoLinkNotifier @Inject constructor(
     }
 
     private suspend fun canNotify(reason: String): Boolean {
-        if (!settingsDataStore.currentSettings().notifications) {
-            CoLinkLog.d("Notification", "notification skipped because app setting is disabled reason=$reason")
-            return false
-        }
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             CoLinkLog.w("Notification", "notification skipped because system notifications are disabled reason=$reason")
             return false

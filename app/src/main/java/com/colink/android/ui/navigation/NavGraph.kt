@@ -115,7 +115,6 @@ fun CoLinkNavGraph(
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     val bootstrapping by viewModel.bootstrapping.collectAsStateWithLifecycle()
-    val notificationsEnabled by viewModel.notificationsEnabled.collectAsStateWithLifecycle()
     val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
@@ -125,8 +124,8 @@ fun CoLinkNavGraph(
         }
     }
 
-    LaunchedEffect(bootstrapping, notificationsEnabled) {
-        if (!bootstrapping && notificationsEnabled) {
+    LaunchedEffect(bootstrapping) {
+        if (!bootstrapping) {
             onRequestNotificationPermission()
         }
     }

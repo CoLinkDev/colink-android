@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
-    <string name="settings_subtitle">Verbindung, Autostart und Benachrichtigungen</string>
-    <string name="server_url_label">Server-URL</string>
+    <string name="settings_subtitle">Verbindung und Autostart</string>
+    <string name="server_url_label">Serveradresse</string>
     <string name="device_name_label">Gerätename</string>
-    <string name="lan_discovery_label">Lokale Netzwerk-Erkennung</string>
-    <string name="lan_discovery_body">Nahegelegene CoLink-Geräte im selben Netzwerk suchen.</string>
-    <string name="notifications_label">Benachrichtigungen</string>
-    <string name="notifications_body">Eingehende Nachrichten und Übertragungsangebote anzeigen.</string>
     <string name="auto_start_label">Beim Systemstart ausführen</string>
     <string name="auto_start_body">Startet CoLink nach dem Neustart des Geräts.</string>
     <string name="language_label">Sprache</string>
@@ -221,7 +217,7 @@
     <string name="password_label">Passwort</string>
     <string name="show_password_desc">Passwort anzeigen</string>
     <string name="hide_password_desc">Passwort ausblenden</string>
-    <string name="err_server_url_required">Server-URL ist erforderlich</string>
+    <string name="err_server_url_required">Serveradresse ist erforderlich</string>
     <string name="err_email_or_username_required">E-Mail oder Benutzername ist erforderlich</string>
     <string name="err_password_required">Passwort ist erforderlich</string>
     <string name="login_btn">Anmelden</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">Senden</string>
     <string name="message_sent">Nachricht gesendet</string>
     <string name="settings_saved">Einstellungen gespeichert</string>
+    <string name="settings_about_title">Über</string>
+    <string name="settings_project_url">Projekt-URL</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_open_project">Projekt öffnen</string>
     <string name="device_key_rotated">Geräteschlüssel rotiert</string>
     <string name="device_renamed">Gerät umbenannt</string>
     <string name="device_deleted">Gerät gelöscht</string>

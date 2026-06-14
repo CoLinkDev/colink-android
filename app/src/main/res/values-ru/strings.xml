@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">Настройки</string>
-    <string name="settings_subtitle">Подключение, автозапуск и уведомления</string>
-    <string name="server_url_label">URL сервера</string>
+    <string name="settings_subtitle">Подключение и запуск</string>
+    <string name="server_url_label">Адрес сервера</string>
     <string name="device_name_label">Имя устройства</string>
-    <string name="lan_discovery_label">Обнаружение в локальной сети</string>
-    <string name="lan_discovery_body">Находить находящиеся поблизости устройства CoLink в той же сети.</string>
-    <string name="notifications_label">Уведомления</string>
-    <string name="notifications_body">Показывать входящие сообщения и предложения файлов.</string>
     <string name="auto_start_label">Автозапуск при старте</string>
     <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
     <string name="language_label">Язык</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">Отправить</string>
     <string name="message_sent">Сообщение отправлено</string>
     <string name="settings_saved">Настройки сохранены</string>
+    <string name="settings_about_title">О программе</string>
+    <string name="settings_project_url">Ссылка на проект</string>
+    <string name="settings_version">Версия</string>
+    <string name="settings_open_project">Открыть проект</string>
     <string name="device_key_rotated">Ключ устройства изменен</string>
     <string name="device_renamed">Имя устройства изменено</string>
     <string name="device_deleted">Устройство удалено</string>

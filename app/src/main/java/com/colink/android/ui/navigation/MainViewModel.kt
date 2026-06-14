@@ -9,7 +9,6 @@ import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.lan.LanPairingCoordinator
-import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -28,7 +27,6 @@ class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val connectionManager: ConnectionManager,
     private val pairingCoordinator: LanPairingCoordinator,
-    private val settingsDataStore: SettingsDataStore,
     private val updateRepository: UpdateRepository,
 ) : ViewModel() {
     private val _bootstrapping = MutableStateFlow(true)
@@ -50,12 +48,6 @@ class MainViewModel @Inject constructor(
 
     val pairingRequest: StateFlow<LanPairingRequest?> =
         pairingCoordinator.pendingRequest
-
-    val notificationsEnabled: StateFlow<Boolean> =
-        settingsDataStore.settings
-            .map { it.notifications }
-            .distinctUntilChanged()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
     init {
         viewModelScope.launch(Dispatchers.IO) {

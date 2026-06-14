@@ -30,8 +30,6 @@ class SettingsDataStore @Inject constructor(
             AppSettings(
                 serverUrl = preferences[SERVER_URL] ?: BuildConfig.SERVER_BASE_URL,
                 autoStartOnBoot = preferences[AUTO_START_ON_BOOT] ?: false,
-                lanDiscovery = true,
-                notifications = true,
                 deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
                 language = preferences[LANGUAGE] ?: "system",
             )
@@ -89,8 +87,6 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { preferences ->
             preferences[SERVER_URL] = normalizeServerUrl(settings.serverUrl)
             preferences[AUTO_START_ON_BOOT] = settings.autoStartOnBoot
-            preferences[LAN_DISCOVERY] = true
-            preferences[NOTIFICATIONS] = true
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
             preferences[LANGUAGE] = settings.language
         }
@@ -156,8 +152,6 @@ class SettingsDataStore @Inject constructor(
         private val DEVICE_SECRET = stringPreferencesKey("device_secret")
         private val DEVICE_TYPE = stringPreferencesKey("device_type")
         private val DEVICE_USER_ID = stringPreferencesKey("device_user_id")
-        private val LAN_DISCOVERY = booleanPreferencesKey("lan_discovery")
-        private val NOTIFICATIONS = booleanPreferencesKey("notifications")
         private val SERVER_URL = stringPreferencesKey("server_url")
         private val SETTINGS_DEVICE_NAME = stringPreferencesKey("settings_device_name")
         private val SESSION_ACCESS_EXPIRES_AT = longPreferencesKey("session_access_expires_at")

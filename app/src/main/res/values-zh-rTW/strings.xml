@@ -188,13 +188,9 @@
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
-    <string name="settings_subtitle">連線、啟動和通知</string>
-    <string name="server_url_label">伺服器網址</string>
+    <string name="settings_subtitle">連線和啟動</string>
+    <string name="server_url_label">伺服器地址</string>
     <string name="device_name_label">裝置名稱</string>
-    <string name="lan_discovery_label">區域網路發現</string>
-    <string name="lan_discovery_body">在同一網路下發現附近的 CoLink 裝置。</string>
-    <string name="notifications_label">通知</string>
-    <string name="notifications_body">顯示接收到的訊息和檔案傳輸請求。</string>
     <string name="auto_start_label">開機啟動</string>
     <string name="auto_start_body">在裝置重新啟動後自動啟動 CoLink。</string>
     <string name="language_label">語言</string>
@@ -221,7 +217,7 @@
     <string name="password_label">密碼</string>
     <string name="show_password_desc">顯示密碼</string>
     <string name="hide_password_desc">隱藏密碼</string>
-    <string name="err_server_url_required">請輸入伺服器網址</string>
+    <string name="err_server_url_required">請輸入伺服器地址</string>
     <string name="err_email_or_username_required">請輸入電子郵件或使用者名稱</string>
     <string name="err_password_required">請輸入密碼</string>
     <string name="login_btn">登入</string>
@@ -230,6 +226,10 @@
     <string name="send_btn">傳送</string>
     <string name="message_sent">訊息已傳送</string>
     <string name="settings_saved">設定已儲存</string>
+    <string name="settings_about_title">關於</string>
+    <string name="settings_project_url">專案地址</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_open_project">開啟專案</string>
     <string name="device_key_rotated">裝置金鑰已輪換</string>
     <string name="device_renamed">裝置名稱已變更</string>
     <string name="device_deleted">裝置已刪除</string>
