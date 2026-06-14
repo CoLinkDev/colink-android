@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -214,31 +216,16 @@ fun SettingsScreen(
                 }
             }
 
-            Button(
-                onClick = viewModel::checkForUpdate,
-                enabled = !uiState.checkingUpdate,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (uiState.checkingUpdate) {
-                        stringResource(R.string.update_checking_btn)
-                    } else {
-                        stringResource(R.string.update_check_btn)
-                    },
-                )
-            }
-
             AboutCard(
+                checkingUpdate = uiState.checkingUpdate,
+                onCheckForUpdate = viewModel::checkForUpdate,
                 onProjectClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
                     }.onFailure { error ->
                         CoLinkLog.w("Settings", "open project url failed", error)
                     }
-                },
+                }
             )
         }
     }
@@ -248,6 +235,8 @@ private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
 
 @Composable
 private fun AboutCard(
+    checkingUpdate: Boolean,
+    onCheckForUpdate: () -> Unit,
     onProjectClick: () -> Unit,
 ) {
     Card(
@@ -272,8 +261,43 @@ private fun AboutCard(
             }
             InfoRow(label = stringResource(R.string.settings_project_url), value = PROJECT_URL)
             InfoRow(label = stringResource(R.string.settings_version), value = BuildConfig.VERSION_NAME)
-            TextButton(onClick = onProjectClick) {
-                Text(stringResource(R.string.settings_open_project))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onCheckForUpdate,
+                    enabled = !checkingUpdate,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (checkingUpdate) {
+                            stringResource(R.string.update_checking_btn)
+                        } else {
+                            stringResource(R.string.update_check_btn)
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Button(
+                    onClick = onProjectClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                ) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.settings_open_project),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
