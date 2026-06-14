@@ -66,6 +66,8 @@
     <string name="update_checking_btn">Buscando...</string>
     <string name="update_up_to_date">Ya tienes la última versión</string>
     <string name="update_check_failed">No se pudo buscar actualizaciones</string>
+    <string name="settings_clipboard_sync_title">Sincronizar portapapeles</string>
+    <string name="settings_clipboard_sync_desc">Compartir elementos del portapapeles con dispositivos conectados</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d disponibles · %2$d en total</string>

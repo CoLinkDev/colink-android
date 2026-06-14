@@ -66,6 +66,8 @@
     <string name="update_checking_btn">Suche...</string>
     <string name="update_up_to_date">Sie sind auf dem neuesten Stand</string>
     <string name="update_check_failed">Update-Suche fehlgeschlagen</string>
+    <string name="settings_clipboard_sync_title">Zwischenablage synchronisieren</string>
+    <string name="settings_clipboard_sync_desc">Inhalte der Zwischenablage mit verbundenen Geräten teilen</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d verfügbar · %2$d insgesamt</string>

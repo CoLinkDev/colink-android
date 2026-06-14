@@ -67,6 +67,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun updateClipboardSync(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = settingsDataStore.currentSettings()
+            if (current.enableClipboardSync != enabled) {
+                val updated = current.copy(enableClipboardSync = enabled)
+                settingsDataStore.saveSettings(updated)
+                connectionManager.applySettings(updated)
+            }
+        }
+    }
+
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
     }

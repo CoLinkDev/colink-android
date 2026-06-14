@@ -104,6 +104,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -194,8 +195,12 @@ class ConnectionManager @Inject constructor(
                 _cloudState.value = CloudConnectionState()
                 CoLinkLog.d("Cloud", "cloud loop skipped because no session exists")
             }
+            if (settingsDataStore.currentSettings().enableClipboardSync) {
+                withContext(Dispatchers.Main) {
+                    startClipboardSync()
+                }
+            }
         }
-        startClipboardSync()
     }
 
     fun stop() {
@@ -252,6 +257,13 @@ class ConnectionManager @Inject constructor(
         scope.launch {
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
+            }
+            withContext(Dispatchers.Main) {
+                if (settings.enableClipboardSync) {
+                    startClipboardSync()
+                } else {
+                    stopClipboardSync()
+                }
             }
         }
     }
@@ -601,6 +613,9 @@ class ConnectionManager @Inject constructor(
         fromDeviceId: String,
         business: BusinessEnvelope,
     ) {
+        if (!settingsDataStore.currentSettings().enableClipboardSync) {
+            return
+        }
         val payload = runCatching {
             json.decodeFromJsonElement(ClipboardSyncPayload.serializer(), business.payload)
         }.getOrNull() ?: return
@@ -2281,6 +2296,9 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun broadcastLocalClipboard() {
+        if (!settingsDataStore.currentSettings().enableClipboardSync) {
+            return
+        }
         val clip = clipboardManager.primaryClip ?: return
         if (clip.itemCount <= 0) {
             return

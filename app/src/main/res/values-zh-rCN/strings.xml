@@ -66,6 +66,8 @@
     <string name="update_checking_btn">正在检查...</string>
     <string name="update_up_to_date">当前已是最新版本</string>
     <string name="update_check_failed">检查更新失败</string>
+    <string name="settings_clipboard_sync_title">同步剪贴板</string>
+    <string name="settings_clipboard_sync_desc">在已连接的设备之间共享剪贴板内容</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>

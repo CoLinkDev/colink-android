@@ -66,6 +66,8 @@
     <string name="update_checking_btn">確認中...</string>
     <string name="update_up_to_date">最新バージョンです</string>
     <string name="update_check_failed">更新の確認に失敗しました</string>
+    <string name="settings_clipboard_sync_title">クリップボードを同期</string>
+    <string name="settings_clipboard_sync_desc">接続されたデバイスとクリップボードを共有する</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>
