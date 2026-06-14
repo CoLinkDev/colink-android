@@ -211,7 +211,7 @@
     <string name="cloud_account_title">Cloud-Konto</string>
     <string name="cloud_account_connected">Verbunden</string>
     <string name="cloud_account_login_tip">Anmelden, um Geräte zu synchronisieren</string>
-    <string name="cloud_account_connected_body">Dieses Gerät ist mit Ihrem Cloud-Konto verbunden.</string>
+    <string name="cloud_account_connected_body">Dieses Gerät ist mit Ihrem Cloud-Konto %s verbunden.</string>
     <string name="logout_btn">Abmelden</string>
     <string name="email_or_username_label">E-Mail oder Benutzername</string>
     <string name="password_label">Passwort</string>

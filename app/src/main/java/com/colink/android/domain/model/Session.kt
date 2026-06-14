@@ -7,6 +7,7 @@ data class Session(
     val accessToken: String,
     val refreshToken: String,
     val accessTokenExpiresAt: Long,
+    val email: String? = null,
 ) {
     fun isExpiringSoon(now: Long = System.currentTimeMillis()): Boolean =
         accessTokenExpiresAt <= now + EXPIRY_BUFFER_MILLIS

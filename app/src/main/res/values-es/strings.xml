@@ -211,7 +211,7 @@
     <string name="cloud_account_title">Cuenta en la nube</string>
     <string name="cloud_account_connected">Conectado</string>
     <string name="cloud_account_login_tip">Iniciar sesión para sincronizar dispositivos</string>
-    <string name="cloud_account_connected_body">Este dispositivo está conectado a su cuenta en la nube.</string>
+    <string name="cloud_account_connected_body">Este dispositivo está conectado a su cuenta en la nube %s.</string>
     <string name="logout_btn">Cerrar sesión</string>
     <string name="email_or_username_label">Correo o nombre de usuario</string>
     <string name="password_label">Contraseña</string>

@@ -211,7 +211,7 @@
     <string name="cloud_account_title">云端账户</string>
     <string name="cloud_account_connected">已连接</string>
     <string name="cloud_account_login_tip">登录以同步设备</string>
-    <string name="cloud_account_connected_body">此设备已连接到您的云端账户。</string>
+    <string name="cloud_account_connected_body">此设备已连接到您的云端账户 %s。</string>
     <string name="logout_btn">退出</string>
     <string name="email_or_username_label">邮箱或用户名</string>
     <string name="password_label">密码</string>

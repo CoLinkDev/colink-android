@@ -136,6 +136,7 @@ fun CoLinkNavGraph(
             MainScaffold(
                 cloudStatus = viewModel.cloudStatus,
                 authenticated = viewModel.authenticated,
+                accountName = viewModel.accountName,
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
                 launchTarget = launchTarget,
@@ -207,6 +208,7 @@ private fun UpdateDialogHost(
 private fun MainScaffold(
     cloudStatus: StateFlow<CloudStatus>,
     authenticated: StateFlow<Boolean>,
+    accountName: StateFlow<String>,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
     launchTarget: LaunchTarget?,
@@ -232,13 +234,8 @@ private fun MainScaffold(
         ) {
             val nestedNavController = rememberNavController()
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
+            val accountName by accountName.collectAsStateWithLifecycle()
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
-
-            LaunchedEffect(isAuthenticated) {
-                if (isAuthenticated) {
-                    showAccountDialog = false
-                }
-            }
 
             LaunchedEffect(pendingShare) {
                 if (pendingShare == null) {
@@ -346,11 +343,12 @@ private fun MainScaffold(
             if (showAccountDialog) {
                 AccountDialog(
                     authenticated = isAuthenticated,
+                    accountName = accountName,
                     onLogout = {
                         onLogout()
                         showAccountDialog = false
                     },
-                    onAuthenticated = { showAccountDialog = false },
+                    onAuthenticated = {},
                     onDismiss = { showAccountDialog = false },
                 )
             }
@@ -432,6 +430,7 @@ private fun MainScaffold(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun AccountDialog(
     authenticated: Boolean,
+    accountName: String,
     onLogout: () -> Unit,
     onAuthenticated: () -> Unit,
     onDismiss: () -> Unit,
@@ -473,7 +472,7 @@ private fun AccountDialog(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = stringResource(R.string.cloud_account_connected_body),
+                        text = stringResource(R.string.cloud_account_connected_body, accountName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

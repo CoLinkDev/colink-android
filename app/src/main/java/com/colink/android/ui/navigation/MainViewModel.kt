@@ -40,6 +40,12 @@ class MainViewModel @Inject constructor(
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val accountName: StateFlow<String> =
+        authRepository.session
+            .map { it?.email.orEmpty() }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
     val cloudStatus: StateFlow<CloudStatus> =
         connectionManager.cloudState
             .map { it.status }

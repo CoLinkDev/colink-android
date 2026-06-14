@@ -211,7 +211,7 @@
     <string name="cloud_account_title">Облачный аккаунт</string>
     <string name="cloud_account_connected">Подключено</string>
     <string name="cloud_account_login_tip">Войдите, чтобы синхронизировать устройства</string>
-    <string name="cloud_account_connected_body">Это устройство подключено к вашему облачному аккаунту.</string>
+    <string name="cloud_account_connected_body">Это устройство подключено к вашему облачному аккаунту %s.</string>
     <string name="logout_btn">Выйти</string>
     <string name="email_or_username_label">Имя пользователя или эл. почта</string>
     <string name="password_label">Пароль</string>

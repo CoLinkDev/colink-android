@@ -70,7 +70,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = LoginRequestDto(identifier.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken)
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, identifier.trim())
         }
 
     override suspend fun register(email: String, username: String, password: String): Result<Unit> =
@@ -81,7 +81,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = RegisterRequestDto(email.trim(), username.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken)
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, email.trim())
         }
 
     override suspend fun logout(): Result<Unit> =
@@ -128,6 +128,7 @@ class AuthRepositoryImpl @Inject constructor(
                     accessToken = response.token,
                     refreshToken = response.refreshToken,
                     accessTokenExpiresAt = System.currentTimeMillis() + ACCESS_TOKEN_TTL_MILLIS,
+                    email = latest.email,
                 ).also { settingsDataStore.saveSession(it) }
             }
         }
@@ -136,12 +137,14 @@ class AuthRepositoryImpl @Inject constructor(
         userId: String,
         token: String,
         refreshToken: String,
+        email: String,
     ) {
         val session = Session(
             userId = userId,
             accessToken = token,
             refreshToken = refreshToken,
             accessTokenExpiresAt = System.currentTimeMillis() + ACCESS_TOKEN_TTL_MILLIS,
+            email = email,
         )
         deviceRepository.ensureDeviceIdentity(session).getOrThrow()
         settingsDataStore.saveSession(session)
