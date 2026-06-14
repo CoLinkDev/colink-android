@@ -3,7 +3,6 @@ package com.colink.android.domain.model
 data class DeviceIdentity(
     val userId: String?,
     val deviceId: String,
-    val deviceSecret: String?,
     val name: String,
     val type: String,
     val publicKey: String,

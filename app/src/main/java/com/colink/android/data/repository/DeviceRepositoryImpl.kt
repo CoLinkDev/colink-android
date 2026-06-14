@@ -12,7 +12,6 @@ import com.colink.android.data.remote.api.DeviceApi
 import com.colink.android.data.remote.api.apiEndpoint
 import com.colink.android.data.remote.dto.DeviceNameUpdateRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterRequestDto
-import com.colink.android.data.remote.dto.DeviceRotateKeyRequestDto
 import com.colink.android.data.remote.dto.requireData
 import com.colink.android.data.remote.dto.requireOk
 import com.colink.android.domain.model.Device
@@ -47,15 +46,7 @@ class DeviceRepositoryImpl @Inject constructor(
     override suspend fun ensureDeviceIdentity(session: Session): Result<DeviceIdentity> =
         runCatching {
             val identity = ensureLocalDeviceIdentityRecord()
-            when {
-                identity.userId == null -> registerLocalDevice(session, identity)
-                identity.userId == session.userId && !identity.deviceSecret.isNullOrBlank() -> {
-                    syncLocalDeviceKeyIfPending(session, identity)
-                    identity
-                }
-                identity.userId == session.userId -> registerLocalDevice(session, identity)
-                else -> error("current device is bound to another account")
-            }
+            registerLocalDevice(session, identity)
         }
 
     override suspend fun localDeviceIdentity(): DeviceIdentity? =
@@ -273,7 +264,7 @@ class DeviceRepositoryImpl @Inject constructor(
 
             val session = settingsDataStore.currentSession()
             if (session != null && rotated.userId == session.userId) {
-                syncLocalDeviceKeyIfPending(session, rotated)
+                registerLocalDevice(session, rotated)
                 syncDevices(session).getOrThrow()
             } else {
                 listLocalDevices().getOrThrow()
@@ -308,7 +299,6 @@ class DeviceRepositoryImpl @Inject constructor(
         return DeviceIdentity(
             userId = null,
             deviceId = UUID.randomUUID().toString(),
-            deviceSecret = null,
             name = name,
             type = "android",
             publicKey = generated.publicKey,
@@ -344,7 +334,6 @@ class DeviceRepositoryImpl @Inject constructor(
         return identity.copy(
             userId = session.userId,
             deviceId = response.deviceId.ifBlank { identity.deviceId },
-            deviceSecret = response.deviceSecret,
             name = name,
             cloudKeySyncPending = false,
         ).also { registered ->
@@ -378,32 +367,6 @@ class DeviceRepositoryImpl @Inject constructor(
                 "failed to sync local device name device=${CoLinkLog.shortId(identity.deviceId)}",
                 error,
             )
-        }
-    }
-
-    private suspend fun syncLocalDeviceKeyIfPending(
-        session: Session,
-        identity: DeviceIdentity,
-    ) {
-        if (!identity.cloudKeySyncPending || identity.userId != session.userId) {
-            return
-        }
-        runCatching {
-            deviceApi
-                .rotateDeviceKey(
-                    url = apiEndpoint(
-                        settingsDataStore.currentSettings().serverUrl,
-                        "/api/v1/devices/${identity.deviceId}/key",
-                    ),
-                    authorization = bearer(session.accessToken),
-                    request = DeviceRotateKeyRequestDto(identity.publicKey),
-                )
-                .requireOk()
-        }.onSuccess {
-            val latest = settingsDataStore.currentDeviceIdentity()
-            if (latest?.deviceId == identity.deviceId && latest.publicKey == identity.publicKey) {
-                settingsDataStore.saveDeviceIdentity(latest.copy(cloudKeySyncPending = false))
-            }
         }
     }
 

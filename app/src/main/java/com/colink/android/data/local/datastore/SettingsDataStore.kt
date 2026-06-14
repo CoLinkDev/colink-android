@@ -70,7 +70,6 @@ class SettingsDataStore @Inject constructor(
                 DeviceIdentity(
                     userId = userId?.takeIf { it.isNotBlank() },
                     deviceId = deviceId,
-                    deviceSecret = preferences[DEVICE_SECRET]?.takeIf { it.isNotBlank() },
                     name = name,
                     type = type,
                     publicKey = publicKey,
@@ -125,7 +124,7 @@ class SettingsDataStore @Inject constructor(
         dataStore.edit { preferences ->
             identity.userId?.let { preferences[DEVICE_USER_ID] = it } ?: preferences.remove(DEVICE_USER_ID)
             preferences[DEVICE_ID] = identity.deviceId
-            identity.deviceSecret?.let { preferences[DEVICE_SECRET] = it } ?: preferences.remove(DEVICE_SECRET)
+            preferences.remove(DEVICE_SECRET)
             preferences[DEVICE_NAME] = identity.name
             preferences[DEVICE_TYPE] = identity.type
             preferences[DEVICE_PUBLIC_KEY] = identity.publicKey

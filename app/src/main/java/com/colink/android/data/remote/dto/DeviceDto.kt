@@ -15,7 +15,6 @@ data class DeviceRegisterRequestDto(
 @Serializable
 data class DeviceRegisterResponseDto(
     val deviceId: String,
-    val deviceSecret: String,
 )
 
 @Serializable
@@ -52,11 +51,6 @@ data class DeviceDto(
 @Serializable
 data class DeviceNameUpdateRequestDto(
     val name: String,
-)
-
-@Serializable
-data class DeviceRotateKeyRequestDto(
-    val publicKey: String,
 )
 
 private fun parseTimestampMillis(value: String?): Long? =

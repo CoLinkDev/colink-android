@@ -23,8 +23,7 @@ class TicketProvider @Inject constructor(
     suspend fun obtainTicket(): Result<WsTicket> =
         runCatching {
             val session = authRepository.currentSession().getOrThrow()
-            val identity = deviceRepository.localDeviceIdentity()
-                ?: deviceRepository.ensureDeviceIdentity(session).getOrThrow()
+            val identity = deviceRepository.ensureDeviceIdentity(session).getOrThrow()
             val serverUrl = settingsDataStore.currentSettings().serverUrl
             val response = wsApi
                 .ticket(

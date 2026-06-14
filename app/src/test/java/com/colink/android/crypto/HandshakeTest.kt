@@ -16,7 +16,6 @@ class HandshakeTest {
         val identity = DeviceIdentity(
             userId = "user",
             deviceId = "device",
-            deviceSecret = "secret",
             name = "Android",
             type = "android",
             publicKey = keys.publicKey,

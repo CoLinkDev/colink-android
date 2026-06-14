@@ -5,7 +5,6 @@ import com.colink.android.data.remote.dto.DeviceListResponseDto
 import com.colink.android.data.remote.dto.DeviceNameUpdateRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterRequestDto
 import com.colink.android.data.remote.dto.DeviceRegisterResponseDto
-import com.colink.android.data.remote.dto.DeviceRotateKeyRequestDto
 import kotlinx.serialization.json.JsonElement
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -42,10 +41,4 @@ interface DeviceApi {
         @Header("Authorization") authorization: String,
     ): ApiEnvelope<JsonElement>
 
-    @PUT
-    suspend fun rotateDeviceKey(
-        @Url url: String,
-        @Header("Authorization") authorization: String,
-        @Body request: DeviceRotateKeyRequestDto,
-    ): ApiEnvelope<JsonElement>
 }
