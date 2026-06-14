@@ -433,6 +433,27 @@ class LanWebSocketServer @Inject constructor(
                             }
                             .also {
                                 relayMillis = elapsedSince(relayStartedAt)
+                                if (it.type != "swim.ack" || it.payload.from != target) {
+                                    CoLinkLog.w(
+                                        "SWIM",
+                                        "ping-req target identity mismatch target=${CoLinkLog.shortId(target)} from=${CoLinkLog.shortId(it.payload.from)}",
+                                    )
+                                    val respondMillis = respondStatusWithTiming(HttpStatusCode.GatewayTimeout)
+                                    logHandledSwimRequest(
+                                        type = swimRequest.type,
+                                        from = from,
+                                        host = host,
+                                        status = HttpStatusCode.GatewayTimeout.value,
+                                        startedAt = startedAt,
+                                        readMillis = readMillis,
+                                        decodeMillis = decodeMillis,
+                                        listenerMillis = listenerMillis,
+                                        responseBuildMillis = elapsedSince(responseBuildStartedAt),
+                                        relayMillis = relayMillis,
+                                        respondMillis = respondMillis,
+                                    )
+                                    return
+                                }
                                 listener?.onSwimMessage(it, null)
                             }
                     }

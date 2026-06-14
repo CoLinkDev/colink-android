@@ -2111,7 +2111,13 @@ class ConnectionManager @Inject constructor(
         }.getOrNull()
         if (ack != null) {
             processSwimMessage(ack, null)
-            return
+            if (ack.isTargetAck(target)) {
+                return
+            }
+            CoLinkLog.w(
+                "SWIM",
+                "direct probe identity mismatch target=${CoLinkLog.shortId(target)} from=${CoLinkLog.shortId(ack.payload.from)}",
+            )
         }
 
         val indirectAck = firstSuccessfulIndirectAck(identity, target)
@@ -2163,8 +2169,14 @@ class ConnectionManager @Inject constructor(
             repeat(jobs.size) {
                 val (intermediary, result) = results.receive()
                 result.getOrNull()?.let { ack ->
-                    jobs.forEach { it.cancel() }
-                    return@coroutineScope ack
+                    if (ack.isTargetAck(target)) {
+                        jobs.forEach { it.cancel() }
+                        return@coroutineScope ack
+                    }
+                    CoLinkLog.w(
+                        "SWIM",
+                        "indirect probe identity mismatch target=${CoLinkLog.shortId(target)} intermediary=${CoLinkLog.shortId(intermediary)} from=${CoLinkLog.shortId(ack.payload.from)}",
+                    )
                 }
                 result.exceptionOrNull()?.let { error ->
                     CoLinkLog.d(
@@ -2462,3 +2474,6 @@ private data class LanEndpoint(
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
     this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
+
+private fun SwimEnvelope.isTargetAck(targetDeviceId: String): Boolean =
+    type == "swim.ack" && payload.from == targetDeviceId
