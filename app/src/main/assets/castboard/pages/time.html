@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+  <body>
+    <div class="page page-time">
+      <style>
+        .page-time {
+          z-index: 4;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: radial-gradient(circle at center, #111318 0%, #050608 100%);
+          padding: 2vw;
+        }
+
+        .time-container {
+          text-align: center;
+          animation: time-scale-up 400ms var(--ease);
+        }
+
+        .time-clock {
+          font-family: "CastBoard Google Sans Flex", sans-serif;
+          font-size: clamp(90px, 28vh, 200px);
+          font-weight: 800;
+          line-height: 1;
+          color: #ffffff;
+          margin-bottom: 2vh;
+          letter-spacing: -0.02em;
+        }
+
+        .time-date {
+          font-size: clamp(24px, 6vh, 42px);
+          font-weight: 500;
+          color: rgba(248, 250, 252, 0.6);
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+        }
+
+        @keyframes time-scale-up {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      </style>
+      <div class="time-container">
+        <div class="time-clock" id="time-clock-display">00:00</div>
+        <div class="time-date" id="time-date-display">DATE</div>
+      </div>
+    </div>
+
+    <script>
+      (function() {
+        let updateTimer = null;
+
+        function updateTime(container) {
+          const clockEl = container.querySelector("#time-clock-display");
+          const dateEl = container.querySelector("#time-date-display");
+          if (!clockEl || !dateEl) return;
+
+          const now = new Date();
+          const lang = document.documentElement.getAttribute("lang") || "zh-CN";
+
+          // Format clock: HH:MM
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          clockEl.textContent = `${hours}:${minutes}`;
+
+          // Format date
+          const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+          try {
+            dateEl.textContent = now.toLocaleDateString(lang, dateOptions);
+          } catch (e) {
+            dateEl.textContent = now.toLocaleDateString('zh-CN', dateOptions);
+          }
+        }
+
+        parent.pages.time = {
+          template: document.body.innerHTML,
+          mount(container) {
+            updateTime(container);
+            updateTimer = setInterval(() => updateTime(container), 1000);
+          },
+          unmount() {
+            if (updateTimer) {
+              clearInterval(updateTimer);
+              updateTimer = null;
+            }
+          },
+          cleanup() {
+            if (updateTimer) {
+              clearInterval(updateTimer);
+              updateTimer = null;
+            }
+          }
+        };
+      })();
+    </script>
+  </body>
+</html>

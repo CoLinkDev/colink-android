@@ -146,6 +146,7 @@ class NavigationManager {
     this.transientOriginalPage = null;
     this.isTransientActive = false;
     this.preDebugPage = null;
+    this.transientQueue = [];
   }
 
   getStoredDetailLayerVisible() {
@@ -167,7 +168,7 @@ class NavigationManager {
   navigateTo(newPageName, isTemporary = false) {
     if (this.currentPageName === newPageName) return;
 
-    if (this.transientTimer && !isTemporary) {
+    if (this.isTransientActive && !isTemporary) {
       this.cancelTransient();
     }
 
@@ -230,16 +231,24 @@ class NavigationManager {
   }
 
   toggle() {
+    if (this.isTransientActive) {
+      const target = this.transientOriginalPage || "lyrics";
+      this.navigateTo(target);
+      return;
+    }
+
     if (this.currentPageName === "lyrics") {
       this.navigateTo("detail");
     } else if (this.currentPageName === "detail") {
+      this.navigateTo("lyrics");
+    } else {
       this.navigateTo("lyrics");
     }
   }
 
   navigateToDebug() {
     if (this.currentPageName === "debug") return;
-    this.preDebugPage = this.currentPageName;
+    this.preDebugPage = this.isTransientActive ? (this.transientOriginalPage || "lyrics") : this.currentPageName;
     this.navigateTo("debug");
   }
 
@@ -250,28 +259,46 @@ class NavigationManager {
   }
 
   showTransient(targetPage, durationMs) {
-    if (this.currentPageName !== targetPage) {
-      if (!this.isTransientActive) {
-        this.transientOriginalPage = this.currentPageName;
+    if (this.currentPageName === "debug") return;
+
+    if (this.isTransientActive) {
+      if (this.currentPageName === targetPage) {
+        // If it's already showing, just extend the timer instead of queuing a duplicate
+        this.clearTransientTimer();
+        this.transientTimer = window.setTimeout(() => this.restoreTransient(), durationMs);
+      } else {
+        // Queue up the different transient page
+        this.transientQueue.push({ pageName: targetPage, durationMs });
       }
-      this.isTransientActive = true;
-      this.navigateTo(targetPage, true);
+      return;
     }
 
-    this.clearTransientTimer();
-    this.transientTimer = window.setTimeout(() => this.restoreTransient(), durationMs);
+    if (this.currentPageName !== targetPage) {
+      this.transientOriginalPage = this.currentPageName;
+      this.isTransientActive = true;
+      this.navigateTo(targetPage, true);
+      this.clearTransientTimer();
+      this.transientTimer = window.setTimeout(() => this.restoreTransient(), durationMs);
+    }
   }
 
   restoreTransient() {
     this.clearTransientTimer();
-    if (this.transientOriginalPage && this.currentPageName !== this.transientOriginalPage) {
-      this.navigateTo(this.transientOriginalPage, true);
+    if (this.transientQueue.length > 0) {
+      const next = this.transientQueue.shift();
+      this.navigateTo(next.pageName, true);
+      this.transientTimer = window.setTimeout(() => this.restoreTransient(), next.durationMs);
+    } else {
+      if (this.transientOriginalPage && this.currentPageName !== this.transientOriginalPage) {
+        this.navigateTo(this.transientOriginalPage, true);
+      }
+      this.resetTransientState();
     }
-    this.resetTransientState();
   }
 
   cancelTransient() {
     this.clearTransientTimer();
+    this.transientQueue = [];
     this.resetTransientState();
   }
 
@@ -344,8 +371,36 @@ function preventWheelZoom(event) {
   }
 }
 
+let timeSchedulerTimerId = 0;
+let lastTimeTriggeredMinute = -1;
+
+function startTimeScheduler() {
+  timeSchedulerTimerId = window.setInterval(() => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    if (minutes === 0 || minutes === 30) {
+      if (minutes !== lastTimeTriggeredMinute) {
+        lastTimeTriggeredMinute = minutes;
+        if (window.navManager) {
+          window.navManager.showTransient("time", 4000);
+        }
+      }
+    } else {
+      lastTimeTriggeredMinute = -1;
+    }
+  }, 1000);
+}
+
+function stopTimeScheduler() {
+  if (timeSchedulerTimerId) {
+    window.clearInterval(timeSchedulerTimerId);
+    timeSchedulerTimerId = 0;
+  }
+}
+
 function cleanupScheduledWork() {
   resizeTimer = clearTimer(resizeTimer);
+  stopTimeScheduler();
   if (window.navManager) {
     window.navManager.destroy();
   }
@@ -373,7 +428,7 @@ function bindEvents() {
 
 const loadedPages = new Set();
 const isDebugActive = new URLSearchParams(window.location.search).has("debug");
-const totalPages = ["lyrics", "detail"];
+const totalPages = ["lyrics", "detail", "time"];
 if (isDebugActive) {
   totalPages.push("debug");
 }
@@ -404,6 +459,7 @@ window.onIframeLoad = function(pageName) {
 function boot() {
   bindEvents();
   cacheLayoutMetrics();
+  startTimeScheduler();
 
   const ready = document.fonts?.ready ?? Promise.resolve();
   ready.then(() => {
