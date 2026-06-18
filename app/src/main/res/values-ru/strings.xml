@@ -15,7 +15,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
-    <string name="nav_messages">Сообщения и файлы</string>
+    <string name="nav_messages">Передачи</string>
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>

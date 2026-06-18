@@ -22,12 +22,18 @@ import com.colink.android.notification.EXTRA_FILE_SESSION_ID
 import com.colink.android.notification.EXTRA_PAIRING_REQUEST_ID
 import com.colink.android.notification.EXTRA_TARGET_DEVICE_ID
 import com.colink.android.util.CoLinkLog
+import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val EVENT_CHANNEL_ID = "colink_events"
 private const val PAIRING_NOTIFICATION_ID = 2001
+private const val MAIN_REQUEST_CODE = 100
+private const val TARGET_DEVICE_REQUEST_CODE_BASE = 10_000
+private const val TARGET_DEVICE_REQUEST_CODE_MASK = 0x0fffffff
+private const val ACTION_OPEN_MAIN = "com.colink.android.action.OPEN_MAIN"
+private const val ACTION_OPEN_DEVICE = "com.colink.android.action.OPEN_DEVICE"
 
 @Singleton
 class CoLinkNotifier @Inject constructor(
@@ -37,10 +43,11 @@ class CoLinkNotifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
         }
-        val manager = context.getSystemService(NotificationManager::class.java)
+        val localizedContext = LocaleHelper.localized(context)
+        val manager = localizedContext.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             EVENT_CHANNEL_ID,
-            context.getString(R.string.notification_events_channel_name),
+            localizedContext.getString(R.string.notification_events_channel_name),
             NotificationManager.IMPORTANCE_HIGH,
         )
         manager.createNotificationChannel(channel)
@@ -93,11 +100,12 @@ class CoLinkNotifier @Inject constructor(
         deviceName: String,
         fileName: String,
     ) {
+        val localizedContext = LocaleHelper.localized(context)
         ensureEventChannel()
         if (!canNotify("file offer")) {
             return
         }
-        val body = context.getString(R.string.notification_file_offer_body, deviceName, fileName)
+        val body = localizedContext.getString(R.string.notification_file_offer_body, deviceName, fileName)
         val notificationId = fileOfferNotificationId(sessionId)
         val acceptIntent = PendingIntent.getBroadcast(
             context,
@@ -132,12 +140,12 @@ class CoLinkNotifier @Inject constructor(
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
                 android.R.drawable.ic_delete,
-                context.getString(R.string.reject_btn),
+                localizedContext.getString(R.string.reject_btn),
                 rejectIntent,
             )
             .addAction(
                 android.R.drawable.ic_menu_save,
-                context.getString(R.string.accept_btn),
+                localizedContext.getString(R.string.accept_btn),
                 acceptIntent,
             )
             .build()
@@ -153,14 +161,15 @@ class CoLinkNotifier @Inject constructor(
     }
 
     suspend fun notifyLanPairingRequest(request: LanPairingRequest) {
+        val localizedContext = LocaleHelper.localized(context)
         ensureEventChannel()
         if (!canNotify("lan pairing")) {
             return
         }
         val deviceName = request.name.ifBlank { request.deviceId }
-        val title = context.getString(R.string.notification_lan_pairing_title)
-        val text = context.getString(R.string.notification_lan_pairing_text, deviceName, request.code)
-        val body = context.getString(R.string.notification_lan_pairing_body, deviceName, request.code)
+        val title = localizedContext.getString(R.string.notification_lan_pairing_title)
+        val text = localizedContext.getString(R.string.notification_lan_pairing_text, deviceName, request.code)
+        val body = localizedContext.getString(R.string.notification_lan_pairing_body, deviceName, request.code)
         val acceptIntent = PendingIntent.getBroadcast(
             context,
             PAIRING_NOTIFICATION_ID,
@@ -194,12 +203,12 @@ class CoLinkNotifier @Inject constructor(
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .addAction(
                 android.R.drawable.ic_delete,
-                context.getString(R.string.reject_btn),
+                localizedContext.getString(R.string.reject_btn),
                 rejectIntent,
             )
             .addAction(
                 android.R.drawable.ic_menu_save,
-                context.getString(R.string.accept_btn),
+                localizedContext.getString(R.string.accept_btn),
                 acceptIntent,
             )
             .build()
@@ -228,15 +237,21 @@ class CoLinkNotifier @Inject constructor(
     }
 
     private fun mainActivityIntent(deviceId: String? = null): PendingIntent {
+        val targetDeviceId = deviceId?.takeIf { it.isNotBlank() }
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            deviceId?.takeIf { it.isNotBlank() }?.let {
-                putExtra(EXTRA_TARGET_DEVICE_ID, it)
+            if (targetDeviceId == null) {
+                action = ACTION_OPEN_MAIN
+                removeExtra(EXTRA_TARGET_DEVICE_ID)
+            } else {
+                action = ACTION_OPEN_DEVICE
+                putExtra(EXTRA_TARGET_DEVICE_ID, targetDeviceId)
             }
         }
         return PendingIntent.getActivity(
             context,
-            0,
+            targetDeviceId?.let { TARGET_DEVICE_REQUEST_CODE_BASE + (it.hashCode() and TARGET_DEVICE_REQUEST_CODE_MASK) }
+                ?: MAIN_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

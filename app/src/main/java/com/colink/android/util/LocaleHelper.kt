@@ -10,6 +10,9 @@ object LocaleHelper {
     private const val PREFS_NAME = "colink_locale"
     private const val KEY_LANGUAGE = "language"
 
+    fun localized(context: Context): Context =
+        wrap(context, cachedLanguage(context))
+
     fun wrap(context: Context, language: String): Context {
         val locale = getLocaleFromCode(language) ?: return context
         Locale.setDefault(locale)

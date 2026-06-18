@@ -9,6 +9,7 @@ import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -86,6 +87,7 @@ class SettingsViewModel @Inject constructor(
         if (_uiState.value.checkingUpdate) {
             return
         }
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(checkingUpdate = true, message = null) }
             updateRepository.checkForUpdate()
@@ -94,7 +96,7 @@ class SettingsViewModel @Inject constructor(
                         it.copy(
                             checkingUpdate = false,
                             availableUpdate = update,
-                            message = if (update == null) context.getString(R.string.update_up_to_date) else null,
+                            message = if (update == null) localizedContext.getString(R.string.update_up_to_date) else null,
                         )
                     }
                 }
@@ -102,7 +104,7 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             checkingUpdate = false,
-                            message = context.getString(R.string.update_check_failed),
+                            message = localizedContext.getString(R.string.update_check_failed),
                         )
                     }
                 }

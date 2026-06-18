@@ -37,7 +37,7 @@ class DeviceRepositoryImpl @Inject constructor(
     private val deviceNameProvider: DeviceNameProvider,
 ) : DeviceRepository {
     override val devices: Flow<List<Device>> =
-        deviceDao.observeDevices().map { entities -> entities.map { it.toDomain() } }
+        deviceDao.observeDevices().map { entities -> sortDevices(entities.map { it.toDomain() }) }
 
     override suspend fun ensureLocalDeviceIdentity(): Result<DeviceIdentity> =
         runCatching {
@@ -562,12 +562,23 @@ class DeviceRepositoryImpl @Inject constructor(
             devices += localDeviceInfo(localIdentity, keepCloudState = keepCloudState)
         }
 
-        return devices.sortedWith(
-            compareByDescending<Device> { it.online }
+        return sortDevices(devices)
+    }
+
+    private fun sortDevices(devices: List<Device>): List<Device> =
+        devices.sortedWith(
+            compareBy<Device> { deviceSortGroup(it) }
                 .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
                 .thenBy { it.deviceId },
         )
-    }
+
+    private fun deviceSortGroup(device: Device): Int =
+        when {
+            device.deviceSources.contains("local") -> 0
+            device.cloudAvailable || device.deviceSources.contains("cloud") -> 1
+            device.lanAvailable || device.trustedByLan || device.deviceSources.contains("trusted_peer_key") -> 2
+            else -> 3
+        }
 
     private suspend fun trustedPeerDevice(deviceId: String): Device? {
         val record = trustedPeerKeyDao.get(deviceId)?.takeIf { it.isTrusted } ?: return null

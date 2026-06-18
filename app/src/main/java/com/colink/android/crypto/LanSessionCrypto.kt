@@ -5,6 +5,7 @@ import com.colink.android.network.message.EncryptedBusinessPayload
 import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.security.MessageDigest
+import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
@@ -23,8 +24,14 @@ import org.bouncycastle.crypto.params.X25519PublicKeyParameters
 
 private const val AES_256_GCM = "x25519-aes-256-gcm"
 private const val CHACHA20_POLY1305 = "x25519-chacha20-poly1305"
-private const val HKDF_SALT = "colink-lan-v1"
-private const val HKDF_INFO = "encryption"
+private const val HKDF_LEGACY_SALT = "colink-lan-v1"
+private const val HKDF_LEGACY_INFO = "encryption"
+private const val HKDF_SESSION_SALT = "colink-lan-v2"
+
+data class LanEphemeralKeyPair(
+    val publicKey: String,
+    internal val privateKeyBytes: ByteArray,
+)
 
 class LanSessionCrypto(
     private val json: Json,
@@ -118,6 +125,46 @@ class LanSessionCrypto(
             )
         }
 
+        fun createWithEphemeralKeys(
+            json: Json,
+            suite: String,
+            localEphemeralPrivateKey: ByteArray,
+            localEphemeralPublicKey: String,
+            peerEphemeralPublicKey: String,
+            localDeviceId: String,
+            peerDeviceId: String,
+            protocolVersion: String,
+            localIsInitiator: Boolean,
+        ): LanSessionCrypto {
+            require(suite in supportedSuites) { "unsupported LAN encryption suite" }
+            return LanSessionCrypto(
+                json = json,
+                suite = suite,
+                key = deriveSessionKeyFromEphemeral(
+                    suite = suite,
+                    localEphemeralPrivateKey = localEphemeralPrivateKey,
+                    localEphemeralPublicKey = localEphemeralPublicKey,
+                    peerEphemeralPublicKey = peerEphemeralPublicKey,
+                    localDeviceId = localDeviceId,
+                    peerDeviceId = peerDeviceId,
+                    protocolVersion = protocolVersion,
+                ),
+                outboundRole = if (localIsInitiator) 0 else 1,
+            )
+        }
+
+        fun generateEphemeralKeyPair(): LanEphemeralKeyPair {
+            val privateKey = X25519PrivateKeyParameters(SecureRandom())
+            val publicKey = ByteArray(32)
+            privateKey.generatePublicKey().encode(publicKey, 0)
+            val privateKeyBytes = ByteArray(32)
+            privateKey.encode(privateKeyBytes, 0)
+            return LanEphemeralKeyPair(
+                publicKey = Base64.getEncoder().encodeToString(publicKey),
+                privateKeyBytes = privateKeyBytes,
+            )
+        }
+
         private fun deriveSessionKey(privateKey: String, peerPublicKey: String): ByteArray {
             val agreement = X25519Agreement()
             agreement.init(X25519PrivateKeyParameters(ed25519PrivateToX25519(privateKey), 0))
@@ -132,12 +179,56 @@ class LanSessionCrypto(
             hkdf.init(
                 HKDFParameters(
                     sharedSecret,
-                    HKDF_SALT.toByteArray(),
-                    HKDF_INFO.toByteArray(),
+                    HKDF_LEGACY_SALT.toByteArray(),
+                    HKDF_LEGACY_INFO.toByteArray(),
                 ),
             )
             val key = ByteArray(32)
             hkdf.generateBytes(key, 0, key.size)
+            return key
+        }
+
+        private fun deriveSessionKeyFromEphemeral(
+            suite: String,
+            localEphemeralPrivateKey: ByteArray,
+            localEphemeralPublicKey: String,
+            peerEphemeralPublicKey: String,
+            localDeviceId: String,
+            peerDeviceId: String,
+            protocolVersion: String,
+        ): ByteArray {
+            val agreement = X25519Agreement()
+            agreement.init(X25519PrivateKeyParameters(localEphemeralPrivateKey, 0))
+            val sharedSecret = ByteArray(agreement.agreementSize)
+            agreement.calculateAgreement(
+                X25519PublicKeyParameters(Base64.getDecoder().decode(peerEphemeralPublicKey), 0),
+                sharedSecret,
+                0,
+            )
+            val localFirst = localDeviceId <= peerDeviceId
+            val from = if (localFirst) localDeviceId else peerDeviceId
+            val to = if (localFirst) peerDeviceId else localDeviceId
+            val ephemeralA = if (localFirst) localEphemeralPublicKey else peerEphemeralPublicKey
+            val ephemeralB = if (localFirst) peerEphemeralPublicKey else localEphemeralPublicKey
+            val info = "domain=colink-lan-session-key\n" +
+                "from=$from\n" +
+                "to=$to\n" +
+                "ephemeralA=$ephemeralA\n" +
+                "ephemeralB=$ephemeralB\n" +
+                "protocolVersion=$protocolVersion\n" +
+                "suite=$suite"
+
+            val hkdf = HKDFBytesGenerator(SHA256Digest())
+            hkdf.init(
+                HKDFParameters(
+                    sharedSecret,
+                    HKDF_SESSION_SALT.toByteArray(),
+                    info.toByteArray(),
+                ),
+            )
+            val key = ByteArray(32)
+            hkdf.generateBytes(key, 0, key.size)
+            localEphemeralPrivateKey.fill(0)
             return key
         }
 

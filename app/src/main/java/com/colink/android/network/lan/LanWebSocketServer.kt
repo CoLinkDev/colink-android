@@ -5,31 +5,46 @@ import com.colink.android.crypto.LanSessionCrypto
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.repository.DeviceRepository
+import com.colink.android.network.message.AuthChallengePayload
+import com.colink.android.network.message.AuthResponsePayload
+import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.BusinessEnvelope
+import com.colink.android.network.message.BusinessKeyExchangePayload
 import com.colink.android.network.message.BusinessNegotiatePayload
+import com.colink.android.network.message.BusinessVersionAckPayload
+import com.colink.android.network.message.BusinessVersionPayload
+import com.colink.android.network.message.EmptyPayload
 import com.colink.android.network.message.EncryptedBusinessPayload
-import com.colink.android.network.message.HandshakeAcceptPayload
-import com.colink.android.network.message.HandshakeProofPayload
-import com.colink.android.network.message.HandshakeRejectPayload
-import com.colink.android.network.message.PeerEnvelope
+import com.colink.android.network.message.LAN_PROTOCOL_VERSION
+import com.colink.android.network.message.LanEnvelope
+import com.colink.android.network.message.LanRejectPayload
+import com.colink.android.network.message.PairingIdentityPayload
+import com.colink.android.network.message.ProtocolHelloAckEnvelope
+import com.colink.android.network.message.ProtocolHelloEnvelope
+import com.colink.android.network.message.ProtocolHelloPayload
 import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.SwimPayload
+import com.colink.android.network.message.VersionAckPayload
+import com.colink.android.network.message.checkBusinessProtocolVersion
+import com.colink.android.network.message.checkLanProtocolVersion
+import com.colink.android.network.message.negotiatedLanProtocolVersion
+import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.util.CoLinkLog
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.install
 import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
-import io.ktor.server.routing.routing
 import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
@@ -37,21 +52,40 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import java.io.InterruptedIOException
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 
 const val LAN_PORT = 27_777
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
-private const val BUSINESS_IDLE_TIMEOUT_MILLIS = 10 * 60 * 1_000L
+private const val PAIRING_TIMEOUT_MILLIS = 60_000L
+private const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
+private const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
+private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
-private const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
-private const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
-private const val REASON_HANDSHAKE_USER_REJECTED = "colink:handshake.user_rejected.v1"
+private const val REASON_AUTH_UNKNOWN_DEVICE = "colink:auth.unknown_device.v1"
+private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
+private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
+private const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
+private const val REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "colink:key_exchange.timestamp_expired.v1"
+private const val REASON_KEY_EXCHANGE_GENERIC = "colink:key_exchange.generic.v1"
+private const val MESSAGE_AUTH_UNKNOWN_DEVICE = "No trust record for this device"
+private const val MESSAGE_AUTH_KEY_CHANGED = "Peer public key differs from stored trust record"
+private const val MESSAGE_PAIRING_USER_REJECTED = "User declined the pairing request"
+private const val MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID = "Ephemeral key signature verification failed"
+private const val MESSAGE_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "Ephemeral key timestamp expired"
+private const val MESSAGE_KEY_EXCHANGE_GENERIC = "Ephemeral key exchange failed"
 
 @Singleton
 class LanWebSocketServer @Inject constructor(
@@ -72,25 +106,15 @@ class LanWebSocketServer @Inject constructor(
     fun start(listener: Listener) {
         if (engine != null) {
             this.listener = listener
-            CoLinkLog.d("LAN", "LAN server already running")
             return
         }
         this.listener = listener
         engine = embeddedServer(CIO, host = "0.0.0.0", port = LAN_PORT) {
-            install(WebSockets) {
-                pingPeriodMillis = 15_000
-                timeoutMillis = 45_000
-            }
+            install(WebSockets)
             routing {
-                post("/peer/swim/v1") {
-                    call.handleSwimPing()
-                }
-                webSocket("/peer") {
-                    handlePeer(this)
-                }
-                webSocket("/transfer/{sessionId}") {
-                    handleTransfer(this)
-                }
+                post("/peer/swim/v1") { call.handleSwimPing() }
+                webSocket("/peer") { handlePeer(this) }
+                webSocket("/transfer/{sessionId}") { handleTransfer(this) }
             }
         }.start(wait = false)
         CoLinkLog.i("LAN", "LAN server started port=$LAN_PORT")
@@ -105,29 +129,23 @@ class LanWebSocketServer @Inject constructor(
         CoLinkLog.i("LAN", "LAN server stopped")
     }
 
-    suspend fun send(deviceId: String, message: BusinessEnvelope): Boolean {
+    suspend fun send(deviceId: String, message: BusinessEnvelope, correlationId: String? = null): Boolean {
         val connection = peers[deviceId] ?: return false
-        val crypto = connection.crypto
-        val payload = crypto.encrypt(message)
+        val payload = connection.crypto.encrypt(message)
         val sent = runCatching {
-            connection.session.sendPeerMessage("business.v1.message", payload)
+            connection.session.sendLanMessage(connection.identity, deviceId, "business.v1.message", payload, correlationId, connection.sequence)
             true
         }.getOrDefault(false)
         if (!sent) {
             peers.remove(deviceId, connection)
-        } else {
-            connection.touchBusinessActivity()
         }
         return sent
     }
 
-    fun hasPeer(deviceId: String): Boolean =
-        peers.containsKey(deviceId)
+    fun hasPeer(deviceId: String): Boolean = peers.containsKey(deviceId)
 
     suspend fun disconnect(deviceId: String) {
-        peers.remove(deviceId)?.let { connection ->
-            runCatching { connection.session.close() }
-        }
+        peers.remove(deviceId)?.let { runCatching { it.session.close() } }
     }
 
     fun registerTransferToken(sessionId: String, token: String) {
@@ -136,9 +154,7 @@ class LanWebSocketServer @Inject constructor(
 
     suspend fun unregisterTransfer(sessionId: String) {
         transferTokens.remove(sessionId)
-        transferConnections.remove(sessionId)?.let { session ->
-            runCatching { session.close() }
-        }
+        transferConnections.remove(sessionId)?.let { runCatching { it.close() } }
     }
 
     suspend fun sendTransferFrame(sessionId: String, frame: FileDataFrame): Boolean {
@@ -150,161 +166,27 @@ class LanWebSocketServer @Inject constructor(
     }
 
     private suspend fun handlePeer(session: DefaultWebSocketServerSession) {
+        val identity = settingsDataStore.currentDeviceIdentity() ?: return session.close()
+        val state = ServerPeerState(identity = identity, expectedDeviceId = null, allowPairing = true, initiator = false)
         var connectedPeerId: String? = null
-        var crypto: LanSessionCrypto? = null
-        var pairingRequestId: String? = null
-        fun failPairing(reason: String) {
-            pairingRequestId?.let { requestId ->
-                pairingCoordinator.fail(requestId, reason)
-                CoLinkLog.w("Pairing", "inbound pairing failed request=${CoLinkLog.shortId(requestId)} reason=$reason")
-                pairingRequestId = null
-            }
-        }
+        var keepaliveJob: Job? = null
         try {
-            val identity = settingsDataStore.currentDeviceIdentity()
-                ?: run {
-                    CoLinkLog.w("LAN", "closing inbound peer because local identity is missing")
-                    return session.close()
-                }
-            val first = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) {
-                session.readPeerEnvelope()
-            } ?: run {
-                CoLinkLog.w("LAN", "closing inbound peer because handshake timed out")
-                return session.close()
+            sendHello(session, identity)
+            val ready = runPeerHandshake(session, state)
+            if (ready == null) {
+                session.close()
+                return
             }
-            if (first.type != "handshake.v1.request") {
-                CoLinkLog.w("LAN", "rejecting inbound peer invalid first message type=${first.type}")
-                session.sendPeerMessage(
-                    "handshake.v1.reject",
-                    HandshakeRejectPayload("invalid_handshake"),
-                )
-                return session.close()
-            }
-
-            val proof = json.decodeFromJsonElement(HandshakeProofPayload.serializer(), first.payload)
-            if (!handshake.verifyProof(proof)) {
-                CoLinkLog.w("LAN", "rejecting inbound peer invalid signature device=${CoLinkLog.shortId(proof.deviceId)}")
-                session.sendPeerMessage(
-                    "handshake.v1.reject",
-                    HandshakeRejectPayload(REASON_HANDSHAKE_SIGNATURE_INVALID),
-                )
-                return session.close()
-            }
-
-            val trust = lanTrustStore.trustState(proof.deviceId, proof.publicKey)
-            CoLinkLog.i(
-                "LAN",
-                "received inbound handshake device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name} trust=$trust",
-            )
-            if (trust == LanTrustState.KeyChanged) {
-                lanTrustStore.clearLanPairing(proof.deviceId)
-                deviceRepository.clearLanEndpoint(proof.deviceId)
-                session.sendPeerMessage(
-                    "handshake.v1.reject",
-                    HandshakeRejectPayload(REASON_HANDSHAKE_KEY_CHANGED),
-                )
-                listener?.onKeyChanged(proof.deviceId, proof.name)
-                return session.close()
-            }
-
-            val exchangeProof = handshake.buildProof(
-                identity = identity,
-                hasTrust = trust == LanTrustState.Trusted,
-            )
-            session.sendPeerMessage("handshake.v1.exchange", exchangeProof)
-
-            if (trust == LanTrustState.Unknown || !proof.hasTrust) {
-                val decision = pairingCoordinator.request(
-                    deviceId = proof.deviceId,
-                    name = proof.name,
-                    publicKey = proof.publicKey,
-                    code = handshake.pairingCode(
-                        proof.publicKey,
-                        identity.publicKey,
-                        proof.nonce,
-                        exchangeProof.nonce,
-                    ),
-                    reason = "unknown_device",
-                )
-                pairingRequestId = decision.requestId
-                if (!decision.accepted) {
-                    pairingRequestId = null
-                    CoLinkLog.w("Pairing", "inbound pairing rejected device=${CoLinkLog.shortId(proof.deviceId)}")
-                    session.sendPeerMessage(
-                        "handshake.v1.reject",
-                        HandshakeRejectPayload(REASON_HANDSHAKE_USER_REJECTED),
-                    )
-                    return session.close()
-                }
-            }
-
-            session.sendPeerMessage(
-                "handshake.v1.accept",
-                HandshakeAcceptPayload(identity.deviceId),
-            )
-            session.sendPeerMessage(
-                "business.v1.negotiate",
-                BusinessNegotiatePayload(
-                    supported = LanSessionCrypto.supportedSuites,
-                    preferred = LanSessionCrypto.preferredSuite(),
-                ),
-            )
-
-            val negotiationEnvelope = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) {
-                session.readPeerEnvelope()
-            }
-            if (negotiationEnvelope == null) {
-                failPairing("LAN connection ended")
-                return session.close()
-            }
-            if (negotiationEnvelope.type != "business.v1.negotiate") {
-                CoLinkLog.w("LAN", "invalid inbound negotiation type=${negotiationEnvelope.type}")
-                failPairing("invalid LAN encryption negotiation type")
-                return session.close()
-            }
-            val negotiation = json.decodeFromJsonElement(
-                BusinessNegotiatePayload.serializer(),
-                negotiationEnvelope.payload,
-            )
-            val suite = LanSessionCrypto.chooseSuite(
-                localSupported = LanSessionCrypto.supportedSuites,
-                peerSupported = negotiation.supported,
-                localIsInitiator = false,
-            )
-            if (suite == null) {
-                CoLinkLog.w("LAN", "no compatible LAN encryption suite device=${CoLinkLog.shortId(proof.deviceId)}")
-                failPairing("no compatible LAN encryption suite")
-                return session.close()
-            }
-
-            crypto = LanSessionCrypto.create(
-                json = json,
-                suite = suite,
-                privateKey = identity.privateKey,
-                peerPublicKey = proof.publicKey,
-                localIsInitiator = false,
-            )
-            pairingRequestId?.let { requestId ->
-                lanTrustStore.trust(proof.deviceId, proof.name, proof.publicKey)
-                CoLinkLog.i("LAN", "trusted inbound LAN peer device=${CoLinkLog.shortId(proof.deviceId)} name=${proof.name}")
-                pairingCoordinator.complete(requestId)
-                pairingRequestId = null
-            }
-            connectedPeerId = proof.deviceId
-            peers.remove(proof.deviceId)?.let { existing ->
-                runCatching { existing.session.close() }
-            }
-            val connection = ServerPeerConnection(session, crypto)
-            peers[proof.deviceId] = connection
-            markPeerEndpoint(proof.deviceId, session)
-            CoLinkLog.i("LAN", "inbound LAN peer ready device=${CoLinkLog.shortId(proof.deviceId)}")
-            listener?.onConnected(proof.deviceId)
-
+            connectedPeerId = ready.peerId
+            peers.remove(ready.peerId)?.let { runCatching { it.session.close() } }
+            val connection = ServerPeerConnection(session, ready.crypto, identity, state.sequence)
+            peers[ready.peerId] = connection
+            markPeerEndpoint(ready.peerId, session)
+            listener?.onConnected(ready.peerId)
+            keepaliveJob = launchKeepaliveMonitor(ready.peerId, connection)
             while (true) {
-                val idleMillis = System.currentTimeMillis() - connection.lastBusinessActivityMillis
-                val remainingMillis = BUSINESS_IDLE_TIMEOUT_MILLIS - idleMillis
+                val remainingMillis = KEEPALIVE_TIMEOUT_MILLIS - (System.currentTimeMillis() - connection.lastApplicationActivityMillis)
                 if (remainingMillis <= 0) {
-                    CoLinkLog.w("LAN", "closing inbound LAN peer for business idle timeout device=${CoLinkLog.shortId(proof.deviceId)}")
                     session.close()
                     break
                 }
@@ -312,28 +194,400 @@ class LanWebSocketServer @Inject constructor(
                     session.incoming.receiveCatching().getOrNull()
                 } ?: continue
                 val text = (frame as? Frame.Text)?.readText() ?: continue
-                val envelope = json.decodeFromString(PeerEnvelope.serializer(), text)
-                if (envelope.type != "business.v1.message") {
+                val envelope = runCatching { json.decodeFromString(LanEnvelope.serializer(), text) }.getOrNull() ?: continue
+                if (envelope.from != ready.peerId || envelope.to != identity.deviceId) {
                     continue
                 }
-                val payload = json.decodeFromJsonElement(
-                    EncryptedBusinessPayload.serializer(),
-                    envelope.payload,
-                )
-                listener?.onMessage(proof.deviceId, crypto.decrypt(payload))
-                connection.touchBusinessActivity()
+                if (envelope.type == "heartbeat.v1.ping") {
+                    connection.touchApplicationActivity()
+                    session.sendLanMessage(identity, ready.peerId, "heartbeat.v1.pong", EmptyPayload, envelope.id, connection.sequence)
+                    continue
+                }
+                if (envelope.type == "heartbeat.v1.pong") {
+                    if (connection.consumeHeartbeat(envelope.correlationId)) {
+                        connection.touchApplicationActivity()
+                    }
+                    continue
+                }
+                if (envelope.type != "business.v1.message") {
+                    connection.touchApplicationActivity()
+                    continue
+                }
+                connection.touchApplicationActivity()
+                val payload = runCatching {
+                    json.decodeFromJsonElement(EncryptedBusinessPayload.serializer(), envelope.payload)
+                }.getOrNull() ?: continue
+                val message = runCatching { ready.crypto.decrypt(payload) }.getOrNull() ?: continue
+                listener?.onMessage(ready.peerId, envelope.id, message)
             }
-        } catch (error: Throwable) {
-            CoLinkLog.w("LAN", "inbound peer handler failed device=${CoLinkLog.shortId(connectedPeerId)}", error)
-            failPairing(error.message ?: "LAN pairing failed")
-            throw error
         } finally {
-            val id = connectedPeerId
-            if (id != null) {
-                CoLinkLog.w("LAN", "inbound LAN peer ended device=${CoLinkLog.shortId(id)}")
-                peers.remove(id)
-                listener?.onDisconnected(id)
+            keepaliveJob?.cancel()
+            connectedPeerId?.let {
+                peers.remove(it)
+                listener?.onDisconnected(it)
             }
+        }
+    }
+
+    private suspend fun runPeerHandshake(session: DefaultWebSocketServerSession, state: ServerPeerState): ReadyPeer? {
+        val startedAt = System.currentTimeMillis()
+        while (System.currentTimeMillis() - startedAt < PAIRING_TIMEOUT_MILLIS) {
+            val text = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) { session.readTextMessage() } ?: return null
+            if (!state.helloAckReceived) {
+                val ack = runCatching { json.decodeFromString(ProtocolHelloAckEnvelope.serializer(), text) }.getOrNull()
+                if (ack?.type == "protocol.hello-ack") {
+                    if (!ack.payload.compatible) {
+                        state.protocolRejected = true
+                    } else {
+                        state.helloAckReceived = true
+                    }
+                    continue
+                }
+            }
+
+            if (!state.helloReceived) {
+                val hello = runCatching { json.decodeFromString(ProtocolHelloEnvelope.serializer(), text) }.getOrNull()
+                if (hello?.type != "protocol.hello") {
+                    continue
+                }
+                state.helloReceived = true
+                state.peerId = hello.payload.deviceId
+                state.peerProtocolVersion = hello.payload.protocolVersion
+                val compatibility = checkLanProtocolVersion(hello.payload.protocolVersion)
+                sendHelloAck(session, VersionAckPayload(compatibility.compatible, compatibility.reason, compatibility.message))
+                state.helloAckSent = true
+                if (!compatibility.compatible) {
+                    state.protocolRejected = true
+                    continue
+                }
+                val record = lanTrustStore.get(hello.payload.deviceId)
+                if (record?.let { it.trustedByLan || it.trustedByCloud } == true) {
+                    state.peerPublicKey = record.publicKey
+                    state.peerName = record.name
+                }
+                continue
+            }
+
+            if (!state.helloAckReceived) {
+                if (!state.helloAckSent || state.protocolRejected) {
+                    continue
+                }
+            }
+
+            val envelope = runCatching { json.decodeFromString(LanEnvelope.serializer(), text) }.getOrNull() ?: continue
+            val peerId = state.peerId ?: continue
+            if (envelope.from != peerId || envelope.to != state.identity.deviceId) {
+                continue
+            }
+            when (envelope.type) {
+                "auth.v1.challenge" -> handleAuthChallenge(session, state, envelope)
+                "auth.v1.response" -> handleAuthResponse(session, state, envelope)
+                "auth.v1.verified" -> state.peerVerified = true
+                "auth.v1.reject" -> {
+                    val rejection = runCatching {
+                        json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
+                    }.getOrNull() ?: continue
+                    if (rejection.reason == REASON_AUTH_KEY_CHANGED) {
+                        abortAuthForKeyChange(state)
+                    }
+                }
+                "pairing.v1.request" -> handlePairingRequest(session, state, envelope)
+                "pairing.v1.complete" -> handlePairingComplete(state)
+                "pairing.v1.reject" -> {
+                    val rejection = runCatching {
+                        json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
+                    }.getOrNull() ?: continue
+                    state.pairingRequestId?.let { pairingCoordinator.fail(it, rejection.message.ifBlank { rejection.reason }) }
+                    continue
+                }
+                "business.v1.version" -> handleBusinessVersion(session, state, envelope)
+                "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope)
+                "business.v1.key-exchange" -> handleBusinessKeyExchange(session, state, envelope)
+                "business.v1.key-exchange-reject" -> {
+                    state.keyExchangeRejected = true
+                    continue
+                }
+                "business.v1.negotiate" -> {
+                    if (state.authAborted || !state.negotiationReady) {
+                        continue
+                    }
+                    val crypto = handleBusinessNegotiate(session, state, envelope)
+                    if (crypto != null) {
+                        return ReadyPeer(peerId, crypto)
+                    }
+                }
+            }
+            if (!state.authAborted && state.isSecurityReady()) {
+                sendBusinessVersion(session, state)
+                if (state.businessVersionReady && state.requiresKeyExchange) {
+                    sendBusinessKeyExchange(session, state)
+                }
+                if (state.negotiationReady) {
+                    sendBusinessNegotiate(session, state)
+                }
+            }
+        }
+        return null
+    }
+
+    private suspend fun handleAuthChallenge(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        val peerId = state.peerId ?: return
+        val publicKey = state.peerPublicKey
+        if (publicKey == null) {
+            session.sendLanMessage(state.identity, peerId, "auth.v1.reject", LanRejectPayload(REASON_AUTH_UNKNOWN_DEVICE, MESSAGE_AUTH_UNKNOWN_DEVICE), envelope.id, state.sequence)
+            return
+        }
+        val challenge = runCatching {
+            json.decodeFromJsonElement(AuthChallengePayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return
+        if (state.localNonce == null) {
+            state.localNonce = UUID.randomUUID().toString().replace("-", "")
+            session.sendLanMessage(state.identity, peerId, "auth.v1.challenge", AuthChallengePayload(state.localNonce!!), sequence = state.sequence)
+        }
+        val timestamp = System.currentTimeMillis()
+        val signature = handshake.signAuth(state.identity.privateKey, state.identity.deviceId, timestamp, challenge.nonce)
+        session.sendLanMessageWithTimestamp(state.identity, peerId, "auth.v1.response", timestamp, AuthResponsePayload(signature), envelope.id, state.sequence)
+        state.sentAuthResponse = true
+    }
+
+    private suspend fun handleAuthResponse(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        val peerId = state.peerId ?: return
+        val nonce = state.localNonce ?: return
+        val publicKey = state.peerPublicKey ?: return
+        val response = runCatching {
+            json.decodeFromJsonElement(AuthResponsePayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return
+        val valid = handshake.verifyAuth(publicKey, envelope.from, envelope.timestamp, nonce, response.signature)
+        if (valid) {
+            state.localVerified = true
+            session.sendLanMessage(state.identity, peerId, "auth.v1.verified", EmptyPayload, envelope.id, state.sequence)
+        } else {
+            session.sendLanMessage(state.identity, peerId, "auth.v1.reject", LanRejectPayload(REASON_AUTH_KEY_CHANGED, MESSAGE_AUTH_KEY_CHANGED), envelope.id, state.sequence)
+            abortAuthForKeyChange(state)
+        }
+    }
+
+    private suspend fun abortAuthForKeyChange(state: ServerPeerState) {
+        if (state.authAborted) {
+            return
+        }
+        val peerId = state.peerId ?: return
+        state.authAborted = true
+        lanTrustStore.clearLanPairing(peerId)
+        listener?.onKeyChanged(peerId, state.peerName ?: peerId)
+    }
+
+    private suspend fun handlePairingRequest(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        val peerId = state.peerId ?: return
+        val request = runCatching {
+            json.decodeFromJsonElement(PairingIdentityPayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return
+        state.peerPublicKey = request.publicKey
+        state.peerName = request.name
+        state.peerNonce = request.nonce
+        state.localNonce = UUID.randomUUID().toString().replace("-", "")
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "pairing.v1.exchange",
+            PairingIdentityPayload(state.identity.publicKey, state.identity.name, state.localNonce!!),
+            envelope.id,
+            state.sequence,
+        )
+        val decision = pairingCoordinator.request(
+            deviceId = peerId,
+            name = request.name,
+            publicKey = request.publicKey,
+            code = handshake.pairingCode(request.publicKey, state.identity.publicKey, request.nonce, state.localNonce!!),
+            reason = "unknown_device",
+        )
+        state.pairingRequestId = decision.requestId
+        if (decision.accepted) {
+            session.sendLanMessage(state.identity, peerId, "pairing.v1.confirm", EmptyPayload, envelope.id, state.sequence)
+        } else {
+            state.pairingRequestId = null
+            session.sendLanMessage(state.identity, peerId, "pairing.v1.reject", LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED), envelope.id, state.sequence)
+        }
+    }
+
+    private suspend fun handlePairingComplete(state: ServerPeerState) {
+        val peerId = state.peerId ?: return
+        val publicKey = state.peerPublicKey ?: return
+        val name = state.peerName ?: peerId
+        lanTrustStore.trust(peerId, name, publicKey)
+        state.pairingRequestId?.let { pairingCoordinator.complete(it) }
+        state.pairingRequestId = null
+        state.pairingComplete = true
+    }
+
+    private suspend fun sendBusinessNegotiate(session: DefaultWebSocketServerSession, state: ServerPeerState) {
+        val peerId = state.peerId ?: return
+        if (state.sentBusinessNegotiate || !state.negotiationReady) {
+            return
+        }
+        state.sentBusinessNegotiate = true
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "business.v1.negotiate",
+            BusinessNegotiatePayload(LanSessionCrypto.supportedSuites, LanSessionCrypto.preferredSuite()),
+            sequence = state.sequence,
+        )
+    }
+
+    private suspend fun sendBusinessKeyExchange(session: DefaultWebSocketServerSession, state: ServerPeerState) {
+        val peerId = state.peerId ?: return
+        if (state.sentKeyExchange || state.keyExchangeRejected) {
+            return
+        }
+        val ephemeral = state.localEphemeralKeyPair ?: LanSessionCrypto.generateEphemeralKeyPair().also {
+            state.localEphemeralKeyPair = it
+        }
+        val timestamp = System.currentTimeMillis()
+        val signature = handshake.signKeyExchange(
+            privateKey = state.identity.privateKey,
+            from = state.identity.deviceId,
+            to = peerId,
+            ephemeralPublicKey = ephemeral.publicKey,
+            timestamp = timestamp,
+        )
+        state.sentKeyExchange = true
+        session.sendLanMessageWithTimestamp(
+            state.identity,
+            peerId,
+            "business.v1.key-exchange",
+            timestamp,
+            BusinessKeyExchangePayload(ephemeral.publicKey, signature),
+            sequence = state.sequence,
+        )
+    }
+
+    private suspend fun handleBusinessVersion(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        val peerId = state.peerId ?: return
+        val payload = runCatching {
+            json.decodeFromJsonElement(BusinessVersionPayload.serializer(), envelope.payload)
+        }.getOrNull()
+        val compatibility = payload
+            ?.let { checkBusinessProtocolVersion(it.businessVersion) }
+            ?: checkBusinessProtocolVersion("")
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "business.v1.version-ack",
+            BusinessVersionAckPayload(compatibility.compatible, compatibility.reason, compatibility.message),
+            envelope.id,
+            state.sequence,
+        )
+        if (compatibility.compatible) {
+            state.peerBusinessVersionReceived = true
+            sendBusinessVersion(session, state)
+        } else {
+            state.businessRejected = true
+        }
+    }
+
+    private fun handleBusinessVersionAck(state: ServerPeerState, envelope: LanEnvelope) {
+        val ack = runCatching {
+            json.decodeFromJsonElement(BusinessVersionAckPayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return
+        if (ack.compatible) {
+            state.businessVersionAckReceived = true
+        } else {
+            state.businessRejected = true
+        }
+    }
+
+    private suspend fun handleBusinessKeyExchange(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        val peerId = state.peerId ?: return
+        if (!state.requiresKeyExchange || !state.businessVersionReady) {
+            return
+        }
+        val publicKey = state.peerPublicKey ?: return
+        val payload = runCatching {
+            json.decodeFromJsonElement(BusinessKeyExchangePayload.serializer(), envelope.payload)
+        }.getOrNull() ?: run {
+            rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_GENERIC, MESSAGE_KEY_EXCHANGE_GENERIC)
+            return
+        }
+        if (kotlin.math.abs(System.currentTimeMillis() - envelope.timestamp) > KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS) {
+            rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED, MESSAGE_KEY_EXCHANGE_TIMESTAMP_EXPIRED)
+            return
+        }
+        val valid = handshake.verifyKeyExchange(
+            publicKey = publicKey,
+            from = envelope.from,
+            to = envelope.to,
+            ephemeralPublicKey = payload.ephemeralPublicKey,
+            timestamp = envelope.timestamp,
+            signature = payload.signature,
+        )
+        if (!valid) {
+            rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_SIGNATURE_INVALID, MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID)
+            return
+        }
+        state.peerEphemeralPublicKey = payload.ephemeralPublicKey
+        if (!state.sentKeyExchange) {
+            sendBusinessKeyExchange(session, state)
+        }
+        if (state.negotiationReady) {
+            sendBusinessNegotiate(session, state)
+        }
+    }
+
+    private suspend fun rejectKeyExchange(session: DefaultWebSocketServerSession, state: ServerPeerState, correlationId: String, reason: String, message: String) {
+        val peerId = state.peerId ?: return
+        state.keyExchangeRejected = true
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "business.v1.key-exchange-reject",
+            LanRejectPayload(reason, message),
+            correlationId,
+            state.sequence,
+        )
+    }
+
+    private suspend fun sendBusinessVersion(session: DefaultWebSocketServerSession, state: ServerPeerState) {
+        val peerId = state.peerId ?: return
+        if (state.sentBusinessVersion || state.businessRejected) {
+            return
+        }
+        state.sentBusinessVersion = true
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "business.v1.version",
+            BusinessVersionPayload(BUSINESS_PROTOCOL_VERSION),
+            sequence = state.sequence,
+        )
+    }
+
+    private suspend fun handleBusinessNegotiate(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope): LanSessionCrypto? {
+        val peerId = state.peerId ?: return null
+        if (!state.sentBusinessNegotiate) {
+            sendBusinessNegotiate(session, state)
+        }
+        val negotiation = runCatching {
+            json.decodeFromJsonElement(BusinessNegotiatePayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return null
+        val suite = LanSessionCrypto.chooseSuite(LanSessionCrypto.supportedSuites, negotiation.supported, false) ?: return null
+        val publicKey = state.peerPublicKey ?: return null
+        return if (state.requiresKeyExchange) {
+            val localEphemeral = state.localEphemeralKeyPair ?: return null
+            val peerEphemeral = state.peerEphemeralPublicKey ?: return null
+            LanSessionCrypto.createWithEphemeralKeys(
+                json = json,
+                suite = suite,
+                localEphemeralPrivateKey = localEphemeral.privateKeyBytes,
+                localEphemeralPublicKey = localEphemeral.publicKey,
+                peerEphemeralPublicKey = peerEphemeral,
+                localDeviceId = state.identity.deviceId,
+                peerDeviceId = peerId,
+                protocolVersion = state.negotiatedProtocolVersion,
+                localIsInitiator = false,
+            )
+        } else {
+            LanSessionCrypto.create(json, suite, state.identity.privateKey, publicKey, false)
         }
     }
 
@@ -341,178 +595,69 @@ class LanWebSocketServer @Inject constructor(
         val startedAt = System.currentTimeMillis()
         val identity = settingsDataStore.currentDeviceIdentity()
         if (identity == null) {
-            CoLinkLog.w("SWIM", "rejected SWIM request because local identity is missing")
             respond(HttpStatusCode.Unauthorized)
             return
         }
         if ((request.headers["Content-Length"]?.toLongOrNull() ?: 0L) > SWIM_MAX_BODY_BYTES) {
-            CoLinkLog.w("SWIM", "rejected oversized SWIM request")
             respond(HttpStatusCode.PayloadTooLarge)
             return
         }
-        val readStartedAt = System.currentTimeMillis()
         val body = runCatching { receiveText() }.getOrElse {
-            CoLinkLog.w("SWIM", "rejected unreadable SWIM request elapsed=${elapsedSince(startedAt)}ms", it)
             respond(HttpStatusCode.BadRequest)
             return
         }
-        val readMillis = elapsedSince(readStartedAt)
-        val decodeStartedAt = System.currentTimeMillis()
-        val swimRequest = runCatching {
-            json.decodeFromString(SwimEnvelope.serializer(), body)
-        }.getOrElse {
-            CoLinkLog.w("SWIM", "rejected invalid SWIM request", it)
+        val swimRequest = runCatching { json.decodeFromString(SwimEnvelope.serializer(), body) }.getOrElse {
             respond(HttpStatusCode.BadRequest)
             return
         }
-        val decodeMillis = elapsedSince(decodeStartedAt)
-
         val from = swimRequest.payload.from
         val host = request.local.remoteHost
-        CoLinkLog.d(
-            "SWIM",
-            "handling ${swimRequest.type} from=${CoLinkLog.shortId(from)} host=$host gossip=${swimRequest.payload.gossip.size}",
-        )
-        val listenerStartedAt = System.currentTimeMillis()
         listener?.onSwimMessage(swimRequest, host)
-        val listenerMillis = elapsedSince(listenerStartedAt)
-
-        var relayMillis: Long? = null
-        val responseBuildStartedAt = System.currentTimeMillis()
         val response = when (swimRequest.type) {
             "swim.ping" -> swimAck(identity, swimRequest.payload.seq)
             "swim.ping-req" -> {
                 val target = swimRequest.payload.target
-                when {
-                    target.isNullOrBlank() -> {
-                        CoLinkLog.w("SWIM", "rejected ping-req with missing target from=${CoLinkLog.shortId(from)}")
-                        respond(HttpStatusCode.BadRequest)
+                if (target.isNullOrBlank()) {
+                    respond(HttpStatusCode.BadRequest)
+                    return
+                }
+                if (target == identity.deviceId) {
+                    swimAck(identity, swimRequest.payload.seq)
+                } else {
+                    val device = deviceRepository.getDevice(target)
+                    if (device?.localIp == null || device.localPort == null) {
+                        respond(HttpStatusCode.NotFound)
                         return
                     }
-
-                    target == identity.deviceId -> swimAck(identity, swimRequest.payload.seq)
-                    else -> {
-                        val device = deviceRepository.getDevice(target)
-                        if (device?.localIp == null || device.localPort == null) {
-                            CoLinkLog.w("SWIM", "ping-req target endpoint missing target=${CoLinkLog.shortId(target)}")
-                            respond(HttpStatusCode.NotFound)
+                    lanSwimClient.ping(
+                        identity = identity,
+                        ip = device.localIp,
+                        port = device.localPort,
+                        incarnation = currentSwimIncarnation(identity),
+                        seq = swimRequest.payload.seq,
+                        gossip = swimGossip(identity),
+                    ).getOrElse {
+                        if (!it.isExpectedSwimProbeFailure()) {
+                            CoLinkLog.w("SWIM", "ping-req target probe failed target=${CoLinkLog.shortId(target)}", it)
+                        }
+                        respond(HttpStatusCode.GatewayTimeout)
+                        return
+                    }.also {
+                        if (!it.isTargetAck(target)) {
+                            respond(HttpStatusCode.GatewayTimeout)
                             return
                         }
-                        val relayStartedAt = System.currentTimeMillis()
-                        lanSwimClient
-                            .ping(
-                                identity = identity,
-                                ip = device.localIp,
-                                port = device.localPort,
-                                incarnation = currentSwimIncarnation(identity),
-                                seq = swimRequest.payload.seq,
-                                gossip = swimGossip(identity),
-                            )
-                            .getOrElse {
-                                relayMillis = elapsedSince(relayStartedAt)
-                                if (it.isExpectedSwimProbeFailure()) {
-                                    CoLinkLog.d(
-                                        "SWIM",
-                                        "ping-req target probe timed out target=${CoLinkLog.shortId(target)} elapsed=${relayMillis}ms",
-                                    )
-                                } else {
-                                    CoLinkLog.w("SWIM", "ping-req target probe failed target=${CoLinkLog.shortId(target)}", it)
-                                }
-                                val respondMillis = respondStatusWithTiming(HttpStatusCode.GatewayTimeout)
-                                logHandledSwimRequest(
-                                    type = swimRequest.type,
-                                    from = from,
-                                    host = host,
-                                    status = HttpStatusCode.GatewayTimeout.value,
-                                    startedAt = startedAt,
-                                    readMillis = readMillis,
-                                    decodeMillis = decodeMillis,
-                                    listenerMillis = listenerMillis,
-                                    responseBuildMillis = elapsedSince(responseBuildStartedAt),
-                                    relayMillis = relayMillis,
-                                    respondMillis = respondMillis,
-                                )
-                                return
-                            }
-                            .also {
-                                relayMillis = elapsedSince(relayStartedAt)
-                                if (it.type != "swim.ack" || it.payload.from != target) {
-                                    CoLinkLog.w(
-                                        "SWIM",
-                                        "ping-req target identity mismatch target=${CoLinkLog.shortId(target)} from=${CoLinkLog.shortId(it.payload.from)}",
-                                    )
-                                    val respondMillis = respondStatusWithTiming(HttpStatusCode.GatewayTimeout)
-                                    logHandledSwimRequest(
-                                        type = swimRequest.type,
-                                        from = from,
-                                        host = host,
-                                        status = HttpStatusCode.GatewayTimeout.value,
-                                        startedAt = startedAt,
-                                        readMillis = readMillis,
-                                        decodeMillis = decodeMillis,
-                                        listenerMillis = listenerMillis,
-                                        responseBuildMillis = elapsedSince(responseBuildStartedAt),
-                                        relayMillis = relayMillis,
-                                        respondMillis = respondMillis,
-                                    )
-                                    return
-                                }
-                                listener?.onSwimMessage(it, null)
-                            }
+                        listener?.onSwimMessage(it, null)
                     }
                 }
             }
-
             else -> {
-                CoLinkLog.w("SWIM", "rejected unknown SWIM type=${swimRequest.type}")
                 respond(HttpStatusCode.BadRequest)
                 return
             }
         }
-
-        val responseBuildMillis = elapsedSince(responseBuildStartedAt)
-        val respondStartedAt = System.currentTimeMillis()
         respondText(json.encodeToString(response), ContentType.Application.Json)
-        val respondMillis = elapsedSince(respondStartedAt)
-        logHandledSwimRequest(
-            type = swimRequest.type,
-            from = from,
-            host = host,
-            status = HttpStatusCode.OK.value,
-            startedAt = startedAt,
-            readMillis = readMillis,
-            decodeMillis = decodeMillis,
-            listenerMillis = listenerMillis,
-            responseBuildMillis = responseBuildMillis,
-            relayMillis = relayMillis,
-            respondMillis = respondMillis,
-        )
-    }
-
-    private suspend fun ApplicationCall.respondStatusWithTiming(status: HttpStatusCode): Long {
-        val startedAt = System.currentTimeMillis()
-        respond(status)
-        return elapsedSince(startedAt)
-    }
-
-    private fun logHandledSwimRequest(
-        type: String,
-        from: String,
-        host: String,
-        status: Int,
-        startedAt: Long,
-        readMillis: Long,
-        decodeMillis: Long,
-        listenerMillis: Long,
-        responseBuildMillis: Long,
-        relayMillis: Long?,
-        respondMillis: Long,
-    ) {
-        val relay = relayMillis?.let { " relay=${it}ms" } ?: ""
-        CoLinkLog.d(
-            "SWIM",
-            "handled $type from=${CoLinkLog.shortId(from)} host=$host status=$status total=${elapsedSince(startedAt)}ms read=${readMillis}ms decode=${decodeMillis}ms listener=${listenerMillis}ms build=${responseBuildMillis}ms$relay respond=${respondMillis}ms",
-        )
+        CoLinkLog.d("SWIM", "handled ${swimRequest.type} from=${CoLinkLog.shortId(from)} host=$host total=${elapsedSince(startedAt)}ms")
     }
 
     private fun swimAck(identity: DeviceIdentity, seq: Long): SwimEnvelope =
@@ -529,29 +674,18 @@ class LanWebSocketServer @Inject constructor(
     private fun currentSwimIncarnation(identity: DeviceIdentity): Long =
         listener?.currentSwimIncarnation(identity.deviceId) ?: System.currentTimeMillis()
 
-    private fun selfGossip(identity: DeviceIdentity): List<SwimGossip> =
-        listOf(
-            SwimGossip(
-                deviceId = identity.deviceId,
-                state = "alive",
-                incarnation = System.currentTimeMillis(),
-            ),
-        )
-
     private fun swimGossip(identity: DeviceIdentity): List<SwimGossip> =
         listener?.currentSwimGossip(identity.deviceId)?.takeIf { it.isNotEmpty() }
-            ?: selfGossip(identity)
+            ?: listOf(SwimGossip(identity.deviceId, "alive", System.currentTimeMillis()))
 
     private suspend fun handleTransfer(session: DefaultWebSocketServerSession) {
-        val sessionId = session.call.parameters["sessionId"]?.takeIf { it.isNotBlank() }
-            ?: return session.close()
+        val sessionId = session.call.parameters["sessionId"]?.takeIf { it.isNotBlank() } ?: return session.close()
         val token = session.call.request.queryParameters["token"].orEmpty()
         val expected = transferTokens.remove(sessionId)
         if (expected == null || expected != token) {
             session.close()
             return
         }
-
         transferConnections[sessionId] = session
         listener?.onTransferConnected(sessionId)
         try {
@@ -566,28 +700,120 @@ class LanWebSocketServer @Inject constructor(
         }
     }
 
-    private suspend fun markPeerEndpoint(
-        deviceId: String,
-        session: DefaultWebSocketServerSession,
-    ) {
-        val host = session.call.request.local.remoteHost
-        deviceRepository.markLanEndpoint(deviceId, host, LAN_PORT)
+    private suspend fun markPeerEndpoint(deviceId: String, session: DefaultWebSocketServerSession) {
+        deviceRepository.markLanEndpoint(deviceId, session.call.request.local.remoteHost, LAN_PORT)
     }
 
-    private suspend fun DefaultWebSocketServerSession.readPeerEnvelope(): PeerEnvelope? {
-        for (frame in incoming) {
+    private suspend fun sendHello(session: DefaultWebSocketServerSession, identity: DeviceIdentity) {
+        session.send(
+            Frame.Text(
+                json.encodeToString(
+                    ProtocolHelloEnvelope(
+                        type = "protocol.hello",
+                        payload = ProtocolHelloPayload(
+                            deviceId = identity.deviceId,
+                            protocolVersion = LAN_PROTOCOL_VERSION,
+                            extensions = buildJsonObject {},
+                        ),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private suspend fun sendHelloAck(session: DefaultWebSocketServerSession, payload: VersionAckPayload) {
+        session.send(
+            Frame.Text(
+                json.encodeToString(
+                    ProtocolHelloAckEnvelope(
+                        type = "protocol.hello-ack",
+                        payload = payload,
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private suspend fun DefaultWebSocketServerSession.readTextMessage(): String? {
+        while (true) {
+            val frame = incoming.receiveCatching().getOrNull() ?: return null
             val text = (frame as? Frame.Text)?.readText() ?: continue
-            return json.decodeFromString(PeerEnvelope.serializer(), text)
+            return text
         }
-        return null
     }
 
-    private suspend inline fun <reified T> DefaultWebSocketServerSession.sendPeerMessage(
+    private suspend inline fun <reified T> DefaultWebSocketServerSession.sendLanMessage(
+        identity: DeviceIdentity,
+        to: String,
         type: String,
         payload: T,
+        correlationId: String? = null,
+        sequence: LanSequence? = null,
     ) {
-        val envelope = PeerEnvelope(
+        sendLanMessageWithTimestamp(identity, to, type, System.currentTimeMillis(), payload, correlationId, sequence)
+    }
+
+    private suspend inline fun <reified T> DefaultWebSocketServerSession.sendLanMessageWithTimestamp(
+        identity: DeviceIdentity,
+        to: String,
+        type: String,
+        timestamp: Long,
+        payload: T,
+        correlationId: String? = null,
+        sequence: LanSequence? = null,
+    ) {
+        val envelope = LanEnvelope(
+            id = UUID.randomUUID().toString(),
             type = type,
+            from = identity.deviceId,
+            to = to,
+            seq = sequence?.next() ?: 1,
+            timestamp = timestamp,
+            correlationId = correlationId,
+            payload = json.encodeToJsonElement(payload),
+        )
+        send(Frame.Text(json.encodeToString(envelope)))
+    }
+
+    private fun launchKeepaliveMonitor(deviceId: String, connection: ServerPeerConnection) =
+        CoroutineScope(Dispatchers.IO).launch {
+            while (peers[deviceId] === connection) {
+                val inactiveMillis = System.currentTimeMillis() - connection.lastApplicationActivityMillis
+                if (inactiveMillis >= KEEPALIVE_TIMEOUT_MILLIS) {
+                    peers.remove(deviceId, connection)
+                    runCatching { connection.session.close() }
+                    return@launch
+                }
+                val pingId = UUID.randomUUID().toString()
+                connection.rememberHeartbeat(pingId)
+                runCatching {
+                    connection.session.sendLanMessageWithId(connection.identity, deviceId, "heartbeat.v1.ping", EmptyPayload, pingId, sequence = connection.sequence)
+                }.onFailure {
+                    peers.remove(deviceId, connection)
+                    runCatching { connection.session.close() }
+                    return@launch
+                }
+                delay(HEARTBEAT_INTERVAL_MILLIS)
+            }
+        }
+
+    private suspend inline fun <reified T> DefaultWebSocketServerSession.sendLanMessageWithId(
+        identity: DeviceIdentity,
+        to: String,
+        type: String,
+        payload: T,
+        id: String,
+        correlationId: String? = null,
+        sequence: LanSequence? = null,
+    ) {
+        val envelope = LanEnvelope(
+            id = id,
+            type = type,
+            from = identity.deviceId,
+            to = to,
+            seq = sequence?.next() ?: 1,
+            timestamp = System.currentTimeMillis(),
+            correlationId = correlationId,
             payload = json.encodeToJsonElement(payload),
         )
         send(Frame.Text(json.encodeToString(envelope)))
@@ -595,39 +821,97 @@ class LanWebSocketServer @Inject constructor(
 
     interface Listener {
         fun onConnected(deviceId: String)
-
-        fun onMessage(fromDeviceId: String, message: BusinessEnvelope)
-
+        fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope)
         fun onDisconnected(deviceId: String)
-
         fun onKeyChanged(deviceId: String, name: String)
-
         fun onTransferConnected(sessionId: String)
-
         fun onTransferFrame(sessionId: String, frame: FileDataFrame)
-
         fun onTransferClosed(sessionId: String)
-
         fun onSwimMessage(message: SwimEnvelope, sourceIp: String?)
-
         fun currentSwimGossip(localDeviceId: String): List<SwimGossip>
-
         fun currentSwimIncarnation(localDeviceId: String): Long
     }
 }
 
+private data class ServerPeerState(
+    val identity: DeviceIdentity,
+    val expectedDeviceId: String?,
+    val allowPairing: Boolean,
+    val initiator: Boolean,
+    val sequence: LanSequence = LanSequence(),
+    var helloReceived: Boolean = false,
+    var helloAckSent: Boolean = false,
+    var helloAckReceived: Boolean = false,
+    var protocolRejected: Boolean = false,
+    var peerId: String? = expectedDeviceId,
+    var peerProtocolVersion: String? = null,
+    var peerName: String? = null,
+    var peerPublicKey: String? = null,
+    var localNonce: String? = null,
+    var peerNonce: String? = null,
+    var sentAuthResponse: Boolean = false,
+    var localVerified: Boolean = false,
+    var peerVerified: Boolean = false,
+    var sentBusinessNegotiate: Boolean = false,
+    var sentBusinessVersion: Boolean = false,
+    var peerBusinessVersionReceived: Boolean = false,
+    var businessVersionAckReceived: Boolean = false,
+    var businessRejected: Boolean = false,
+    var sentKeyExchange: Boolean = false,
+    var peerEphemeralPublicKey: String? = null,
+    var keyExchangeRejected: Boolean = false,
+    var localEphemeralKeyPair: com.colink.android.crypto.LanEphemeralKeyPair? = null,
+    var authAborted: Boolean = false,
+    var pairingRequestId: String? = null,
+    var pairingComplete: Boolean = false,
+) {
+    val businessVersionReady: Boolean
+        get() = peerBusinessVersionReceived && businessVersionAckReceived && !businessRejected
+
+    val requiresKeyExchange: Boolean
+        get() = peerProtocolVersion?.let(::supportsLanKeyExchange) == true
+
+    val negotiatedProtocolVersion: String
+        get() = negotiatedLanProtocolVersion(peerProtocolVersion ?: LAN_PROTOCOL_VERSION)
+
+    val negotiationReady: Boolean
+        get() = businessVersionReady && (!requiresKeyExchange || (sentKeyExchange && peerEphemeralPublicKey != null && !keyExchangeRejected))
+
+    fun isSecurityReady(): Boolean =
+        pairingComplete || (localVerified && peerVerified && sentAuthResponse)
+}
+
+private data class ReadyPeer(
+    val peerId: String,
+    val crypto: LanSessionCrypto,
+)
+
 private data class ServerPeerConnection(
     val session: DefaultWebSocketServerSession,
     val crypto: LanSessionCrypto,
+    val identity: DeviceIdentity,
+    val sequence: LanSequence = LanSequence(),
 ) {
     @Volatile
-    var lastBusinessActivityMillis: Long = System.currentTimeMillis()
+    var lastApplicationActivityMillis: Long = System.currentTimeMillis()
         private set
 
-    fun touchBusinessActivity() {
-        lastBusinessActivityMillis = System.currentTimeMillis()
+    private val pendingHeartbeats = ConcurrentHashMap.newKeySet<String>()
+
+    fun touchApplicationActivity() {
+        lastApplicationActivityMillis = System.currentTimeMillis()
     }
+
+    fun rememberHeartbeat(id: String) {
+        pendingHeartbeats.add(id)
+    }
+
+    fun consumeHeartbeat(correlationId: String?): Boolean =
+        correlationId != null && pendingHeartbeats.remove(correlationId)
 }
+
+private fun SwimEnvelope.isTargetAck(target: String): Boolean =
+    type == "swim.ack" && payload.from == target
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
     this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true

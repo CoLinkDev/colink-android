@@ -10,6 +10,7 @@ import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.util.LocaleHelper
 import com.colink.android.network.transfer.buildFileOffer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -60,36 +61,39 @@ class TransfersViewModel @Inject constructor(
     }
 
     fun accept(sessionId: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.acceptFileOffer(sessionId)
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_transfer_accepted),
+                    message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_transfer_accepted),
                 )
             }
         }
     }
 
     fun reject(sessionId: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(working = true, message = null) }
             val result = connectionManager.rejectFileOffer(sessionId)
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_transfer_rejected),
+                    message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_transfer_rejected),
                 )
             }
         }
     }
 
     fun send(contentResolver: ContentResolver, targetDeviceId: String?, uri: Uri?) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null || uri == null) {
                 _uiState.update {
-                    it.copy(working = false, message = context.getString(R.string.toast_select_device_and_file))
+                    it.copy(working = false, message = localizedContext.getString(R.string.toast_select_device_and_file))
                 }
                 return@launch
             }
@@ -105,7 +109,7 @@ class TransfersViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: context.getString(R.string.toast_file_offer_sent),
+                    message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_file_offer_sent),
                 )
             }
         }

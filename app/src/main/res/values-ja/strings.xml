@@ -15,7 +15,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">デバイス</string>
-    <string name="nav_messages">メッセージとファイル</string>
+    <string name="nav_messages">転送</string>
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">ファイル転送</string>
     <string name="nav_settings">設定</string>

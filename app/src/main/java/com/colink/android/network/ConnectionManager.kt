@@ -29,10 +29,12 @@ import com.colink.android.network.lan.LanWebSocketServer
 import com.colink.android.network.lan.NsdDiscovery
 import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.message.BusinessEnvelope
+import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
 import com.colink.android.network.message.ClipboardSyncPayload
 import com.colink.android.network.message.CloudClientEnvelope
 import com.colink.android.network.message.CloudServerEnvelope
+import com.colink.android.network.message.DeviceOnlinePayload
 import com.colink.android.network.message.FILE_ACCEPT_TYPE
 import com.colink.android.network.message.FILE_ACK_TYPE
 import com.colink.android.network.message.FILE_CANCEL_TYPE
@@ -65,11 +67,13 @@ import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
 import com.colink.android.network.message.TextMessagePayload
+import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.FileChecksumVerifier
 import com.colink.android.network.music.MusicSyncManager
+import com.colink.android.util.LocaleHelper
 import java.io.File
 import java.io.InterruptedIOException
 import java.io.InputStream
@@ -123,12 +127,13 @@ private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
-private const val REASON_HANDSHAKE_SIGNATURE_INVALID = "colink:handshake.signature_invalid.v1"
-private const val REASON_HANDSHAKE_KEY_CHANGED = "colink:handshake.key_changed.v1"
-private const val REASON_HANDSHAKE_USER_REJECTED = "colink:handshake.user_rejected.v1"
+private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
+private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
+private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
 private const val REASON_TRANSFER_USER_CANCELLED = "colink:transfer.user_cancelled.v1"
 private const val REASON_TRANSFER_USER_REJECTED = "colink:transfer.user_rejected.v1"
 private const val REASON_TRANSFER_CHECKSUM_MISMATCH = "colink:transfer.checksum_mismatch.v1"
+private const val REASON_TRANSFER_GENERIC = "colink:transfer.generic.v1"
 
 @Singleton
 class ConnectionManager @Inject constructor(
@@ -158,15 +163,18 @@ class ConnectionManager @Inject constructor(
     private var suspectJob: Job? = null
     private val incomingTransfers = ConcurrentHashMap<String, IncomingTransferState>()
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
+    private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val swimEndpoints = ConcurrentHashMap<String, LanEndpoint>()
     private val swimNames = ConcurrentHashMap<String, String>()
     private val swimTypes = ConcurrentHashMap<String, String>()
+    private val cloudBusinessVersions = ConcurrentHashMap<String, String>()
     private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
     private val lanPeerLock = Any()
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
+    private val devicePageLanConnections = mutableSetOf<String>()
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
     private var probeRoundCandidates = emptyList<String>()
@@ -193,6 +201,7 @@ class ConnectionManager @Inject constructor(
                 connectionJob = scope.launch { runCloudLoop() }
             } else if (settingsDataStore.currentSession() == null) {
                 _cloudState.value = CloudConnectionState()
+                cloudBusinessVersions.clear()
                 CoLinkLog.d("Cloud", "cloud loop skipped because no session exists")
             }
             if (settingsDataStore.currentSettings().enableClipboardSync) {
@@ -207,6 +216,7 @@ class ConnectionManager @Inject constructor(
         CoLinkLog.i("Connection", "stopping connection manager")
         connectionJob?.cancel()
         connectionJob = null
+        cloudBusinessVersions.clear()
         swimJob?.cancel()
         swimJob = null
         suspectJob?.cancel()
@@ -360,14 +370,19 @@ class ConnectionManager @Inject constructor(
             Unit
         }
 
-    private suspend fun sendViaLan(targetDeviceId: String, business: BusinessEnvelope): Result<String> =
+    private suspend fun sendViaLan(
+        targetDeviceId: String,
+        business: BusinessEnvelope,
+        correlationId: String? = null,
+    ): Result<String> =
         runCatching {
-            if (trySendViaExistingLan(targetDeviceId, business)) {
+            if (trySendViaExistingLan(targetDeviceId, business, correlationId)) {
                 return@runCatching "lan"
             }
 
             val pending = PendingLanSend(
                 message = business,
+                correlationId = correlationId,
                 result = CompletableDeferred<Result<Unit>>(),
             )
             val shouldConnect = synchronized(lanPeerLock) {
@@ -398,13 +413,19 @@ class ConnectionManager @Inject constructor(
             "lan"
         }
 
-    private fun sendViaCloud(targetDeviceId: String, business: BusinessEnvelope): Result<String> =
+    private fun sendViaCloud(
+        targetDeviceId: String,
+        business: BusinessEnvelope,
+        correlationId: String? = null,
+    ): Result<String> =
         runCatching {
             check(_cloudState.value.connected) { "cloud connection is not ready" }
+            ensureCloudBusinessCompatible(targetDeviceId)
             val envelope = CloudClientEnvelope(
                 id = UUID.randomUUID().toString(),
                 type = "relay",
                 to = targetDeviceId,
+                correlationId = correlationId,
                 payload = json.encodeToJsonElement(business),
             )
 
@@ -412,12 +433,14 @@ class ConnectionManager @Inject constructor(
             "cloud"
         }
 
-    private fun sendCloudBroadcast(business: BusinessEnvelope): Result<String> =
+    private fun sendCloudBroadcast(business: BusinessEnvelope, correlationId: String? = null): Result<String> =
         runCatching {
             check(_cloudState.value.connected) { "cloud connection is not ready" }
+            ensureKnownCloudBusinessVersionsCompatible()
             val envelope = CloudClientEnvelope(
                 id = UUID.randomUUID().toString(),
                 type = "broadcast",
+                correlationId = correlationId,
                 payload = json.encodeToJsonElement(business),
             )
 
@@ -425,11 +448,15 @@ class ConnectionManager @Inject constructor(
             "cloud"
         }
 
-    private suspend fun trySendViaExistingLan(targetDeviceId: String, business: BusinessEnvelope): Boolean {
-        if (lanWebSocketServer.send(targetDeviceId, business)) {
+    private suspend fun trySendViaExistingLan(
+        targetDeviceId: String,
+        business: BusinessEnvelope,
+        correlationId: String? = null,
+    ): Boolean {
+        if (lanWebSocketServer.send(targetDeviceId, business, correlationId)) {
             return true
         }
-        return lanWebSocketClient.send(targetDeviceId, business)
+        return lanWebSocketClient.send(targetDeviceId, business, correlationId)
     }
 
     private fun hasLanPeer(deviceId: String): Boolean =
@@ -451,7 +478,7 @@ class ConnectionManager @Inject constructor(
             if (!device.lanAvailable || device.localIp == null || device.localPort == null) {
                 error("LAN peer is not available")
             }
-            if (!lanTrustStore.isLanTrusted(deviceId)) {
+            if (!lanTrustStore.isTrusted(deviceId)) {
                 error("LAN peer is not trusted")
             }
             lanWebSocketClient.connect(
@@ -467,6 +494,7 @@ class ConnectionManager @Inject constructor(
     private suspend fun handleLanPeerConnected(deviceId: String) {
         synchronized(lanPeerLock) {
             lanConnectingPeers.remove(deviceId)
+            devicePageLanConnections.remove(deviceId)
         }
         val identity = deviceRepository.localDeviceIdentity()
         if (identity != null && lanWebSocketClient.hasPeer(deviceId) && lanWebSocketServer.hasPeer(deviceId)) {
@@ -489,6 +517,7 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun handleLanPeerDisconnected(deviceId: String) {
         val wasConnecting = synchronized(lanPeerLock) {
+            devicePageLanConnections.remove(deviceId)
             lanConnectingPeers.remove(deviceId)
         }
         if (wasConnecting && !hasLanPeer(deviceId)) {
@@ -517,7 +546,7 @@ class ConnectionManager @Inject constructor(
                 }
             } ?: return
 
-            if (trySendViaExistingLan(deviceId, pending.message)) {
+            if (trySendViaExistingLan(deviceId, pending.message, pending.correlationId)) {
                 pending.result.complete(Result.success(Unit))
             } else {
                 pending.result.complete(Result.failure(IllegalStateException("LAN peer is unavailable")))
@@ -539,6 +568,7 @@ class ConnectionManager @Inject constructor(
     private fun failPendingLanSends(reason: String) {
         val pending = synchronized(lanPeerLock) {
             lanConnectingPeers.clear()
+            devicePageLanConnections.clear()
             pendingLanSends.values.flatMap { it.toList() }.also {
                 pendingLanSends.clear()
             }
@@ -551,6 +581,7 @@ class ConnectionManager @Inject constructor(
     private fun failPendingLanSends(deviceId: String, reason: String) {
         val pending = synchronized(lanPeerLock) {
             lanConnectingPeers.remove(deviceId)
+            devicePageLanConnections.remove(deviceId)
             pendingLanSends.remove(deviceId)?.toList() ?: emptyList()
         }
         pending.forEach {
@@ -560,13 +591,14 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun saveInboundBusinessMessage(
         fromDeviceId: String,
+        envelopeId: String?,
         business: BusinessEnvelope,
         route: String,
     ) {
         when (business.type) {
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
             CLIPBOARD_SYNC_TYPE -> handleClipboardSync(fromDeviceId, business)
-            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, business, route)
+            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, business, route)
             FILE_ACCEPT_TYPE -> handleFileAccept(fromDeviceId, business)
             FILE_READY_TYPE -> handleFileReady(fromDeviceId, business)
             FILE_CHUNK_TYPE -> handleFileChunk(fromDeviceId, business, route)
@@ -672,6 +704,7 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun handleFileOffer(
         fromDeviceId: String,
+        envelopeId: String?,
         business: BusinessEnvelope,
         route: String,
     ) {
@@ -697,6 +730,7 @@ class ConnectionManager @Inject constructor(
                 updatedAt = now,
             ),
         )
+        envelopeId?.let { incomingFileOfferCorrelationIds[payload.sessionId] = it }
         notifier.notifyFileOffer(
             sessionId = payload.sessionId,
             deviceId = fromDeviceId,
@@ -742,6 +776,7 @@ class ConnectionManager @Inject constructor(
                         ),
                     ),
                 ),
+                correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
             ).getOrThrow()
             if (transfer.totalChunks == 0L) {
                 finishIncomingTransfer(sessionId, incomingTransfers[sessionId] ?: return@runCatching, accepted)
@@ -798,10 +833,11 @@ class ConnectionManager @Inject constructor(
     suspend fun rejectFileOffer(sessionId: String, reason: String = REASON_TRANSFER_USER_REJECTED): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
+            val message = transferErrorMessage(reason)
             fileTransferRepository.save(
                 transfer.copy(
                     status = "rejected",
-                    error = reason,
+                    error = transferRecordError(reason, message),
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
@@ -813,9 +849,11 @@ class ConnectionManager @Inject constructor(
                         FileRejectPayload(
                             sessionId = sessionId,
                             reason = reason,
+                            message = message,
                         ),
                     ),
                 ),
+                correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
             ).getOrThrow()
         }
 
@@ -824,6 +862,9 @@ class ConnectionManager @Inject constructor(
             val identity = deviceRepository.localDeviceIdentity() ?: return@launch
             val candidate = _lanPairingCandidates.value.firstOrNull { it.deviceId == deviceId }
                 ?: return@launch
+            synchronized(lanPeerLock) {
+                devicePageLanConnections.add(deviceId)
+            }
             lanWebSocketClient.connect(
                 identity = identity,
                 deviceId = candidate.deviceId,
@@ -841,6 +882,7 @@ class ConnectionManager @Inject constructor(
             lanWebSocketServer.disconnect(deviceId)
             synchronized(lanPeerLock) {
                 lanConnectingPeers.remove(deviceId)
+                devicePageLanConnections.remove(deviceId)
             }
         }
     }
@@ -896,7 +938,7 @@ class ConnectionManager @Inject constructor(
                                 return@launch
                             }
                             if (!opened || transfer.status == "sending") {
-                                cancelTransfer(payload.sessionId, "LAN data connection failed: $reason")
+                                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "LAN data connection failed: $reason")
                             }
                         }
                     }
@@ -928,7 +970,7 @@ class ConnectionManager @Inject constructor(
                 payload = json.encodeToJsonElement(FileReadyPayload(sessionId)),
             ),
         ).getOrElse {
-            cancelTransfer(sessionId, it.message ?: "file route is unavailable")
+            cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, it.message ?: "File route is unavailable")
             return
         }
         val uri = Uri.parse(outgoing.localUri)
@@ -941,7 +983,7 @@ class ConnectionManager @Inject constructor(
                     break
                 }
                 if (!waitForSendWindow(sessionId, index.toLong(), LAN_SEND_WINDOW_CHUNKS)) {
-                    cancelTransfer(sessionId, "transfer timed out")
+                    cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Transfer timed out")
                     return
                 }
                 val chunk = buffer.copyOf(read)
@@ -972,7 +1014,7 @@ class ConnectionManager @Inject constructor(
                     break
                 }
                 if (!waitForSendWindow(sessionId, index, RELAY_SEND_WINDOW_CHUNKS)) {
-                    cancelTransfer(sessionId, "transfer timed out")
+                    cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Transfer timed out")
                     return
                 }
                 val data = encoder.encodeToString(buffer.copyOf(read))
@@ -994,7 +1036,7 @@ class ConnectionManager @Inject constructor(
                         "relay chunk send failed session=${CoLinkLog.shortId(sessionId)} index=$index",
                         it,
                     )
-                    cancelTransfer(sessionId, it.message ?: "cloud connection is not ready")
+                    cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, it.message ?: "Cloud connection is not ready")
                     return
                 }
                 index += 1
@@ -1069,7 +1111,7 @@ class ConnectionManager @Inject constructor(
         fileTransferRepository.save(
             transfer.copy(
                 status = "rejected",
-                error = payload.reason,
+                error = transferRecordError(payload.reason, payload.message),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -1087,7 +1129,7 @@ class ConnectionManager @Inject constructor(
         fileTransferRepository.save(
             transfer.copy(
                 status = "cancelled",
-                error = payload.reason,
+                error = transferRecordError(payload.reason, payload.message),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -1106,19 +1148,41 @@ class ConnectionManager @Inject constructor(
             transfer.copy(
                 status = if (payload.success) "completed" else "failed",
                 transferredBytes = if (payload.success) transfer.fileSize else transfer.transferredBytes,
-                error = payload.reason,
+                error = transferRecordError(payload.reason, payload.message),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
     }
 
-    private suspend fun sendBusinessMessage(targetDeviceId: String, business: BusinessEnvelope): Result<String> {
-        val lanResult = sendViaLan(targetDeviceId, business)
+    private fun transferErrorMessage(reason: String): String =
+        when (reason) {
+            REASON_TRANSFER_USER_CANCELLED -> "User cancelled the transfer"
+            REASON_TRANSFER_USER_REJECTED -> "User rejected the file"
+            REASON_TRANSFER_CHECKSUM_MISMATCH -> "File checksum verification failed"
+            REASON_TRANSFER_GENERIC -> "Generic transfer failure"
+            else -> reason
+        }
+
+    private fun transferRecordError(reason: String?, message: String?): String? =
+        when {
+            reason == null -> message
+            reason == REASON_TRANSFER_GENERIC -> message ?: reason
+            reason.startsWith("colink:") -> reason
+            else -> message ?: reason
+        }
+
+    private suspend fun sendBusinessMessage(
+        targetDeviceId: String,
+        business: BusinessEnvelope,
+        correlationId: String? = null,
+    ): Result<String> {
+        val localizedContext = LocaleHelper.localized(context)
+        val lanResult = sendViaLan(targetDeviceId, business, correlationId)
         if (lanResult.isSuccess) {
             return lanResult
         }
 
-        val cloudResult = sendViaCloud(targetDeviceId, business)
+        val cloudResult = sendViaCloud(targetDeviceId, business, correlationId)
         if (cloudResult.isSuccess) {
             return cloudResult
         }
@@ -1126,7 +1190,7 @@ class ConnectionManager @Inject constructor(
         val lanError = lanResult.exceptionOrNull()
         val cloudError = cloudResult.exceptionOrNull()
         val error = IllegalStateException(
-            context.getString(R.string.message_route_unavailable),
+            localizedContext.getString(R.string.message_route_unavailable),
             cloudError ?: lanError,
         )
         CoLinkLog.w(
@@ -1152,20 +1216,27 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
-            override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
+            override fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope) {
                 CoLinkLog.d(
                     "LAN",
                     "received outbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
                 )
-                scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
+                scope.launch { saveInboundBusinessMessage(fromDeviceId, envelopeId, message, "lan") }
             }
 
             override fun onConnectionFailed(deviceId: String, reason: String) {
                 CoLinkLog.w("LAN", "outbound peer connection failed device=${CoLinkLog.shortId(deviceId)} reason=$reason")
-                _lanConnectionError.value = context.getString(
-                    R.string.lan_connection_failed_message,
-                    lanFailureReasonText(reason),
-                )
+                val localizedContext = LocaleHelper.localized(context)
+                val showDevicePageError = synchronized(lanPeerLock) {
+                    devicePageLanConnections.remove(deviceId)
+                }
+                if (showDevicePageError) {
+                    _lanConnectionError.value = localizedContext.getString(
+                        R.string.lan_connection_failed_message,
+                        lanFailureReasonText(reason),
+                    )
+                }
+                failPendingLanSends(deviceId, reason)
             }
 
             override fun onDisconnected(deviceId: String) {
@@ -1271,6 +1342,7 @@ class ConnectionManager @Inject constructor(
         state: IncomingTransferState,
         transfer: FileTransfer,
     ) {
+        val localizedContext = LocaleHelper.localized(context)
         val chunksComplete = state.receivedChunks == state.expectedChunks
         val verifyingTransfer = if (chunksComplete) {
             transfer.copy(
@@ -1285,8 +1357,13 @@ class ConnectionManager @Inject constructor(
         val success = chunksComplete && checksumMatches
         val reason = when {
             success -> null
-            !chunksComplete -> "missing chunks"
+            !chunksComplete -> REASON_TRANSFER_GENERIC
             else -> REASON_TRANSFER_CHECKSUM_MISMATCH
+        }
+        val message = when {
+            success -> null
+            !chunksComplete -> "Missing file chunks"
+            else -> transferErrorMessage(REASON_TRANSFER_CHECKSUM_MISMATCH)
         }
         val finalUri = if (success) {
             saveReceivedFileToDownloads(state.tempFile, verifyingTransfer.fileName)
@@ -1299,7 +1376,7 @@ class ConnectionManager @Inject constructor(
                 status = if (success) "completed" else "failed",
                 transferredBytes = if (success) verifyingTransfer.fileSize else transfer.transferredBytes,
                 localUri = finalUri ?: verifyingTransfer.localUri,
-                error = reason,
+                error = transferRecordError(reason, message),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -1314,15 +1391,16 @@ class ConnectionManager @Inject constructor(
                         sessionId = sessionId,
                         success = success,
                         reason = reason,
+                        message = message,
                     ),
                 ),
             ),
         )
         notifyEvent(
             title = if (success) {
-                context.getString(R.string.notification_file_received_title)
+                localizedContext.getString(R.string.notification_file_received_title)
             } else {
-                context.getString(R.string.notification_file_transfer_failed_title)
+                localizedContext.getString(R.string.notification_file_transfer_failed_title)
             },
             text = verifyingTransfer.fileName,
         )
@@ -1337,12 +1415,12 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
-            override fun onMessage(fromDeviceId: String, message: BusinessEnvelope) {
+            override fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope) {
                 CoLinkLog.d(
                     "LAN",
                     "received inbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
                 )
-                scope.launch { saveInboundBusinessMessage(fromDeviceId, message, "lan") }
+                scope.launch { saveInboundBusinessMessage(fromDeviceId, envelopeId, message, "lan") }
             }
 
             override fun onDisconnected(deviceId: String) {
@@ -1415,19 +1493,19 @@ class ConnectionManager @Inject constructor(
         when (reason) {
             "signature invalid",
             "signature_invalid",
-            REASON_HANDSHAKE_SIGNATURE_INVALID,
-            -> context.getString(R.string.lan_connection_failed_signature)
+            REASON_AUTH_SIGNATURE_INVALID,
+            -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_signature)
 
             "key_changed",
-            REASON_HANDSHAKE_KEY_CHANGED,
-            -> context.getString(R.string.lan_connection_failed_key_changed)
+            REASON_AUTH_KEY_CHANGED,
+            -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_key_changed)
 
             "user_rejected",
-            REASON_HANDSHAKE_USER_REJECTED,
-            -> context.getString(R.string.lan_connection_failed_user_rejected)
+            REASON_PAIRING_USER_REJECTED,
+            -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_user_rejected)
 
-            "LAN device key is not trusted" -> context.getString(R.string.lan_connection_failed_untrusted)
-            else -> reason.ifBlank { context.getString(R.string.lan_connection_failed_unknown) }
+            "LAN device key is not trusted" -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_untrusted)
+            else -> reason.ifBlank { LocaleHelper.localized(context).getString(R.string.lan_connection_failed_unknown) }
         }
 
     private val nsdListener =
@@ -1483,6 +1561,7 @@ class ConnectionManager @Inject constructor(
         while (scope.isActive) {
             if (settingsDataStore.currentSession() == null) {
                 _cloudState.value = CloudConnectionState()
+                cloudBusinessVersions.clear()
                 connectionJob = null
                 return
             }
@@ -1546,6 +1625,7 @@ class ConnectionManager @Inject constructor(
 
             val reason = closed.await()
             pingJob.cancel()
+            cloudBusinessVersions.clear()
             attempt += 1
             CoLinkLog.w("Cloud", "cloud loop reconnecting attempt=$attempt reason=${reason ?: "unknown"}")
             _cloudState.value =
@@ -1556,7 +1636,13 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun handleCloudMessage(message: CloudServerEnvelope) {
         when (message.type) {
-            "device.online", "device.offline" -> {
+            "device.online" -> {
+                rememberCloudBusinessVersion(message)
+                val session = authRepository.currentSession().getOrNull() ?: return
+                deviceRepository.syncDevices(session)
+            }
+            "device.offline" -> {
+                message.from?.let(cloudBusinessVersions::remove)
                 val session = authRepository.currentSession().getOrNull() ?: return
                 deviceRepository.syncDevices(session)
             }
@@ -1566,8 +1652,35 @@ class ConnectionManager @Inject constructor(
                 val business = runCatching {
                     json.decodeFromJsonElement(BusinessEnvelope.serializer(), payload)
                 }.getOrNull() ?: return
-                saveInboundBusinessMessage(from, business, "cloud")
+                saveInboundBusinessMessage(from, message.id, business, "cloud")
             }
+        }
+    }
+
+    private fun rememberCloudBusinessVersion(message: CloudServerEnvelope) {
+        val from = message.from ?: return
+        val payload = message.payload ?: return
+        val online = runCatching {
+            json.decodeFromJsonElement(DeviceOnlinePayload.serializer(), payload)
+        }.getOrNull() ?: return
+        cloudBusinessVersions[from] = online.businessVersion
+    }
+
+    private fun ensureCloudBusinessCompatible(targetDeviceId: String) {
+        val peerVersion = cloudBusinessVersions[targetDeviceId] ?: return
+        val compatibility = checkBusinessProtocolVersion(peerVersion)
+        check(compatibility.compatible) {
+            compatibility.message ?: compatibility.reason ?: "business protocol version incompatible"
+        }
+    }
+
+    private fun ensureKnownCloudBusinessVersionsCompatible() {
+        val incompatible = cloudBusinessVersions.entries.firstOrNull { (_, version) ->
+            !checkBusinessProtocolVersion(version).compatible
+        } ?: return
+        val compatibility = checkBusinessProtocolVersion(incompatible.value)
+        check(false) {
+            compatibility.message ?: compatibility.reason ?: "business protocol version incompatible"
         }
     }
 
@@ -1579,7 +1692,8 @@ class ConnectionManager @Inject constructor(
             ?.takeIf { it.isNotEmpty() && it != "/" }
             ?: ""
         val encodedTicket = URLEncoder.encode(ticket, Charsets.UTF_8.name())
-        return "$scheme://${uri.rawAuthority}$basePath/ws/v1?ticket=$encodedTicket"
+        val encodedBusinessVersion = URLEncoder.encode(BUSINESS_PROTOCOL_VERSION, Charsets.UTF_8.name())
+        return "$scheme://${uri.rawAuthority}$basePath/ws/v1?ticket=$encodedTicket&businessVersion=$encodedBusinessVersion"
     }
 
     private fun backoffDelay(attempt: Int): Long =
@@ -1826,7 +1940,11 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    suspend fun cancelTransfer(sessionId: String, reason: String = REASON_TRANSFER_USER_CANCELLED): Result<Unit> =
+    suspend fun cancelTransfer(
+        sessionId: String,
+        reason: String = REASON_TRANSFER_USER_CANCELLED,
+        message: String = transferErrorMessage(reason),
+    ): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             incomingTransfers.remove(sessionId)?.tempFile?.delete()
@@ -1837,7 +1955,7 @@ class ConnectionManager @Inject constructor(
             fileTransferRepository.save(
                 transfer.copy(
                     status = "cancelled",
-                    error = reason,
+                    error = transferRecordError(reason, message),
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
@@ -1849,6 +1967,7 @@ class ConnectionManager @Inject constructor(
                         FileCancelPayload(
                             sessionId = sessionId,
                             reason = reason,
+                            message = message,
                         ),
                     ),
                 ),
@@ -1879,7 +1998,7 @@ class ConnectionManager @Inject constructor(
                     "SWIM",
                     "remembered endpoint device=${CoLinkLog.shortId(message.payload.from)} ip=$ip",
                 )
-                if (!lanTrustStore.isLanTrusted(message.payload.from)) {
+                if (!lanTrustStore.isTrusted(message.payload.from)) {
                     deviceRepository.clearLanEndpoint(message.payload.from)
                 }
                 syncKnownLanEndpoint(message.payload.from)
@@ -1934,7 +2053,7 @@ class ConnectionManager @Inject constructor(
         when (state) {
             MemberState.Alive -> {
                 val endpoint = swimEndpoints[deviceId]
-                val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
+                val lanTrusted = lanTrustStore.isTrusted(deviceId)
                 if (endpoint != null) {
                     if (lanTrusted) {
                         CoLinkLog.d("LAN", "marking LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=${endpoint.ip} port=${endpoint.port}")
@@ -1968,7 +2087,7 @@ class ConnectionManager @Inject constructor(
 
             MemberState.Suspect -> {
                 val endpoint = swimEndpoints[deviceId]
-                val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
+                val lanTrusted = lanTrustStore.isTrusted(deviceId)
                 if (endpoint != null) {
                     if (lanTrusted) {
                         CoLinkLog.d(
@@ -2000,7 +2119,7 @@ class ConnectionManager @Inject constructor(
         endpoint: LanEndpoint,
         state: MemberState,
     ) {
-        if (state != MemberState.Alive || lanTrustStore.isLanTrusted(deviceId)) {
+        if (state != MemberState.Alive || lanTrustStore.isTrusted(deviceId)) {
             removePairingCandidate(deviceId)
             return
         }
@@ -2020,7 +2139,10 @@ class ConnectionManager @Inject constructor(
                     state = state.wireValue,
                 ),
             )
-            .sortedBy { it.deviceId }
+            .sortedWith(
+                compareBy<LanPairingCandidate, String>(String.CASE_INSENSITIVE_ORDER) { it.name }
+                    .thenBy { it.deviceId },
+            )
         _lanPairingCandidates.value = candidates
         CoLinkLog.i("LAN", "updated pairing candidate device=${CoLinkLog.shortId(deviceId)} name=$name ip=${endpoint.ip} port=${endpoint.port}")
     }
@@ -2046,7 +2168,7 @@ class ConnectionManager @Inject constructor(
             MemberState.Alive,
             MemberState.Suspect,
             -> {
-                if (lanTrustStore.isLanTrusted(deviceId)) {
+                if (lanTrustStore.isTrusted(deviceId)) {
                     deviceRepository.markLanEndpoint(
                         deviceId,
                         endpoint.ip,
@@ -2068,15 +2190,14 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
+        val localizedContext = LocaleHelper.localized(context)
         deviceRepository.clearLanEndpoint(deviceId)
-        lanWebSocketClient.disconnect(deviceId)
-        lanWebSocketServer.disconnect(deviceId)
         name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
         refreshPairingCandidate(deviceId)
         val peerName = name.ifBlank { deviceId }
         notifyEvent(
-            title = context.getString(R.string.notification_lan_key_changed_title),
-            text = context.getString(R.string.notification_lan_key_changed_body, peerName),
+            title = localizedContext.getString(R.string.notification_lan_key_changed_title),
+            text = localizedContext.getString(R.string.notification_lan_key_changed_body, peerName),
         )
     }
 
@@ -2475,6 +2596,7 @@ private data class OutgoingTransferState(
 
 private data class PendingLanSend(
     val message: BusinessEnvelope,
+    val correlationId: String? = null,
     val result: CompletableDeferred<Result<Unit>>,
 )
 

@@ -9,6 +9,7 @@ import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -85,45 +86,49 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun rotateKey(deviceId: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.rotateDeviceKey(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message
-                    ?: context.getString(R.string.device_key_rotated),
+                    ?: localizedContext.getString(R.string.device_key_rotated),
                 localDeviceId = identity?.deviceId,
             )
         }
     }
 
     fun renameDevice(deviceId: String, name: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.updateDeviceName(deviceId, name)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message
-                    ?: context.getString(R.string.device_renamed),
+                    ?: localizedContext.getString(R.string.device_renamed),
                 localDeviceId = identity?.deviceId,
             )
         }
     }
 
     fun deleteDevice(deviceId: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.deleteDevice(deviceId)
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message
-                    ?: context.getString(R.string.device_deleted),
+                    ?: localizedContext.getString(R.string.device_deleted),
                 localDeviceId = identity?.deviceId,
             )
         }
     }
 
     fun forgetLanTrust(deviceId: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.forgetLanTrust(deviceId)
@@ -133,7 +138,7 @@ class DevicesViewModel @Inject constructor(
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message
-                    ?: context.getString(R.string.lan_trust_forgotten),
+                    ?: localizedContext.getString(R.string.lan_trust_forgotten),
                 localDeviceId = identity?.deviceId,
             )
         }

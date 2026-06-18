@@ -50,11 +50,13 @@ class KeyManager @Inject constructor() {
         nonceB: String,
     ): String {
         val keys = listOf(publicKeyA, publicKeyB).sorted()
+        val canonical = "domain=colink-lan-pairing-code\n" +
+            "publicKeyA=${keys[0]}\n" +
+            "publicKeyB=${keys[1]}\n" +
+            "nonceA=$nonceA\n" +
+            "nonceB=$nonceB"
         val digest = MessageDigest.getInstance("SHA-256").apply {
-            update(keys[0].toByteArray())
-            update(keys[1].toByteArray())
-            update(nonceA.toByteArray())
-            update(nonceB.toByteArray())
+            update(canonical.toByteArray())
         }.digest()
         val value = BigInteger(1, digest.copyOfRange(0, 8)).mod(BigInteger.valueOf(1_000_000))
         return "%06d".format(value.toInt())

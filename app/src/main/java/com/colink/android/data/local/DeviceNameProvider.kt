@@ -1,5 +1,6 @@
 package com.colink.android.data.local
 
+import com.colink.android.BuildConfig
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
@@ -14,7 +15,12 @@ class DeviceNameProvider @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     fun defaultDeviceName(): String {
-        return systemDeviceName() ?: modelDeviceName()
+        val baseName = systemDeviceName() ?: modelDeviceName()
+        return if (BuildConfig.DEBUG) {
+            "${baseName}Debug"
+        } else {
+            baseName
+        }
     }
 
     private fun systemDeviceName(): String? =

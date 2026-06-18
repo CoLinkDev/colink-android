@@ -20,6 +20,7 @@ import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.notification.EXTRA_TARGET_DEVICE_ID
 import com.colink.android.util.CoLinkLog
+import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import javax.inject.Inject
@@ -33,6 +34,11 @@ import kotlinx.coroutines.launch
 
 private const val CHANNEL_ID = "colink_connection"
 private const val NOTIFICATION_ID = 1001
+private const val MAIN_REQUEST_CODE = 100
+private const val TARGET_DEVICE_REQUEST_CODE_BASE = 10_000
+private const val TARGET_DEVICE_REQUEST_CODE_MASK = 0x0fffffff
+private const val ACTION_OPEN_MAIN = "com.colink.android.action.OPEN_MAIN"
+private const val ACTION_OPEN_DEVICE = "com.colink.android.action.OPEN_DEVICE"
 private const val TRANSFER_RESULT_VISIBLE_MILLIS = 5_000L
 private const val TRANSFER_NOTIFICATION_UPDATE_MILLIS = 1_500L
 
@@ -85,14 +91,21 @@ class CoLinkService : Service() {
     }
 
     private fun buildNotification(transfer: FileTransfer? = null): Notification {
+        val localizedContext = LocaleHelper.localized(this)
+        val targetDeviceId = transfer?.deviceId?.takeIf { it.isNotBlank() }
         val intent = Intent(this, MainActivity::class.java).apply {
-            transfer?.deviceId?.takeIf { it.isNotBlank() }?.let {
-                putExtra(EXTRA_TARGET_DEVICE_ID, it)
+            if (targetDeviceId == null) {
+                action = ACTION_OPEN_MAIN
+                removeExtra(EXTRA_TARGET_DEVICE_ID)
+            } else {
+                action = ACTION_OPEN_DEVICE
+                putExtra(EXTRA_TARGET_DEVICE_ID, targetDeviceId)
             }
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
-            0,
+            targetDeviceId?.let { TARGET_DEVICE_REQUEST_CODE_BASE + (it.hashCode() and TARGET_DEVICE_REQUEST_CODE_MASK) }
+                ?: MAIN_REQUEST_CODE,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -100,11 +113,11 @@ class CoLinkService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_logo)
-            .setContentTitle(transferContent?.title ?: getString(R.string.service_notification_title))
-            .setContentText(transferContent?.text ?: getString(R.string.service_notification_desc))
+            .setContentTitle(transferContent?.title ?: localizedContext.getString(R.string.service_notification_title))
+            .setContentText(transferContent?.text ?: localizedContext.getString(R.string.service_notification_desc))
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText(transferContent?.text ?: getString(R.string.service_notification_desc)),
+                    .bigText(transferContent?.text ?: localizedContext.getString(R.string.service_notification_desc)),
             )
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -204,33 +217,34 @@ class CoLinkService : Service() {
         status == "sending" || status == "receiving"
 
     private fun FileTransfer.toNotificationContent(): TransferNotificationContent {
+        val localizedContext = LocaleHelper.localized(this@CoLinkService)
         val title = when (status) {
-            "sending" -> getString(R.string.service_transfer_sending_title)
-            "receiving" -> getString(R.string.service_transfer_receiving_title)
-            "verifying" -> getString(R.string.service_transfer_verifying_title)
-            "completed" -> getString(R.string.service_transfer_completed_title)
-            "failed" -> getString(R.string.service_transfer_failed_title)
-            "cancelled", "rejected" -> getString(R.string.service_transfer_cancelled_title)
-            else -> getString(R.string.service_notification_title)
+            "sending" -> localizedContext.getString(R.string.service_transfer_sending_title)
+            "receiving" -> localizedContext.getString(R.string.service_transfer_receiving_title)
+            "verifying" -> localizedContext.getString(R.string.service_transfer_verifying_title)
+            "completed" -> localizedContext.getString(R.string.service_transfer_completed_title)
+            "failed" -> localizedContext.getString(R.string.service_transfer_failed_title)
+            "cancelled", "rejected" -> localizedContext.getString(R.string.service_transfer_cancelled_title)
+            else -> localizedContext.getString(R.string.service_notification_title)
         }
         val percent = transferPercent()
         val detail = if (status == "sending" || status == "receiving") {
-            getString(
+            localizedContext.getString(
                 R.string.service_transfer_progress,
-                fileName.ifBlank { getString(R.string.unnamed_file) },
+                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
                 percent,
                 formatBytes(transferredBytes),
                 formatBytes(fileSize),
             )
         } else if (status == "verifying") {
-            getString(
+            localizedContext.getString(
                 R.string.service_transfer_verifying_text,
-                fileName.ifBlank { getString(R.string.unnamed_file) },
+                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
             )
         } else {
-            getString(
+            localizedContext.getString(
                 R.string.service_transfer_result,
-                fileName.ifBlank { getString(R.string.unnamed_file) },
+                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
                 statusLabel(),
             )
         }
@@ -250,13 +264,15 @@ class CoLinkService : Service() {
     }
 
     private fun FileTransfer.statusLabel(): String =
-        when (status) {
-            "completed" -> getString(R.string.status_completed)
-            "verifying" -> getString(R.string.status_verifying)
-            "failed" -> getString(R.string.status_failed)
-            "cancelled" -> getString(R.string.status_cancelled)
-            "rejected" -> getString(R.string.status_rejected)
-            else -> status
+        LocaleHelper.localized(this@CoLinkService).let { localizedContext ->
+            when (status) {
+                "completed" -> localizedContext.getString(R.string.status_completed)
+                "verifying" -> localizedContext.getString(R.string.status_verifying)
+                "failed" -> localizedContext.getString(R.string.status_failed)
+                "cancelled" -> localizedContext.getString(R.string.status_cancelled)
+                "rejected" -> localizedContext.getString(R.string.status_rejected)
+                else -> status
+            }
         }
 
     private fun formatBytes(bytes: Long): String {
@@ -285,10 +301,11 @@ class CoLinkService : Service() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return
         }
-        val manager = getSystemService(NotificationManager::class.java)
+        val localizedContext = LocaleHelper.localized(this)
+        val manager = localizedContext.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.service_channel_name),
+            localizedContext.getString(R.string.service_channel_name),
             NotificationManager.IMPORTANCE_LOW,
         )
         manager.createNotificationChannel(channel)

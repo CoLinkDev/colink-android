@@ -15,7 +15,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">디바이스</string>
-    <string name="nav_messages">메시지와 파일</string>
+    <string name="nav_messages">전송</string>
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">파일 전송</string>
     <string name="nav_settings">설정</string>

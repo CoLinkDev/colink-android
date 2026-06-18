@@ -2,6 +2,7 @@ package com.colink.android.ui.navigation
 
 import android.content.Intent
 import android.net.Uri
+import com.colink.android.BuildConfig
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -87,6 +88,7 @@ import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.util.CoLinkLog
+import com.colink.android.util.isBreakingVersionUpdate
 import kotlinx.coroutines.flow.StateFlow
 
 private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
@@ -166,6 +168,7 @@ private fun UpdateDialogHost(
     val current = update ?: return
     val context = androidx.compose.ui.platform.LocalContext.current
     val asset = current.assets.firstOrNull()
+    val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
     val body = buildString {
         append(stringResource(R.string.update_available_body, current.version))
         val notes = current.releaseNotes.trim()
@@ -176,7 +179,11 @@ private fun UpdateDialogHost(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!required) {
+                onDismiss()
+            }
+        },
         title = { Text(stringResource(R.string.update_available_title)) },
         text = { Text(body) },
         confirmButton = {
@@ -188,7 +195,9 @@ private fun UpdateDialogHost(
                         }.onFailure { error ->
                             CoLinkLog.w("Update", "open update download failed", error)
                         }
-                        onDismiss()
+                        if (!required) {
+                            onDismiss()
+                        }
                     },
                 ) {
                     Text(stringResource(R.string.update_download_btn))
@@ -196,8 +205,10 @@ private fun UpdateDialogHost(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.update_later_btn))
+            if (!required) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.update_later_btn))
+                }
             }
         },
     )
@@ -644,6 +655,7 @@ private fun MainBottomBar(navController: NavHostController) {
                 },
                 icon = { Icon(item.icon, contentDescription = null) },
                 label = { Text(stringResource(item.labelResId)) },
+                alwaysShowLabel = false,
             )
         }
     }

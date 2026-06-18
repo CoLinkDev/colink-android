@@ -15,7 +15,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Devices</string>
-    <string name="nav_messages">Messages &amp; Files</string>
+    <string name="nav_messages">Transfers</string>
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">Transfers</string>
     <string name="nav_settings">Settings</string>

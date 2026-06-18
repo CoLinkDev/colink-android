@@ -258,13 +258,6 @@ fun MessageScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Text(
-                                            text = device.type.ifBlank { stringResource(R.string.unknown_type) },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
                                         if (device.lanAvailable) {
                                             BadgeChip(
                                                 text = stringResource(R.string.device_tag_lan),
@@ -452,13 +445,6 @@ private fun ContactCard(
                     text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = device.type.ifBlank { stringResource(R.string.unknown_type) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

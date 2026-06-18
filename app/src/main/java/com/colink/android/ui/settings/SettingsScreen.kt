@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,6 +60,7 @@ import com.colink.android.R
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.util.CoLinkLog
+import com.colink.android.util.isBreakingVersionUpdate
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,8 +135,8 @@ fun SettingsScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
                 )
             )
 
@@ -158,8 +160,8 @@ fun SettingsScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
                     ),
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -183,37 +185,30 @@ fun SettingsScreen(
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_clipboard_sync_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_clipboard_sync_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = settings.enableClipboardSync,
-                        onCheckedChange = viewModel::updateClipboardSync
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_clipboard_sync_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_clipboard_sync_desc),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.enableClipboardSync,
+                    onCheckedChange = viewModel::updateClipboardSync
+                )
             }
 
             AboutCard(
@@ -330,6 +325,7 @@ private fun SettingsUpdateDialog(
     val current = update ?: return
     val context = LocalContext.current
     val asset = current.assets.firstOrNull()
+    val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
     val body = buildString {
         append(stringResource(R.string.update_available_body, current.version))
         val notes = current.releaseNotes.trim()
@@ -340,7 +336,11 @@ private fun SettingsUpdateDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (!required) {
+                onDismiss()
+            }
+        },
         title = { Text(stringResource(R.string.update_available_title)) },
         text = { Text(body) },
         confirmButton = {
@@ -352,7 +352,9 @@ private fun SettingsUpdateDialog(
                         }.onFailure { error ->
                             CoLinkLog.w("Update", "open update download failed", error)
                         }
-                        onDismiss()
+                        if (!required) {
+                            onDismiss()
+                        }
                     },
                 ) {
                     Text(stringResource(R.string.update_download_btn))
@@ -360,8 +362,10 @@ private fun SettingsUpdateDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.update_later_btn))
+            if (!required) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.update_later_btn))
+                }
             }
         },
     )

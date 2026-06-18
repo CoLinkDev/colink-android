@@ -4,6 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
+const val LAN_PROTOCOL_VERSION = "1.1.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.0.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -32,6 +34,7 @@ data class CloudClientEnvelope(
     val id: String,
     @SerialName("type") val type: String,
     val to: String? = null,
+    val correlationId: String? = null,
     val payload: JsonElement? = null,
 )
 
@@ -41,6 +44,7 @@ data class CloudServerEnvelope(
     @SerialName("type") val type: String,
     val from: String? = null,
     val to: String? = null,
+    val correlationId: String? = null,
     val payload: JsonElement? = null,
     val timestamp: Long? = null,
 )
@@ -78,12 +82,16 @@ data class FileAcceptPayload(
 data class FileRejectPayload(
     val sessionId: String,
     val reason: String,
+    val message: String,
+    val details: JsonElement? = null,
 )
 
 @Serializable
 data class FileCancelPayload(
     val sessionId: String,
     val reason: String,
+    val message: String,
+    val details: JsonElement? = null,
 )
 
 @Serializable
@@ -115,6 +123,8 @@ data class FileDonePayload(
     val sessionId: String,
     val success: Boolean,
     val reason: String? = null,
+    val message: String? = null,
+    val details: JsonElement? = null,
 )
 
 @Serializable
@@ -159,39 +169,96 @@ object MusicRequestPayload
 data class DeviceOnlinePayload(
     val name: String,
     @SerialName("type") val type: String,
+    val businessVersion: String,
 )
 
 @Serializable
-data class PeerEnvelope(
+data class ProtocolHelloEnvelope(
     @SerialName("type") val type: String,
+    val payload: ProtocolHelloPayload,
+)
+
+@Serializable
+data class ProtocolHelloPayload(
+    val deviceId: String,
+    val protocolVersion: String,
+    val extensions: JsonElement,
+)
+
+@Serializable
+data class ProtocolHelloAckEnvelope(
+    @SerialName("type") val type: String,
+    val payload: VersionAckPayload,
+)
+
+@Serializable
+data class VersionAckPayload(
+    val compatible: Boolean,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class LanEnvelope(
+    val id: String,
+    @SerialName("type") val type: String,
+    val from: String,
+    val to: String,
+    val seq: Long,
+    val timestamp: Long,
+    val correlationId: String? = null,
     val payload: JsonElement,
 )
 
 @Serializable
-data class HandshakeProofPayload(
-    val deviceId: String,
+data class AuthChallengePayload(
+    val nonce: String,
+)
+
+@Serializable
+data class AuthResponsePayload(
+    val signature: String,
+)
+
+@Serializable
+data class PairingIdentityPayload(
     val publicKey: String,
     val name: String,
-    val timestamp: Long,
     val nonce: String,
-    val signature: String,
-    val hasTrust: Boolean = true,
 )
 
 @Serializable
-data class HandshakeAcceptPayload(
-    val deviceId: String,
-)
+object EmptyPayload
 
 @Serializable
-data class HandshakeRejectPayload(
+data class LanRejectPayload(
     val reason: String,
+    val message: String,
+    val details: JsonElement? = null,
 )
 
 @Serializable
 data class BusinessNegotiatePayload(
     val supported: List<String>,
     val preferred: String,
+)
+
+@Serializable
+data class BusinessVersionPayload(
+    val businessVersion: String,
+)
+
+@Serializable
+data class BusinessVersionAckPayload(
+    val compatible: Boolean,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class BusinessKeyExchangePayload(
+    val ephemeralPublicKey: String,
+    val signature: String,
 )
 
 @Serializable

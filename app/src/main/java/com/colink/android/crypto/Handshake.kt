@@ -1,33 +1,28 @@
 package com.colink.android.crypto
 
-import com.colink.android.domain.model.DeviceIdentity
-import com.colink.android.network.message.HandshakeProofPayload
-import java.util.UUID
 import javax.inject.Inject
 
 class Handshake @Inject constructor(
     private val keyManager: KeyManager,
 ) {
-    fun buildProof(identity: DeviceIdentity, hasTrust: Boolean): HandshakeProofPayload {
-        val nonce = UUID.randomUUID().toString().replace("-", "")
-        val timestamp = System.currentTimeMillis()
-        val proof = proofBytes(identity.deviceId, timestamp, nonce)
-        return HandshakeProofPayload(
-            deviceId = identity.deviceId,
-            publicKey = identity.publicKey,
-            name = identity.name,
-            timestamp = timestamp,
-            nonce = nonce,
-            signature = keyManager.sign(identity.privateKey, proof),
-            hasTrust = hasTrust,
-        )
-    }
+    fun signAuth(privateKey: String, from: String, timestamp: Long, nonce: String): String =
+        keyManager.sign(privateKey, authBytes(from, timestamp, nonce))
 
-    fun verifyProof(payload: HandshakeProofPayload): Boolean =
+    fun verifyAuth(publicKey: String, from: String, timestamp: Long, nonce: String, signature: String): Boolean =
         keyManager.verify(
-            publicKey = payload.publicKey,
-            payload = proofBytes(payload.deviceId, payload.timestamp, payload.nonce),
-            signature = payload.signature,
+            publicKey = publicKey,
+            payload = authBytes(from, timestamp, nonce),
+            signature = signature,
+        )
+
+    fun signKeyExchange(privateKey: String, from: String, to: String, ephemeralPublicKey: String, timestamp: Long): String =
+        keyManager.sign(privateKey, keyExchangeBytes(from, to, ephemeralPublicKey, timestamp))
+
+    fun verifyKeyExchange(publicKey: String, from: String, to: String, ephemeralPublicKey: String, timestamp: Long, signature: String): Boolean =
+        keyManager.verify(
+            publicKey = publicKey,
+            payload = keyExchangeBytes(from, to, ephemeralPublicKey, timestamp),
+            signature = signature,
         )
 
     fun pairingCode(
@@ -37,7 +32,10 @@ class Handshake @Inject constructor(
         nonceB: String,
     ): String = keyManager.pairingCode(publicKeyA, publicKeyB, nonceA, nonceB)
 
-    private fun proofBytes(deviceId: String, timestamp: Long, nonce: String): ByteArray =
-        "$deviceId$timestamp$nonce".toByteArray()
+    private fun authBytes(from: String, timestamp: Long, nonce: String): ByteArray =
+        "from=$from\ntimestamp=$timestamp\nnonce=$nonce".toByteArray()
+
+    private fun keyExchangeBytes(from: String, to: String, ephemeralPublicKey: String, timestamp: Long): ByteArray =
+        "domain=colink-lan-key-exchange\nfrom=$from\nto=$to\nephemeralPublicKey=$ephemeralPublicKey\ntimestamp=$timestamp".toByteArray()
 
 }

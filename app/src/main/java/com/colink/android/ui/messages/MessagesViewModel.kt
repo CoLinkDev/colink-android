@@ -13,6 +13,7 @@ import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.domain.repository.MessageRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -117,12 +118,13 @@ class MessagesViewModel @Inject constructor(
     }
 
     fun send(targetDeviceId: String?, text: String) {
+        val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null) {
                 _uiState.update {
                     it.copy(
                         sending = false,
-                        message = context.getString(R.string.message_select_target_device),
+                        message = localizedContext.getString(R.string.message_select_target_device),
                     )
                 }
                 return@launch
@@ -133,7 +135,7 @@ class MessagesViewModel @Inject constructor(
                 state.copy(
                     sending = false,
                     message = result.exceptionOrNull()?.message
-                        ?: context.getString(R.string.message_sent),
+                        ?: localizedContext.getString(R.string.message_sent),
                 )
             }
         }

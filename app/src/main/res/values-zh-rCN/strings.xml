@@ -15,7 +15,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
-    <string name="nav_messages">消息与文件</string>
+    <string name="nav_messages">传输</string>
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_transfers">文件传输</string>
     <string name="nav_settings">设置</string>
