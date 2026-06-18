@@ -54,6 +54,10 @@ import com.colink.android.network.message.MusicLyricPayload
 import com.colink.android.network.message.MusicProgressPayload
 import com.colink.android.network.message.MusicRequestPayload
 import com.colink.android.network.message.MusicTrackPayload
+import com.colink.android.network.message.SYSINFO_ALIVE_TYPE
+import com.colink.android.network.message.SYSINFO_STATS_TYPE
+import com.colink.android.network.message.SysInfoAlivePayload
+import com.colink.android.network.message.SysInfoStatsPayload
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
 import com.colink.android.network.message.FileCancelPayload
@@ -73,6 +77,7 @@ import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.FileChecksumVerifier
 import com.colink.android.network.music.MusicSyncManager
+import com.colink.android.network.sysinfo.SysInfoSyncManager
 import com.colink.android.util.LocaleHelper
 import java.io.File
 import java.io.InterruptedIOException
@@ -153,6 +158,7 @@ class ConnectionManager @Inject constructor(
     private val lanTrustStore: LanTrustStore,
     private val nsdDiscovery: NsdDiscovery,
     private val musicSyncManager: MusicSyncManager,
+    private val sysInfoSyncManager: SysInfoSyncManager,
     private val notifier: CoLinkNotifier,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -294,6 +300,15 @@ class ConnectionManager @Inject constructor(
             BusinessEnvelope(
                 type = MUSIC_REQUEST_TYPE,
                 payload = json.encodeToJsonElement(MusicRequestPayload),
+            ),
+        ).map { Unit }
+
+    suspend fun sendSysInfoAlive(targetDeviceId: String): Result<Unit> =
+        sendBusinessMessage(
+            targetDeviceId,
+            BusinessEnvelope(
+                type = SYSINFO_ALIVE_TYPE,
+                payload = json.encodeToJsonElement(SysInfoAlivePayload),
             ),
         ).map { Unit }
 
@@ -617,6 +632,9 @@ class ConnectionManager @Inject constructor(
             MUSIC_PROGRESS_TYPE -> runCatching {
                 json.decodeFromJsonElement(MusicProgressPayload.serializer(), business.payload)
             }.getOrNull()?.let { musicSyncManager.acceptProgress(fromDeviceId, it) }
+            SYSINFO_STATS_TYPE -> runCatching {
+                json.decodeFromJsonElement(SysInfoStatsPayload.serializer(), business.payload)
+            }.getOrNull()?.let { sysInfoSyncManager.acceptStats(fromDeviceId, it) }
         }
     }
 

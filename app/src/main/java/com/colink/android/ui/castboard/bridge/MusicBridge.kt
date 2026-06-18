@@ -4,6 +4,7 @@ import android.webkit.WebView
 import com.colink.android.network.message.MusicLyricLinePayload
 import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.music.MusicSyncState
+import com.colink.android.network.sysinfo.SysInfoSyncState
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.Json
 private const val MUSIC_EVENT_TRACK = "Track"
 private const val MUSIC_EVENT_LYRIC = "Lyric"
 private const val MUSIC_EVENT_PROGRESS = "PlayerProgress"
+private const val SYSINFO_EVENT_STATS = "SysInfoStats"
 
 private val json = Json {
     encodeDefaults = true
@@ -59,11 +61,19 @@ private data class LegacyProgressEvent(
     val paused: Boolean,
 )
 
+@Serializable
+private data class LegacySysInfoEvent(
+    val cpu: Double,
+    val mem: Double,
+    val gpu: Double? = null,
+)
+
 class MusicBridge {
     private var webView: WebView? = null
     private var pageReady = false
     private var forceSync = true
     private var lastState: MusicSyncState = MusicSyncState()
+    private var lastSysInfoState: SysInfoSyncState = SysInfoSyncState()
     private var lastTrackEvent: LegacyTrackEvent? = null
     private var lastLyricEvent: LegacyLyricEvent? = null
     private var lastProgressEvent: LegacyProgressEvent? = null
@@ -80,12 +90,14 @@ class MusicBridge {
         lastLyricEvent = null
         lastProgressEvent = null
         lastState = MusicSyncState()
+        lastSysInfoState = SysInfoSyncState()
     }
 
     fun markPageReady() {
         pageReady = true
         forceSync = true
         flush()
+        flushSysInfo()
     }
 
     fun markPageLoading() {
@@ -96,6 +108,11 @@ class MusicBridge {
     fun sync(state: MusicSyncState) {
         lastState = state
         flush()
+    }
+
+    fun syncSysInfo(state: SysInfoSyncState) {
+        lastSysInfoState = state
+        flushSysInfo()
     }
 
     private fun flush() {
@@ -127,8 +144,31 @@ class MusicBridge {
         forceSync = false
     }
 
+    private fun flushSysInfo() {
+        val view = webView ?: return
+        if (!pageReady) {
+            return
+        }
+        val stats = lastSysInfoState.stats ?: return
+        dispatchSysInfo(
+            view,
+            LegacySysInfoEvent(
+                cpu = stats.cpu,
+                mem = stats.mem,
+                gpu = stats.gpu,
+            ),
+        )
+    }
+
     private inline fun <reified T> dispatch(view: WebView, event: String, payload: T) {
         val script = "window.handleMusicEvent(${json.encodeToString(event)}, ${json.encodeToString(payload)})"
+        view.post {
+            view.evaluateJavascript(script, null)
+        }
+    }
+
+    private fun dispatchSysInfo(view: WebView, payload: LegacySysInfoEvent) {
+        val script = "window.handleSysInfoStats(${json.encodeToString(payload)})"
         view.post {
             view.evaluateJavascript(script, null)
         }

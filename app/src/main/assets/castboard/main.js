@@ -14,6 +14,7 @@ window.cachedGap = 36;
 window.cachedActiveY = window.innerHeight * 0.35;
 window.resizeTimer = 0;
 window.navManager = null;
+window.latestSysInfoStats = null;
 
 // ==== Common Utility Functions ====
 function parseCssLength(raw, fallback) {
@@ -112,7 +113,6 @@ function cancelRaf(id) {
   return 0;
 }
 
-// Clear active timers
 function clearTimer(id) {
   if (id) window.clearTimeout(id);
   return 0;
@@ -139,7 +139,8 @@ class NavigationManager {
     this.pages = pages;
     this.currentPageName = null;
     this.pageCleanupTimer = 0;
-    this.storageKey = "lyrics2screen.detailLayerVisible";
+    this.storageKey = "lyrics2screen.currentPage";
+    this.legacyStorageKey = "lyrics2screen.detailLayerVisible";
 
     // Transient (temporary navigation) state
     this.transientTimer = 0;
@@ -149,17 +150,22 @@ class NavigationManager {
     this.transientQueue = [];
   }
 
-  getStoredDetailLayerVisible() {
+  getStoredPage() {
     try {
-      return window.localStorage.getItem(this.storageKey) === "1";
+      const page = window.localStorage.getItem(this.storageKey);
+      if (page && this.pages[page]) return page;
+      const legacyDetail = window.localStorage.getItem(this.legacyStorageKey);
+      if (legacyDetail === "1") return "detail";
+      return "lyrics";
     } catch {
-      return false;
+      return "lyrics";
     }
   }
 
-  storeDetailLayerVisible(isVisible) {
+  storePage(pageName) {
     try {
-      window.localStorage.setItem(this.storageKey, isVisible ? "1" : "0");
+      window.localStorage.setItem(this.storageKey, pageName);
+      window.localStorage.setItem(this.legacyStorageKey, pageName === "detail" ? "1" : "0");
     } catch {
       // Ignore if storage is unavailable
     }
@@ -203,11 +209,7 @@ class NavigationManager {
     config.mount(newPageDom);
 
     if (!isTemporary) {
-      if (newPageName === "detail") {
-        this.storeDetailLayerVisible(true);
-      } else if (newPageName === "lyrics") {
-        this.storeDetailLayerVisible(false);
-      }
+      this.storePage(newPageName);
     }
 
     requestAnimationFrame(() => {
@@ -240,6 +242,8 @@ class NavigationManager {
     if (this.currentPageName === "lyrics") {
       this.navigateTo("detail");
     } else if (this.currentPageName === "detail") {
+      this.navigateTo("sysinfo");
+    } else if (this.currentPageName === "sysinfo") {
       this.navigateTo("lyrics");
     } else {
       this.navigateTo("lyrics");
@@ -342,6 +346,23 @@ function onProgressChange() {
   }
 }
 
+window.handleSysInfoStats = function(payload) {
+  function normalize(value) {
+    if (!Number.isFinite(value)) return null;
+    return Math.min(100, Math.max(0, value));
+  }
+
+  window.latestSysInfoStats = {
+    cpu: normalize(Number(payload?.cpu)),
+    mem: normalize(Number(payload?.mem)),
+    gpu: payload?.gpu == null ? null : normalize(Number(payload.gpu)),
+  };
+
+  window.dispatchEvent(new CustomEvent("sysinfo-stats-change", {
+    detail: window.latestSysInfoStats,
+  }));
+};
+
 // Handle resize event
 function onResize() {
   resizeTimer = clearTimer(resizeTimer);
@@ -428,7 +449,7 @@ function bindEvents() {
 
 const loadedPages = new Set();
 const isDebugActive = new URLSearchParams(window.location.search).has("debug");
-const totalPages = ["lyrics", "detail", "time"];
+const totalPages = ["lyrics", "detail", "time", "sysinfo"];
 if (isDebugActive) {
   totalPages.push("debug");
 }
@@ -463,7 +484,7 @@ function boot() {
 
   const ready = document.fonts?.ready ?? Promise.resolve();
   ready.then(() => {
-    const initialPage = window.navManager.getStoredDetailLayerVisible() ? "detail" : "lyrics";
+    const initialPage = window.navManager.getStoredPage();
     window.navManager.navigateTo(initialPage);
   });
 }

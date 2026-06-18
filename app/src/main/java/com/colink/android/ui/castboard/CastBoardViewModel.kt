@@ -8,6 +8,8 @@ import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.music.MusicSyncManager
 import com.colink.android.network.music.MusicSyncState
+import com.colink.android.network.sysinfo.SysInfoSyncManager
+import com.colink.android.network.sysinfo.SysInfoSyncState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,7 @@ class CastBoardViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val connectionManager: ConnectionManager,
     private val musicSyncManager: MusicSyncManager,
+    private val sysInfoSyncManager: SysInfoSyncManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private var sourceDeviceId: String? = null
@@ -79,6 +82,13 @@ class CastBoardViewModel @Inject constructor(
             initialValue = MusicSyncState(),
         )
 
+    val sysInfoState: StateFlow<SysInfoSyncState> =
+        sysInfoSyncManager.state.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = SysInfoSyncState(),
+        )
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val identity = deviceRepository.localDeviceIdentity()
@@ -100,16 +110,19 @@ class CastBoardViewModel @Inject constructor(
         sourceDeviceId = normalized
         _selectedDeviceId.value = normalized
         musicSyncManager.beginSession(normalized)
+        sysInfoSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
             connectionStatus.collectLatest { status ->
                 if (status != CastBoardConnectionStatus.Connected) {
                     return@collectLatest
                 }
                 connectionManager.sendMusicAlive(normalized)
+                connectionManager.sendSysInfoAlive(normalized)
                 connectionManager.sendMusicRequest(normalized)
                 while (isActive) {
                     delay(HEARTBEAT_INTERVAL_MILLIS)
                     connectionManager.sendMusicAlive(normalized)
+                    connectionManager.sendSysInfoAlive(normalized)
                     if (musicSyncManager.state.value.track == null) {
                         connectionManager.sendMusicRequest(normalized)
                     }
@@ -132,6 +145,7 @@ class CastBoardViewModel @Inject constructor(
         heartbeatJob?.cancel()
         if (sourceDeviceId != null) {
             musicSyncManager.endSession()
+            sysInfoSyncManager.endSession()
         }
         super.onCleared()
     }

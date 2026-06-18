@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.1.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.0.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -22,6 +22,8 @@ const val MUSIC_LYRIC_TYPE = "music.v1.lyric"
 const val MUSIC_PROGRESS_TYPE = "music.v1.progress"
 const val MUSIC_ALIVE_TYPE = "music.v1.alive"
 const val MUSIC_REQUEST_TYPE = "music.v1.request"
+const val SYSINFO_STATS_TYPE = "sysinfo.v1.stats"
+const val SYSINFO_ALIVE_TYPE = "sysinfo.v1.alive"
 
 @Serializable
 data class BusinessEnvelope(
@@ -164,6 +166,16 @@ object MusicAlivePayload
 
 @Serializable
 object MusicRequestPayload
+
+@Serializable
+data class SysInfoStatsPayload(
+    val cpu: Double,
+    val mem: Double,
+    val gpu: Double? = null,
+)
+
+@Serializable
+object SysInfoAlivePayload
 
 @Serializable
 data class DeviceOnlinePayload(

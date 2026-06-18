@@ -129,6 +129,7 @@ fun CastBoardFullScreen(
 ) {
     val context = LocalContext.current
     val musicState by viewModel.musicState.collectAsStateWithLifecycle()
+    val sysInfoState by viewModel.sysInfoState.collectAsStateWithLifecycle()
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val sourceDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
@@ -167,6 +168,10 @@ fun CastBoardFullScreen(
 
     LaunchedEffect(musicState) {
         bridge.sync(musicState)
+    }
+
+    LaunchedEffect(sysInfoState) {
+        bridge.syncSysInfo(sysInfoState)
     }
 
     val statusText = when (connectionStatus) {
@@ -273,6 +278,7 @@ fun CastBoardFullScreen(
                     view.loadUrl(castBoardUrl)
                 } else {
                     bridge.sync(musicState)
+                    bridge.syncSysInfo(sysInfoState)
                 }
             },
         )
