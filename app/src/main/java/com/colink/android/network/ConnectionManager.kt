@@ -72,6 +72,7 @@ import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
 import com.colink.android.network.message.TextMessagePayload
 import com.colink.android.network.message.checkBusinessProtocolVersion
+import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
@@ -303,14 +304,18 @@ class ConnectionManager @Inject constructor(
             ),
         ).map { Unit }
 
-    suspend fun sendSysInfoAlive(targetDeviceId: String): Result<Unit> =
-        sendBusinessMessage(
+    suspend fun sendSysInfoAlive(targetDeviceId: String): Result<Unit> {
+        if (!supportsPeerSysInfo(targetDeviceId)) {
+            return Result.success(Unit)
+        }
+        return sendBusinessMessage(
             targetDeviceId,
             BusinessEnvelope(
                 type = SYSINFO_ALIVE_TYPE,
                 payload = json.encodeToJsonElement(SysInfoAlivePayload),
             ),
         ).map { Unit }
+    }
 
     private fun startLan() {
         CoLinkLog.i("LAN", "starting LAN services")
@@ -477,6 +482,14 @@ class ConnectionManager @Inject constructor(
 
     private fun hasLanPeer(deviceId: String): Boolean =
         lanWebSocketServer.hasPeer(deviceId) || lanWebSocketClient.hasPeer(deviceId)
+
+    private fun supportsPeerSysInfo(deviceId: String): Boolean {
+        val peerVersion = lanWebSocketServer.peerBusinessVersion(deviceId)
+            ?: lanWebSocketClient.peerBusinessVersion(deviceId)
+            ?: cloudBusinessVersions[deviceId]
+            ?: return false
+        return supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 1)
+    }
 
     private suspend fun startOnDemandLanPeerConnection(deviceId: String): Result<Unit> =
         runCatching {

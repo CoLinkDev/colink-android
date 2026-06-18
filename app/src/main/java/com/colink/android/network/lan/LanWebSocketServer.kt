@@ -144,6 +144,8 @@ class LanWebSocketServer @Inject constructor(
 
     fun hasPeer(deviceId: String): Boolean = peers.containsKey(deviceId)
 
+    fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
+
     suspend fun disconnect(deviceId: String) {
         peers.remove(deviceId)?.let { runCatching { it.session.close() } }
     }
@@ -179,7 +181,7 @@ class LanWebSocketServer @Inject constructor(
             }
             connectedPeerId = ready.peerId
             peers.remove(ready.peerId)?.let { runCatching { it.session.close() } }
-            val connection = ServerPeerConnection(session, ready.crypto, identity, state.sequence)
+            val connection = ServerPeerConnection(session, ready.crypto, identity, ready.businessVersion, state.sequence)
             peers[ready.peerId] = connection
             markPeerEndpoint(ready.peerId, session)
             listener?.onConnected(ready.peerId)
@@ -313,7 +315,7 @@ class LanWebSocketServer @Inject constructor(
                     }
                     val crypto = handleBusinessNegotiate(session, state, envelope)
                     if (crypto != null) {
-                        return ReadyPeer(peerId, crypto)
+                        return ReadyPeer(peerId, crypto, state.peerBusinessVersion)
                     }
                 }
             }
@@ -479,6 +481,7 @@ class LanWebSocketServer @Inject constructor(
             state.sequence,
         )
         if (compatibility.compatible) {
+            state.peerBusinessVersion = payload?.businessVersion
             state.peerBusinessVersionReceived = true
             sendBusinessVersion(session, state)
         } else {
@@ -854,6 +857,7 @@ private data class ServerPeerState(
     var peerVerified: Boolean = false,
     var sentBusinessNegotiate: Boolean = false,
     var sentBusinessVersion: Boolean = false,
+    var peerBusinessVersion: String? = null,
     var peerBusinessVersionReceived: Boolean = false,
     var businessVersionAckReceived: Boolean = false,
     var businessRejected: Boolean = false,
@@ -884,12 +888,14 @@ private data class ServerPeerState(
 private data class ReadyPeer(
     val peerId: String,
     val crypto: LanSessionCrypto,
+    val businessVersion: String?,
 )
 
 private data class ServerPeerConnection(
     val session: DefaultWebSocketServerSession,
     val crypto: LanSessionCrypto,
     val identity: DeviceIdentity,
+    val businessVersion: String? = null,
     val sequence: LanSequence = LanSequence(),
 ) {
     @Volatile

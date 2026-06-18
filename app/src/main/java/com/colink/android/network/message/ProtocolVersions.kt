@@ -36,6 +36,14 @@ internal fun supportsLanKeyExchange(peerVersion: String): Boolean =
         }
     } == true
 
+internal fun supportsBusinessProtocolAtLeast(peerVersion: String, major: Int, minor: Int, patch: Int = 0): Boolean =
+    parseSemver(BUSINESS_PROTOCOL_VERSION)?.let { local ->
+        parseSemver(peerVersion)?.let { peer ->
+            val required = Semver(major, minor, patch)
+            local.major == peer.major && peer >= required && local >= required
+        }
+    } == true
+
 internal fun negotiatedLanProtocolVersion(peerVersion: String): String {
     val local = parseSemver(LAN_PROTOCOL_VERSION) ?: return LAN_PROTOCOL_VERSION
     val peer = parseSemver(peerVersion) ?: return LAN_PROTOCOL_VERSION

@@ -464,6 +464,7 @@ class LanWebSocketClient @Inject constructor(
                         sequence = state.sequence,
                     )
                     if (compatibility.compatible) {
+                        state.peerBusinessVersion = payload?.businessVersion
                         state.peerBusinessVersionReceived = true
                         sendBusinessVersion(webSocket, state)
                     } else {
@@ -586,7 +587,7 @@ class LanWebSocketClient @Inject constructor(
                     val peerId = state.expectedDeviceId
                     connectingPeers.remove(peerId)
                     connectingWebSockets.remove(peerId)
-                    val connection = ClientPeerConnection(webSocket, state.crypto, state.identity, state.sequence)
+                    val connection = ClientPeerConnection(webSocket, state.crypto, state.identity, state.peerBusinessVersion, state.sequence)
                     peers[peerId] = connection
                     connection.keepaliveJob = launchKeepaliveMonitor(peerId, webSocket)
                     connected = true
@@ -619,6 +620,8 @@ class LanWebSocketClient @Inject constructor(
     }
 
     fun hasPeer(deviceId: String): Boolean = peers[deviceId]?.crypto != null
+
+    fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
 
     fun disconnect(deviceId: String) {
         connectingPeers.remove(deviceId)
@@ -807,6 +810,7 @@ private data class ClientPeerState(
     var peerVerified: Boolean = false,
     var sentBusinessNegotiate: Boolean = false,
     var sentBusinessVersion: Boolean = false,
+    var peerBusinessVersion: String? = null,
     var peerBusinessVersionReceived: Boolean = false,
     var businessVersionAckReceived: Boolean = false,
     var businessRejected: Boolean = false,
@@ -839,6 +843,7 @@ private data class ClientPeerConnection(
     val webSocket: WebSocket,
     val crypto: LanSessionCrypto?,
     val identity: DeviceIdentity? = null,
+    val businessVersion: String? = null,
     val sequence: LanSequence = LanSequence(),
 ) {
     @Volatile
