@@ -123,6 +123,7 @@ private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
 private const val SWIM_PERIOD_MILLIS = 5_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 3_000L
 private const val SWIM_MAX_GOSSIP = 10
+private const val SWIM_PROBE_BATCH_SIZE = 2
 private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
@@ -2208,7 +2209,7 @@ class ConnectionManager @Inject constructor(
         swimJob = scope.launch {
             while (isActive) {
                 delay(SWIM_PERIOD_MILLIS)
-                probeNextMember()
+                probeNextMembers()
             }
         }
         suspectJob = scope.launch {
@@ -2219,9 +2220,15 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private suspend fun probeNextMember() {
+    private suspend fun probeNextMembers() {
         val identity = deviceRepository.localDeviceIdentity() ?: return
-        val target = nextProbeTarget(identity.deviceId) ?: return
+        val targets = nextProbeTargets(identity.deviceId)
+        for (target in targets) {
+            probeMember(identity, target)
+        }
+    }
+
+    private suspend fun probeMember(identity: DeviceIdentity, target: String) {
         val endpoint = swimEndpoints[target] ?: return
         CoLinkLog.d("SWIM", "probing target=${CoLinkLog.shortId(target)} ip=${endpoint.ip} port=${endpoint.port}")
         val ack = lanSwimClient.ping(
@@ -2321,7 +2328,7 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun nextProbeTarget(localDeviceId: String): String? {
+    private fun nextProbeTargets(localDeviceId: String): List<String> {
         val candidates = swimMembership.membersSnapshot()
             .filter { (deviceId, member) ->
                 deviceId != localDeviceId &&
@@ -2335,7 +2342,7 @@ class ConnectionManager @Inject constructor(
                 probeQueue.clear()
                 probeRoundCandidates = emptyList()
             }
-            return null
+            return emptyList()
         }
         return synchronized(swimLock) {
             if (probeQueue.isEmpty() || probeRoundCandidates != candidates) {
@@ -2343,7 +2350,13 @@ class ConnectionManager @Inject constructor(
                 probeQueue.clear()
                 probeQueue.addAll(candidates.shuffled())
             }
-            if (probeQueue.isEmpty()) null else probeQueue.removeFirst()
+            buildList {
+                repeat(SWIM_PROBE_BATCH_SIZE) {
+                    if (probeQueue.isNotEmpty()) {
+                        add(probeQueue.removeFirst())
+                    }
+                }
+            }
         }
     }
 
