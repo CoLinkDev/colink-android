@@ -87,6 +87,11 @@ android {
             excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
+
+    aaptOptions {
+        ignoreAssetsPattern = "!SourceHanSansSC-VF.ttf.woff2:!SourceHanSansSC-VF.ttf"
+    }
+
 }
 
 kotlin {
