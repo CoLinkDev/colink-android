@@ -133,23 +133,23 @@ function toLyricLine(item) {
 }
 
 function mergeTranslatedLines(lines, translatedLines) {
-  if (!lines.length || !translatedLines.length) {
-    return lines;
+  if (!lines.length) {
+    return [];
   }
 
   const translations = new Map();
-  for (const line of translatedLines) {
-    translations.set(line.time, line.text);
+  if (Array.isArray(translatedLines)) {
+    for (const line of translatedLines) {
+      translations.set(line.time, line.text);
+    }
   }
 
   return lines.map((line) => {
-    const translated = translations.get(line.time);
-    if (!translated) {
-      return line;
-    }
+    const translated = translations.get(line.time) || "";
     return {
       time: line.time,
-      text: `${line.text}\n${translated}`,
+      text: line.text,
+      translation: translated,
     };
   });
 }
