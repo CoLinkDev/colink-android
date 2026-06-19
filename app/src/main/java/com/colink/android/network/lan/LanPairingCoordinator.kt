@@ -53,8 +53,7 @@ class LanPairingCoordinator @Inject constructor(
         val accepted = withTimeoutOrNull(60_000) { decision.await() }
         pendingDecisions.remove(requestId)
         if (accepted == null) {
-            fail(requestId, "LAN pairing timed out")
-            notifier.cancelLanPairingRequest()
+            clear(requestId)
             CoLinkLog.w("Pairing", "LAN pairing timed out request=${CoLinkLog.shortId(requestId)}")
             return Decision(requestId, false)
         }
