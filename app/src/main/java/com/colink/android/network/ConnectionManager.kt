@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.webkit.MimeTypeMap
 import com.colink.android.R
 import com.colink.android.domain.model.CloudConnectionState
@@ -97,6 +100,8 @@ import java.util.Base64
 import java.util.TreeMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -183,10 +188,15 @@ class ConnectionManager @Inject constructor(
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
     private val devicePageLanConnections = mutableSetOf<String>()
+    private val lanGeneration = AtomicLong(0)
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
     private var probeRoundCandidates = emptyList<String>()
     private val clipboardManager = context.getSystemService(ClipboardManager::class.java)
+    private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
+    private val lanNetworks = ConcurrentHashMap.newKeySet<Network>()
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private val lanSuspendedForNetworkLoss = AtomicBoolean(false)
     private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
     private var clipboardSuppressedHash: String? = null
     private var clipboardLastSentHash: String? = null
@@ -200,6 +210,7 @@ class ConnectionManager @Inject constructor(
     fun start() {
         notifier.ensureEventChannel()
         CoLinkLog.i("Connection", "starting connection manager")
+        startNetworkMonitoring()
         scope.launch {
             deviceRepository.ensureLocalDeviceIdentity()
                 .onFailure { error -> CoLinkLog.e("Connection", "failed to ensure local identity", error) }
@@ -222,6 +233,9 @@ class ConnectionManager @Inject constructor(
 
     fun stop() {
         CoLinkLog.i("Connection", "stopping connection manager")
+        stopNetworkMonitoring()
+        lanSuspendedForNetworkLoss.set(false)
+        lanNetworks.clear()
         connectionJob?.cancel()
         connectionJob = null
         cloudBusinessVersions.clear()
@@ -318,6 +332,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun startLan() {
+        lanGeneration.incrementAndGet()
         CoLinkLog.i("LAN", "starting LAN services")
         lanWebSocketServer.start(lanListener)
         scope.launch {
@@ -331,7 +346,13 @@ class ConnectionManager @Inject constructor(
         startSwimLoops()
     }
 
+    private fun restartLan() {
+        stopLan()
+        startLan()
+    }
+
     private fun stopLan() {
+        val generation = lanGeneration.get()
         CoLinkLog.i("LAN", "stopping LAN services")
         swimJob?.cancel()
         swimJob = null
@@ -349,8 +370,81 @@ class ConnectionManager @Inject constructor(
             probeQueue.clear()
             probeRoundCandidates = emptyList()
         }
-        scope.launch { deviceRepository.clearAllLanEndpoints() }
+        scope.launch {
+            if (lanGeneration.get() == generation) {
+                deviceRepository.clearAllLanEndpoints()
+            }
+        }
     }
+
+    private fun startNetworkMonitoring() {
+        if (networkCallback != null) {
+            return
+        }
+        val manager = connectivityManager ?: return
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) {
+                handleNetworkAvailable(network)
+            }
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                if (isLanNetwork(capabilities)) {
+                    handleNetworkAvailable(network)
+                }
+            }
+
+            override fun onLost(network: Network) {
+                if (!lanNetworks.remove(network)) {
+                    return
+                }
+                if (!lanSuspendedForNetworkLoss.compareAndSet(false, true)) {
+                    return
+                }
+                CoLinkLog.i("Connection", "network lost, stopping LAN services")
+                scope.launch { stopLan() }
+            }
+        }
+        networkCallback = callback
+        runCatching {
+            manager.registerDefaultNetworkCallback(callback)
+        }.onFailure { error ->
+            networkCallback = null
+            CoLinkLog.w("Connection", "failed to register network callback", error)
+        }
+    }
+
+    private fun stopNetworkMonitoring() {
+        val manager = connectivityManager ?: return
+        val callback = networkCallback ?: return
+        networkCallback = null
+        runCatching {
+            manager.unregisterNetworkCallback(callback)
+        }.onFailure { error ->
+            CoLinkLog.w("Connection", "failed to unregister network callback", error)
+        }
+    }
+
+    private fun handleNetworkAvailable(network: Network) {
+        if (!shouldRestartLan(network)) {
+            return
+        }
+        lanNetworks.add(network)
+        if (!lanSuspendedForNetworkLoss.compareAndSet(true, false)) {
+            return
+        }
+        CoLinkLog.i("Connection", "network available, restarting LAN services")
+        scope.launch { restartLan() }
+    }
+
+    private fun shouldRestartLan(network: Network): Boolean {
+        val manager = connectivityManager ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return isLanNetwork(capabilities)
+    }
+
+    private fun isLanNetwork(capabilities: NetworkCapabilities): Boolean =
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
 
     suspend fun sendText(targetDeviceId: String, text: String): Result<Unit> =
         runCatching {
