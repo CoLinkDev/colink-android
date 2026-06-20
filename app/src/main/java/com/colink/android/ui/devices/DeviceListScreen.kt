@@ -1,16 +1,21 @@
 package com.colink.android.ui.devices
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -29,19 +34,19 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import android.widget.Toast
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,13 +55,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.LanPairingCandidate
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.LazyColumn
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeviceListScreen(
     modifier: Modifier = Modifier,
@@ -70,6 +73,8 @@ fun DeviceListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val listState = rememberLazyListState()
+
     LaunchedEffect(uiState.message) {
         val msg = uiState.message
         if (!msg.isNullOrBlank()) {
@@ -100,48 +105,55 @@ fun DeviceListScreen(
         ),
         modifier = modifier,
     ) {
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = uiState.loading,
+            onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                item(contentType = "empty") {
-                    EmptyState(
-                        icon = Icons.Default.Devices,
-                        title = stringResource(R.string.no_devices_title),
-                        body = stringResource(R.string.no_devices_body),
-                    )
-                }
-            } else {
-                items(
-                    items = devices,
-                    key = { it.deviceId },
-                    contentType = { "device" },
-                ) { device ->
-                    DeviceCard(
-                        name = device.name,
-                        type = device.type,
-                        lanAvailable = device.lanAvailable,
-                        lanState = device.lanState,
-                        online = device.online,
-                        isLocalDevice = device.deviceId == uiState.localDeviceId ||
-                            device.deviceSources.contains("local"),
-                        showTrustedTag = device.deviceSources.contains("trusted_peer_key"),
-                        onClick = { onDeviceSelected(device.deviceId) },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-                items(
-                    items = lanPairingCandidates,
-                    key = { "lan-pairing-${it.deviceId}" },
-                    contentType = { "lanPairingCandidate" },
-                ) { candidate ->
-                    LanPairingCandidateCard(
-                        candidate = candidate,
-                        onPair = { viewModel.startLanPairing(candidate.deviceId) },
-                        modifier = Modifier.animateItem(),
-                    )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
+                    item(contentType = "empty") {
+                        EmptyState(
+                            icon = Icons.Default.Devices,
+                            title = stringResource(R.string.no_devices_title),
+                            body = stringResource(R.string.no_devices_body),
+                        )
+                    }
+                } else {
+                    items(
+                        items = devices,
+                        key = { it.deviceId },
+                        contentType = { "device" },
+                    ) { device ->
+                        DeviceCard(
+                            name = device.name,
+                            type = device.type,
+                            lanAvailable = device.lanAvailable,
+                            lanState = device.lanState,
+                            online = device.online,
+                            isLocalDevice = device.deviceId == uiState.localDeviceId ||
+                                device.deviceSources.contains("local"),
+                            showTrustedTag = device.deviceSources.contains("trusted_peer_key"),
+                            onClick = { onDeviceSelected(device.deviceId) },
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                    items(
+                        items = lanPairingCandidates,
+                        key = { "lan-pairing-${it.deviceId}" },
+                        contentType = { "lanPairingCandidate" },
+                    ) { candidate ->
+                        LanPairingCandidateCard(
+                            candidate = candidate,
+                            onPair = { viewModel.startLanPairing(candidate.deviceId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
                 }
             }
         }
