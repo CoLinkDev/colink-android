@@ -20,6 +20,13 @@ interface DeviceRepository {
 
     suspend fun getDevice(deviceId: String): Device?
 
+    suspend fun markCloudPresence(
+        deviceId: String,
+        online: Boolean,
+        name: String? = null,
+        deviceType: String? = null,
+    ): Result<Unit>
+
     suspend fun markLanEndpoint(
         deviceId: String,
         ip: String? = null,

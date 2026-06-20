@@ -1763,14 +1763,24 @@ class ConnectionManager @Inject constructor(
     private suspend fun handleCloudMessage(message: CloudServerEnvelope) {
         when (message.type) {
             "device.online" -> {
-                rememberCloudBusinessVersion(message)
-                val session = authRepository.currentSession().getOrNull() ?: return
-                deviceRepository.syncDevices(session)
+                val payload = rememberCloudBusinessVersion(message)
+                message.from?.let { deviceId ->
+                    deviceRepository.markCloudPresence(
+                        deviceId = deviceId,
+                        online = true,
+                        name = payload?.name,
+                        deviceType = payload?.type,
+                    )
+                }
             }
             "device.offline" -> {
-                message.from?.let(cloudBusinessVersions::remove)
-                val session = authRepository.currentSession().getOrNull() ?: return
-                deviceRepository.syncDevices(session)
+                message.from?.let { deviceId ->
+                    cloudBusinessVersions.remove(deviceId)
+                    deviceRepository.markCloudPresence(
+                        deviceId = deviceId,
+                        online = false,
+                    )
+                }
             }
             "relay", "broadcast" -> {
                 val from = message.from ?: return
@@ -1783,13 +1793,14 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun rememberCloudBusinessVersion(message: CloudServerEnvelope) {
-        val from = message.from ?: return
-        val payload = message.payload ?: return
+    private fun rememberCloudBusinessVersion(message: CloudServerEnvelope): DeviceOnlinePayload? {
+        val from = message.from ?: return null
+        val payload = message.payload ?: return null
         val online = runCatching {
             json.decodeFromJsonElement(DeviceOnlinePayload.serializer(), payload)
-        }.getOrNull() ?: return
+        }.getOrNull() ?: return null
         cloudBusinessVersions[from] = online.businessVersion
+        return online
     }
 
     private fun ensureCloudBusinessCompatible(targetDeviceId: String) {

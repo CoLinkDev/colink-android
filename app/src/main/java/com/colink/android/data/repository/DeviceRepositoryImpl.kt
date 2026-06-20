@@ -112,6 +112,40 @@ class DeviceRepositoryImpl @Inject constructor(
     override suspend fun getDevice(deviceId: String): Device? =
         deviceDao.getDevice(deviceId)?.toDomain()
 
+    override suspend fun markCloudPresence(
+        deviceId: String,
+        online: Boolean,
+        name: String?,
+        deviceType: String?,
+    ): Result<Unit> =
+        runCatching {
+            val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
+            val cloudAvailable = online
+            saveDevices(
+                listOf(
+                    current.copy(
+                        name = name?.takeIf { it.isNotBlank() } ?: current.name,
+                        type = reconcileDeviceType(
+                            incoming = deviceType ?: current.type,
+                            previous = current.type,
+                        ),
+                        cloudAvailable = cloudAvailable,
+                        online = cloudAvailable || current.lanAvailable,
+                        activeRoute = when {
+                            current.lanAvailable -> "lan"
+                            cloudAvailable -> "cloud"
+                            else -> null
+                        },
+                    ),
+                ),
+                replaceAll = false,
+            )
+            CoLinkLog.i(
+                "Device",
+                "marked cloud presence device=${CoLinkLog.shortId(deviceId)} online=$online",
+            )
+        }
+
     override suspend fun markLanEndpoint(
         deviceId: String,
         ip: String?,
