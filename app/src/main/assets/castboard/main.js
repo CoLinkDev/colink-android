@@ -356,12 +356,23 @@ window.handleSysInfoStats = function(payload) {
     cpu: normalize(Number(payload?.cpu)),
     mem: normalize(Number(payload?.mem)),
     gpu: payload?.gpu == null ? null : normalize(Number(payload.gpu)),
+    netUp: normalizeRate(payload?.netUp),
+    netDown: normalizeRate(payload?.netDown),
+    diskRead: normalizeRate(payload?.diskRead),
+    diskWrite: normalizeRate(payload?.diskWrite),
   };
 
   window.dispatchEvent(new CustomEvent("sysinfo-stats-change", {
     detail: window.latestSysInfoStats,
   }));
 };
+
+function normalizeRate(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(0, parsed);
+}
 
 // Handle resize event
 function onResize() {

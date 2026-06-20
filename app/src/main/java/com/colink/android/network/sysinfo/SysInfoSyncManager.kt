@@ -49,6 +49,10 @@ class SysInfoSyncManager @Inject constructor() {
                     cpu = payload.cpu.coerceIn(0.0, 100.0),
                     mem = payload.mem.coerceIn(0.0, 100.0),
                     gpu = payload.gpu?.coerceIn(0.0, 100.0),
+                    netUp = payload.netUp?.coerceAtLeast(0.0),
+                    netDown = payload.netDown?.coerceAtLeast(0.0),
+                    diskRead = payload.diskRead?.coerceAtLeast(0.0),
+                    diskWrite = payload.diskWrite?.coerceAtLeast(0.0),
                 ),
                 lastUpdatedAt = System.currentTimeMillis(),
             )

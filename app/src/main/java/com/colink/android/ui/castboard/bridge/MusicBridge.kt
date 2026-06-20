@@ -66,6 +66,10 @@ private data class LegacySysInfoEvent(
     val cpu: Double,
     val mem: Double,
     val gpu: Double? = null,
+    val netUp: Double? = null,
+    val netDown: Double? = null,
+    val diskRead: Double? = null,
+    val diskWrite: Double? = null,
 )
 
 class MusicBridge {
@@ -156,6 +160,10 @@ class MusicBridge {
                 cpu = stats.cpu,
                 mem = stats.mem,
                 gpu = stats.gpu,
+                netUp = stats.netUp,
+                netDown = stats.netDown,
+                diskRead = stats.diskRead,
+                diskWrite = stats.diskWrite,
             ),
         )
     }

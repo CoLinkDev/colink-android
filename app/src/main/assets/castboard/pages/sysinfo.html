@@ -16,17 +16,46 @@
 
         .sysinfo-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 6vw;
+          grid-template-columns: repeat(12, minmax(0, 1fr));
+          gap: 44px 54px;
           width: 100%;
-          max-width: 900px;
+          max-width: 1120px;
           box-sizing: border-box;
+        }
+
+        .sysinfo-metric[data-key="cpu"],
+        .sysinfo-metric[data-key="mem"],
+        .sysinfo-metric[data-key="gpu"] {
+          grid-column: span 4;
+        }
+
+        .sysinfo-metric[data-key="netDown"],
+        .sysinfo-metric[data-key="netUp"],
+        .sysinfo-metric[data-key="diskRead"],
+        .sysinfo-metric[data-key="diskWrite"] {
+          grid-column: span 6;
+        }
+
+        /* Hide circular gauge for network and disk metrics */
+        .sysinfo-metric[data-key="netDown"] .gauge-container,
+        .sysinfo-metric[data-key="netUp"] .gauge-container,
+        .sysinfo-metric[data-key="diskRead"] .gauge-container,
+        .sysinfo-metric[data-key="diskWrite"] .gauge-container {
+          display: none;
+        }
+
+        /* Set a fixed width for the label side in the bottom 4 metrics to align their value starting positions */
+        .sysinfo-metric[data-key="netDown"] .metric-top,
+        .sysinfo-metric[data-key="netUp"] .metric-top,
+        .sysinfo-metric[data-key="diskRead"] .metric-top,
+        .sysinfo-metric[data-key="diskWrite"] .metric-top {
+          width: 140px;
         }
 
         .sysinfo-metric {
           display: flex;
-          flex-direction: column;
-          align-items: flex-start;
+          flex-direction: row;
+          align-items: center;
           gap: 20px;
           transition: all 300ms ease;
           /* animation: fade-appear 600ms cubic-bezier(0.16, 1, 0.3, 1) both; */
@@ -43,6 +72,7 @@
           flex-direction: row;
           align-items: center;
           gap: 12px;
+          flex-shrink: 0;
         }
 
         .metric-meta {
@@ -58,6 +88,7 @@
           color: #ffffff;
           line-height: 1.1;
           letter-spacing: -0.01em;
+          white-space: nowrap;
         }
 
         .metric-desc {
@@ -67,6 +98,7 @@
           line-height: 1.1;
           letter-spacing: 0.08em;
           text-transform: uppercase;
+          white-space: nowrap;
         }
 
         /* Gauge */
@@ -111,11 +143,19 @@
 
         .metric-value {
           font-family: "CastBoard Google Sans Flex", sans-serif;
-          font-size: 96px;
+          font-size: 48px;
           font-weight: 800;
           color: #ffffff;
           line-height: 0.9;
           letter-spacing: -0.04em;
+        }
+
+        .metric-unit {
+          margin-left: 6px;
+          font-size: 16px;
+          font-weight: 800;
+          color: rgba(248, 250, 252, 0.5);
+          line-height: 1;
         }
 
         .sysinfo-metric[data-empty="true"] {
@@ -148,8 +188,26 @@
             max-width: 300px;
           }
 
+          .sysinfo-metric[data-key="cpu"],
+          .sysinfo-metric[data-key="mem"],
+          .sysinfo-metric[data-key="gpu"],
+          .sysinfo-metric[data-key="netDown"],
+          .sysinfo-metric[data-key="netUp"],
+          .sysinfo-metric[data-key="diskRead"],
+          .sysinfo-metric[data-key="diskWrite"] {
+            grid-column: auto;
+          }
+
+          /* Reset fixed width for mobile responsive layout */
+          .sysinfo-metric[data-key="netDown"] .metric-top,
+          .sysinfo-metric[data-key="netUp"] .metric-top,
+          .sysinfo-metric[data-key="diskRead"] .metric-top,
+          .sysinfo-metric[data-key="diskWrite"] .metric-top {
+            width: auto;
+          }
+
           .metric-value {
-            font-size: 80px;
+            font-size: 36px;
           }
         }
       </style>
@@ -205,7 +263,79 @@
             </div>
           </div>
           <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span>
+            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
+          </div>
+        </section>
+
+        <section class="sysinfo-metric" data-key="netDown">
+          <div class="metric-top">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                <circle class="gauge-track" cx="60" cy="60" r="50" />
+                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+              </svg>
+            </div>
+            <div class="metric-meta">
+              <span class="metric-label">NET IN</span>
+              <span class="metric-desc">Download</span>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
+          </div>
+        </section>
+
+        <section class="sysinfo-metric" data-key="netUp">
+          <div class="metric-top">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                <circle class="gauge-track" cx="60" cy="60" r="50" />
+                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+              </svg>
+            </div>
+            <div class="metric-meta">
+              <span class="metric-label">NET OUT</span>
+              <span class="metric-desc">Upload</span>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
+          </div>
+        </section>
+
+        <section class="sysinfo-metric" data-key="diskRead">
+          <div class="metric-top">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                <circle class="gauge-track" cx="60" cy="60" r="50" />
+                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+              </svg>
+            </div>
+            <div class="metric-meta">
+              <span class="metric-label">DISK R</span>
+              <span class="metric-desc">Read</span>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
+          </div>
+        </section>
+
+        <section class="sysinfo-metric" data-key="diskWrite">
+          <div class="metric-top">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                <circle class="gauge-track" cx="60" cy="60" r="50" />
+                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+              </svg>
+            </div>
+            <div class="metric-meta">
+              <span class="metric-label">DISK W</span>
+              <span class="metric-desc">Write</span>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
           </div>
         </section>
       </div>
@@ -219,42 +349,74 @@
           en: {
             cpuDesc: "Processor",
             memDesc: "Memory",
-            gpuDesc: "Graphics"
+            gpuDesc: "Graphics",
+            netDownDesc: "Download",
+            netUpDesc: "Upload",
+            diskReadDesc: "Read",
+            diskWriteDesc: "Write"
           },
           zh_CN: {
             cpuDesc: "处理器",
             memDesc: "内存",
-            gpuDesc: "图形"
+            gpuDesc: "图形",
+            netDownDesc: "下载",
+            netUpDesc: "上传",
+            diskReadDesc: "读取",
+            diskWriteDesc: "写入"
           },
           zh_TW: {
             cpuDesc: "處理器",
             memDesc: "記憶體",
-            gpuDesc: "圖形"
+            gpuDesc: "圖形",
+            netDownDesc: "下載",
+            netUpDesc: "上傳",
+            diskReadDesc: "讀取",
+            diskWriteDesc: "寫入"
           },
           de: {
             cpuDesc: "Prozessor",
             memDesc: "Speicher",
-            gpuDesc: "Grafik"
+            gpuDesc: "Grafik",
+            netDownDesc: "Download",
+            netUpDesc: "Upload",
+            diskReadDesc: "Lesen",
+            diskWriteDesc: "Schreiben"
           },
           es: {
             cpuDesc: "Procesador",
             memDesc: "Memoria",
-            gpuDesc: "Gráficos"
+            gpuDesc: "Gráficos",
+            netDownDesc: "Descarga",
+            netUpDesc: "Subida",
+            diskReadDesc: "Lectura",
+            diskWriteDesc: "Escritura"
           },
           ja: {
             cpuDesc: "プロセッサ",
             memDesc: "メモリ",
-            gpuDesc: "グラフィックス"
+            gpuDesc: "グラフィックス",
+            netDownDesc: "ダウンロード",
+            netUpDesc: "アップロード",
+            diskReadDesc: "読み取り",
+            diskWriteDesc: "書き込み"
           },
           ko: {
             cpuDesc: "프로세서",
             memDesc: "메모리",
-            gpuDesc: "그래픽"
+            gpuDesc: "그래픽",
+            netDownDesc: "다운로드",
+            netUpDesc: "업로드",
+            diskReadDesc: "읽기",
+            diskWriteDesc: "쓰기"
           },
           ru: {
             cpuDesc: "Процессор",
             memDesc: "Память",
-            gpuDesc: "Графика"
+            gpuDesc: "Графика",
+            netDownDesc: "Загрузка",
+            netUpDesc: "Отдача",
+            diskReadDesc: "Чтение",
+            diskWriteDesc: "Запись"
           }
         };
 
@@ -299,9 +461,33 @@
           const cpuDesc = container.querySelector(`[data-key="cpu"] .metric-desc`);
           const memDesc = container.querySelector(`[data-key="mem"] .metric-desc`);
           const gpuDesc = container.querySelector(`[data-key="gpu"] .metric-desc`);
+          const netDownDesc = container.querySelector(`[data-key="netDown"] .metric-desc`);
+          const netUpDesc = container.querySelector(`[data-key="netUp"] .metric-desc`);
+          const diskReadDesc = container.querySelector(`[data-key="diskRead"] .metric-desc`);
+          const diskWriteDesc = container.querySelector(`[data-key="diskWrite"] .metric-desc`);
           if (cpuDesc) cpuDesc.textContent = t.cpuDesc;
           if (memDesc) memDesc.textContent = t.memDesc;
           if (gpuDesc) gpuDesc.textContent = t.gpuDesc;
+          if (netDownDesc) netDownDesc.textContent = t.netDownDesc;
+          if (netUpDesc) netUpDesc.textContent = t.netUpDesc;
+          if (diskReadDesc) diskReadDesc.textContent = t.diskReadDesc;
+          if (diskWriteDesc) diskWriteDesc.textContent = t.diskWriteDesc;
+        }
+
+        // Format speed rate in B/s, KB/s, MB/s, GB/s
+        function formatRate(value) {
+          if (value === null || value === undefined) return { value: "--", unit: "" };
+          const bytes = Math.max(0, Number(value));
+          if (!Number.isFinite(bytes)) return { value: "--", unit: "" };
+          const units = ["B/s", "KB/s", "MB/s", "GB/s"];
+          let scaled = bytes;
+          let index = 0;
+          while (scaled >= 1024 && index < units.length - 1) {
+            scaled /= 1024;
+            index += 1;
+          }
+          const text = scaled >= 100 || index === 0 ? String(Math.round(scaled)) : scaled.toFixed(1);
+          return { value: text, unit: units[index] };
         }
 
         function render(container) {
@@ -312,11 +498,13 @@
             const metric = container.querySelector(`[data-key="${key}"]`);
             const valueEl = metric?.querySelector("[data-value]");
             const fillEl = metric?.querySelector("[data-fill]");
+            const unitEl = metric?.querySelector("[data-unit]");
             if (!metric || !valueEl || !fillEl) continue;
 
             const value = normalize(latestStats[key]);
             metric.dataset.empty = value == null ? "true" : "false";
             valueEl.textContent = value == null ? "--" : String(Math.round(value));
+            if (unitEl) unitEl.textContent = "";
             
             // Circumference of r=50 circle is 2 * PI * 50 = 314.159
             const dashoffset = value == null ? 314.159 : 314.159 * (1 - value / 100);
@@ -327,6 +515,23 @@
             } else {
               metric.classList.remove("high-load");
             }
+          }
+
+          for (const key of ["netDown", "netUp", "diskRead", "diskWrite"]) {
+            const metric = container.querySelector(`[data-key="${key}"]`);
+            const valueEl = metric?.querySelector("[data-value]");
+            const fillEl = metric?.querySelector("[data-fill]");
+            const unitEl = metric?.querySelector("[data-unit]");
+            if (!metric || !valueEl || !fillEl || !unitEl) continue;
+
+            const raw = latestStats[key];
+            const empty = raw == null;
+            const formatted = formatRate(raw);
+            metric.dataset.empty = empty ? "true" : "false";
+            valueEl.textContent = formatted.value;
+            unitEl.textContent = formatted.unit;
+            fillEl.setAttribute("stroke-dashoffset", "314.159");
+            metric.classList.remove("high-load");
           }
         }
 

@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.1.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.1.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.2.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -172,6 +172,10 @@ data class SysInfoStatsPayload(
     val cpu: Double,
     val mem: Double,
     val gpu: Double? = null,
+    @SerialName("net_up") val netUp: Double? = null,
+    @SerialName("net_down") val netDown: Double? = null,
+    @SerialName("disk_read") val diskRead: Double? = null,
+    @SerialName("disk_write") val diskWrite: Double? = null,
 )
 
 @Serializable
