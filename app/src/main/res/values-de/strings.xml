@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">Projiziert mehrere Zustände eines ausgewählten Geräts auf dieses Gerät</string>
     <string name="castboard_status_waiting">Warten auf Geräteverbindung...</string>
     <string name="castboard_status_connected">Verbunden</string>
+    <string name="castboard_no_devices_title">Keine verfügbaren Geräte</string>
+    <string name="castboard_no_devices_body">Verbinden Sie ein Computergerät über LAN oder Cloud, um diese Funktion zu nutzen</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink-Ereignisse</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">Version %1$s ist verfügbar.</string>
     <string name="update_download_btn">Herunterladen</string>
     <string name="update_later_btn">Später</string>
-    <string name="update_check_btn">Nach Updates suchen</string>
+    <string name="update_check_btn">Update</string>
     <string name="update_checking_btn">Suche...</string>
     <string name="update_up_to_date">Sie sind auf dem neuesten Stand</string>
     <string name="update_check_failed">Update-Suche fehlgeschlagen</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">%1$s von Ihrem Konto entfernen?</string>
     <string name="delete_btn">Löschen</string>
     <string name="rename_device_title">Gerät umbenennen</string>
-    <string name="rename_device_btn">Umbenennen</string>
-    <string name="rotate_key_title">Schlüssel rotieren</string>
+    <string name="rename_device_btn">Gerätenamen ändern</string>
+    <string name="rotate_key_title">Geräteschlüssel rotieren</string>
     <string name="rotate_key_body">Einen neuen vertrauenswürdigen Schlüssel für %1$s erstellen?</string>
     <string name="rotate_btn">Rotieren</string>
     <string name="forget_lan_trust_title">Vertrauen entfernen</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">Gerätename ist erforderlich</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Wählen Sie ein verfügbares Gerät</string>
+    <string name="messages_choose_device">Nachrichten und Dateien senden</string>
     <string name="messages_chat_tab">Chat</string>
     <string name="messages_files_tab">Dateien</string>
     <string name="messages_contacts_empty_title">Noch keine Kontakte</string>
-    <string name="messages_contacts_empty_body">Melden Sie sich auf einem anderen Gerät an, dann wird es hier angezeigt.</string>
+    <string name="messages_contacts_empty_body">Verbinden Sie Geräte über LAN oder Cloud, um Nachrichten und Dateien zu senden</string>
     <string name="message_select_target_device">Wählen Sie ein Zielgerät</string>
     <string name="message_route_unavailable">Nachricht kann nicht zugestellt werden</string>
     <string name="no_messages_title">Keine Nachrichten</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
-    <string name="settings_subtitle">Verbindung und Autostart</string>
+    <string name="settings_subtitle">CoLink-Parameter und Verhalten konfigurieren</string>
     <string name="server_url_label">Serveradresse</string>
     <string name="device_name_label">Gerätename</string>
     <string name="auto_start_label">Beim Systemstart ausführen</string>
     <string name="auto_start_body">Startet CoLink nach dem Neustart des Geräts.</string>
-    <string name="language_label">Sprache</string>
+    <string name="language_label">Sprache (Language)</string>
     <string name="language_body">Anzeigesprache auswählen</string>
     <string name="lang_english">Englisch</string>
     <string name="lang_simplified_chinese">Vereinfachtes Chinesisch</string>
@@ -231,7 +233,7 @@
     <string name="settings_about_title">Über</string>
     <string name="settings_project_url">Projekt-URL</string>
     <string name="settings_version">Version</string>
-    <string name="settings_open_project">Projekt öffnen</string>
+    <string name="settings_open_project">Projekt</string>
     <string name="device_key_rotated">Geräteschlüssel rotiert</string>
     <string name="device_renamed">Gerät umbenannt</string>
     <string name="device_deleted">Gerät gelöscht</string>

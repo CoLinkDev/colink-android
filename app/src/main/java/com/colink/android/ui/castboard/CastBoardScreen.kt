@@ -89,8 +89,8 @@ fun CastBoardScreen(
         if (availableDevices.isEmpty()) {
             EmptyState(
                 icon = Icons.Default.Devices,
-                title = stringResource(R.string.no_devices_title),
-                body = stringResource(R.string.no_devices_body),
+                title = stringResource(R.string.castboard_no_devices_title),
+                body = stringResource(R.string.castboard_no_devices_body),
             )
         } else {
             Column(

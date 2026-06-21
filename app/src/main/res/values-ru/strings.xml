@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">Проецирует несколько состояний выбранного устройства на это устройство</string>
     <string name="castboard_status_waiting">Ожидание подключения устройства...</string>
     <string name="castboard_status_connected">Подключено</string>
+    <string name="castboard_no_devices_title">Нет доступных устройств</string>
+    <string name="castboard_no_devices_body">Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">События CoLink</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">Доступна версия %1$s.</string>
     <string name="update_download_btn">Скачать</string>
     <string name="update_later_btn">Позже</string>
-    <string name="update_check_btn">Проверить обновления</string>
+    <string name="update_check_btn">Обновление</string>
     <string name="update_checking_btn">Проверка...</string>
     <string name="update_up_to_date">Установлена последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">Удалить %1$s из вашего аккаунта?</string>
     <string name="delete_btn">Удалить</string>
     <string name="rename_device_title">Переименовать устройство</string>
-    <string name="rename_device_btn">Переименовать</string>
-    <string name="rotate_key_title">Смена ключа</string>
+    <string name="rename_device_btn">Изменить имя устройства</string>
+    <string name="rotate_key_title">Сменить ключ устройства</string>
     <string name="rotate_key_body">Создать новый доверенный ключ для %1$s?</string>
     <string name="rotate_btn">Сменить</string>
     <string name="forget_lan_trust_title">Удалить доверие</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">Введите имя устройства</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Выберите доступное устройство</string>
+    <string name="messages_choose_device">Отправить сообщения и файлы</string>
     <string name="messages_chat_tab">Чат</string>
     <string name="messages_files_tab">Файлы</string>
     <string name="messages_contacts_empty_title">Контактов пока нет</string>
-    <string name="messages_contacts_empty_body">Войдите на другом устройстве, и они появятся здесь.</string>
+    <string name="messages_contacts_empty_body">Подключите устройства по LAN или Cloud, чтобы отправлять сообщения и файлы</string>
     <string name="message_select_target_device">Выберите устройство назначения</string>
     <string name="message_route_unavailable">Сообщение не может быть доставлено</string>
     <string name="no_messages_title">Сообщений нет</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">Настройки</string>
-    <string name="settings_subtitle">Подключение и запуск</string>
+    <string name="settings_subtitle">Настройка параметров и поведения CoLink</string>
     <string name="server_url_label">Адрес сервера</string>
     <string name="device_name_label">Имя устройства</string>
     <string name="auto_start_label">Автозапуск при старте</string>
     <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
-    <string name="language_label">Язык</string>
+    <string name="language_label">Язык (Language)</string>
     <string name="language_body">Выберите язык интерфейса</string>
     <string name="lang_english">Английский</string>
     <string name="lang_simplified_chinese">Китайский (упрощенный)</string>
@@ -231,7 +233,7 @@
     <string name="settings_about_title">О программе</string>
     <string name="settings_project_url">Ссылка на проект</string>
     <string name="settings_version">Версия</string>
-    <string name="settings_open_project">Открыть проект</string>
+    <string name="settings_open_project">Проект</string>
     <string name="device_key_rotated">Ключ устройства изменен</string>
     <string name="device_renamed">Имя устройства изменено</string>
     <string name="device_deleted">Устройство удалено</string>

@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">Proyecta varios estados de un dispositivo seleccionado a este dispositivo</string>
     <string name="castboard_status_waiting">Esperando a que el dispositivo se conecte...</string>
     <string name="castboard_status_connected">Conectado</string>
+    <string name="castboard_no_devices_title">No hay dispositivos disponibles</string>
+    <string name="castboard_no_devices_body">Conecte un equipo por LAN o Cloud para usar esta función</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">Eventos de CoLink</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">La versión %1$s está disponible.</string>
     <string name="update_download_btn">Descargar</string>
     <string name="update_later_btn">Más tarde</string>
-    <string name="update_check_btn">Buscar actualizaciones</string>
+    <string name="update_check_btn">Actualizar</string>
     <string name="update_checking_btn">Buscando...</string>
     <string name="update_up_to_date">Ya tienes la última versión</string>
     <string name="update_check_failed">No se pudo buscar actualizaciones</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">¿Eliminar %1$s de su cuenta?</string>
     <string name="delete_btn">Eliminar</string>
     <string name="rename_device_title">Cambiar nombre del dispositivo</string>
-    <string name="rename_device_btn">Cambiar nombre</string>
-    <string name="rotate_key_title">Rotar clave</string>
+    <string name="rename_device_btn">Cambiar nombre del dispositivo</string>
+    <string name="rotate_key_title">Rotar clave del dispositivo</string>
     <string name="rotate_key_body">¿Crear una nueva clave confiable para %1$s?</string>
     <string name="rotate_btn">Rotar</string>
     <string name="forget_lan_trust_title">Olvidar confianza</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">El nombre del dispositivo es obligatorio</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Elija un dispositivo disponible</string>
+    <string name="messages_choose_device">Enviar mensajes y archivos</string>
     <string name="messages_chat_tab">Chat</string>
     <string name="messages_files_tab">Archivos</string>
     <string name="messages_contacts_empty_title">Todavía no hay contactos</string>
-    <string name="messages_contacts_empty_body">Inicie sesión en otro dispositivo y aparecerá aquí.</string>
+    <string name="messages_contacts_empty_body">Conecte dispositivos por LAN o Cloud para enviar mensajes y archivos</string>
     <string name="message_select_target_device">Seleccione un dispositivo de destino</string>
     <string name="message_route_unavailable">No se puede entregar el mensaje</string>
     <string name="no_messages_title">No hay mensajes</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>
-    <string name="settings_subtitle">Conexión e inicio</string>
+    <string name="settings_subtitle">Configurar parámetros y comportamiento de CoLink</string>
     <string name="server_url_label">Dirección del servidor</string>
     <string name="device_name_label">Nombre del dispositivo</string>
     <string name="auto_start_label">Iniciar al encender</string>
     <string name="auto_start_body">Iniciar CoLink después de que este dispositivo se reinicie.</string>
-    <string name="language_label">Idioma</string>
+    <string name="language_label">Idioma (Language)</string>
     <string name="language_body">Seleccione el idioma de visualización</string>
     <string name="lang_english">Inglés</string>
     <string name="lang_simplified_chinese">Chino simplificado</string>
@@ -231,7 +233,7 @@
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_project_url">URL del proyecto</string>
     <string name="settings_version">Versión</string>
-    <string name="settings_open_project">Abrir proyecto</string>
+    <string name="settings_open_project">Proyecto</string>
     <string name="device_key_rotated">Clave del dispositivo rotada</string>
     <string name="device_renamed">Nombre del dispositivo cambiado</string>
     <string name="device_deleted">Dispositivo eliminado</string>

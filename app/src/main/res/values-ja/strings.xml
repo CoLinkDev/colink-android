@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">指定したデバイスの複数の状態をこのデバイスに投影します</string>
     <string name="castboard_status_waiting">デバイスの接続を待機中...</string>
     <string name="castboard_status_connected">接続済み</string>
+    <string name="castboard_no_devices_title">利用可能なデバイスがありません</string>
+    <string name="castboard_no_devices_body">この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLinkイベント</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">バージョン %1$s が利用できます。</string>
     <string name="update_download_btn">ダウンロード</string>
     <string name="update_later_btn">後で</string>
-    <string name="update_check_btn">更新を確認</string>
+    <string name="update_check_btn">更新</string>
     <string name="update_checking_btn">確認中...</string>
     <string name="update_up_to_date">最新バージョンです</string>
     <string name="update_check_failed">更新の確認に失敗しました</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">アカウントから %1$s を削除しますか？</string>
     <string name="delete_btn">削除</string>
     <string name="rename_device_title">デバイス名を変更</string>
-    <string name="rename_device_btn">名前を変更</string>
-    <string name="rotate_key_title">キーのローテーション</string>
+    <string name="rename_device_btn">デバイス名を変更</string>
+    <string name="rotate_key_title">デバイスキーをローテーション</string>
     <string name="rotate_key_body">%1$s の新しい信頼キーを生成しますか？</string>
     <string name="rotate_btn">更新</string>
     <string name="forget_lan_trust_title">信頼を削除</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">デバイス名を入力してください</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">接続可能なデバイスを選択してください</string>
+    <string name="messages_choose_device">メッセージとファイルを送信</string>
     <string name="messages_chat_tab">チャット</string>
     <string name="messages_files_tab">ファイル</string>
     <string name="messages_contacts_empty_title">連絡先がまだありません</string>
-    <string name="messages_contacts_empty_body">別のデバイスでログインすると、ここに連絡先が表示されます。</string>
+    <string name="messages_contacts_empty_body">メッセージとファイルを送信するには、LAN または Cloud でデバイスを接続してください</string>
     <string name="message_select_target_device">送信先デバイスを選択してください</string>
     <string name="message_route_unavailable">メッセージを配信できません</string>
     <string name="no_messages_title">メッセージはありません</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
-    <string name="settings_subtitle">接続と起動</string>
+    <string name="settings_subtitle">CoLink のパラメータと動作を設定</string>
     <string name="server_url_label">サーバーアドレス</string>
     <string name="device_name_label">デバイス名</string>
     <string name="auto_start_label">ログイン時に起動</string>
     <string name="auto_start_body">デバイスの再起動後に CoLink を自動起動します。</string>
-    <string name="language_label">言語</string>
+    <string name="language_label">言語 (Language)</string>
     <string name="language_body">表示言語を選択してください</string>
     <string name="lang_english">英語</string>
     <string name="lang_simplified_chinese">簡体字中国語</string>
@@ -231,7 +233,7 @@
     <string name="settings_about_title">情報</string>
     <string name="settings_project_url">プロジェクト URL</string>
     <string name="settings_version">バージョン</string>
-    <string name="settings_open_project">プロジェクトを開く</string>
+    <string name="settings_open_project">プロジェクト</string>
     <string name="device_key_rotated">デバイスキーを更新しました</string>
     <string name="device_renamed">デバイス名を変更しました</string>
     <string name="device_deleted">デバイスを削除しました</string>

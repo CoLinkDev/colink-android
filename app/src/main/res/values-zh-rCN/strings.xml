@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">将指定设备的多项状态投射到本机</string>
     <string name="castboard_status_waiting">等待设备连接...</string>
     <string name="castboard_status_connected">已连接</string>
+    <string name="castboard_no_devices_title">还没有可用设备</string>
+    <string name="castboard_no_devices_body">通过局域网或云端连接一台电脑设备来使用此功能</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">版本 %1$s 可用。</string>
     <string name="update_download_btn">下载</string>
     <string name="update_later_btn">稍后</string>
-    <string name="update_check_btn">检查更新</string>
+    <string name="update_check_btn">更新</string>
     <string name="update_checking_btn">正在检查...</string>
     <string name="update_up_to_date">当前已是最新版本</string>
     <string name="update_check_failed">检查更新失败</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">确定从您的账户中删除 %1$s 吗？</string>
     <string name="delete_btn">删除</string>
     <string name="rename_device_title">重命名设备</string>
-    <string name="rename_device_btn">改名</string>
-    <string name="rotate_key_title">轮换密钥</string>
+    <string name="rename_device_btn">修改设备名称</string>
+    <string name="rotate_key_title">轮换设备密钥</string>
     <string name="rotate_key_body">确定为 %1$s 创建新的可信密钥吗？</string>
     <string name="rotate_btn">轮换</string>
     <string name="forget_lan_trust_title">忘记 LAN 信任</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">请输入设备名称</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">选择一个可用设备</string>
+    <string name="messages_choose_device">发送消息和文件</string>
     <string name="messages_chat_tab">聊天</string>
     <string name="messages_files_tab">文件</string>
     <string name="messages_contacts_empty_title">还没有联系人</string>
-    <string name="messages_contacts_empty_body">在另一台设备上登录后，这里会显示联系人。</string>
+    <string name="messages_contacts_empty_body">通过局域网或云端连接设备来发送消息和文件</string>
     <string name="message_select_target_device">选择目标设备</string>
     <string name="message_route_unavailable">消息无法送达</string>
     <string name="no_messages_title">暂无消息</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">设置</string>
-    <string name="settings_subtitle">连接和启动</string>
+    <string name="settings_subtitle">配置CoLink的参数和行为</string>
     <string name="server_url_label">服务器地址</string>
     <string name="device_name_label">设备名称</string>
     <string name="auto_start_label">开机启动</string>
     <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
-    <string name="language_label">语言</string>
+    <string name="language_label">语言 (Language)</string>
     <string name="language_body">选择界面显示语言</string>
     <string name="lang_english">英语</string>
     <string name="lang_simplified_chinese">简体中文</string>
@@ -231,7 +233,7 @@
     <string name="settings_about_title">关于</string>
     <string name="settings_project_url">项目地址</string>
     <string name="settings_version">版本</string>
-    <string name="settings_open_project">打开项目</string>
+    <string name="settings_open_project">项目</string>
     <string name="device_key_rotated">设备密钥已轮换</string>
     <string name="device_renamed">设备名称已修改</string>
     <string name="device_deleted">设备已删除</string>

@@ -23,6 +23,8 @@
     <string name="castboard_subtitle">Cast multiple states from a selected device to this device</string>
     <string name="castboard_status_waiting">Waiting for device to connect...</string>
     <string name="castboard_status_connected">Connected</string>
+    <string name="castboard_no_devices_title">No available devices</string>
+    <string name="castboard_no_devices_body">Connect a computer device over LAN or Cloud to use this feature</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink events</string>
@@ -62,7 +64,7 @@
     <string name="update_available_body">Version %1$s is available.</string>
     <string name="update_download_btn">Download</string>
     <string name="update_later_btn">Later</string>
-    <string name="update_check_btn">Check for updates</string>
+    <string name="update_check_btn">Update</string>
     <string name="update_checking_btn">Checking...</string>
     <string name="update_up_to_date">You are up to date</string>
     <string name="update_check_failed">Update check failed</string>
@@ -95,8 +97,8 @@
     <string name="delete_device_body">Remove %1$s from your account?</string>
     <string name="delete_btn">Delete</string>
     <string name="rename_device_title">Rename device</string>
-    <string name="rename_device_btn">Rename</string>
-    <string name="rotate_key_title">Rotate key</string>
+    <string name="rename_device_btn">Rename device</string>
+    <string name="rotate_key_title">Rotate device key</string>
     <string name="rotate_key_body">Create a new trusted key for %1$s?</string>
     <string name="rotate_btn">Rotate</string>
     <string name="forget_lan_trust_title">Forget LAN trust</string>
@@ -140,11 +142,11 @@
     <string name="err_device_name_required">Device name is required</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Choose an available device</string>
+    <string name="messages_choose_device">Send messages and files</string>
     <string name="messages_chat_tab">Chat</string>
     <string name="messages_files_tab">Files</string>
     <string name="messages_contacts_empty_title">No contacts yet</string>
-    <string name="messages_contacts_empty_body">Sign in on another device and it will appear here.</string>
+    <string name="messages_contacts_empty_body">Connect devices over LAN or Cloud to send messages and files</string>
     <string name="message_select_target_device">Select a target device</string>
     <string name="message_route_unavailable">Message cannot be delivered</string>
     <string name="no_messages_title">No messages</string>
@@ -190,12 +192,12 @@
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>
-    <string name="settings_subtitle">Connection and startup</string>
+    <string name="settings_subtitle">Configure CoLink parameters and behavior</string>
     <string name="server_url_label">Server address</string>
     <string name="device_name_label">Device name</string>
     <string name="auto_start_label">Auto-start on boot</string>
     <string name="auto_start_body">Start CoLink after this device restarts.</string>
-    <string name="language_label">Language</string>
+    <string name="language_label">Language (Language)</string>
     <string name="language_body">Select UI display language</string>
     <string name="lang_english">English</string>
     <string name="lang_simplified_chinese">Simplified Chinese</string>
@@ -224,14 +226,14 @@
     <string name="err_password_required">Password is required</string>
     <string name="login_btn">Login</string>
     <string name="working_status">Working...</string>
-    <string name="lang_system">System</string>
+    <string name="lang_system">System Default</string>
     <string name="send_btn">Send</string>
     <string name="message_sent">Message sent</string>
     <string name="settings_saved">Settings saved</string>
     <string name="settings_about_title">About</string>
     <string name="settings_project_url">Project URL</string>
     <string name="settings_version">Version</string>
-    <string name="settings_open_project">Open project</string>
+    <string name="settings_open_project">Project</string>
     <string name="device_key_rotated">Device key rotated</string>
     <string name="device_renamed">Device renamed</string>
     <string name="device_deleted">Device deleted</string>

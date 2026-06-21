@@ -105,15 +105,15 @@ fun SettingsScreen(
         modifier = modifier,
     ) {
         val languages = listOf(
-            "system" to "System Default",
-            "en" to "English",
-            "zh-CN" to "简体中文",
-            "zh-TW" to "繁體中文",
-            "ja" to "日本語",
-            "ko" to "한국어",
-            "es" to "Español",
-            "de" to "Deutsch",
-            "ru" to "Русский",
+            "system" to stringResource(R.string.lang_system),
+            "en" to "English (English)",
+            "zh-CN" to "简体中文 (Simplified Chinese)",
+            "zh-TW" to "繁體中文 (Traditional Chinese)",
+            "ja" to "日本語 (Japanese)",
+            "ko" to "한국어 (Korean)",
+            "es" to "Español (Spanish)",
+            "de" to "Deutsch (German)",
+            "ru" to "Русский (Russian)",
         )
         val currentLanguageLabel = languages.find { it.first == language }?.second.orEmpty()
 
