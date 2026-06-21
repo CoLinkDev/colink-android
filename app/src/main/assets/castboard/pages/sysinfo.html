@@ -29,27 +29,28 @@
           grid-column: span 4;
         }
 
-        .sysinfo-metric[data-key="netDown"],
-        .sysinfo-metric[data-key="netUp"],
-        .sysinfo-metric[data-key="diskRead"],
-        .sysinfo-metric[data-key="diskWrite"] {
-          grid-column: span 6;
+        .sysinfo-table {
+          width: 100%;
+          max-width: 1120px;
+          margin-top: 44px;
+          border-collapse: collapse;
+          border: none;
+          table-layout: fixed;
         }
 
-        /* Hide circular gauge for network and disk metrics */
-        .sysinfo-metric[data-key="netDown"] .gauge-container,
-        .sysinfo-metric[data-key="netUp"] .gauge-container,
-        .sysinfo-metric[data-key="diskRead"] .gauge-container,
-        .sysinfo-metric[data-key="diskWrite"] .gauge-container {
-          display: none;
+        .sysinfo-table td {
+          border: none;
+          padding: 0;
+          vertical-align: middle;
         }
 
-        /* Set a fixed width for the label side in the bottom 4 metrics to align their value starting positions */
-        .sysinfo-metric[data-key="netDown"] .metric-top,
-        .sysinfo-metric[data-key="netUp"] .metric-top,
-        .sysinfo-metric[data-key="diskRead"] .metric-top,
-        .sysinfo-metric[data-key="diskWrite"] .metric-top {
-          width: 140px;
+        .sysinfo-table tr:not(:last-child) td {
+          padding-bottom: 32px;
+        }
+
+        .sysinfo-metric[data-empty="true"],
+        .metric-value-cell[data-empty="true"] {
+          opacity: 0.35;
         }
 
         .sysinfo-metric {
@@ -190,20 +191,43 @@
 
           .sysinfo-metric[data-key="cpu"],
           .sysinfo-metric[data-key="mem"],
-          .sysinfo-metric[data-key="gpu"],
-          .sysinfo-metric[data-key="netDown"],
-          .sysinfo-metric[data-key="netUp"],
-          .sysinfo-metric[data-key="diskRead"],
-          .sysinfo-metric[data-key="diskWrite"] {
+          .sysinfo-metric[data-key="gpu"] {
             grid-column: auto;
           }
 
-          /* Reset fixed width for mobile responsive layout */
-          .sysinfo-metric[data-key="netDown"] .metric-top,
-          .sysinfo-metric[data-key="netUp"] .metric-top,
-          .sysinfo-metric[data-key="diskRead"] .metric-top,
-          .sysinfo-metric[data-key="diskWrite"] .metric-top {
-            width: auto;
+          .sysinfo-table,
+          .sysinfo-table tbody {
+            display: block;
+            width: 100%;
+          }
+
+          .sysinfo-table {
+            max-width: 300px;
+            margin-top: 40px;
+          }
+
+          .sysinfo-table tr {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+          }
+
+          .sysinfo-table tr:last-child {
+            margin-bottom: 0;
+          }
+
+          .sysinfo-table td {
+            padding: 0 !important;
+          }
+
+          .sysinfo-table .table-spacer {
+            display: none;
+          }
+
+          .sysinfo-table .metric-value-cell {
+            padding-left: 0;
           }
 
           .metric-value {
@@ -267,78 +291,79 @@
           </div>
         </section>
 
-        <section class="sysinfo-metric" data-key="netDown">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
-            </div>
-            <div class="metric-meta">
-              <span class="metric-label">NET IN</span>
-              <span class="metric-desc">Download</span>
-            </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
-          </div>
-        </section>
-
-        <section class="sysinfo-metric" data-key="netUp">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
-            </div>
-            <div class="metric-meta">
-              <span class="metric-label">NET OUT</span>
-              <span class="metric-desc">Upload</span>
-            </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
-          </div>
-        </section>
-
-        <section class="sysinfo-metric" data-key="diskRead">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
-            </div>
-            <div class="metric-meta">
-              <span class="metric-label">DISK R</span>
-              <span class="metric-desc">Read</span>
-            </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
-          </div>
-        </section>
-
-        <section class="sysinfo-metric" data-key="diskWrite">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
-            </div>
-            <div class="metric-meta">
-              <span class="metric-label">DISK W</span>
-              <span class="metric-desc">Write</span>
-            </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
-          </div>
-        </section>
       </div>
+
+      <table class="sysinfo-table">
+        <colgroup>
+          <col style="width: 20%;">
+          <col style="width: 25%;">
+          <col style="width: 10%;">
+          <col style="width: 20%;">
+          <col style="width: 25%;">
+        </colgroup>
+        <tr>
+          <td class="sysinfo-metric" data-key="netDown">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">NET IN</span>
+                <span class="metric-desc">Download</span>
+              </div>
+            </div>
+            <div style="display: none;" data-fill></div>
+          </td>
+          <td class="metric-value-cell">
+            <div class="metric-value-container">
+              <span class="metric-value" data-value-for="netDown">--</span><span class="metric-unit" data-unit-for="netDown"></span>
+            </div>
+          </td>
+          <td class="table-spacer"></td>
+          <td class="sysinfo-metric" data-key="netUp">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">NET OUT</span>
+                <span class="metric-desc">Upload</span>
+              </div>
+            </div>
+            <div style="display: none;" data-fill></div>
+          </td>
+          <td class="metric-value-cell">
+            <div class="metric-value-container">
+              <span class="metric-value" data-value-for="netUp">--</span><span class="metric-unit" data-unit-for="netUp"></span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="sysinfo-metric" data-key="diskRead">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">DISK R</span>
+                <span class="metric-desc">Read</span>
+              </div>
+            </div>
+            <div style="display: none;" data-fill></div>
+          </td>
+          <td class="metric-value-cell">
+            <div class="metric-value-container">
+              <span class="metric-value" data-value-for="diskRead">--</span><span class="metric-unit" data-unit-for="diskRead"></span>
+            </div>
+          </td>
+          <td class="table-spacer"></td>
+          <td class="sysinfo-metric" data-key="diskWrite">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <span class="metric-label">DISK W</span>
+                <span class="metric-desc">Write</span>
+              </div>
+            </div>
+            <div style="display: none;" data-fill></div>
+          </td>
+          <td class="metric-value-cell">
+            <div class="metric-value-container">
+              <span class="metric-value" data-value-for="diskWrite">--</span><span class="metric-unit" data-unit-for="diskWrite"></span>
+            </div>
+          </td>
+        </tr>
+      </table>
     </div>
 
     <script>
@@ -519,15 +544,21 @@
 
           for (const key of ["netDown", "netUp", "diskRead", "diskWrite"]) {
             const metric = container.querySelector(`[data-key="${key}"]`);
-            const valueEl = metric?.querySelector("[data-value]");
+            const valueEl = container.querySelector(`[data-value-for="${key}"]`);
             const fillEl = metric?.querySelector("[data-fill]");
-            const unitEl = metric?.querySelector("[data-unit]");
+            const unitEl = container.querySelector(`[data-unit-for="${key}"]`);
             if (!metric || !valueEl || !fillEl || !unitEl) continue;
 
             const raw = latestStats[key];
             const empty = raw == null;
             const formatted = formatRate(raw);
             metric.dataset.empty = empty ? "true" : "false";
+
+            const valueCell = container.querySelector(`[data-value-for="${key}"]`)?.closest('.metric-value-cell');
+            if (valueCell) {
+              valueCell.dataset.empty = empty ? "true" : "false";
+            }
+
             valueEl.textContent = formatted.value;
             unitEl.textContent = formatted.unit;
             fillEl.setAttribute("stroke-dashoffset", "314.159");
