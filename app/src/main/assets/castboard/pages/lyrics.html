@@ -3,6 +3,13 @@
   <body>
     <div class="page page-lyrics">
       <style>
+        :root {
+          --line-gap: clamp(22px, 4.2vh, 54px);
+          --active-y: 20vh;
+          --lyric-left: 0.85em;
+          --lyric-width: 85vw;
+        }
+
         .page-lyrics {
           z-index: 1;
         }
@@ -478,6 +485,10 @@
             trackInfoWrapper = container.querySelector(".track-info-wrapper");
             trackInfoText = container.querySelector(".track-info-text");
             trackInfoSeparator = container.querySelector(".track-info-separator");
+
+            if (typeof parent.cacheLayoutMetrics === "function") {
+              parent.cacheLayoutMetrics();
+            }
 
             resetLyricsDom();
             renderTrackSummary();
