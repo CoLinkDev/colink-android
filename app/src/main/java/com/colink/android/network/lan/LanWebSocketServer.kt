@@ -144,6 +144,8 @@ class LanWebSocketServer @Inject constructor(
 
     fun hasPeer(deviceId: String): Boolean = peers.containsKey(deviceId)
 
+    fun isRunning(): Boolean = engine != null
+
     fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
 
     suspend fun disconnect(deviceId: String) {

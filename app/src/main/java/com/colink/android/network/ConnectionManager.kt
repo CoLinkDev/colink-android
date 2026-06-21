@@ -188,6 +188,7 @@ class ConnectionManager @Inject constructor(
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
     private val devicePageLanConnections = mutableSetOf<String>()
+    private val started = AtomicBoolean(false)
     private val lanGeneration = AtomicLong(0)
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
@@ -208,12 +209,19 @@ class ConnectionManager @Inject constructor(
     val lanConnectionError: StateFlow<String?> = _lanConnectionError.asStateFlow()
 
     fun start() {
+        if (!started.compareAndSet(false, true)) {
+            CoLinkLog.d("Connection", "connection manager already started")
+            return
+        }
         notifier.ensureEventChannel()
         CoLinkLog.i("Connection", "starting connection manager")
         startNetworkMonitoring()
         scope.launch {
-            deviceRepository.ensureLocalDeviceIdentity()
-                .onFailure { error -> CoLinkLog.e("Connection", "failed to ensure local identity", error) }
+            authRepository.bootstrap()
+                .onFailure { error -> CoLinkLog.e("Connection", "failed to bootstrap runtime", error) }
+            if (!started.get()) {
+                return@launch
+            }
             fileTransferRepository.failUnfinished("app restarted")
             startLan()
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
@@ -232,6 +240,9 @@ class ConnectionManager @Inject constructor(
     }
 
     fun stop() {
+        if (!started.compareAndSet(true, false)) {
+            return
+        }
         CoLinkLog.i("Connection", "stopping connection manager")
         stopNetworkMonitoring()
         lanSuspendedForNetworkLoss.set(false)
@@ -264,6 +275,8 @@ class ConnectionManager @Inject constructor(
         cloudWebSocketClient.close()
         _cloudState.value = CloudConnectionState()
     }
+
+    fun isLanServerRunning(): Boolean = lanWebSocketServer.isRunning()
 
     fun startCloud() {
         CoLinkLog.i("Cloud", "start cloud requested")

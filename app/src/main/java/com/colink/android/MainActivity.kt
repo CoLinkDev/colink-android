@@ -32,6 +32,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.res.stringResource
+import com.colink.android.network.ConnectionManager
 import com.colink.android.network.lan.LAN_PORT
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -45,6 +46,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
     @Inject lateinit var settingsDataStore: SettingsDataStore
+    @Inject lateinit var connectionManager: ConnectionManager
     private var launchTarget by mutableStateOf<LaunchTarget?>(null)
 
     private var checkComplete by mutableStateOf(false)
@@ -73,11 +75,7 @@ class MainActivity : ComponentActivity() {
         } else {
             lifecycleScope.launch {
                 val occupied = withContext(Dispatchers.IO) {
-                    try {
-                        java.net.ServerSocket(LAN_PORT).use { false }
-                    } catch (e: Exception) {
-                        true
-                    }
+                    isLanPortOccupiedByAnotherProcess()
                 }
                 isPortOccupiedCache = occupied
                 isPortCheckDone = true
@@ -160,6 +158,17 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             CoLinkLog.d("Notification", "POST_NOTIFICATIONS permission already granted")
+        }
+    }
+
+    private fun isLanPortOccupiedByAnotherProcess(): Boolean {
+        if (connectionManager.isLanServerRunning()) {
+            return false
+        }
+        return try {
+            java.net.ServerSocket(LAN_PORT).use { false }
+        } catch (e: Exception) {
+            true
         }
     }
 
