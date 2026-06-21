@@ -14,19 +14,18 @@
           box-sizing: border-box;
         }
 
-        .sysinfo-grid {
-          display: grid;
-          grid-template-columns: repeat(12, minmax(0, 1fr));
-          gap: 44px 54px;
+        .sysinfo-top-table {
           width: 100%;
           max-width: 1120px;
-          box-sizing: border-box;
+          border-collapse: collapse;
+          border: none;
+          table-layout: fixed;
         }
 
-        .sysinfo-metric[data-key="cpu"],
-        .sysinfo-metric[data-key="mem"],
-        .sysinfo-metric[data-key="gpu"] {
-          grid-column: span 4;
+        .sysinfo-top-table td {
+          border: none;
+          padding: 0;
+          vertical-align: middle;
         }
 
         .sysinfo-table {
@@ -83,6 +82,13 @@
           gap: 2px;
         }
 
+        .metric-label-row {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+        }
+
         .metric-label {
           font-size: 24px;
           font-weight: 800;
@@ -105,8 +111,8 @@
         /* Gauge */
         .gauge-container {
           position: relative;
-          width: 40px;
-          height: 40px;
+          width: 20px;
+          height: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -183,16 +189,28 @@
             padding: 40px 24px;
           }
 
-          .sysinfo-grid {
-            grid-template-columns: 1fr;
-            gap: 40px;
+          .sysinfo-top-table,
+          .sysinfo-top-table tbody,
+          .sysinfo-top-table tr {
+            display: block;
+            width: 100%;
+          }
+
+          .sysinfo-top-table {
             max-width: 300px;
           }
 
-          .sysinfo-metric[data-key="cpu"],
-          .sysinfo-metric[data-key="mem"],
-          .sysinfo-metric[data-key="gpu"] {
-            grid-column: auto;
+          .sysinfo-top-table td.sysinfo-metric {
+            display: flex;
+            margin-bottom: 40px;
+          }
+
+          .sysinfo-top-table td.sysinfo-metric:last-child {
+            margin-bottom: 0;
+          }
+
+          .sysinfo-top-table .table-spacer {
+            display: none;
           }
 
           .sysinfo-table,
@@ -236,62 +254,76 @@
         }
       </style>
 
-      <div class="sysinfo-grid">
-        <section class="sysinfo-metric" data-key="cpu">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
+      <table class="sysinfo-top-table">
+        <colgroup>
+          <col style="width: 30%;">
+          <col style="width: 5%;">
+          <col style="width: 30%;">
+          <col style="width: 5%;">
+          <col style="width: 30%;">
+        </colgroup>
+        <tr>
+          <td class="sysinfo-metric" data-key="cpu">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <div class="metric-label-row">
+                  <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                      <circle class="gauge-track" cx="60" cy="60" r="50" />
+                      <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+                    </svg>
+                  </div>
+                  <span class="metric-label">CPU</span>
+                </div>
+                <span class="metric-desc">Processor</span>
+              </div>
             </div>
-            <div class="metric-meta">
-              <span class="metric-label">CPU</span>
-              <span class="metric-desc">Processor</span>
+            <div class="metric-value-container">
+              <span class="metric-value" data-value>--</span>
             </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span>
-          </div>
-        </section>
-
-        <section class="sysinfo-metric" data-key="mem">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
+          </td>
+          <td class="table-spacer"></td>
+          <td class="sysinfo-metric" data-key="mem">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <div class="metric-label-row">
+                  <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                      <circle class="gauge-track" cx="60" cy="60" r="50" />
+                      <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+                    </svg>
+                  </div>
+                  <span class="metric-label">MEM</span>
+                </div>
+                <span class="metric-desc">Memory</span>
+              </div>
             </div>
-            <div class="metric-meta">
-              <span class="metric-label">MEM</span>
-              <span class="metric-desc">Memory</span>
+            <div class="metric-value-container">
+              <span class="metric-value" data-value>--</span>
             </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span>
-          </div>
-        </section>
-
-        <section class="sysinfo-metric" data-key="gpu">
-          <div class="metric-top">
-            <div class="gauge-container">
-              <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
-                <circle class="gauge-track" cx="60" cy="60" r="50" />
-                <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
-              </svg>
+          </td>
+          <td class="table-spacer"></td>
+          <td class="sysinfo-metric" data-key="gpu">
+            <div class="metric-top">
+              <div class="metric-meta">
+                <div class="metric-label-row">
+                  <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 120 120" width="100%" height="100%">
+                      <circle class="gauge-track" cx="60" cy="60" r="50" />
+                      <circle class="gauge-fill" cx="60" cy="60" r="50" stroke-dasharray="314.159" stroke-dashoffset="314.159" data-fill />
+                    </svg>
+                  </div>
+                  <span class="metric-label">GPU</span>
+                </div>
+                <span class="metric-desc">Graphics</span>
+              </div>
             </div>
-            <div class="metric-meta">
-              <span class="metric-label">GPU</span>
-              <span class="metric-desc">Graphics</span>
+            <div class="metric-value-container">
+              <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
             </div>
-          </div>
-          <div class="metric-value-container">
-            <span class="metric-value" data-value>--</span><span class="metric-unit" data-unit></span>
-          </div>
-        </section>
-
-      </div>
+          </td>
+        </tr>
+      </table>
 
       <table class="sysinfo-table">
         <colgroup>
