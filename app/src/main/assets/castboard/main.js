@@ -15,6 +15,7 @@ window.cachedActiveY = window.innerHeight * 0.35;
 window.resizeTimer = 0;
 window.navManager = null;
 window.latestSysInfoStats = null;
+let bootLocked = true;
 
 // ==== Common Utility Functions ====
 function parseCssLength(raw, fallback) {
@@ -331,7 +332,7 @@ window.navManager = new NavigationManager(window.pages);
 
 // ==== Global Event Dispatching ====
 function onTrackChange() {
-  if (window.navManager) {
+  if (window.navManager && !bootLocked) {
     window.navManager.showTransient("detail", 2000);
   }
 
@@ -387,7 +388,11 @@ function onResize() {
 }
 
 function onPageClick() {
+  if (bootLocked) return;
   if (window.currentPageName === "debug") return;
+  if (typeof window.showDebugButtonTemporarily === "function") {
+    window.showDebugButtonTemporarily();
+  }
   if (window.navManager) {
     window.navManager.toggle();
   }
@@ -408,6 +413,7 @@ let lastTimeTriggeredMinute = -1;
 
 function startTimeScheduler() {
   timeSchedulerTimerId = window.setInterval(() => {
+    if (bootLocked) return;
     const now = new Date();
     const minutes = now.getMinutes();
     if (minutes === 0 || minutes === 30) {
@@ -492,6 +498,10 @@ function boot() {
   bindEvents();
   cacheLayoutMetrics();
   startTimeScheduler();
+
+  window.setTimeout(() => {
+    bootLocked = false;
+  }, 5000);
 
   const ready = document.fonts?.ready ?? Promise.resolve();
   ready.then(() => {

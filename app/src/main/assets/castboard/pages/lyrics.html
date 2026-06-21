@@ -58,18 +58,19 @@
           position: fixed;
           right: 4vw;
           bottom: 2vw;
-          text-align: right;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
           z-index: 4;
-          width: 90vw;
+          width: 80vw;
           pointer-events: none;
         }
 
         .track-info-source-icon {
-          display: inline-block;
-          vertical-align: middle;
+          flex: 0 0 auto;
           width: calc(clamp(18px, 2.6vh, 34px) * 0.85);
           height: calc(clamp(18px, 2.6vh, 34px) * 0.85);
-          margin-right: 0.25em;
+          margin-right: 0.8em;
           object-fit: contain;
           filter: url(#colorize-title-color);
         }
@@ -78,34 +79,60 @@
           display: none !important;
         }
 
+        @property --mask-left {
+          syntax: '<length>';
+          inherits: false;
+          initial-value: 0px;
+        }
+
+        @property --mask-right {
+          syntax: '<length>';
+          inherits: false;
+          initial-value: 0px;
+        }
+
+        .track-info-wrapper {
+          overflow: hidden;
+          flex: 0 1 auto;
+          display: flex;
+          --mask-left: 0px;
+          --mask-right: 0px;
+        }
+
+        .track-info-wrapper.is-marquee {
+          -webkit-mask-image: linear-gradient(to right, transparent, black var(--mask-left), black calc(100% - var(--mask-right)), transparent);
+          mask-image: linear-gradient(to right, transparent, black var(--mask-left), black calc(100% - var(--mask-right)), transparent);
+        }
+
         .track-info-text {
           display: inline-flex;
-          align-items: baseline;
-          vertical-align: middle;
-          max-width: calc(100% - 2em);
+          align-items: center;
+          white-space: nowrap;
+          flex: 0 0 auto;
+          margin-left: auto;
+          will-change: transform, opacity;
         }
 
         .track-info-title,
-        .track-info-author {
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+        .track-info-author,
+        .track-info-separator {
           font-size: clamp(18px, 2.6vh, 34px);
           font-weight: 700;
           line-height: 1.2;
+          white-space: nowrap;
         }
 
         .track-info-title {
           color: rgba(255, 250, 240, 0.84);
-          flex: 0 0 auto;
-          margin-right: 0.55em;
-          max-width: 80%;
         }
 
         .track-info-author {
           color: rgba(216, 222, 232, 0.58);
-          flex: 0 1 auto;
+        }
+
+        .track-info-separator {
+          color: rgba(216, 222, 232, 0.4);
+          margin: 0 0.4em;
         }
       </style>
 
@@ -122,10 +149,13 @@
       <main class="stage" aria-label="Lyrics"></main>
       <aside class="track-info" aria-label="Playback Info" aria-live="polite" hidden>
         <img class="track-info-source-icon" alt="" aria-hidden="true" hidden>
-        <span class="track-info-text">
-          <span class="track-info-title"></span>
-          <span class="track-info-author"></span>
-        </span>
+        <div class="track-info-wrapper">
+          <div class="track-info-text">
+            <span class="track-info-title"></span>
+            <span class="track-info-separator"></span>
+            <span class="track-info-author"></span>
+          </div>
+        </div>
       </aside>
     </div>
 
@@ -138,6 +168,12 @@
         let trackInfoSourceIcon = null;
         let trackInfoTitle = null;
         let trackInfoAuthor = null;
+        let trackInfoWrapper = null;
+        let trackInfoText = null;
+        let trackInfoSeparator = null;
+        let marqueeTimeoutId = null;
+        let marqueeAnimation = null;
+        let marqueeWrapperAnimation = null;
 
         const OPACITY_TABLE = [1, 0.58, 0.28, 0.13, 0.04];
         const BLUR_TABLE = [0, 2.7, 3.9, 5.1, 6.3];
@@ -296,6 +332,117 @@
           }
         }
 
+        function updateMarquee() {
+          if (marqueeTimeoutId) {
+            clearTimeout(marqueeTimeoutId);
+            marqueeTimeoutId = null;
+          }
+          if (marqueeAnimation) {
+            marqueeAnimation.cancel();
+            marqueeAnimation = null;
+          }
+          if (marqueeWrapperAnimation) {
+            marqueeWrapperAnimation.cancel();
+            marqueeWrapperAnimation = null;
+          }
+
+          if (!trackInfoWrapper || !trackInfoText) return;
+
+          // Reset transform before measuring and remove marquee class
+          trackInfoText.style.transform = "none";
+          trackInfoWrapper.classList.remove("is-marquee");
+
+          const overflowDistance = trackInfoText.scrollWidth - trackInfoWrapper.clientWidth;
+          if (overflowDistance <= 0) {
+            return;
+          }
+
+          trackInfoWrapper.classList.add("is-marquee");
+
+          const speed = 25; // pixels per second
+          const t_start_pause = 3000; // ms
+          const t_scroll = (overflowDistance / speed) * 1000; // ms
+          const t_end_pause = 3000; // ms
+          const t_fade_out = 70; // ms
+          const t_fade_in = 70; // ms
+          const total_duration = t_start_pause + t_scroll + t_end_pause + t_fade_out + t_fade_in;
+
+          const offset_start_pause = t_start_pause / total_duration;
+          const offset_scroll = (t_start_pause + t_scroll) / total_duration;
+          const offset_end_pause = (t_start_pause + t_scroll + t_end_pause) / total_duration;
+          const offset_fade_out = (t_start_pause + t_scroll + t_end_pause + t_fade_out) / total_duration;
+          const offset_reset = offset_fade_out + 0.001;
+
+          const keyframes = [
+            { offset: 0, transform: "translateX(0)", opacity: 1 },
+            { offset: offset_start_pause, transform: "translateX(0)", opacity: 1 },
+            { offset: offset_scroll, transform: `translateX(${-overflowDistance}px)`, opacity: 1 },
+            { offset: offset_end_pause, transform: `translateX(${-overflowDistance}px)`, opacity: 1 },
+            { offset: offset_fade_out, transform: `translateX(${-overflowDistance}px)`, opacity: 0 },
+            { offset: offset_reset, transform: "translateX(0)", opacity: 0 },
+            { offset: 1.0, transform: "translateX(0)", opacity: 1 }
+          ];
+
+          const fadeWidth = 24;
+          const maxFade = Math.min(fadeWidth, overflowDistance);
+          const t_edge = (maxFade / speed) * 1000; // ms
+          const hasIntermediate = t_scroll > (2 * t_edge);
+
+          const getMaskValues = (x) => {
+            const left = Math.min(maxFade, x);
+            const right = Math.min(maxFade, overflowDistance - x);
+            return {
+              left: `${left}px`,
+              right: `${right}px`
+            };
+          };
+
+          const wrapperKeyframes = [];
+
+          const pushKeyframe = (time, x) => {
+            const offset = time / total_duration;
+            const masks = getMaskValues(x);
+            wrapperKeyframes.push({
+              offset: Math.min(1.0, Math.max(0.0, offset)),
+              "--mask-left": masks.left,
+              "--mask-right": masks.right
+            });
+          };
+
+          pushKeyframe(0, 0);
+          pushKeyframe(t_start_pause, 0);
+
+          if (hasIntermediate) {
+            pushKeyframe(t_start_pause + t_edge, maxFade);
+            pushKeyframe(t_start_pause + t_scroll - t_edge, overflowDistance - maxFade);
+          }
+
+          pushKeyframe(t_start_pause + t_scroll, overflowDistance);
+          pushKeyframe(t_start_pause + t_scroll + t_end_pause, overflowDistance);
+          pushKeyframe(t_start_pause + t_scroll + t_end_pause + t_fade_out, overflowDistance);
+
+          const masksReset = getMaskValues(0);
+          wrapperKeyframes.push({
+            offset: offset_reset,
+            "--mask-left": masksReset.left,
+            "--mask-right": masksReset.right
+          });
+
+          pushKeyframe(total_duration, 0);
+
+          marqueeAnimation = trackInfoText.animate(keyframes, {
+            duration: total_duration,
+            iterations: Infinity,
+            easing: "linear"
+          });
+
+          marqueeWrapperAnimation = trackInfoWrapper.animate(wrapperKeyframes, {
+            duration: total_duration,
+            iterations: Infinity,
+            easing: "linear"
+          });
+        }
+
         function renderTrackSummary() {
           if (!trackInfo) return;
           const title = parent.TRACK_INFO.title;
@@ -310,8 +457,14 @@
           }
           trackInfoTitle.hidden = title === "";
           trackInfoAuthor.hidden = author === "";
+          if (trackInfoSeparator) {
+            trackInfoSeparator.hidden = title === "" || author === "";
+          }
           trackInfoTitle.textContent = title;
           trackInfoAuthor.textContent = author;
+
+          if (marqueeTimeoutId) clearTimeout(marqueeTimeoutId);
+          marqueeTimeoutId = setTimeout(updateMarquee, 50);
         }
 
         pages.lyrics = {
@@ -322,18 +475,36 @@
             trackInfoSourceIcon = container.querySelector(".track-info-source-icon");
             trackInfoTitle = container.querySelector(".track-info-title");
             trackInfoAuthor = container.querySelector(".track-info-author");
+            trackInfoWrapper = container.querySelector(".track-info-wrapper");
+            trackInfoText = container.querySelector(".track-info-text");
+            trackInfoSeparator = container.querySelector(".track-info-separator");
 
             resetLyricsDom();
             renderTrackSummary();
             layoutLyrics();
           },
           unmount() {
+            if (marqueeTimeoutId) {
+              clearTimeout(marqueeTimeoutId);
+              marqueeTimeoutId = null;
+            }
+            if (marqueeAnimation) {
+              marqueeAnimation.cancel();
+              marqueeAnimation = null;
+            }
+            if (marqueeWrapperAnimation) {
+              marqueeWrapperAnimation.cancel();
+              marqueeWrapperAnimation = null;
+            }
             resetLyricsDom();
             stage = null;
             trackInfo = null;
             trackInfoSourceIcon = null;
             trackInfoTitle = null;
             trackInfoAuthor = null;
+            trackInfoWrapper = null;
+            trackInfoText = null;
+            trackInfoSeparator = null;
           },
           onTrackChange() {
             renderTrackSummary();
@@ -351,11 +522,24 @@
               heightCache.set(index, line.offsetHeight);
             }
             renderLyrics();
+            updateMarquee();
           },
           layoutLyrics() {
             layoutLyrics();
           },
           cleanup() {
+            if (marqueeTimeoutId) {
+              clearTimeout(marqueeTimeoutId);
+              marqueeTimeoutId = null;
+            }
+            if (marqueeAnimation) {
+              marqueeAnimation.cancel();
+              marqueeAnimation = null;
+            }
+            if (marqueeWrapperAnimation) {
+              marqueeWrapperAnimation.cancel();
+              marqueeWrapperAnimation = null;
+            }
             resetLyricsDom();
           }
         };

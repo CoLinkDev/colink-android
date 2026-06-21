@@ -66,12 +66,32 @@
     <!-- <iframe id="iframe-placeholder" src="pages/placeholder.html" style="display: none;" onload="onIframeLoad('placeholder')"></iframe> -->
 
     <script>
+      window.debugBtnTimer = null;
+      window.showDebugButtonTemporarily = function() {
+        const isDebug = new URLSearchParams(window.location.search).has("debug");
+        if (!isDebug) return;
+        const btn = document.getElementById("debug-toggle-btn");
+        if (!btn) return;
+
+        if (window.debugBtnTimer) {
+          clearTimeout(window.debugBtnTimer);
+          window.debugBtnTimer = null;
+        }
+
+        btn.style.display = "flex";
+
+        window.debugBtnTimer = setTimeout(() => {
+          window.debugBtnTimer = null;
+          if (window.currentPageName !== "debug") {
+            btn.style.display = "none";
+          }
+        }, 5000);
+      };
+
       (function() {
         const isDebug = new URLSearchParams(window.location.search).has("debug");
         if (isDebug) {
-          // Show the toggle button
-          const btn = document.getElementById("debug-toggle-btn");
-          if (btn) btn.style.display = "flex";
+          // Keep it hidden initially; shown temporarily on user clicks
 
           // Dynamically load the debug iframe
           const iframe = document.createElement("iframe");
@@ -102,11 +122,19 @@
         if (!btn) return;
         
         if (pageName === "debug") {
+          if (window.debugBtnTimer) {
+            clearTimeout(window.debugBtnTimer);
+            window.debugBtnTimer = null;
+          }
+          btn.style.display = "flex";
           btn.classList.add("active");
           btn.innerHTML = `<span style="font-size: 12px; line-height: 1;">✕</span><span>Close</span>`;
         } else {
           btn.classList.remove("active");
           btn.innerHTML = `<span style="font-size: 15px; line-height: 1;">🐞</span><span>Debug</span>`;
+          if (!window.debugBtnTimer) {
+            btn.style.display = "none";
+          }
         }
       };
     </script>
