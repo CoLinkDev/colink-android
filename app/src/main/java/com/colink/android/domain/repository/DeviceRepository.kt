@@ -27,6 +27,8 @@ interface DeviceRepository {
         deviceType: String? = null,
     ): Result<Unit>
 
+    suspend fun clearCloudPresence(): Result<Unit>
+
     suspend fun markLanEndpoint(
         deviceId: String,
         ip: String? = null,

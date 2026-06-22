@@ -146,6 +146,23 @@ class DeviceRepositoryImpl @Inject constructor(
             )
         }
 
+    override suspend fun clearCloudPresence(): Result<Unit> =
+        runCatching {
+            val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
+            val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
+                val isLocal = device.deviceId == localDeviceId
+                val lanAvailable = device.lanAvailable || device.lanState.isLiveLanState()
+                device.copy(
+                    cloudAvailable = false,
+                    online = isLocal || lanAvailable,
+                    activeRoute = if (lanAvailable) "lan" else null,
+                    deviceSources = if (isLocal) mergeSources(device.deviceSources, "local") else device.deviceSources,
+                )
+            }
+            saveDevices(devices)
+            CoLinkLog.i("Device", "cleared cloud presence")
+        }
+
     override suspend fun markLanEndpoint(
         deviceId: String,
         ip: String?,

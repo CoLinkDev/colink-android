@@ -1765,6 +1765,7 @@ class ConnectionManager @Inject constructor(
             val reason = closed.await()
             pingJob.cancel()
             cloudBusinessVersions.clear()
+            deviceRepository.clearCloudPresence()
             attempt += 1
             CoLinkLog.w("Cloud", "cloud loop reconnecting attempt=$attempt reason=${reason ?: "unknown"}")
             _cloudState.value =
