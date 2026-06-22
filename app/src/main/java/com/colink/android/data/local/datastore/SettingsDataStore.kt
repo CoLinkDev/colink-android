@@ -42,11 +42,19 @@ class SettingsDataStore @Inject constructor(
             val accessToken = preferences[SESSION_ACCESS_TOKEN]
             val refreshToken = preferences[SESSION_REFRESH_TOKEN]
             val expiresAt = preferences[SESSION_ACCESS_EXPIRES_AT]
+            val refreshAt = preferences[SESSION_ACCESS_REFRESH_AT]
             val email = preferences[SESSION_EMAIL]
             if (userId == null || accessToken == null || refreshToken == null || expiresAt == null) {
                 null
             } else {
-                Session(userId, accessToken, refreshToken, expiresAt, email)
+                Session(
+                    userId = userId,
+                    accessToken = accessToken,
+                    refreshToken = refreshToken,
+                    accessTokenExpiresAt = expiresAt,
+                    accessTokenRefreshAt = refreshAt ?: (expiresAt - 60_000L),
+                    email = email,
+                )
             }
         }
 
@@ -107,6 +115,7 @@ class SettingsDataStore @Inject constructor(
             preferences[SESSION_ACCESS_TOKEN] = session.accessToken
             preferences[SESSION_REFRESH_TOKEN] = session.refreshToken
             preferences[SESSION_ACCESS_EXPIRES_AT] = session.accessTokenExpiresAt
+            preferences[SESSION_ACCESS_REFRESH_AT] = session.accessTokenRefreshAt
             session.email?.let { preferences[SESSION_EMAIL] = it } ?: preferences.remove(SESSION_EMAIL)
         }
     }
@@ -117,6 +126,7 @@ class SettingsDataStore @Inject constructor(
             preferences.remove(SESSION_ACCESS_TOKEN)
             preferences.remove(SESSION_REFRESH_TOKEN)
             preferences.remove(SESSION_ACCESS_EXPIRES_AT)
+            preferences.remove(SESSION_ACCESS_REFRESH_AT)
             preferences.remove(SESSION_EMAIL)
         }
     }
@@ -160,6 +170,7 @@ class SettingsDataStore @Inject constructor(
         private val SERVER_URL = stringPreferencesKey("server_url")
         private val SETTINGS_DEVICE_NAME = stringPreferencesKey("settings_device_name")
         private val SESSION_ACCESS_EXPIRES_AT = longPreferencesKey("session_access_expires_at")
+        private val SESSION_ACCESS_REFRESH_AT = longPreferencesKey("session_access_refresh_at")
         private val SESSION_ACCESS_TOKEN = stringPreferencesKey("session_access_token")
         private val SESSION_REFRESH_TOKEN = stringPreferencesKey("session_refresh_token")
         private val SESSION_USER_ID = stringPreferencesKey("session_user_id")

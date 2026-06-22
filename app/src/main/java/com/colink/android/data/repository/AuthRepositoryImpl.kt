@@ -19,7 +19,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import retrofit2.HttpException
 
-private const val ACCESS_TOKEN_TTL_MILLIS = 15 * 60 * 1000L
+private const val LEGACY_ACCESS_TOKEN_TTL_MILLIS = 15 * 60 * 1000L
+private const val LONG_ACCESS_TOKEN_REFRESH_BUFFER_MILLIS = 60 * 60 * 1000L
+private const val SHORT_ACCESS_TOKEN_REFRESH_PERCENT = 90L
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -70,7 +72,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = LoginRequestDto(identifier.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, identifier.trim())
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn, identifier.trim())
         }
 
     override suspend fun register(email: String, username: String, password: String): Result<Unit> =
@@ -81,7 +83,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = RegisterRequestDto(email.trim(), username.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, email.trim())
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn, email.trim())
         }
 
     override suspend fun logout(): Result<Unit> =
@@ -123,11 +125,13 @@ class AuthRepositoryImpl @Inject constructor(
                         request = RefreshRequestDto(latest.refreshToken),
                     )
                     .requireData()
+                val timing = sessionTiming(response.expiresIn)
                 Session(
                     userId = latest.userId,
                     accessToken = response.token,
                     refreshToken = response.refreshToken,
-                    accessTokenExpiresAt = System.currentTimeMillis() + ACCESS_TOKEN_TTL_MILLIS,
+                    accessTokenExpiresAt = timing.expiresAt,
+                    accessTokenRefreshAt = timing.refreshAt,
                     email = latest.email,
                 ).also { settingsDataStore.saveSession(it) }
             }
@@ -137,13 +141,16 @@ class AuthRepositoryImpl @Inject constructor(
         userId: String,
         token: String,
         refreshToken: String,
+        expiresIn: Long?,
         email: String,
     ) {
+        val timing = sessionTiming(expiresIn)
         val session = Session(
             userId = userId,
             accessToken = token,
             refreshToken = refreshToken,
-            accessTokenExpiresAt = System.currentTimeMillis() + ACCESS_TOKEN_TTL_MILLIS,
+            accessTokenExpiresAt = timing.expiresAt,
+            accessTokenRefreshAt = timing.refreshAt,
             email = email,
         )
         deviceRepository.ensureDeviceIdentity(session).getOrThrow()
@@ -166,4 +173,24 @@ class AuthRepositoryImpl @Inject constructor(
         }
 
     private fun bearer(token: String): String = "Bearer $token"
+
+    private fun sessionTiming(expiresInSeconds: Long?): SessionTiming {
+        val now = System.currentTimeMillis()
+        val expiresInMillis = (expiresInSeconds?.coerceAtLeast(0L)?.times(1000L))
+            ?: LEGACY_ACCESS_TOKEN_TTL_MILLIS
+        val refreshAfterMillis = if (expiresInMillis <= LONG_ACCESS_TOKEN_REFRESH_BUFFER_MILLIS) {
+            expiresInMillis * SHORT_ACCESS_TOKEN_REFRESH_PERCENT / 100L
+        } else {
+            expiresInMillis - LONG_ACCESS_TOKEN_REFRESH_BUFFER_MILLIS
+        }
+        return SessionTiming(
+            expiresAt = now + expiresInMillis,
+            refreshAt = now + refreshAfterMillis.coerceAtLeast(0L),
+        )
+    }
+
+    private data class SessionTiming(
+        val expiresAt: Long,
+        val refreshAt: Long,
+    )
 }

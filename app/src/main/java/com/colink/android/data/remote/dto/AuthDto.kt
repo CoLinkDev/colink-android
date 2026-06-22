@@ -30,10 +30,14 @@ data class AuthResponseDto(
     val userId: String,
     val token: String,
     val refreshToken: String,
+    val expiresIn: Long? = null,
+    val refreshExpiresIn: Long? = null,
 )
 
 @Serializable
 data class RefreshResponseDto(
     val token: String,
     val refreshToken: String,
+    val expiresIn: Long? = null,
+    val refreshExpiresIn: Long? = null,
 )
