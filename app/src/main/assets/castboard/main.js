@@ -388,7 +388,6 @@ function onResize() {
 }
 
 function onPageClick() {
-  if (bootLocked) return;
   if (window.currentPageName === "debug") return;
   if (typeof window.showDebugButtonTemporarily === "function") {
     window.showDebugButtonTemporarily();
