@@ -96,6 +96,7 @@
     <string name="delete_device_title">删除设备</string>
     <string name="delete_device_body">确定从您的账户中删除 %1$s 吗？</string>
     <string name="delete_btn">删除</string>
+    <string name="delete_from_cloud_btn">从云端删除设备</string>
     <string name="rename_device_title">重命名设备</string>
     <string name="rename_device_btn">修改设备名称</string>
     <string name="rotate_key_title">轮换设备密钥</string>
@@ -104,6 +105,7 @@
     <string name="forget_lan_trust_title">忘记 LAN 信任</string>
     <string name="forget_lan_trust_body">确定忘记对 %1$s 的 LAN 信任记录吗？</string>
     <string name="forget_btn">忘记</string>
+    <string name="forget_lan_trust_btn">忘记局域网信任</string>
     <string name="cancel_btn">取消</string>
     <string name="info_title">详细信息</string>
     <string name="actions_title">操作</string>

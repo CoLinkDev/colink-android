@@ -96,6 +96,7 @@
     <string name="delete_device_title">Delete device</string>
     <string name="delete_device_body">Remove %1$s from your account?</string>
     <string name="delete_btn">Delete</string>
+    <string name="delete_from_cloud_btn">Delete from cloud</string>
     <string name="rename_device_title">Rename device</string>
     <string name="rename_device_btn">Rename device</string>
     <string name="rotate_key_title">Rotate device key</string>
@@ -104,6 +105,7 @@
     <string name="forget_lan_trust_title">Forget LAN trust</string>
     <string name="forget_lan_trust_body">Forget LAN trust for %1$s?</string>
     <string name="forget_btn">Forget</string>
+    <string name="forget_lan_trust_btn">Forget LAN trust</string>
     <string name="cancel_btn">Cancel</string>
     <string name="info_title">Information</string>
     <string name="actions_title">Actions</string>

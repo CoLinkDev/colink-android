@@ -340,14 +340,14 @@ private fun DeviceActionsCard(
                     OutlinedButton(onClick = onDelete) {
                         Icon(Icons.Default.Delete, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.delete_btn))
+                        Text(stringResource(R.string.delete_from_cloud_btn))
                     }
                 }
                 if (canForgetTrust) {
                     OutlinedButton(onClick = onForgetTrust) {
                         Icon(Icons.Default.LinkOff, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.forget_btn))
+                        Text(stringResource(R.string.forget_lan_trust_btn))
                     }
                 }
             }

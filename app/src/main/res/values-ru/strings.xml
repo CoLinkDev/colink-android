@@ -96,6 +96,7 @@
     <string name="delete_device_title">Удалить устройство</string>
     <string name="delete_device_body">Удалить %1$s из вашего аккаунта?</string>
     <string name="delete_btn">Удалить</string>
+    <string name="delete_from_cloud_btn">Удалить устройство из облака</string>
     <string name="rename_device_title">Переименовать устройство</string>
     <string name="rename_device_btn">Изменить имя устройства</string>
     <string name="rotate_key_title">Сменить ключ устройства</string>
@@ -104,6 +105,7 @@
     <string name="forget_lan_trust_title">Удалить доверие</string>
     <string name="forget_lan_trust_body">Удалить запись доверия LAN для %1$s?</string>
     <string name="forget_btn">Удалить</string>
+    <string name="forget_lan_trust_btn">Удалить доверие LAN</string>
     <string name="cancel_btn">Отмена</string>
     <string name="info_title">Информация</string>
     <string name="actions_title">Действия</string>

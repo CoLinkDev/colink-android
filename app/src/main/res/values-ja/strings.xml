@@ -96,6 +96,7 @@
     <string name="delete_device_title">デバイスの削除</string>
     <string name="delete_device_body">アカウントから %1$s を削除しますか？</string>
     <string name="delete_btn">削除</string>
+    <string name="delete_from_cloud_btn">クラウドからデバイスを削除</string>
     <string name="rename_device_title">デバイス名を変更</string>
     <string name="rename_device_btn">デバイス名を変更</string>
     <string name="rotate_key_title">デバイスキーをローテーション</string>
@@ -104,6 +105,7 @@
     <string name="forget_lan_trust_title">信頼を削除</string>
     <string name="forget_lan_trust_body">%1$s の LAN 信頼記録を削除しますか？</string>
     <string name="forget_btn">削除</string>
+    <string name="forget_lan_trust_btn">LANの信頼を削除</string>
     <string name="cancel_btn">キャンセル</string>
     <string name="info_title">情報</string>
     <string name="actions_title">操作</string>

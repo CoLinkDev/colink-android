@@ -96,6 +96,7 @@
     <string name="delete_device_title">Gerät löschen</string>
     <string name="delete_device_body">%1$s von Ihrem Konto entfernen?</string>
     <string name="delete_btn">Löschen</string>
+    <string name="delete_from_cloud_btn">Gerät aus der Cloud löschen</string>
     <string name="rename_device_title">Gerät umbenennen</string>
     <string name="rename_device_btn">Gerätenamen ändern</string>
     <string name="rotate_key_title">Geräteschlüssel rotieren</string>
@@ -104,6 +105,7 @@
     <string name="forget_lan_trust_title">Vertrauen entfernen</string>
     <string name="forget_lan_trust_body">LAN-Vertrauen für %1$s entfernen?</string>
     <string name="forget_btn">Entfernen</string>
+    <string name="forget_lan_trust_btn">LAN-Vertrauen entfernen</string>
     <string name="cancel_btn">Abbrechen</string>
     <string name="info_title">Informationen</string>
     <string name="actions_title">Aktionen</string>
