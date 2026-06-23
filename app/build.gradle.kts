@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.Sync
 
 plugins {
     alias(libs.plugins.android.application)
@@ -24,6 +25,9 @@ val serverBaseUrl = localProperties
 val castBoardDevUrl = localProperties
     .getProperty("CASTBOARD_DEV_URL", "")
     .trim()
+val castBoardProjectDir = rootProject.file("../colink-castboard")
+val castBoardSourceDir = castBoardProjectDir.resolve("src")
+val generatedAssetsDir = layout.buildDirectory.dir("generated/assets")
 
 android {
     namespace = "com.colink.android"
@@ -76,6 +80,12 @@ android {
         compose = true
     }
 
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(generatedAssetsDir)
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
@@ -100,6 +110,17 @@ kotlin {
 
 kapt {
     correctErrorTypes = true
+}
+
+val syncCastBoardAssets by tasks.registering(Sync::class) {
+    from(castBoardSourceDir)
+    into(generatedAssetsDir.map { it.dir("castboard") })
+}
+
+tasks.matching { task ->
+    task.name.startsWith("merge") && task.name.endsWith("Assets")
+}.configureEach {
+    dependsOn(syncCastBoardAssets)
 }
 
 dependencies {
