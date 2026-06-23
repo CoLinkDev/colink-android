@@ -80,12 +80,6 @@ android {
         compose = true
     }
 
-    sourceSets {
-        getByName("main") {
-            assets.srcDir(generatedAssetsDir)
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
@@ -113,9 +107,13 @@ kapt {
 }
 
 val syncCastBoardAssets by tasks.registering(Sync::class) {
-    from(castBoardSourceDir)
-    into(generatedAssetsDir.map { it.dir("castboard") })
+    from(castBoardSourceDir) {
+        into("castboard")
+    }
+    into(generatedAssetsDir)
 }
+
+android.sourceSets.getByName("main").assets.srcDir(syncCastBoardAssets)
 
 tasks.matching { task ->
     task.name.startsWith("merge") && task.name.endsWith("Assets")
