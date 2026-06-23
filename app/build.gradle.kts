@@ -116,7 +116,9 @@ val syncCastBoardAssets by tasks.registering(Sync::class) {
 android.sourceSets.getByName("main").assets.srcDir(syncCastBoardAssets)
 
 tasks.matching { task ->
-    task.name.startsWith("merge") && task.name.endsWith("Assets")
+    (task.name.startsWith("merge") && task.name.endsWith("Assets")) ||
+        task.name.startsWith("lintVital") ||
+        task.name.endsWith("LintVitalReportModel")
 }.configureEach {
     dependsOn(syncCastBoardAssets)
 }
