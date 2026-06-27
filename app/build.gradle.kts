@@ -106,11 +106,21 @@ kapt {
     correctErrorTypes = true
 }
 
-val syncCastBoardAssets by tasks.registering(Sync::class) {
-    from(castBoardSourceDir) {
-        into("castboard")
+val syncCastBoardAssets by tasks.registering {
+    inputs.dir(castBoardSourceDir).optional()
+    outputs.dir(generatedAssetsDir)
+
+    doLast {
+        delete(generatedAssetsDir)
+        if (castBoardSourceDir.isDirectory) {
+            sync {
+                from(castBoardSourceDir) {
+                    into("castboard")
+                }
+                into(generatedAssetsDir)
+            }
+        }
     }
-    into(generatedAssetsDir)
 }
 
 android.sourceSets.getByName("main").assets.srcDir(syncCastBoardAssets)
