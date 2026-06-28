@@ -1,5 +1,10 @@
 # CoLink Android Agent Notes
 
+## Protocol Versions
+
+- `.colink/protocol/version.yml` records the existing Business and P2P protocol versions with which this project is currently aligned.
+- When the implementation changes to align with a different published protocol version, update the corresponding value in this file in the same change.
+
 ## Build Variants
 
 | Configuration | Release Variant | Debug Variant |
