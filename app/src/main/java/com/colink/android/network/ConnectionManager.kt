@@ -1,13 +1,7 @@
 package com.colink.android.network
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ContentValues
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.webkit.MimeTypeMap
 import com.colink.android.R
 import com.colink.android.domain.model.CloudConnectionState
 import com.colink.android.domain.model.CloudStatus
@@ -34,7 +28,6 @@ import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
-import com.colink.android.network.message.ClipboardSyncPayload
 import com.colink.android.network.message.CloudClientEnvelope
 import com.colink.android.network.message.CloudServerEnvelope
 import com.colink.android.network.message.DeviceOnlinePayload
@@ -90,12 +83,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.core.content.FileProvider
-import androidx.core.text.HtmlCompat
 import com.colink.android.util.CoLinkLog
 import java.net.URI
 import java.net.URLEncoder
-import java.security.MessageDigest
 import java.util.Base64
 import java.util.TreeMap
 import java.util.UUID
@@ -127,7 +117,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
 
 private const val MAX_TEXT_LENGTH = 10_000
-private const val CLIPBOARD_MAX_BYTES = 1_048_576
 private const val FILE_ACK_INTERVAL_CHUNKS = 7L
 private const val LAN_SEND_WINDOW_CHUNKS = 8L
 private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
@@ -166,6 +155,9 @@ class ConnectionManager @Inject constructor(
     private val musicSyncManager: MusicSyncManager,
     private val sysInfoSyncManager: SysInfoSyncManager,
     private val notifier: CoLinkNotifier,
+    private val clipboardSyncHandler: ClipboardSyncHandler,
+    private val lanNetworkMonitor: LanNetworkMonitor,
+    private val messageRouter: MessageRouter,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _cloudState = MutableStateFlow(CloudConnectionState())
@@ -193,14 +185,6 @@ class ConnectionManager @Inject constructor(
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
     private var probeRoundCandidates = emptyList<String>()
-    private val clipboardManager = context.getSystemService(ClipboardManager::class.java)
-    private val connectivityManager = context.getSystemService(ConnectivityManager::class.java)
-    private val lanNetworks = ConcurrentHashMap.newKeySet<Network>()
-    private var networkCallback: ConnectivityManager.NetworkCallback? = null
-    private val lanSuspendedForNetworkLoss = AtomicBoolean(false)
-    private var clipboardListener: ClipboardManager.OnPrimaryClipChangedListener? = null
-    private var clipboardSuppressedHash: String? = null
-    private var clipboardLastSentHash: String? = null
 
     val cloudState: StateFlow<CloudConnectionState> = _cloudState.asStateFlow()
 
@@ -215,7 +199,16 @@ class ConnectionManager @Inject constructor(
         }
         notifier.ensureEventChannel()
         CoLinkLog.i("Connection", "starting connection manager")
-        startNetworkMonitoring()
+        lanNetworkMonitor.start(
+            onLanLost = {
+                CoLinkLog.i("Connection", "network lost, stopping LAN services")
+                scope.launch { stopLan() }
+            },
+            onLanAvailable = {
+                CoLinkLog.i("Connection", "network available, restarting LAN services")
+                scope.launch { restartLan() }
+            },
+        )
         scope.launch {
             authRepository.bootstrap()
                 .onFailure { error -> CoLinkLog.e("Connection", "failed to bootstrap runtime", error) }
@@ -244,9 +237,7 @@ class ConnectionManager @Inject constructor(
             return
         }
         CoLinkLog.i("Connection", "stopping connection manager")
-        stopNetworkMonitoring()
-        lanSuspendedForNetworkLoss.set(false)
-        lanNetworks.clear()
+        lanNetworkMonitor.stop()
         connectionJob?.cancel()
         connectionJob = null
         cloudBusinessVersions.clear()
@@ -254,7 +245,7 @@ class ConnectionManager @Inject constructor(
         swimJob = null
         suspectJob?.cancel()
         suspectJob = null
-        stopClipboardSync()
+        clipboardSyncHandler.stop()
         broadcastLeft()
         stopLan()
         musicSyncManager.reset()
@@ -389,75 +380,6 @@ class ConnectionManager @Inject constructor(
             }
         }
     }
-
-    private fun startNetworkMonitoring() {
-        if (networkCallback != null) {
-            return
-        }
-        val manager = connectivityManager ?: return
-        val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                handleNetworkAvailable(network)
-            }
-
-            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
-                if (isLanNetwork(capabilities)) {
-                    handleNetworkAvailable(network)
-                }
-            }
-
-            override fun onLost(network: Network) {
-                if (!lanNetworks.remove(network)) {
-                    return
-                }
-                if (!lanSuspendedForNetworkLoss.compareAndSet(false, true)) {
-                    return
-                }
-                CoLinkLog.i("Connection", "network lost, stopping LAN services")
-                scope.launch { stopLan() }
-            }
-        }
-        networkCallback = callback
-        runCatching {
-            manager.registerDefaultNetworkCallback(callback)
-        }.onFailure { error ->
-            networkCallback = null
-            CoLinkLog.w("Connection", "failed to register network callback", error)
-        }
-    }
-
-    private fun stopNetworkMonitoring() {
-        val manager = connectivityManager ?: return
-        val callback = networkCallback ?: return
-        networkCallback = null
-        runCatching {
-            manager.unregisterNetworkCallback(callback)
-        }.onFailure { error ->
-            CoLinkLog.w("Connection", "failed to unregister network callback", error)
-        }
-    }
-
-    private fun handleNetworkAvailable(network: Network) {
-        if (!shouldRestartLan(network)) {
-            return
-        }
-        lanNetworks.add(network)
-        if (!lanSuspendedForNetworkLoss.compareAndSet(true, false)) {
-            return
-        }
-        CoLinkLog.i("Connection", "network available, restarting LAN services")
-        scope.launch { restartLan() }
-    }
-
-    private fun shouldRestartLan(network: Network): Boolean {
-        val manager = connectivityManager ?: return false
-        val capabilities = manager.getNetworkCapabilities(network) ?: return false
-        return isLanNetwork(capabilities)
-    }
-
-    private fun isLanNetwork(capabilities: NetworkCapabilities): Boolean =
-        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
 
     suspend fun sendText(targetDeviceId: String, text: String): Result<Unit> =
         runCatching {
@@ -733,7 +655,7 @@ class ConnectionManager @Inject constructor(
     ) {
         when (business.type) {
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
-            CLIPBOARD_SYNC_TYPE -> handleClipboardSync(fromDeviceId, business)
+            CLIPBOARD_SYNC_TYPE -> clipboardSyncHandler.receive(business)
             FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, business, route)
             FILE_ACCEPT_TYPE -> handleFileAccept(fromDeviceId, business)
             FILE_READY_TYPE -> handleFileReady(fromDeviceId, business)
@@ -778,67 +700,6 @@ class ConnectionManager @Inject constructor(
             deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
             text = textPayload.text,
         )
-    }
-
-    private suspend fun handleClipboardSync(
-        fromDeviceId: String,
-        business: BusinessEnvelope,
-    ) {
-        if (!settingsDataStore.currentSettings().enableClipboardSync) {
-            return
-        }
-        val payload = runCatching {
-            json.decodeFromJsonElement(ClipboardSyncPayload.serializer(), business.payload)
-        }.getOrNull() ?: return
-        val hash = payload.clipboardHash()
-        clipboardSuppressedHash = hash
-        when (payload.contentType) {
-            "text/plain" -> {
-                val content = payload.content ?: return
-                if (content.toByteArray().size > CLIPBOARD_MAX_BYTES) {
-                    return
-                }
-                clipboardManager.setPrimaryClip(ClipData.newPlainText("CoLink", content))
-            }
-
-            "text/html" -> {
-                val content = payload.content ?: return
-                if (content.toByteArray().size > CLIPBOARD_MAX_BYTES) {
-                    return
-                }
-                clipboardManager.setPrimaryClip(
-                    ClipData.newHtmlText("CoLink", htmlClipboardPlainText(content), content),
-                )
-            }
-
-            "image/png", "image/jpeg" -> {
-                val data = payload.data ?: return
-                if (data.toByteArray().size > CLIPBOARD_MAX_BYTES * 2) {
-                    return
-                }
-                val bytes = runCatching { Base64.getDecoder().decode(data) }.getOrNull() ?: return
-                if (bytes.size > CLIPBOARD_MAX_BYTES) {
-                    return
-                }
-                val file = File(
-                    context.cacheDir,
-                    "clipboard-${System.currentTimeMillis()}.${
-                        if (payload.contentType == "image/png") "png" else "jpg"
-                    }",
-                )
-                file.writeBytes(bytes)
-                val uri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.fileprovider",
-                    file,
-                )
-                clipboardManager.setPrimaryClip(
-                    ClipData.newUri(context.contentResolver, "CoLink", uri),
-                )
-            }
-
-            else -> Unit
-        }
     }
 
     private suspend fun handleFileOffer(
@@ -1314,32 +1175,12 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         business: BusinessEnvelope,
         correlationId: String? = null,
-    ): Result<String> {
-        val localizedContext = LocaleHelper.localized(context)
-        val lanResult = sendViaLan(targetDeviceId, business, correlationId)
-        if (lanResult.isSuccess) {
-            return lanResult
-        }
-
-        val cloudResult = sendViaCloud(targetDeviceId, business, correlationId)
-        if (cloudResult.isSuccess) {
-            return cloudResult
-        }
-
-        val lanError = lanResult.exceptionOrNull()
-        val cloudError = cloudResult.exceptionOrNull()
-        val error = IllegalStateException(
-            localizedContext.getString(R.string.message_route_unavailable),
-            cloudError ?: lanError,
-        )
-        CoLinkLog.w(
-            "Connection",
-            "business send failed device=${CoLinkLog.shortId(targetDeviceId)} type=${business.type} " +
-                "lan=${lanError?.message ?: "failed"} cloud=${cloudError?.message ?: "failed"}",
-            error,
-        )
-        return Result.failure(error)
-    }
+    ): Result<String> = messageRouter.send(
+        targetDeviceId = targetDeviceId,
+        business = business,
+        sendLan = { sendViaLan(targetDeviceId, business, correlationId) },
+        sendCloud = { sendViaCloud(targetDeviceId, business, correlationId) },
+    )
 
     private suspend fun routeForDevice(deviceId: String): String {
         val device = deviceRepository.getDevice(deviceId)
@@ -2566,103 +2407,16 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun startClipboardSync() {
-        stopClipboardSync()
-        val listener = ClipboardManager.OnPrimaryClipChangedListener {
-            scope.launch { broadcastLocalClipboard() }
-        }
-        clipboardManager.addPrimaryClipChangedListener(listener)
-        clipboardListener = listener
+        clipboardSyncHandler.start(
+            scope = scope,
+            sendCloudBroadcast = { business -> sendCloudBroadcast(business) },
+            sendViaLan = { deviceId, business -> sendViaLan(deviceId, business) },
+            sendBusinessMessage = { deviceId, business -> sendBusinessMessage(deviceId, business) },
+        )
     }
 
     private fun stopClipboardSync() {
-        clipboardListener?.let { clipboardManager.removePrimaryClipChangedListener(it) }
-        clipboardListener = null
-    }
-
-    private suspend fun broadcastLocalClipboard() {
-        if (!settingsDataStore.currentSettings().enableClipboardSync) {
-            return
-        }
-        val clip = clipboardManager.primaryClip ?: return
-        if (clip.itemCount <= 0) {
-            return
-        }
-        val payload = clipboardPayload(clip) ?: return
-        val hash = payload.clipboardHash()
-        if (clipboardSuppressedHash == hash) {
-            clipboardSuppressedHash = null
-            return
-        }
-        if (clipboardLastSentHash == hash) {
-            return
-        }
-        clipboardLastSentHash = hash
-        val identity = deviceRepository.localDeviceIdentity()
-        val business = BusinessEnvelope(
-            type = CLIPBOARD_SYNC_TYPE,
-            payload = json.encodeToJsonElement(payload),
-        )
-        val cloudSent = sendCloudBroadcast(business).isSuccess
-        deviceRepository.devices.first()
-            .filter {
-                it.deviceId != identity?.deviceId && if (cloudSent) {
-                    it.lanAvailable && !it.online
-                } else {
-                    it.online || it.lanAvailable
-                }
-            }
-            .forEach { device ->
-                if (cloudSent) {
-                    sendViaLan(device.deviceId, business)
-                } else {
-                    sendBusinessMessage(
-                        targetDeviceId = device.deviceId,
-                        business = business,
-                    )
-                }
-            }
-    }
-
-    private fun clipboardPayload(clip: ClipData): ClipboardSyncPayload? {
-        val item = clip.getItemAt(0)
-        val uri = item.uri
-        if (uri != null) {
-            val contentType = context.contentResolver.getType(uri)
-                ?: MimeTypeMap.getSingleton()
-                    .getMimeTypeFromExtension(uri.toString().substringAfterLast('.', ""))
-            if (contentType == "image/png" || contentType == "image/jpeg") {
-                val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-                    val buffer = ByteArray(CLIPBOARD_MAX_BYTES + 1)
-                    val read = input.read(buffer)
-                    if (read <= 0) ByteArray(0) else buffer.copyOf(read)
-                } ?: return null
-                if (bytes.size <= CLIPBOARD_MAX_BYTES) {
-                    return ClipboardSyncPayload(
-                        contentType = contentType,
-                        content = null,
-                        data = Base64.getEncoder().encodeToString(bytes),
-                    )
-                }
-            }
-        }
-        val html = item.htmlText?.takeIf { it.isNotBlank() }
-        if (html != null && html.toByteArray().size <= CLIPBOARD_MAX_BYTES) {
-            return ClipboardSyncPayload(
-                contentType = "text/html",
-                content = html,
-                data = null,
-            )
-        }
-
-        val text = item.coerceToText(context)?.toString()?.takeIf { it.isNotBlank() } ?: return null
-        if (text.toByteArray().size > CLIPBOARD_MAX_BYTES) {
-            return null
-        }
-        return ClipboardSyncPayload(
-            contentType = "text/plain",
-            content = text,
-            data = null,
-        )
+        clipboardSyncHandler.stop()
     }
 
     private suspend fun saveReceivedFileToDownloads(tempFile: File, fileName: String): String? {
@@ -2711,21 +2465,6 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun notifyEvent(title: String, text: String) {
         notifier.notifyEvent(title, text)
-    }
-
-    private fun ClipboardSyncPayload.clipboardHash(): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        digest.update(contentType.toByteArray())
-        content?.let { digest.update(it.toByteArray()) }
-        data?.let { digest.update(it.toByteArray()) }
-        return digest.digest().joinToString("") { "%02x".format(it) }
-    }
-
-    private fun htmlClipboardPlainText(html: String): String {
-        return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
-            .toString()
-            .trim()
-            .ifBlank { html }
     }
 
     private fun String.normalizedDeviceType(): String? {
