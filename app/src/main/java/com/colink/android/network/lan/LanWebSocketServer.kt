@@ -241,9 +241,9 @@ class LanWebSocketServer @Inject constructor(
                 val ack = runCatching { json.decodeFromString(ProtocolHelloAckEnvelope.serializer(), text) }.getOrNull()
                 if (ack?.type == "protocol.hello-ack") {
                     if (!ack.payload.compatible) {
-                        state.protocolRejected = true
+                        state.rejectProtocol()
                     } else {
-                        state.helloAckReceived = true
+                        state.markHelloAckReceived()
                     }
                     continue
                 }
@@ -254,20 +254,17 @@ class LanWebSocketServer @Inject constructor(
                 if (hello?.type != "protocol.hello") {
                     continue
                 }
-                state.helloReceived = true
-                state.peerId = hello.payload.deviceId
-                state.peerProtocolVersion = hello.payload.protocolVersion
+                state.receiveHello(hello.payload.deviceId, hello.payload.protocolVersion)
                 val compatibility = checkLanProtocolVersion(hello.payload.protocolVersion)
                 sendHelloAck(session, VersionAckPayload(compatibility.compatible, compatibility.reason, compatibility.message))
-                state.helloAckSent = true
+                state.markHelloAckSent()
                 if (!compatibility.compatible) {
-                    state.protocolRejected = true
+                    state.rejectProtocol()
                     continue
                 }
                 val record = lanTrustStore.get(hello.payload.deviceId)
                 if (record?.let { it.trustedByLan || it.trustedByCloud } == true) {
-                    state.peerPublicKey = record.publicKey
-                    state.peerName = record.name
+                    state.prepareAuthentication(record.publicKey, record.name)
                 }
                 continue
             }
@@ -286,7 +283,7 @@ class LanWebSocketServer @Inject constructor(
             when (envelope.type) {
                 "auth.v1.challenge" -> handleAuthChallenge(session, state, envelope)
                 "auth.v1.response" -> handleAuthResponse(session, state, envelope)
-                "auth.v1.verified" -> state.peerVerified = true
+                "auth.v1.verified" -> state.markPeerVerified()
                 "auth.v1.reject" -> {
                     val rejection = runCatching {
                         json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
@@ -308,7 +305,7 @@ class LanWebSocketServer @Inject constructor(
                 "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope)
                 "business.v1.key-exchange" -> handleBusinessKeyExchange(session, state, envelope)
                 "business.v1.key-exchange-reject" -> {
-                    state.keyExchangeRejected = true
+                    state.rejectKeyExchange()
                     continue
                 }
                 "business.v1.negotiate" -> {
@@ -345,13 +342,13 @@ class LanWebSocketServer @Inject constructor(
             json.decodeFromJsonElement(AuthChallengePayload.serializer(), envelope.payload)
         }.getOrNull() ?: return
         if (state.localNonce == null) {
-            state.localNonce = UUID.randomUUID().toString().replace("-", "")
+            state.ensureLocalNonce { UUID.randomUUID().toString().replace("-", "") }
             session.sendLanMessage(state.identity, peerId, "auth.v1.challenge", AuthChallengePayload(state.localNonce!!), sequence = state.sequence)
         }
         val timestamp = System.currentTimeMillis()
         val signature = handshake.signAuth(state.identity.privateKey, state.identity.deviceId, timestamp, challenge.nonce)
         session.sendLanMessageWithTimestamp(state.identity, peerId, "auth.v1.response", timestamp, AuthResponsePayload(signature), envelope.id, state.sequence)
-        state.sentAuthResponse = true
+        state.markAuthResponseSent()
     }
 
     private suspend fun handleAuthResponse(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
@@ -363,7 +360,7 @@ class LanWebSocketServer @Inject constructor(
         }.getOrNull() ?: return
         val valid = handshake.verifyAuth(publicKey, envelope.from, envelope.timestamp, nonce, response.signature)
         if (valid) {
-            state.localVerified = true
+            state.markLocalVerified()
             session.sendLanMessage(state.identity, peerId, "auth.v1.verified", EmptyPayload, envelope.id, state.sequence)
         } else {
             session.sendLanMessage(state.identity, peerId, "auth.v1.reject", LanRejectPayload(REASON_AUTH_KEY_CHANGED, MESSAGE_AUTH_KEY_CHANGED), envelope.id, state.sequence)
@@ -376,7 +373,7 @@ class LanWebSocketServer @Inject constructor(
             return
         }
         val peerId = state.peerId ?: return
-        state.authAborted = true
+        state.abortAuthentication()
         lanTrustStore.clearLanPairing(peerId)
         listener?.onKeyChanged(peerId, state.peerName ?: peerId)
     }
@@ -386,10 +383,12 @@ class LanWebSocketServer @Inject constructor(
         val request = runCatching {
             json.decodeFromJsonElement(PairingIdentityPayload.serializer(), envelope.payload)
         }.getOrNull() ?: return
-        state.peerPublicKey = request.publicKey
-        state.peerName = request.name
-        state.peerNonce = request.nonce
-        state.localNonce = UUID.randomUUID().toString().replace("-", "")
+        state.receivePairingPeer(
+            request.publicKey,
+            request.name,
+            request.nonce,
+            UUID.randomUUID().toString().replace("-", ""),
+        )
         session.sendLanMessage(
             state.identity,
             peerId,
@@ -405,11 +404,11 @@ class LanWebSocketServer @Inject constructor(
             code = handshake.pairingCode(request.publicKey, state.identity.publicKey, request.nonce, state.localNonce!!),
             reason = "unknown_device",
         )
-        state.pairingRequestId = decision.requestId
+        state.setPairingRequest(decision.requestId)
         if (decision.accepted) {
             session.sendLanMessage(state.identity, peerId, "pairing.v1.confirm", EmptyPayload, envelope.id, state.sequence)
         } else {
-            state.pairingRequestId = null
+            state.setPairingRequest(null)
             session.sendLanMessage(state.identity, peerId, "pairing.v1.reject", LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED), envelope.id, state.sequence)
         }
     }
@@ -420,8 +419,7 @@ class LanWebSocketServer @Inject constructor(
         val name = state.peerName ?: peerId
         lanTrustStore.trust(peerId, name, publicKey)
         state.pairingRequestId?.let { pairingCoordinator.complete(it) }
-        state.pairingRequestId = null
-        state.pairingComplete = true
+        state.completePairing()
     }
 
     private suspend fun sendBusinessNegotiate(session: DefaultWebSocketServerSession, state: ServerPeerState) {
@@ -429,7 +427,7 @@ class LanWebSocketServer @Inject constructor(
         if (state.sentBusinessNegotiate || !state.negotiationReady) {
             return
         }
-        state.sentBusinessNegotiate = true
+        state.markBusinessNegotiateSent()
         session.sendLanMessage(
             state.identity,
             peerId,
@@ -445,7 +443,7 @@ class LanWebSocketServer @Inject constructor(
             return
         }
         val ephemeral = state.localEphemeralKeyPair ?: LanSessionCrypto.generateEphemeralKeyPair().also {
-            state.localEphemeralKeyPair = it
+            state.setLocalEphemeralKeyPair(it)
         }
         val timestamp = System.currentTimeMillis()
         val signature = handshake.signKeyExchange(
@@ -455,7 +453,7 @@ class LanWebSocketServer @Inject constructor(
             ephemeralPublicKey = ephemeral.publicKey,
             timestamp = timestamp,
         )
-        state.sentKeyExchange = true
+        state.markKeyExchangeSent()
         session.sendLanMessageWithTimestamp(
             state.identity,
             peerId,
@@ -483,11 +481,10 @@ class LanWebSocketServer @Inject constructor(
             state.sequence,
         )
         if (compatibility.compatible) {
-            state.peerBusinessVersion = payload?.businessVersion
-            state.peerBusinessVersionReceived = true
+            state.receiveBusinessVersion(payload?.businessVersion)
             sendBusinessVersion(session, state)
         } else {
-            state.businessRejected = true
+            state.rejectBusinessVersion()
         }
     }
 
@@ -496,9 +493,9 @@ class LanWebSocketServer @Inject constructor(
             json.decodeFromJsonElement(BusinessVersionAckPayload.serializer(), envelope.payload)
         }.getOrNull() ?: return
         if (ack.compatible) {
-            state.businessVersionAckReceived = true
+            state.acknowledgeBusinessVersion()
         } else {
-            state.businessRejected = true
+            state.rejectBusinessVersion()
         }
     }
 
@@ -530,7 +527,7 @@ class LanWebSocketServer @Inject constructor(
             rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_SIGNATURE_INVALID, MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID)
             return
         }
-        state.peerEphemeralPublicKey = payload.ephemeralPublicKey
+        state.receivePeerEphemeralKey(payload.ephemeralPublicKey)
         if (!state.sentKeyExchange) {
             sendBusinessKeyExchange(session, state)
         }
@@ -541,7 +538,7 @@ class LanWebSocketServer @Inject constructor(
 
     private suspend fun rejectKeyExchange(session: DefaultWebSocketServerSession, state: ServerPeerState, correlationId: String, reason: String, message: String) {
         val peerId = state.peerId ?: return
-        state.keyExchangeRejected = true
+        state.rejectKeyExchange()
         session.sendLanMessage(
             state.identity,
             peerId,
@@ -557,7 +554,7 @@ class LanWebSocketServer @Inject constructor(
         if (state.sentBusinessVersion || state.businessRejected) {
             return
         }
-        state.sentBusinessVersion = true
+        state.markBusinessVersionSent()
         session.sendLanMessage(
             state.identity,
             peerId,
@@ -838,39 +835,62 @@ class LanWebSocketServer @Inject constructor(
     }
 }
 
-private data class ServerPeerState(
+private class ServerPeerState(
     val identity: DeviceIdentity,
     val expectedDeviceId: String?,
     val allowPairing: Boolean,
     val initiator: Boolean,
     val sequence: LanSequence = LanSequence(),
-    var helloReceived: Boolean = false,
-    var helloAckSent: Boolean = false,
-    var helloAckReceived: Boolean = false,
-    var protocolRejected: Boolean = false,
-    var peerId: String? = expectedDeviceId,
-    var peerProtocolVersion: String? = null,
-    var peerName: String? = null,
-    var peerPublicKey: String? = null,
-    var localNonce: String? = null,
-    var peerNonce: String? = null,
-    var sentAuthResponse: Boolean = false,
-    var localVerified: Boolean = false,
-    var peerVerified: Boolean = false,
-    var sentBusinessNegotiate: Boolean = false,
-    var sentBusinessVersion: Boolean = false,
-    var peerBusinessVersion: String? = null,
-    var peerBusinessVersionReceived: Boolean = false,
-    var businessVersionAckReceived: Boolean = false,
-    var businessRejected: Boolean = false,
-    var sentKeyExchange: Boolean = false,
-    var peerEphemeralPublicKey: String? = null,
-    var keyExchangeRejected: Boolean = false,
-    var localEphemeralKeyPair: com.colink.android.crypto.LanEphemeralKeyPair? = null,
-    var authAborted: Boolean = false,
-    var pairingRequestId: String? = null,
-    var pairingComplete: Boolean = false,
 ) {
+    var helloReceived = false; private set
+    var helloAckSent = false; private set
+    var helloAckReceived = false; private set
+    var protocolRejected = false; private set
+    var peerId: String? = expectedDeviceId; private set
+    var peerProtocolVersion: String? = null; private set
+    var peerName: String? = null; private set
+    var peerPublicKey: String? = null; private set
+    var localNonce: String? = null; private set
+    var peerNonce: String? = null; private set
+    var sentAuthResponse = false; private set
+    var localVerified = false; private set
+    var peerVerified = false; private set
+    var sentBusinessNegotiate = false; private set
+    var sentBusinessVersion = false; private set
+    var peerBusinessVersion: String? = null; private set
+    var peerBusinessVersionReceived = false; private set
+    var businessVersionAckReceived = false; private set
+    var businessRejected = false; private set
+    var sentKeyExchange = false; private set
+    var peerEphemeralPublicKey: String? = null; private set
+    var keyExchangeRejected = false; private set
+    var localEphemeralKeyPair: com.colink.android.crypto.LanEphemeralKeyPair? = null; private set
+    var authAborted = false; private set
+    var pairingRequestId: String? = null; private set
+    var pairingComplete = false; private set
+
+    fun receiveHello(deviceId: String, protocolVersion: String) { peerId = deviceId; peerProtocolVersion = protocolVersion; helloReceived = true }
+    fun markHelloAckSent() { helloAckSent = true }
+    fun markHelloAckReceived() { helloAckReceived = true }
+    fun rejectProtocol() { protocolRejected = true }
+    fun prepareAuthentication(publicKey: String, name: String) { peerPublicKey = publicKey; peerName = name }
+    fun ensureLocalNonce(create: () -> String): String = localNonce ?: create().also { localNonce = it }
+    fun markAuthResponseSent() { sentAuthResponse = true }
+    fun markLocalVerified() { localVerified = true }
+    fun markPeerVerified() { peerVerified = true }
+    fun abortAuthentication() { authAborted = true }
+    fun receivePairingPeer(publicKey: String, name: String, peerNonce: String, localNonce: String) { peerPublicKey = publicKey; peerName = name; this.peerNonce = peerNonce; this.localNonce = localNonce }
+    fun setPairingRequest(requestId: String?) { pairingRequestId = requestId }
+    fun completePairing() { pairingRequestId = null; pairingComplete = true }
+    fun markBusinessNegotiateSent() { sentBusinessNegotiate = true }
+    fun setLocalEphemeralKeyPair(value: com.colink.android.crypto.LanEphemeralKeyPair) { localEphemeralKeyPair = value }
+    fun markKeyExchangeSent() { sentKeyExchange = true }
+    fun receiveBusinessVersion(version: String?) { peerBusinessVersion = version; peerBusinessVersionReceived = true }
+    fun acknowledgeBusinessVersion() { businessVersionAckReceived = true }
+    fun rejectBusinessVersion() { businessRejected = true }
+    fun receivePeerEphemeralKey(value: String) { peerEphemeralPublicKey = value }
+    fun rejectKeyExchange() { keyExchangeRejected = true }
+    fun markBusinessVersionSent() { sentBusinessVersion = true }
     val businessVersionReady: Boolean
         get() = peerBusinessVersionReceived && businessVersionAckReceived && !businessRejected
 
