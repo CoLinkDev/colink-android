@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
 
@@ -102,10 +102,6 @@ kotlin {
     jvmToolchain(21)
 }
 
-kapt {
-    correctErrorTypes = true
-}
-
 val syncCastBoardAssets by tasks.registering {
     inputs.dir(castBoardSourceDir).optional()
     outputs.dir(generatedAssetsDir)
@@ -165,8 +161,8 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
 
-    kapt(libs.androidx.room.compiler)
-    kapt(libs.hilt.compiler)
+    ksp(libs.androidx.room.compiler)
+    ksp(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
