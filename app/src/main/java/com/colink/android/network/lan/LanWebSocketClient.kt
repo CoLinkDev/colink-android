@@ -795,50 +795,94 @@ private class ClientPeerState(
     val initiator: Boolean,
     val sequence: LanSequence = LanSequence(),
 ) {
-    var helloReceived = false; private set
-    var helloAckSent = false; private set
-    var helloAckReceived = false; private set
-    var peerId: String? = null; private set
-    var peerProtocolVersion: String? = null; private set
-    var peerName: String? = null; private set
-    var peerPublicKey: String? = null; private set
-    var localNonce: String? = null; private set
-    var peerNonce: String? = null; private set
-    var sentAuthResponse = false; private set
-    var localVerified = false; private set
-    var peerVerified = false; private set
-    var sentBusinessNegotiate = false; private set
-    var sentBusinessVersion = false; private set
-    var peerBusinessVersion: String? = null; private set
-    var peerBusinessVersionReceived = false; private set
-    var businessVersionAckReceived = false; private set
-    var businessRejected = false; private set
-    var sentKeyExchange = false; private set
-    var peerEphemeralPublicKey: String? = null; private set
-    var keyExchangeRejected = false; private set
-    var localEphemeralKeyPair: com.colink.android.crypto.LanEphemeralKeyPair? = null; private set
-    var crypto: LanSessionCrypto? = null; private set
-    var authAborted = false; private set
-    var pairingRequestId: String? = null; private set
-    var pairingComplete = false; private set
+    var helloReceived = false
+        private set
+    var helloAckSent = false
+        private set
+    var helloAckReceived = false
+        private set
+    var peerId: String? = null
+        private set
+    var peerProtocolVersion: String? = null
+        private set
+    var peerName: String? = null
+        private set
+    var peerPublicKey: String? = null
+        private set
+    var localNonce: String? = null
+        private set
+    var peerNonce: String? = null
+        private set
+    var sentAuthResponse = false
+        private set
+    var localVerified = false
+        private set
+    var peerVerified = false
+        private set
+    var sentBusinessNegotiate = false
+        private set
+    var sentBusinessVersion = false
+        private set
+    var peerBusinessVersion: String? = null
+        private set
+    var peerBusinessVersionReceived = false
+        private set
+    var businessVersionAckReceived = false
+        private set
+    var businessRejected = false
+        private set
+    var sentKeyExchange = false
+        private set
+    var peerEphemeralPublicKey: String? = null
+        private set
+    var keyExchangeRejected = false
+        private set
+    var localEphemeralKeyPair: com.colink.android.crypto.LanEphemeralKeyPair? = null
+        private set
+    var crypto: LanSessionCrypto? = null
+        private set
+    var authAborted = false
+        private set
+    var pairingRequestId: String? = null
+        private set
+    var pairingComplete = false
+        private set
 
-    fun receiveHello(deviceId: String, protocolVersion: String) { peerId = deviceId; peerProtocolVersion = protocolVersion; helloReceived = true }
+    fun receiveHello(deviceId: String, protocolVersion: String) {
+        peerId = deviceId
+        peerProtocolVersion = protocolVersion
+        helloReceived = true
+    }
     fun markHelloAckSent() { helloAckSent = true }
     fun markHelloAckReceived() { helloAckReceived = true }
-    fun prepareAuthentication(publicKey: String, name: String, nonce: String) { peerPublicKey = publicKey; peerName = name; localNonce = nonce }
+    fun prepareAuthentication(publicKey: String, name: String, nonce: String) {
+        peerPublicKey = publicKey
+        peerName = name
+        localNonce = nonce
+    }
     fun ensureLocalNonce(create: () -> String): String = localNonce ?: create().also { localNonce = it }
     fun markAuthResponseSent() { sentAuthResponse = true }
     fun markLocalVerified() { localVerified = true }
     fun markPeerVerified() { peerVerified = true }
     fun abortAuthentication() { authAborted = true }
     fun startPairing(nonce: String) { localNonce = nonce }
-    fun receivePairingPeer(publicKey: String, name: String, nonce: String) { peerPublicKey = publicKey; peerName = name; peerNonce = nonce }
+    fun receivePairingPeer(publicKey: String, name: String, nonce: String) {
+        peerPublicKey = publicKey
+        peerName = name
+        peerNonce = nonce
+    }
     fun setPairingRequest(requestId: String?) { pairingRequestId = requestId }
-    fun completePairing() { pairingRequestId = null; pairingComplete = true }
+    fun completePairing() {
+        pairingRequestId = null
+        pairingComplete = true
+    }
     fun markBusinessNegotiateSent() { sentBusinessNegotiate = true }
     fun setLocalEphemeralKeyPair(value: com.colink.android.crypto.LanEphemeralKeyPair) { localEphemeralKeyPair = value }
     fun markKeyExchangeSent() { sentKeyExchange = true }
-    fun receiveBusinessVersion(version: String?) { peerBusinessVersion = version; peerBusinessVersionReceived = true }
+    fun receiveBusinessVersion(version: String?) {
+        peerBusinessVersion = version
+        peerBusinessVersionReceived = true
+    }
     fun acknowledgeBusinessVersion() { businessVersionAckReceived = true }
     fun rejectBusinessVersion() { businessRejected = true }
     fun receivePeerEphemeralKey(value: String) { peerEphemeralPublicKey = value }
