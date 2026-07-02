@@ -513,12 +513,21 @@ class ConnectionManager @Inject constructor(
         lanWebSocketServer.hasPeer(deviceId) || lanWebSocketClient.hasPeer(deviceId)
 
     private fun supportsPeerSysInfo(deviceId: String): Boolean {
-        val peerVersion = lanWebSocketServer.peerBusinessVersion(deviceId)
-            ?: lanWebSocketClient.peerBusinessVersion(deviceId)
-            ?: cloudBusinessVersions[deviceId]
+        val peerVersion = peerBusinessVersion(deviceId)
             ?: return false
         return supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 1)
     }
+
+    private fun fileChecksumAllowedForPeer(checksum: String, deviceId: String): Boolean {
+        val algorithm = checksum.substringBefore(':', missingDelimiterValue = "").lowercase()
+        return algorithm != "none" || peerBusinessVersion(deviceId)
+            ?.let { supportsBusinessProtocolAtLeast(it, major = 1, minor = 3) } == true
+    }
+
+    private fun peerBusinessVersion(deviceId: String): String? =
+        lanWebSocketServer.peerBusinessVersion(deviceId)
+            ?: lanWebSocketClient.peerBusinessVersion(deviceId)
+            ?: cloudBusinessVersions[deviceId]
 
     private suspend fun startOnDemandLanPeerConnection(deviceId: String): Result<Unit> =
         runCatching {
@@ -711,6 +720,27 @@ class ConnectionManager @Inject constructor(
         val payload = runCatching {
             json.decodeFromJsonElement(FileOfferPayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        val checksumAccepted = runCatching {
+            FileChecksumVerifier.from(payload.checksum)
+            fileChecksumAllowedForPeer(payload.checksum, fromDeviceId)
+        }.getOrDefault(false)
+        if (!checksumAccepted) {
+            sendBusinessMessage(
+                targetDeviceId = fromDeviceId,
+                business = BusinessEnvelope(
+                    type = FILE_REJECT_TYPE,
+                    payload = json.encodeToJsonElement(
+                        FileRejectPayload(
+                            sessionId = payload.sessionId,
+                            reason = REASON_TRANSFER_GENERIC,
+                            message = "Unsupported file checksum algorithm",
+                        ),
+                    ),
+                ),
+                correlationId = envelopeId,
+            )
+            return
+        }
         val now = System.currentTimeMillis()
         fileTransferRepository.save(
             FileTransfer(

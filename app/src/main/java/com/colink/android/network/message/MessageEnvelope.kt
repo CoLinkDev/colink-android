@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.2.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.3.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"

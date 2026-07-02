@@ -22,6 +22,9 @@ class FileChecksumVerifier private constructor(
     companion object {
         fun from(checksum: String): FileChecksumVerifier {
             val (algorithm, digest) = checksum.splitChecksum()
+            if (algorithm == "none") {
+                require(digest == "none") { "none checksum must use none:none" }
+            }
             return FileChecksumVerifier(digest, FileChecksumHasher.create(algorithm))
         }
     }
@@ -67,9 +70,18 @@ private interface FileChecksumHasher {
             when (algorithm.lowercase()) {
                 "sha256" -> Sha256FileChecksumHasher()
                 "blake3" -> Blake3FileChecksumHasher()
+                "none" -> NoopFileChecksumHasher()
                 else -> error("unsupported checksum algorithm: $algorithm")
             }
     }
+}
+
+private class NoopFileChecksumHasher : FileChecksumHasher {
+    override val algorithm: String = "none"
+
+    override fun update(bytes: ByteArray, length: Int) = Unit
+
+    override fun digestHex(): String = "none"
 }
 
 private class Sha256FileChecksumHasher : FileChecksumHasher {
