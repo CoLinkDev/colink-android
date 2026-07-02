@@ -36,6 +36,13 @@ internal fun supportsLanKeyExchange(peerVersion: String): Boolean =
         }
     } == true
 
+internal fun supportsLanKeyExchangeNonce(peerVersion: String): Boolean =
+    parseSemver(LAN_PROTOCOL_VERSION)?.let { local ->
+        parseSemver(peerVersion)?.let { peer ->
+            local.major == peer.major && local >= Semver(1, 2, 0) && peer >= Semver(1, 2, 0)
+        }
+    } == true
+
 internal fun supportsBusinessProtocolAtLeast(peerVersion: String, major: Int, minor: Int, patch: Int = 0): Boolean =
     parseSemver(BUSINESS_PROTOCOL_VERSION)?.let { local ->
         parseSemver(peerVersion)?.let { peer ->

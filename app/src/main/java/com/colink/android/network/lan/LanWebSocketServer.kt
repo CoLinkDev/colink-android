@@ -9,6 +9,7 @@ import com.colink.android.network.message.AuthChallengePayload
 import com.colink.android.network.message.AuthResponsePayload
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.BusinessEnvelope
+import com.colink.android.network.message.BusinessKeyExchangeNoncePayload
 import com.colink.android.network.message.BusinessKeyExchangePayload
 import com.colink.android.network.message.BusinessNegotiatePayload
 import com.colink.android.network.message.BusinessVersionAckPayload
@@ -30,6 +31,7 @@ import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.message.checkLanProtocolVersion
 import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
+import com.colink.android.network.message.supportsLanKeyExchangeNonce
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.util.CoLinkLog
 import io.ktor.http.ContentType
@@ -52,6 +54,8 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import java.io.InterruptedIOException
+import java.security.SecureRandom
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -303,6 +307,7 @@ class LanWebSocketServer @Inject constructor(
                 }
                 "business.v1.version" -> handleBusinessVersion(session, state, envelope)
                 "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope)
+                "business.v1.key-exchange-nonce" -> handleBusinessKeyExchangeNonce(session, state, envelope)
                 "business.v1.key-exchange" -> handleBusinessKeyExchange(session, state, envelope)
                 "business.v1.key-exchange-reject" -> {
                     state.rejectKeyExchange()
@@ -321,7 +326,11 @@ class LanWebSocketServer @Inject constructor(
             if (!state.authAborted && state.isSecurityReady()) {
                 sendBusinessVersion(session, state)
                 if (state.businessVersionReady && state.requiresKeyExchange) {
-                    sendBusinessKeyExchange(session, state)
+                    if (state.requiresKeyExchangeNonce) {
+                        sendBusinessKeyExchangeNonce(session, state)
+                    } else {
+                        sendBusinessKeyExchange(session, state)
+                    }
                 }
                 if (state.negotiationReady) {
                     sendBusinessNegotiate(session, state)
@@ -439,20 +448,31 @@ class LanWebSocketServer @Inject constructor(
 
     private suspend fun sendBusinessKeyExchange(session: DefaultWebSocketServerSession, state: ServerPeerState) {
         val peerId = state.peerId ?: return
-        if (state.sentKeyExchange || state.keyExchangeRejected) {
+        if (state.sentKeyExchange || state.keyExchangeRejected || (state.requiresKeyExchangeNonce && !state.keyExchangeNonceReady)) {
             return
         }
         val ephemeral = state.localEphemeralKeyPair ?: LanSessionCrypto.generateEphemeralKeyPair().also {
             state.setLocalEphemeralKeyPair(it)
         }
         val timestamp = System.currentTimeMillis()
-        val signature = handshake.signKeyExchange(
-            privateKey = state.identity.privateKey,
-            from = state.identity.deviceId,
-            to = peerId,
-            ephemeralPublicKey = ephemeral.publicKey,
-            timestamp = timestamp,
-        )
+        val signature = if (state.requiresKeyExchangeNonce) {
+            handshake.signKeyExchangeV2(
+                privateKey = state.identity.privateKey,
+                from = state.identity.deviceId,
+                to = peerId,
+                ephemeralPublicKey = ephemeral.publicKey,
+                localNonce = state.localKeyExchangeNonce ?: return,
+                peerNonce = state.peerKeyExchangeNonce ?: return,
+            )
+        } else {
+            handshake.signKeyExchange(
+                privateKey = state.identity.privateKey,
+                from = state.identity.deviceId,
+                to = peerId,
+                ephemeralPublicKey = ephemeral.publicKey,
+                timestamp = timestamp,
+            )
+        }
         state.markKeyExchangeSent()
         session.sendLanMessageWithTimestamp(
             state.identity,
@@ -460,6 +480,22 @@ class LanWebSocketServer @Inject constructor(
             "business.v1.key-exchange",
             timestamp,
             BusinessKeyExchangePayload(ephemeral.publicKey, signature),
+            sequence = state.sequence,
+        )
+    }
+
+    private suspend fun sendBusinessKeyExchangeNonce(session: DefaultWebSocketServerSession, state: ServerPeerState) {
+        val peerId = state.peerId ?: return
+        if (state.sentKeyExchangeNonce || state.keyExchangeRejected) {
+            return
+        }
+        val nonce = state.ensureLocalKeyExchangeNonce()
+        state.markKeyExchangeNonceSent()
+        session.sendLanMessage(
+            state.identity,
+            peerId,
+            "business.v1.key-exchange-nonce",
+            BusinessKeyExchangeNoncePayload(nonce),
             sequence = state.sequence,
         )
     }
@@ -504,6 +540,9 @@ class LanWebSocketServer @Inject constructor(
         if (!state.requiresKeyExchange || !state.businessVersionReady) {
             return
         }
+        if (state.requiresKeyExchangeNonce && !state.keyExchangeNonceReady) {
+            return
+        }
         val publicKey = state.peerPublicKey ?: return
         val payload = runCatching {
             json.decodeFromJsonElement(BusinessKeyExchangePayload.serializer(), envelope.payload)
@@ -511,18 +550,30 @@ class LanWebSocketServer @Inject constructor(
             rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_GENERIC, MESSAGE_KEY_EXCHANGE_GENERIC)
             return
         }
-        if (kotlin.math.abs(System.currentTimeMillis() - envelope.timestamp) > KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS) {
+        if (!state.requiresKeyExchangeNonce && kotlin.math.abs(System.currentTimeMillis() - envelope.timestamp) > KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS) {
             rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED, MESSAGE_KEY_EXCHANGE_TIMESTAMP_EXPIRED)
             return
         }
-        val valid = handshake.verifyKeyExchange(
-            publicKey = publicKey,
-            from = envelope.from,
-            to = envelope.to,
-            ephemeralPublicKey = payload.ephemeralPublicKey,
-            timestamp = envelope.timestamp,
-            signature = payload.signature,
-        )
+        val valid = if (state.requiresKeyExchangeNonce) {
+            handshake.verifyKeyExchangeV2(
+                publicKey = publicKey,
+                from = envelope.from,
+                to = envelope.to,
+                ephemeralPublicKey = payload.ephemeralPublicKey,
+                localNonce = state.peerKeyExchangeNonce ?: return,
+                peerNonce = state.localKeyExchangeNonce ?: return,
+                signature = payload.signature,
+            )
+        } else {
+            handshake.verifyKeyExchange(
+                publicKey = publicKey,
+                from = envelope.from,
+                to = envelope.to,
+                ephemeralPublicKey = payload.ephemeralPublicKey,
+                timestamp = envelope.timestamp,
+                signature = payload.signature,
+            )
+        }
         if (!valid) {
             rejectKeyExchange(session, state, envelope.id, REASON_KEY_EXCHANGE_SIGNATURE_INVALID, MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID)
             return
@@ -533,6 +584,25 @@ class LanWebSocketServer @Inject constructor(
         }
         if (state.negotiationReady) {
             sendBusinessNegotiate(session, state)
+        }
+    }
+
+    private suspend fun handleBusinessKeyExchangeNonce(session: DefaultWebSocketServerSession, state: ServerPeerState, envelope: LanEnvelope) {
+        if (!state.requiresKeyExchangeNonce) {
+            return
+        }
+        val payload = runCatching {
+            json.decodeFromJsonElement(BusinessKeyExchangeNoncePayload.serializer(), envelope.payload)
+        }.getOrNull() ?: return
+        state.receivePeerKeyExchangeNonce(payload.nonce)
+        if (!state.businessVersionReady) {
+            return
+        }
+        if (!state.sentKeyExchangeNonce) {
+            sendBusinessKeyExchangeNonce(session, state)
+        }
+        if (state.keyExchangeNonceReady) {
+            sendBusinessKeyExchange(session, state)
         }
     }
 
@@ -882,6 +952,12 @@ private class ServerPeerState(
         private set
     var sentKeyExchange = false
         private set
+    var sentKeyExchangeNonce = false
+        private set
+    var localKeyExchangeNonce: String? = null
+        private set
+    var peerKeyExchangeNonce: String? = null
+        private set
     var peerEphemeralPublicKey: String? = null
         private set
     var keyExchangeRejected = false
@@ -930,6 +1006,9 @@ private class ServerPeerState(
     }
     fun markBusinessNegotiateSent() { sentBusinessNegotiate = true }
     fun setLocalEphemeralKeyPair(value: com.colink.android.crypto.LanEphemeralKeyPair) { localEphemeralKeyPair = value }
+    fun ensureLocalKeyExchangeNonce(): String = localKeyExchangeNonce ?: randomKeyExchangeNonce().also { localKeyExchangeNonce = it }
+    fun markKeyExchangeNonceSent() { sentKeyExchangeNonce = true }
+    fun receivePeerKeyExchangeNonce(value: String) { peerKeyExchangeNonce = value }
     fun markKeyExchangeSent() { sentKeyExchange = true }
     fun receiveBusinessVersion(version: String?) {
         peerBusinessVersion = version
@@ -946,14 +1025,26 @@ private class ServerPeerState(
     val requiresKeyExchange: Boolean
         get() = peerProtocolVersion?.let(::supportsLanKeyExchange) == true
 
+    val requiresKeyExchangeNonce: Boolean
+        get() = peerProtocolVersion?.let(::supportsLanKeyExchangeNonce) == true
+
+    val keyExchangeNonceReady: Boolean
+        get() = !requiresKeyExchangeNonce || (sentKeyExchangeNonce && peerKeyExchangeNonce != null)
+
     val negotiatedProtocolVersion: String
         get() = negotiatedLanProtocolVersion(peerProtocolVersion ?: LAN_PROTOCOL_VERSION)
 
     val negotiationReady: Boolean
-        get() = businessVersionReady && (!requiresKeyExchange || (sentKeyExchange && peerEphemeralPublicKey != null && !keyExchangeRejected))
+        get() = businessVersionReady && (!requiresKeyExchange || (keyExchangeNonceReady && sentKeyExchange && peerEphemeralPublicKey != null && !keyExchangeRejected))
 
     fun isSecurityReady(): Boolean =
         pairingComplete || (localVerified && peerVerified && sentAuthResponse)
+}
+
+private fun randomKeyExchangeNonce(): String {
+    val bytes = ByteArray(32)
+    SecureRandom().nextBytes(bytes)
+    return Base64.getEncoder().encodeToString(bytes)
 }
 
 private data class ReadyPeer(

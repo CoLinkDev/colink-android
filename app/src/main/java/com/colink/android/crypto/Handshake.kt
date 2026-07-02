@@ -25,6 +25,30 @@ class Handshake @Inject constructor(
             signature = signature,
         )
 
+    fun signKeyExchangeV2(
+        privateKey: String,
+        from: String,
+        to: String,
+        ephemeralPublicKey: String,
+        localNonce: String,
+        peerNonce: String,
+    ): String = keyManager.sign(privateKey, keyExchangeV2Bytes(from, to, ephemeralPublicKey, localNonce, peerNonce))
+
+    fun verifyKeyExchangeV2(
+        publicKey: String,
+        from: String,
+        to: String,
+        ephemeralPublicKey: String,
+        localNonce: String,
+        peerNonce: String,
+        signature: String,
+    ): Boolean =
+        keyManager.verify(
+            publicKey = publicKey,
+            payload = keyExchangeV2Bytes(from, to, ephemeralPublicKey, localNonce, peerNonce),
+            signature = signature,
+        )
+
     fun pairingCode(
         publicKeyA: String,
         publicKeyB: String,
@@ -37,5 +61,8 @@ class Handshake @Inject constructor(
 
     private fun keyExchangeBytes(from: String, to: String, ephemeralPublicKey: String, timestamp: Long): ByteArray =
         "domain=colink-lan-key-exchange\nfrom=$from\nto=$to\nephemeralPublicKey=$ephemeralPublicKey\ntimestamp=$timestamp".toByteArray()
+
+    private fun keyExchangeV2Bytes(from: String, to: String, ephemeralPublicKey: String, localNonce: String, peerNonce: String): ByteArray =
+        "domain=colink-lan-key-exchange-v2\nfrom=$from\nto=$to\nephemeralPublicKey=$ephemeralPublicKey\nlocalNonce=$localNonce\npeerNonce=$peerNonce".toByteArray()
 
 }
