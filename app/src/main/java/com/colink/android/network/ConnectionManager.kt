@@ -967,7 +967,7 @@ class ConnectionManager @Inject constructor(
                             if (transfer.status == "completed" || transfer.status == "cancelled") {
                                 return@launch
                             }
-                            if (!opened || transfer.status == "sending") {
+                            if (!opened || (transfer.status == "sending" && !outgoing.finishSent)) {
                                 cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "LAN data connection failed: $reason")
                             }
                         }
@@ -1021,7 +1021,8 @@ class ConnectionManager @Inject constructor(
                 index += 1u
             }
         } ?: error("file is unavailable")
-        connection.send(FileDataFrame.finish(index))
+        check(connection.send(FileDataFrame.finish(index))) { "LAN transfer finish failed" }
+        outgoing.finishSent = true
     }
 
     private suspend fun sendRelayFileData(sessionId: String, outgoing: OutgoingTransferState) {
@@ -2524,6 +2525,7 @@ private data class OutgoingTransferState(
     val chunkSize: Int,
     @Volatile var acknowledgedChunks: Long = 0,
     @Volatile var transferConnection: TransferConnection? = null,
+    @Volatile var finishSent: Boolean = false,
 )
 
 private data class PendingLanSend(

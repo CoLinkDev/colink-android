@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">전송이 거절되었습니다</string>
     <string name="toast_select_device_and_file">기기와 파일을 선택하세요</string>
     <string name="toast_file_offer_sent">파일 전송 요청이 전송되었습니다</string>
+    <string name="toast_open_file_failed">이 파일을 열 수 있는 앱이 없습니다</string>
     <string name="err_transfer_user_rejected">수신자가 전송을 거절했습니다</string>
     <string name="err_transfer_user_cancelled">전송이 취소되었습니다</string>
     <string name="err_transfer_checksum_mismatch">체크섬 불일치</string>

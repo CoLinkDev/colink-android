@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">已拒绝文件传输</string>
     <string name="toast_select_device_and_file">请选择设备和文件</string>
     <string name="toast_file_offer_sent">文件发送请求已发送</string>
+    <string name="toast_open_file_failed">没有应用可以打开此文件</string>
     <string name="err_transfer_user_rejected">接收方拒绝了文件传输</string>
     <string name="err_transfer_user_cancelled">传输已取消</string>
     <string name="err_transfer_checksum_mismatch">文件校验和不匹配，传输失败</string>

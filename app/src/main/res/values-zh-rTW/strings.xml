@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">已拒絕檔案傳輸</string>
     <string name="toast_select_device_and_file">請選擇裝置和檔案</string>
     <string name="toast_file_offer_sent">檔案傳送請求已傳送</string>
+    <string name="toast_open_file_failed">沒有應用程式可以開啟此檔案</string>
     <string name="err_transfer_user_rejected">接收方拒絕了檔案傳輸</string>
     <string name="err_transfer_user_cancelled">傳輸已取消</string>
     <string name="err_transfer_checksum_mismatch">檔案總和檢查碼不符，傳輸失敗</string>

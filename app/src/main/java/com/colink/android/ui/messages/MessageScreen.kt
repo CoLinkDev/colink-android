@@ -1,5 +1,6 @@
 package com.colink.android.ui.messages
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -81,6 +82,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.Device
@@ -96,6 +98,7 @@ import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.transfers.TransfersViewModel
 import android.widget.Toast
+import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
@@ -324,6 +327,7 @@ fun MessageScreen(
                     },
                     onAcceptTransfer = transferViewModel::accept,
                     onRejectTransfer = transferViewModel::reject,
+                    onOpenTransfer = { transfer -> openTransferFile(context, transfer) },
                     modifier = Modifier.padding(
                         top = innerPadding.calculateTopPadding(),
                     ),
@@ -502,6 +506,7 @@ private fun ConversationScreen(
     onPickFile: () -> Unit,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
+    onOpenTransfer: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sendEnabled = device.online || device.lanAvailable
@@ -523,6 +528,7 @@ private fun ConversationScreen(
             timelineItems = timelineItems,
             onAcceptTransfer = onAcceptTransfer,
             onRejectTransfer = onRejectTransfer,
+            onOpenTransfer = onOpenTransfer,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -610,6 +616,7 @@ private fun ConversationThread(
     timelineItems: List<TimelineItem>,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
+    onOpenTransfer: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -648,6 +655,7 @@ private fun ConversationThread(
                             transfer = item.transfer,
                             onAccept = { onAcceptTransfer(item.transfer.sessionId) },
                             onReject = { onRejectTransfer(item.transfer.sessionId) },
+                            onOpen = { onOpenTransfer(item.transfer) },
                         )
                     }
                 }
@@ -723,9 +731,11 @@ private fun TransferBubble(
     transfer: FileTransfer,
     onAccept: () -> Unit,
     onReject: () -> Unit,
+    onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val outgoing = transfer.direction == FileTransferDirection.Outgoing
+    val canOpen = transfer.status == "completed" && !transfer.localUri.isNullOrBlank()
     val timeText = remember(transfer.updatedAt) {
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(transfer.updatedAt))
     }
@@ -754,7 +764,9 @@ private fun TransferBubble(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-            modifier = Modifier.widthIn(min = 200.dp, max = 320.dp),
+            modifier = Modifier
+                .widthIn(min = 200.dp, max = 320.dp)
+                .then(if (canOpen) Modifier.clickable(onClick = onOpen) else Modifier),
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -902,6 +914,37 @@ private fun TransferBubble(
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
         )
+    }
+}
+
+private fun openTransferFile(context: Context, transfer: FileTransfer) {
+    val rawUri = transfer.localUri?.takeIf { it.isNotBlank() } ?: return
+    val parsed = Uri.parse(rawUri)
+    val uri = when (parsed.scheme) {
+        "content" -> parsed
+        "file" -> FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            File(parsed.path.orEmpty()),
+        )
+        else -> FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            File(rawUri),
+        )
+    }
+    val mimeType = if (uri.scheme == "content") {
+        context.contentResolver.getType(uri)
+    } else {
+        null
+    } ?: "*/*"
+    val intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(uri, mimeType)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    runCatching {
+        context.startActivity(Intent.createChooser(intent, transfer.fileName.ifBlank { context.getString(R.string.unnamed_file) }))
+    }.onFailure {
+        Toast.makeText(context, R.string.toast_open_file_failed, Toast.LENGTH_SHORT).show()
     }
 }
 

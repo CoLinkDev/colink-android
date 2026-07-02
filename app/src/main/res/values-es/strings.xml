@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">Transferencia rechazada</string>
     <string name="toast_select_device_and_file">Seleccione un dispositivo y un archivo</string>
     <string name="toast_file_offer_sent">Oferta de archivo enviada</string>
+    <string name="toast_open_file_failed">Ninguna app puede abrir este archivo</string>
     <string name="err_transfer_user_rejected">El destinatario rechazó la transferencia</string>
     <string name="err_transfer_user_cancelled">Transferencia cancelada</string>
     <string name="err_transfer_checksum_mismatch">Error de suma de verificación</string>

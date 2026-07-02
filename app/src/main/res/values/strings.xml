@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">Transfer rejected</string>
     <string name="toast_select_device_and_file">Select a device and file</string>
     <string name="toast_file_offer_sent">File offer sent</string>
+    <string name="toast_open_file_failed">No app can open this file</string>
     <string name="err_transfer_user_rejected">Recipient rejected the transfer</string>
     <string name="err_transfer_user_cancelled">Transfer cancelled</string>
     <string name="err_transfer_checksum_mismatch">Checksum mismatch</string>

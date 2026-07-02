@@ -184,6 +184,7 @@
     <string name="toast_transfer_rejected">転送が拒否されました</string>
     <string name="toast_select_device_and_file">デバイスとファイルを選択してください</string>
     <string name="toast_file_offer_sent">ファイルの送信リクエストを送信しました</string>
+    <string name="toast_open_file_failed">このファイルを開けるアプリがありません</string>
     <string name="err_transfer_user_rejected">受信者が転送を拒否しました</string>
     <string name="err_transfer_user_cancelled">転送がキャンセルされました</string>
     <string name="err_transfer_checksum_mismatch">チェックサムが一致しません</string>
