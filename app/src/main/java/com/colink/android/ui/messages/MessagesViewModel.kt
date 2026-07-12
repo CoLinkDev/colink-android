@@ -85,11 +85,6 @@ class MessagesViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val availableTargetDevices: StateFlow<List<Device>> = targetDevices
-        .map { list -> list.filter { it.online || it.lanAvailable } }
-        .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     val selectedDevice: StateFlow<Device?> = combine(targetDevices, _selectedDeviceId) { devs, id ->
         devs.firstOrNull { it.deviceId == id }
     }

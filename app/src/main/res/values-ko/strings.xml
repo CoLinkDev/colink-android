@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">디바이스 동기화를 위해 계정에 로그인하세요</string>
     <string name="cloud_account_title">클라우드 계정</string>
-    <string name="cloud_account_connected">연결됨</string>
+    <string name="cloud_account_login_status">로그인 상태</string>
+    <string name="cloud_account_logged_in">로그인됨</string>
+    <string name="cloud_account_not_logged_in">로그인되지 않음</string>
+    <string name="cloud_account_connection_status">연결 상태</string>
     <string name="cloud_account_login_tip">로그인하여 디바이스 동기화</string>
-    <string name="cloud_account_connected_body">이 디바이스는 클라우드 계정 %s에 연결되어 있습니다.</string>
+    <string name="cloud_account_connected_body">이 디바이스는 클라우드 계정 %1$s에 로그인되어 있습니다(%2$s, %3$s).</string>
     <string name="logout_btn">로그아웃</string>
     <string name="email_or_username_label">이메일 또는 사용자 이름</string>
     <string name="password_label">비밀번호</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">비밀번호를 입력하세요</string>
     <string name="login_btn">로그인</string>
     <string name="working_status">연결 중...</string>
-    <string name="lang_system">시스템 기본값</string>
     <string name="send_btn">보내기</string>
     <string name="message_sent">메시지를 보냈습니다</string>
     <string name="settings_saved">설정을 저장했습니다</string>

@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Verbinden Sie Ihr Konto, um Geräte zu synchronisieren</string>
     <string name="cloud_account_title">Cloud-Konto</string>
-    <string name="cloud_account_connected">Verbunden</string>
+    <string name="cloud_account_login_status">Anmeldestatus</string>
+    <string name="cloud_account_logged_in">Angemeldet</string>
+    <string name="cloud_account_not_logged_in">Nicht angemeldet</string>
+    <string name="cloud_account_connection_status">Verbindungsstatus</string>
     <string name="cloud_account_login_tip">Anmelden, um Geräte zu synchronisieren</string>
-    <string name="cloud_account_connected_body">Dieses Gerät ist mit Ihrem Cloud-Konto %s verbunden.</string>
+    <string name="cloud_account_connected_body">Dieses Gerät ist beim Cloud-Konto %1$s angemeldet (%2$s, %3$s).</string>
     <string name="logout_btn">Abmelden</string>
     <string name="email_or_username_label">E-Mail oder Benutzername</string>
     <string name="password_label">Passwort</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">Passwort ist erforderlich</string>
     <string name="login_btn">Anmelden</string>
     <string name="working_status">Verbinden...</string>
-    <string name="lang_system">Systemstandard</string>
     <string name="send_btn">Senden</string>
     <string name="message_sent">Nachricht gesendet</string>
     <string name="settings_saved">Einstellungen gespeichert</string>

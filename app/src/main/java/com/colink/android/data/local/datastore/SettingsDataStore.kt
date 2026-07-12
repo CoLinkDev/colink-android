@@ -53,6 +53,7 @@ class SettingsDataStore @Inject constructor(
                     refreshToken = refreshToken,
                     accessTokenExpiresAt = expiresAt,
                     accessTokenRefreshAt = refreshAt ?: (expiresAt - 60_000L),
+                    username = preferences[SESSION_USERNAME],
                     email = email,
                 )
             }
@@ -116,6 +117,7 @@ class SettingsDataStore @Inject constructor(
             preferences[SESSION_REFRESH_TOKEN] = session.refreshToken
             preferences[SESSION_ACCESS_EXPIRES_AT] = session.accessTokenExpiresAt
             preferences[SESSION_ACCESS_REFRESH_AT] = session.accessTokenRefreshAt
+            session.username?.let { preferences[SESSION_USERNAME] = it } ?: preferences.remove(SESSION_USERNAME)
             session.email?.let { preferences[SESSION_EMAIL] = it } ?: preferences.remove(SESSION_EMAIL)
         }
     }
@@ -127,6 +129,7 @@ class SettingsDataStore @Inject constructor(
             preferences.remove(SESSION_REFRESH_TOKEN)
             preferences.remove(SESSION_ACCESS_EXPIRES_AT)
             preferences.remove(SESSION_ACCESS_REFRESH_AT)
+            preferences.remove(SESSION_USERNAME)
             preferences.remove(SESSION_EMAIL)
         }
     }
@@ -174,6 +177,7 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_ACCESS_TOKEN = stringPreferencesKey("session_access_token")
         private val SESSION_REFRESH_TOKEN = stringPreferencesKey("session_refresh_token")
         private val SESSION_USER_ID = stringPreferencesKey("session_user_id")
+        private val SESSION_USERNAME = stringPreferencesKey("session_username")
         private val SESSION_EMAIL = stringPreferencesKey("session_email")
         private val LANGUAGE = stringPreferencesKey("language")
         private val ENABLE_CLIPBOARD_SYNC = booleanPreferencesKey("enable_clipboard_sync")

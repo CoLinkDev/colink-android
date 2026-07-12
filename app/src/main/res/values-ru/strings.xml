@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Войдите в аккаунт для синхронизации</string>
     <string name="cloud_account_title">Облачный аккаунт</string>
-    <string name="cloud_account_connected">Подключено</string>
+    <string name="cloud_account_login_status">Статус входа</string>
+    <string name="cloud_account_logged_in">Выполнен вход</string>
+    <string name="cloud_account_not_logged_in">Вход не выполнен</string>
+    <string name="cloud_account_connection_status">Статус подключения</string>
     <string name="cloud_account_login_tip">Войдите, чтобы синхронизировать устройства</string>
-    <string name="cloud_account_connected_body">Это устройство подключено к вашему облачному аккаунту %s.</string>
+    <string name="cloud_account_connected_body">На этом устройстве выполнен вход в облачный аккаунт %1$s (%2$s, %3$s).</string>
     <string name="logout_btn">Выйти</string>
     <string name="email_or_username_label">Имя пользователя или эл. почта</string>
     <string name="password_label">Пароль</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">Введите пароль</string>
     <string name="login_btn">Войти</string>
     <string name="working_status">Подключение...</string>
-    <string name="lang_system">Системный</string>
     <string name="send_btn">Отправить</string>
     <string name="message_sent">Сообщение отправлено</string>
     <string name="settings_saved">Настройки сохранены</string>

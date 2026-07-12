@@ -16,6 +16,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -139,6 +140,8 @@ fun CoLinkNavGraph(
                 cloudStatus = viewModel.cloudStatus,
                 authenticated = viewModel.authenticated,
                 accountName = viewModel.accountName,
+                accountEmail = viewModel.accountEmail,
+                serverUrl = viewModel.serverUrl,
                 onLogout = viewModel::logout,
                 pendingShareStore = pendingShareStore,
                 launchTarget = launchTarget,
@@ -220,6 +223,8 @@ private fun MainScaffold(
     cloudStatus: StateFlow<CloudStatus>,
     authenticated: StateFlow<Boolean>,
     accountName: StateFlow<String>,
+    accountEmail: StateFlow<String>,
+    serverUrl: StateFlow<String>,
     onLogout: () -> Unit,
     pendingShareStore: PendingShareStore?,
     launchTarget: LaunchTarget?,
@@ -246,6 +251,9 @@ private fun MainScaffold(
             val nestedNavController = rememberNavController()
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             val accountName by accountName.collectAsStateWithLifecycle()
+            val accountEmail by accountEmail.collectAsStateWithLifecycle()
+            val serverUrl by serverUrl.collectAsStateWithLifecycle()
+            val currentCloudStatus by cloudStatus.collectAsStateWithLifecycle()
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
 
             LaunchedEffect(pendingShare) {
@@ -355,6 +363,9 @@ private fun MainScaffold(
                 AccountDialog(
                     authenticated = isAuthenticated,
                     accountName = accountName,
+                    accountEmail = accountEmail,
+                    serverUrl = serverUrl,
+                    cloudStatus = currentCloudStatus,
                     onLogout = {
                         onLogout()
                         showAccountDialog = false
@@ -442,6 +453,9 @@ private fun MainScaffold(
 private fun AccountDialog(
     authenticated: Boolean,
     accountName: String,
+    accountEmail: String,
+    serverUrl: String,
+    cloudStatus: CloudStatus,
     onLogout: () -> Unit,
     onAuthenticated: () -> Unit,
     onDismiss: () -> Unit,
@@ -473,17 +487,40 @@ private fun AccountDialog(
                 fontWeight = FontWeight.Bold,
             )
 
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AccountStatusRow(
+                    label = stringResource(R.string.cloud_account_login_status),
+                    value = stringResource(
+                        if (authenticated) R.string.cloud_account_logged_in else R.string.cloud_account_not_logged_in,
+                    ),
+                )
+                AccountStatusRow(
+                    label = stringResource(R.string.cloud_account_connection_status),
+                    value = stringResource(
+                        if (cloudStatus == CloudStatus.Connected) {
+                            R.string.cloud_status_connected
+                        } else {
+                            R.string.cloud_status_disconnected
+                        },
+                    ),
+                )
+            }
+
             if (authenticated) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
-                        text = stringResource(R.string.cloud_account_connected),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.cloud_account_connected_body, accountName),
+                        text = stringResource(
+                            R.string.cloud_account_connected_body,
+                            accountName,
+                            serverUrl,
+                            accountEmail,
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -514,6 +551,25 @@ private fun AccountDialog(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun AccountStatusRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

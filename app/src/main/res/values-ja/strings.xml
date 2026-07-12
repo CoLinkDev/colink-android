@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">デバイスを同期するためにアカウントに接続</string>
     <string name="cloud_account_title">クラウドアカウント</string>
-    <string name="cloud_account_connected">接続済み</string>
+    <string name="cloud_account_login_status">ログイン状態</string>
+    <string name="cloud_account_logged_in">ログイン済み</string>
+    <string name="cloud_account_not_logged_in">未ログイン</string>
+    <string name="cloud_account_connection_status">接続状態</string>
     <string name="cloud_account_login_tip">ログインしてデバイスを同期</string>
-    <string name="cloud_account_connected_body">このデバイスはクラウドアカウント %s に接続されています。</string>
+    <string name="cloud_account_connected_body">このデバイスはクラウドアカウント %1$s にログインしています（%2$s、%3$s）。</string>
     <string name="logout_btn">ログアウト</string>
     <string name="email_or_username_label">メールアドレスまたはユーザー名</string>
     <string name="password_label">パスワード</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">パスワードを入力してください</string>
     <string name="login_btn">ログイン</string>
     <string name="working_status">接続中...</string>
-    <string name="lang_system">システムデフォルト</string>
     <string name="send_btn">送信</string>
     <string name="message_sent">メッセージを送信しました</string>
     <string name="settings_saved">設定を保存しました</string>

@@ -7,6 +7,7 @@ import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.LanPairingRequest
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.UpdateRepository
+import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.lan.LanPairingCoordinator
 import com.colink.android.util.CoLinkLog
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
     private val pairingCoordinator: LanPairingCoordinator,
     private val updateRepository: UpdateRepository,
@@ -42,7 +44,19 @@ class MainViewModel @Inject constructor(
 
     val accountName: StateFlow<String> =
         authRepository.session
+            .map { session -> session?.username?.ifBlank { session.email.orEmpty() }.orEmpty() }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    val accountEmail: StateFlow<String> =
+        authRepository.session
             .map { it?.email.orEmpty() }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+
+    val serverUrl: StateFlow<String> =
+        settingsDataStore.settings
+            .map { it.serverUrl }
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
@@ -59,6 +73,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             authRepository.bootstrap()
             _bootstrapping.value = false
+            launch { authRepository.refreshProfile() }
             checkForUpdates()
         }
     }

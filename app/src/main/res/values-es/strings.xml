@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Conecte su cuenta para sincronizar dispositivos</string>
     <string name="cloud_account_title">Cuenta en la nube</string>
-    <string name="cloud_account_connected">Conectado</string>
+    <string name="cloud_account_login_status">Estado de inicio de sesión</string>
+    <string name="cloud_account_logged_in">Sesión iniciada</string>
+    <string name="cloud_account_not_logged_in">Sesión no iniciada</string>
+    <string name="cloud_account_connection_status">Estado de conexión</string>
     <string name="cloud_account_login_tip">Iniciar sesión para sincronizar dispositivos</string>
-    <string name="cloud_account_connected_body">Este dispositivo está conectado a su cuenta en la nube %s.</string>
+    <string name="cloud_account_connected_body">Este dispositivo ha iniciado sesión en la cuenta en la nube %1$s (%2$s, %3$s).</string>
     <string name="logout_btn">Cerrar sesión</string>
     <string name="email_or_username_label">Correo o nombre de usuario</string>
     <string name="password_label">Contraseña</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">Se requiere contraseña</string>
     <string name="login_btn">Iniciar sesión</string>
     <string name="working_status">Conectando...</string>
-    <string name="lang_system">Predeterminado del sistema</string>
     <string name="send_btn">Enviar</string>
     <string name="message_sent">Mensaje enviado</string>
     <string name="settings_saved">Ajustes guardados</string>

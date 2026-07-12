@@ -7,7 +7,9 @@ import com.colink.android.data.remote.dto.LogoutRequestDto
 import com.colink.android.data.remote.dto.RefreshRequestDto
 import com.colink.android.data.remote.dto.RefreshResponseDto
 import com.colink.android.data.remote.dto.RegisterRequestDto
+import com.colink.android.data.remote.dto.UserProfileDto
 import kotlinx.serialization.json.JsonElement
+import retrofit2.http.GET
 import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.POST
@@ -38,4 +40,10 @@ interface AuthApi {
         @Header("Authorization") authorization: String,
         @Body request: LogoutRequestDto,
     ): ApiEnvelope<JsonElement>
+
+    @GET
+    suspend fun getProfile(
+        @Url url: String,
+        @Header("Authorization") authorization: String,
+    ): ApiEnvelope<UserProfileDto>
 }

@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">連接此裝置到您的帳戶</string>
     <string name="cloud_account_title">雲端帳戶</string>
-    <string name="cloud_account_connected">已連線</string>
+    <string name="cloud_account_login_status">登入狀態</string>
+    <string name="cloud_account_logged_in">已登入</string>
+    <string name="cloud_account_not_logged_in">未登入</string>
+    <string name="cloud_account_connection_status">連線狀態</string>
     <string name="cloud_account_login_tip">登入以同步裝置</string>
-    <string name="cloud_account_connected_body">此裝置已連接到您的雲端帳戶 %s。</string>
+    <string name="cloud_account_connected_body">此裝置已登入雲端帳戶 %1$s（%2$s，%3$s）。</string>
     <string name="logout_btn">登出</string>
     <string name="email_or_username_label">電子郵件或使用者名稱</string>
     <string name="password_label">密碼</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">請輸入密碼</string>
     <string name="login_btn">登入</string>
     <string name="working_status">連線中…</string>
-    <string name="lang_system">系統預設</string>
     <string name="send_btn">傳送</string>
     <string name="message_sent">訊息已傳送</string>
     <string name="settings_saved">設定已儲存</string>

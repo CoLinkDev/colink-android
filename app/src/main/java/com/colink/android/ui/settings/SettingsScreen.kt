@@ -105,7 +105,7 @@ fun SettingsScreen(
         modifier = modifier,
     ) {
         val languages = listOf(
-            "system" to stringResource(R.string.lang_system),
+            "system" to "System Default",
             "en" to "English (English)",
             "zh-CN" to "简体中文 (Simplified Chinese)",
             "zh-TW" to "繁體中文 (Traditional Chinese)",

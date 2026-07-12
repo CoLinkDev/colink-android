@@ -119,7 +119,6 @@ fun MessageScreen(
 ) {
     val context = LocalContext.current
     val targetDevices by viewModel.targetDevices.collectAsStateWithLifecycle()
-    val availableTargetDevices by viewModel.availableTargetDevices.collectAsStateWithLifecycle()
     val selectedDevice by viewModel.selectedDevice.collectAsStateWithLifecycle()
     val timelineItems by viewModel.timelineItems.collectAsStateWithLifecycle()
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
@@ -207,7 +206,7 @@ fun MessageScreen(
             modifier = modifier,
         ) {
             ContactList(
-                devices = availableTargetDevices,
+                devices = targetDevices,
                 onSelect = {
                     viewModel.selectDevice(it)
                     onConversationSelected(it)
@@ -352,7 +351,7 @@ fun MessageScreen(
     val pendingUri = pendingFileUri
     if (pendingUri != null) {
         SelectDeviceDialog(
-            devices = availableTargetDevices,
+            devices = targetDevices,
             initialDeviceId = selectedDeviceId,
             onDismiss = {
                 pendingFileUri = null
@@ -540,6 +539,7 @@ private fun ConversationScreen(
             onDraftChange = onDraftChange,
             onSendText = onSendText,
             onSendFile = onPickFile,
+            interactionEnabled = sendEnabled,
             sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
             placeholderText = stringResource(R.string.message_placeholder),
         )
@@ -552,6 +552,7 @@ private fun ChatInputBar(
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
     onSendFile: () -> Unit,
+    interactionEnabled: Boolean,
     sendEnabled: Boolean,
     placeholderText: String,
     modifier: Modifier = Modifier,
@@ -572,6 +573,7 @@ private fun ChatInputBar(
         ) {
             FilledTonalIconButton(
                 onClick = onSendFile,
+                enabled = interactionEnabled,
                 modifier = Modifier.size(44.dp),
             ) {
                 Icon(
@@ -584,6 +586,7 @@ private fun ChatInputBar(
             OutlinedTextField(
                 value = draft,
                 onValueChange = onDraftChange,
+                enabled = interactionEnabled,
                 modifier = Modifier.weight(1f),
                 placeholder = { Text(placeholderText) },
                 maxLines = 4,
@@ -955,16 +958,13 @@ private fun SelectDeviceDialog(
     onDismiss: () -> Unit,
     onSelect: (String) -> Unit,
 ) {
-    var selectedId by remember(devices, initialDeviceId) {
-        mutableStateOf(
-            devices.firstOrNull { it.deviceId == initialDeviceId }?.deviceId
-                ?: devices.firstOrNull()?.deviceId,
-        )
-    }
+    var selectedId by rememberSaveable { mutableStateOf(initialDeviceId) }
 
-    LaunchedEffect(devices) {
-        if (selectedId == null || devices.none { it.deviceId == selectedId }) {
-            selectedId = devices.firstOrNull()?.deviceId
+    LaunchedEffect(devices, initialDeviceId) {
+        val availableDevices = devices.filter { it.online || it.lanAvailable }
+        if (selectedId == null || availableDevices.none { it.deviceId == selectedId }) {
+            selectedId = availableDevices.firstOrNull { it.deviceId == initialDeviceId }?.deviceId
+                ?: availableDevices.firstOrNull()?.deviceId
         }
     }
 
@@ -983,10 +983,11 @@ private fun SelectDeviceDialog(
                         items = devices,
                         key = { it.deviceId },
                     ) { device ->
+                        val available = device.online || device.lanAvailable
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedId = device.deviceId }
+                                .clickable(enabled = available) { selectedId = device.deviceId }
                                 .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -994,6 +995,7 @@ private fun SelectDeviceDialog(
                             RadioButton(
                                 selected = selectedId == device.deviceId,
                                 onClick = { selectedId = device.deviceId },
+                                enabled = available,
                             )
                             Column {
                                 Text(
@@ -1007,7 +1009,7 @@ private fun SelectDeviceDialog(
                                         else -> stringResource(R.string.device_tag_offline)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -1018,7 +1020,7 @@ private fun SelectDeviceDialog(
         confirmButton = {
             TextButton(
                 onClick = { selectedId?.let(onSelect) },
-                enabled = selectedId != null,
+                enabled = devices.any { it.deviceId == selectedId && (it.online || it.lanAvailable) },
             ) {
                 Text(stringResource(R.string.send_btn))
             }

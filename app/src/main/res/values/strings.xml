@@ -216,9 +216,12 @@
     <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Connect this device to your account</string>
     <string name="cloud_account_title">Cloud account</string>
-    <string name="cloud_account_connected">Connected</string>
+    <string name="cloud_account_login_status">Login status</string>
+    <string name="cloud_account_logged_in">Signed in</string>
+    <string name="cloud_account_not_logged_in">Not signed in</string>
+    <string name="cloud_account_connection_status">Connection status</string>
     <string name="cloud_account_login_tip">Login to sync devices</string>
-    <string name="cloud_account_connected_body">This device is connected to your Cloud account %s.</string>
+    <string name="cloud_account_connected_body">This device is signed in to Cloud account %1$s (%2$s, %3$s).</string>
     <string name="logout_btn">Logout</string>
     <string name="email_or_username_label">Email or username</string>
     <string name="password_label">Password</string>
@@ -229,7 +232,6 @@
     <string name="err_password_required">Password is required</string>
     <string name="login_btn">Login</string>
     <string name="working_status">Working...</string>
-    <string name="lang_system">System Default</string>
     <string name="send_btn">Send</string>
     <string name="message_sent">Message sent</string>
     <string name="settings_saved">Settings saved</string>

@@ -41,3 +41,10 @@ data class RefreshResponseDto(
     val expiresIn: Long? = null,
     val refreshExpiresIn: Long? = null,
 )
+
+@Serializable
+data class UserProfileDto(
+    val userId: String,
+    val username: String,
+    val email: String,
+)

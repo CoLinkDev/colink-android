@@ -37,31 +37,22 @@ class AuthRepositoryImpl @Inject constructor(
         runCatching {
             deviceRepository.ensureLocalDeviceIdentity().getOrThrow()
             deviceRepository.resetDevicePresence().getOrThrow()
-            val session = settingsDataStore.currentSession()
-            if (session == null) {
-                deviceRepository.listLocalDevices().getOrThrow()
-                return@runCatching
-            }
-            val refreshed = try {
-                refreshIfNeeded(session)
-            } catch (error: Throwable) {
-                if (isAuthError(error)) {
-                    clearCloudSession()
-                } else {
-                    deviceRepository.listLocalDevices().getOrThrow()
-                }
-                return@runCatching
-            }
-            try {
-                deviceRepository.ensureDeviceIdentity(refreshed).getOrThrow()
-                deviceRepository.syncDevices(refreshed).getOrThrow()
-            } catch (error: Throwable) {
-                if (isAuthError(error)) {
-                    clearCloudSession()
-                } else {
-                    deviceRepository.listLocalDevices().getOrThrow()
-                }
-            }
+            deviceRepository.listLocalDevices().getOrThrow()
+        }
+
+    override suspend fun refreshProfile(): Result<Unit> =
+        runCatching {
+            val session = currentSession().getOrThrow()
+            val profile = authApi.getProfile(
+                url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/me"),
+                authorization = bearer(session.accessToken),
+            ).requireData()
+            settingsDataStore.saveSession(
+                session.copy(
+                    username = profile.username,
+                    email = profile.email,
+                ),
+            )
         }
 
     override suspend fun login(identifier: String, password: String): Result<Unit> =
@@ -72,7 +63,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = LoginRequestDto(identifier.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn, identifier.trim())
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn)
         }
 
     override suspend fun register(email: String, username: String, password: String): Result<Unit> =
@@ -83,7 +74,7 @@ class AuthRepositoryImpl @Inject constructor(
                     request = RegisterRequestDto(email.trim(), username.trim(), password),
                 )
                 .requireData()
-            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn, email.trim())
+            saveSessionAndPrepareDevice(response.userId, response.token, response.refreshToken, response.expiresIn)
         }
 
     override suspend fun logout(): Result<Unit> =
@@ -142,17 +133,20 @@ class AuthRepositoryImpl @Inject constructor(
         token: String,
         refreshToken: String,
         expiresIn: Long?,
-        email: String,
     ) {
         val timing = sessionTiming(expiresIn)
-        val session = Session(
+        val initialSession = Session(
             userId = userId,
             accessToken = token,
             refreshToken = refreshToken,
             accessTokenExpiresAt = timing.expiresAt,
             accessTokenRefreshAt = timing.refreshAt,
-            email = email,
         )
+        val profile = authApi.getProfile(
+            url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/me"),
+            authorization = bearer(initialSession.accessToken),
+        ).requireData()
+        val session = initialSession.copy(username = profile.username, email = profile.email)
         deviceRepository.ensureDeviceIdentity(session).getOrThrow()
         settingsDataStore.saveSession(session)
         deviceRepository.syncDevices(session).getOrThrow()

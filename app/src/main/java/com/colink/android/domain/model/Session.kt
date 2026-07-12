@@ -6,6 +6,7 @@ data class Session(
     val refreshToken: String,
     val accessTokenExpiresAt: Long,
     val accessTokenRefreshAt: Long,
+    val username: String? = null,
     val email: String? = null,
 ) {
     fun isExpiringSoon(now: Long = System.currentTimeMillis()): Boolean =

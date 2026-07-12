@@ -8,6 +8,8 @@ interface AuthRepository {
 
     suspend fun bootstrap(): Result<Unit>
 
+    suspend fun refreshProfile(): Result<Unit>
+
     suspend fun login(identifier: String, password: String): Result<Unit>
 
     suspend fun register(email: String, username: String, password: String): Result<Unit>
