@@ -199,12 +199,21 @@ fun CastBoardFullScreen(
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(connectionStatus) {
         val activity = context.findActivity()
-        activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (connectionStatus == CastBoardConnectionStatus.Connected) {
+            activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
 
         onDispose {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
             bridge.unbind()
             webView?.destroy()
         }
