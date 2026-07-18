@@ -26,9 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -83,7 +83,7 @@ import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
 import com.colink.android.ui.castboard.CastBoardActivity
-import com.colink.android.ui.castboard.CastBoardScreen
+import com.colink.android.ui.devicecontrol.DeviceControlScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
@@ -102,7 +102,7 @@ private val topLevelRoutes =
     listOf(
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
         TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
-        TopLevelRoute("castboard", R.string.nav_castboard, Icons.Default.Cast),
+        TopLevelRoute("device-control", R.string.nav_device_control, Icons.Default.Tune),
         TopLevelRoute("settings", R.string.nav_settings, Icons.Default.Settings),
     )
 
@@ -310,9 +310,9 @@ private fun MainScaffold(
                             },
                         )
                     }
-                    composable("castboard") {
-                        CastBoardScreen(
-                            onStartFullscreen = { deviceId ->
+                    composable("device-control") {
+                        DeviceControlScreen(
+                            onStartCastBoard = { deviceId ->
                                 context.startActivity(CastBoardActivity.createIntent(context, deviceId))
                             },
                         )

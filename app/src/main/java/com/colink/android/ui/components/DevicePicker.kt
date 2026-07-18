@@ -11,6 +11,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.colink.android.R
@@ -22,8 +23,10 @@ fun DevicePicker(
     devices: List<Device>,
     selectedDeviceId: String?,
     onSelectedDeviceChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     FlowRow(
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

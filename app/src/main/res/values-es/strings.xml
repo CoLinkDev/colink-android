@@ -17,6 +17,19 @@
     <string name="nav_devices">Dispositivos</string>
     <string name="nav_messages">Transferencias</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">Control de dispositivos</string>
+    <string name="device_control_subtitle">Accede a las funciones remotas del dispositivo</string>
+    <string name="device_power_control_title">Control de energía del dispositivo</string>
+    <string name="device_power_control_subtitle">Controla el estado de energía de un dispositivo remoto</string>
+    <string name="device_control_no_devices_title">No hay equipos disponibles</string>
+    <string name="device_control_no_devices_body">Conecta un equipo por LAN o Cloud para controlarlo</string>
+    <string name="device_power_sleep">Suspender</string>
+    <string name="device_power_lock">Bloquear pantalla</string>
+    <string name="device_power_shutdown">Apagar</string>
+    <string name="device_power_confirm_title">Confirmar %1$s</string>
+    <string name="device_power_confirm_body">¿Enviar el comando %1$s a %2$s?</string>
+    <string name="device_power_command_sent">Comando %1$s enviado</string>
+    <string name="device_power_unsupported">Este equipo necesita CoLink 1.5.0 o posterior para recibir comandos de energía.</string>
     <string name="nav_transfers">Transferencias</string>
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">Conectado</string>
     <string name="castboard_no_devices_title">No hay dispositivos disponibles</string>
     <string name="castboard_no_devices_body">Conecte un equipo por LAN o Cloud para usar esta función</string>
+    <string name="device_control_no_devices_message">No hay dispositivos disponibles. Conecte un equipo por LAN o Cloud para usar esta función.</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">Eventos de CoLink</string>

@@ -17,6 +17,19 @@
     <string name="nav_devices">设备</string>
     <string name="nav_messages">传输</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">设备控制</string>
+    <string name="device_control_subtitle">访问远程设备功能</string>
+    <string name="device_power_control_title">设备电源控制</string>
+    <string name="device_power_control_subtitle">控制远程设备的电源状态</string>
+    <string name="device_control_no_devices_title">没有可用电脑</string>
+    <string name="device_control_no_devices_body">通过局域网或云端连接一台电脑设备来控制它</string>
+    <string name="device_power_sleep">睡眠</string>
+    <string name="device_power_lock">锁定屏幕</string>
+    <string name="device_power_shutdown">关机</string>
+    <string name="device_power_confirm_title">确认%1$s</string>
+    <string name="device_power_confirm_body">确认令 %2$s %1$s吗？</string>
+    <string name="device_power_command_sent">已发送%1$s命令</string>
+    <string name="device_power_unsupported">这台电脑需要 CoLink 1.5.0 或更高版本才能接收电源控制命令。</string>
     <string name="nav_transfers">文件传输</string>
     <string name="nav_settings">设置</string>
     <string name="castboard_start">启动</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">已连接</string>
     <string name="castboard_no_devices_title">还没有可用设备</string>
     <string name="castboard_no_devices_body">通过局域网或云端连接一台电脑设备来使用此功能</string>
+    <string name="device_control_no_devices_message">还没有可用设备。通过局域网或云端连接一台电脑设备来使用此功能。</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

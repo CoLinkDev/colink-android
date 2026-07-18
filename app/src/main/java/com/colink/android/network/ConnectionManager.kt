@@ -54,8 +54,11 @@ import com.colink.android.network.message.MusicRequestPayload
 import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.message.SYSINFO_ALIVE_TYPE
 import com.colink.android.network.message.SYSINFO_STATS_TYPE
+import com.colink.android.network.message.SYSTEM_CONTROL_COMMAND_TYPE
 import com.colink.android.network.message.SysInfoAlivePayload
 import com.colink.android.network.message.SysInfoStatsPayload
+import com.colink.android.network.message.SystemControlAction
+import com.colink.android.network.message.SystemControlCommandPayload
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
 import com.colink.android.network.message.FileCancelPayload
@@ -162,8 +165,18 @@ enum class RemoteFilesystemSupport {
     UNKNOWN,
 }
 
+enum class SystemControlSupport {
+    SUPPORTED,
+    TOO_OLD,
+    UNKNOWN,
+}
+
 class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
+)
+
+class SystemControlUnsupportedException : IllegalStateException(
+    "Remote device does not support system control",
 )
 
 data class RemoteFilesystemDownload(
@@ -382,6 +395,24 @@ class ConnectionManager @Inject constructor(
         ).map { Unit }
     }
 
+    suspend fun sendSystemControl(
+        targetDeviceId: String,
+        action: SystemControlAction,
+    ): Result<Unit> {
+        if (systemControlSupport(targetDeviceId) == SystemControlSupport.TOO_OLD) {
+            return Result.failure(SystemControlUnsupportedException())
+        }
+        return sendBusinessMessage(
+            targetDeviceId,
+            BusinessEnvelope(
+                type = SYSTEM_CONTROL_COMMAND_TYPE,
+                payload = json.encodeToJsonElement(
+                    SystemControlCommandPayload(action = action.wireValue),
+                ),
+            ),
+        ).map { Unit }
+    }
+
     private fun startLan() {
         lanGeneration.incrementAndGet()
         CoLinkLog.i("LAN", "starting LAN services")
@@ -474,6 +505,9 @@ class ConnectionManager @Inject constructor(
         envelopeId: String? = null,
     ): Result<String> =
         runCatching {
+            if (isSystemControlCommand(business) && hasLanPeer(targetDeviceId)) {
+                requireSystemControlSupport(targetDeviceId)
+            }
             if (trySendViaExistingLan(targetDeviceId, business, correlationId, envelopeId)) {
                 return@runCatching "lan"
             }
@@ -520,6 +554,9 @@ class ConnectionManager @Inject constructor(
     ): Result<String> =
         runCatching {
             check(_cloudState.value.connected) { "cloud connection is not ready" }
+            if (isSystemControlCommand(business)) {
+                requireSystemControlSupport(targetDeviceId)
+            }
             ensureCloudBusinessCompatible(targetDeviceId)
             val envelope = CloudClientEnvelope(
                 id = envelopeId ?: UUID.randomUUID().toString(),
@@ -567,6 +604,21 @@ class ConnectionManager @Inject constructor(
         val peerVersion = peerBusinessVersion(deviceId)
             ?: return false
         return supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 1)
+    }
+
+    fun systemControlSupport(deviceId: String): SystemControlSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 5)) {
+            SystemControlSupport.SUPPORTED
+        } else {
+            SystemControlSupport.TOO_OLD
+        }
+    }
+
+    private fun requireSystemControlSupport(deviceId: String) {
+        if (systemControlSupport(deviceId) != SystemControlSupport.SUPPORTED) {
+            throw SystemControlUnsupportedException()
+        }
     }
 
     private fun fileChecksumAllowedForPeer(checksum: String, deviceId: String): Boolean {
@@ -665,6 +717,11 @@ class ConnectionManager @Inject constructor(
             } ?: return
 
             if (
+                isSystemControlCommand(pending.message) &&
+                systemControlSupport(deviceId) != SystemControlSupport.SUPPORTED
+            ) {
+                pending.result.complete(Result.failure(SystemControlUnsupportedException()))
+            } else if (
                 isFilesystemRequest(pending.message) &&
                 remoteFilesystemSupport(deviceId) == RemoteFilesystemSupport.TOO_OLD
             ) {
@@ -910,6 +967,9 @@ class ConnectionManager @Inject constructor(
 
     private fun isFilesystemRequest(message: BusinessEnvelope): Boolean =
         message.type in setOf(FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE)
+
+    private fun isSystemControlCommand(message: BusinessEnvelope): Boolean =
+        message.type == SYSTEM_CONTROL_COMMAND_TYPE
 
     private suspend fun handleFilesystemRequest(
         fromDeviceId: String,

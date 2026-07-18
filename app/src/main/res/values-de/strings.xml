@@ -17,6 +17,19 @@
     <string name="nav_devices">Geräte</string>
     <string name="nav_messages">Transfers</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">Gerätesteuerung</string>
+    <string name="device_control_subtitle">Remotezugriff auf Gerätefunktionen</string>
+    <string name="device_power_control_title">Geräteenergie steuern</string>
+    <string name="device_power_control_subtitle">Den Energiezustand eines Remote-Geräts steuern</string>
+    <string name="device_control_no_devices_title">Keine Computer verfügbar</string>
+    <string name="device_control_no_devices_body">Verbinden Sie einen Computer über LAN oder Cloud, um ihn zu steuern.</string>
+    <string name="device_power_sleep">Ruhezustand</string>
+    <string name="device_power_lock">Bildschirm sperren</string>
+    <string name="device_power_shutdown">Herunterfahren</string>
+    <string name="device_power_confirm_title">%1$s bestätigen</string>
+    <string name="device_power_confirm_body">Befehl %1$s an %2$s senden?</string>
+    <string name="device_power_command_sent">Befehl %1$s gesendet</string>
+    <string name="device_power_unsupported">Dieser Computer benötigt CoLink 1.5.0 oder neuer, um Energiebefehle zu empfangen.</string>
     <string name="nav_transfers">Übertragungen</string>
     <string name="nav_settings">Einstellungen</string>
     <string name="castboard_start">Starten</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">Verbunden</string>
     <string name="castboard_no_devices_title">Keine verfügbaren Geräte</string>
     <string name="castboard_no_devices_body">Verbinden Sie ein Computergerät über LAN oder Cloud, um diese Funktion zu nutzen</string>
+    <string name="device_control_no_devices_message">Keine verfügbaren Geräte. Verbinden Sie ein Computergerät über LAN oder Cloud, um diese Funktion zu nutzen.</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink-Ereignisse</string>

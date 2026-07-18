@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.4.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.5.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -32,6 +32,7 @@ const val FS_STAT_TYPE = "fs.v1.stat"
 const val FS_STAT_RESULT_TYPE = "fs.v1.stat-result"
 const val FS_DOWNLOAD_TYPE = "fs.v1.download"
 const val FS_ERROR_TYPE = "fs.v1.error"
+const val SYSTEM_CONTROL_COMMAND_TYPE = "system-control.v1.command"
 
 @Serializable
 data class BusinessEnvelope(
@@ -355,6 +356,17 @@ data class FsErrorPayload(
     val reason: String,
     val message: String,
     val details: JsonElement? = null,
+)
+
+enum class SystemControlAction(val wireValue: String) {
+    Sleep("sleep"),
+    Shutdown("shutdown"),
+    Lock("lock"),
+}
+
+@Serializable
+data class SystemControlCommandPayload(
+    val action: String,
 )
 
 @Serializable

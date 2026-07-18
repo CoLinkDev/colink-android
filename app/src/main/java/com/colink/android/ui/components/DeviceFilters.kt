@@ -9,3 +9,6 @@ fun devicesWithoutLocalDevice(
     devices.filterNot { device ->
         device.deviceId == localDeviceId || device.deviceSources.contains("local")
     }
+
+fun isComputerDevice(device: Device): Boolean =
+    device.type.lowercase() in setOf("windows", "macos", "linux")

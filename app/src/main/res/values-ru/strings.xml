@@ -17,6 +17,19 @@
     <string name="nav_devices">Устройства</string>
     <string name="nav_messages">Передачи</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">Управление устройствами</string>
+    <string name="device_control_subtitle">Доступ к удалённым функциям устройства</string>
+    <string name="device_power_control_title">Управление питанием устройства</string>
+    <string name="device_power_control_subtitle">Управление питанием удаленного устройства</string>
+    <string name="device_control_no_devices_title">Нет доступных компьютеров</string>
+    <string name="device_control_no_devices_body">Подключите компьютер по LAN или Cloud, чтобы управлять им</string>
+    <string name="device_power_sleep">Сон</string>
+    <string name="device_power_lock">Заблокировать экран</string>
+    <string name="device_power_shutdown">Выключить</string>
+    <string name="device_power_confirm_title">Подтвердить: %1$s</string>
+    <string name="device_power_confirm_body">Отправить команду «%1$s» устройству %2$s?</string>
+    <string name="device_power_command_sent">Команда «%1$s» отправлена</string>
+    <string name="device_power_unsupported">Этому компьютеру требуется CoLink 1.5.0 или новее для приёма команд питания.</string>
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>
     <string name="castboard_start">Запуск</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">Подключено</string>
     <string name="castboard_no_devices_title">Нет доступных устройств</string>
     <string name="castboard_no_devices_body">Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию</string>
+    <string name="device_control_no_devices_message">Нет доступных устройств. Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию.</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">События CoLink</string>

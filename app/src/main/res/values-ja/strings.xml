@@ -17,6 +17,19 @@
     <string name="nav_devices">デバイス</string>
     <string name="nav_messages">転送</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">デバイス制御</string>
+    <string name="device_control_subtitle">リモートデバイスの機能にアクセスします</string>
+    <string name="device_power_control_title">デバイス電源制御</string>
+    <string name="device_power_control_subtitle">リモートデバイスの電源状態を制御します</string>
+    <string name="device_control_no_devices_title">利用可能なコンピューターがありません</string>
+    <string name="device_control_no_devices_body">操作するには、LAN または Cloud でコンピューターを接続してください</string>
+    <string name="device_power_sleep">スリープ</string>
+    <string name="device_power_lock">画面ロック</string>
+    <string name="device_power_shutdown">シャットダウン</string>
+    <string name="device_power_confirm_title">%1$sを確認</string>
+    <string name="device_power_confirm_body">%2$sを%1$sしますか？</string>
+    <string name="device_power_command_sent">%1$s コマンドを送信しました</string>
+    <string name="device_power_unsupported">このコンピューターで電源コマンドを受信するには CoLink 1.5.0 以降が必要です。</string>
     <string name="nav_transfers">ファイル転送</string>
     <string name="nav_settings">設定</string>
     <string name="castboard_start">開始</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">接続済み</string>
     <string name="castboard_no_devices_title">利用可能なデバイスがありません</string>
     <string name="castboard_no_devices_body">この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください</string>
+    <string name="device_control_no_devices_message">利用可能なデバイスがありません。この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください。</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLinkイベント</string>

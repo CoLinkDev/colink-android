@@ -14,13 +14,12 @@ import android.webkit.WebViewClient
 import com.colink.android.BuildConfig
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
@@ -28,6 +27,8 @@ import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
@@ -54,15 +56,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.webkit.WebViewAssetLoader
 import com.colink.android.R
 import com.colink.android.domain.model.Device
-import com.colink.android.ui.components.DevicePicker
 import com.colink.android.ui.components.devicesWithoutLocalDevice
-import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.ScreenColumn
+import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.castboard.bridge.MusicBridge
 import kotlinx.coroutines.delay
 
 @Composable
-fun CastBoardScreen(
+fun CastBoardControlCard(
     onStartFullscreen: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CastBoardViewModel = hiltViewModel(),
@@ -72,38 +72,37 @@ fun CastBoardScreen(
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val availableDevices = remember(devices, localDeviceId) {
         devicesWithoutLocalDevice(devices, localDeviceId)
-            .filter { (it.online || it.lanAvailable) && isComputer(it.type) }
+            .filter { (it.online || it.lanAvailable) && isComputerDevice(it) }
     }
 
-    LaunchedEffect(availableDevices, selectedDeviceId) {
-        if (selectedDeviceId == null || availableDevices.none { it.deviceId == selectedDeviceId }) {
-            availableDevices.firstOrNull()?.deviceId?.let(viewModel::selectDevice)
-        }
-    }
-
-    ScreenColumn(
-        title = stringResource(R.string.nav_castboard),
-        subtitle = stringResource(R.string.castboard_subtitle),
-        modifier = modifier,
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
+        shape = MaterialTheme.shapes.large,
     ) {
-        if (availableDevices.isEmpty()) {
-            EmptyState(
-                icon = Icons.Default.Devices,
-                title = stringResource(R.string.castboard_no_devices_title),
-                body = stringResource(R.string.castboard_no_devices_body),
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.nav_castboard),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
             )
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DevicePicker(
-                    devices = availableDevices,
-                    selectedDeviceId = selectedDeviceId,
-                    onSelectedDeviceChange = viewModel::selectDevice,
+            Text(
+                text = stringResource(R.string.castboard_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (availableDevices.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.device_control_no_devices_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
                 val canStart = selectedDeviceId != null &&
                     availableDevices.any { it.deviceId == selectedDeviceId }
                 Button(
@@ -371,9 +370,4 @@ private tailrec fun Context.findActivity(): Activity {
         is ContextWrapper -> baseContext.findActivity()
         else -> error("Activity context required")
     }
-}
-
-private fun isComputer(type: String): Boolean {
-    val lower = type.lowercase()
-    return lower == "windows" || lower == "macos" || lower == "linux"
 }

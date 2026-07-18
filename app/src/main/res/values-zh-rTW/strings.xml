@@ -17,6 +17,19 @@
     <string name="nav_devices">裝置</string>
     <string name="nav_messages">傳輸</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">裝置控制</string>
+    <string name="device_control_subtitle">存取遠端裝置功能</string>
+    <string name="device_power_control_title">裝置電源控制</string>
+    <string name="device_power_control_subtitle">控制遠端裝置的電源狀態</string>
+    <string name="device_control_no_devices_title">沒有可用電腦</string>
+    <string name="device_control_no_devices_body">透過區域網路或 Cloud 連線一台電腦裝置來控制它</string>
+    <string name="device_power_sleep">睡眠</string>
+    <string name="device_power_lock">鎖定螢幕</string>
+    <string name="device_power_shutdown">關機</string>
+    <string name="device_power_confirm_title">確認%1$s</string>
+    <string name="device_power_confirm_body">確認令 %2$s %1$s嗎？</string>
+    <string name="device_power_command_sent">已傳送%1$s命令</string>
+    <string name="device_power_unsupported">這台電腦需要 CoLink 1.5.0 或更高版本才能接收電源控制命令。</string>
     <string name="nav_transfers">檔案傳輸</string>
     <string name="nav_settings">設定</string>
     <string name="castboard_start">啟動</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">已連線</string>
     <string name="castboard_no_devices_title">還沒有可用裝置</string>
     <string name="castboard_no_devices_body">透過區域網路或雲端連線一台電腦裝置來使用此功能</string>
+    <string name="device_control_no_devices_message">還沒有可用裝置。透過區域網路或雲端連線一台電腦裝置來使用此功能。</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink 事件</string>

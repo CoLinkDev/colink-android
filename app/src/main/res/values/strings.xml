@@ -17,6 +17,19 @@
     <string name="nav_devices">Devices</string>
     <string name="nav_messages">Transfers</string>
     <string name="nav_castboard">CastBoard</string>
+    <string name="nav_device_control">Device control</string>
+    <string name="device_control_subtitle">Access remote device features</string>
+    <string name="device_power_control_title">Device power control</string>
+    <string name="device_power_control_subtitle">Control the power state of a remote device</string>
+    <string name="device_control_no_devices_title">No available computers</string>
+    <string name="device_control_no_devices_body">Connect a computer over LAN or Cloud to control it</string>
+    <string name="device_power_sleep">Sleep</string>
+    <string name="device_power_lock">Lock screen</string>
+    <string name="device_power_shutdown">Shutdown</string>
+    <string name="device_power_confirm_title">Confirm %1$s</string>
+    <string name="device_power_confirm_body">Send the %1$s command to %2$s?</string>
+    <string name="device_power_command_sent">%1$s command sent</string>
+    <string name="device_power_unsupported">This computer needs CoLink 1.5.0 or newer to receive power commands.</string>
     <string name="nav_transfers">Transfers</string>
     <string name="nav_settings">Settings</string>
     <string name="castboard_start">Start</string>
@@ -25,6 +38,7 @@
     <string name="castboard_status_connected">Connected</string>
     <string name="castboard_no_devices_title">No available devices</string>
     <string name="castboard_no_devices_body">Connect a computer device over LAN or Cloud to use this feature</string>
+    <string name="device_control_no_devices_message">No available devices. Connect a computer device over LAN or Cloud to use this feature.</string>
 
     <!-- Notifications -->
     <string name="notification_events_channel_name">CoLink events</string>
