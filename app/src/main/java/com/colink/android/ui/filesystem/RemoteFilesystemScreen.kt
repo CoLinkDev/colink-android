@@ -57,6 +57,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Code
+import androidx.activity.compose.BackHandler
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
@@ -73,6 +81,12 @@ fun RemoteFilesystemScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val currentPath = state.currentPath
+    val canNavigateUp = currentPath != null
+
+    BackHandler(enabled = canNavigateUp) {
+        viewModel.navigateUp()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -95,7 +109,15 @@ fun RemoteFilesystemScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(
+                        onClick = {
+                            if (canNavigateUp) {
+                                viewModel.navigateUp()
+                            } else {
+                                onBack()
+                            }
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back_desc),
@@ -126,15 +148,7 @@ fun RemoteFilesystemScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            val currentPath = state.currentPath
-            if (currentPath == null) {
-                item {
-                    FilesIntro(
-                        title = stringResource(R.string.remote_files_locations_title),
-                        body = stringResource(R.string.remote_files_locations_body),
-                    )
-                }
-            } else {
+            if (currentPath != null) {
                 item {
                     CurrentFolderHeader(
                         path = currentPath,
@@ -149,7 +163,6 @@ fun RemoteFilesystemScreen(
                     FilesError(
                         message = error,
                         onRetry = viewModel::refresh,
-                        onDismiss = viewModel::clearError,
                     )
                 }
             }
@@ -172,7 +185,7 @@ fun RemoteFilesystemScreen(
                     item { FilesEmpty(stringResource(R.string.remote_files_locations_empty)) }
                 } else {
                     items(state.roots, key = { it.path }) { root ->
-                        RootCard(root = root, onClick = { viewModel.openRoot(root.path) })
+                        RootRow(root = root, onClick = { viewModel.openRoot(root.path) })
                     }
                 }
             } else {
@@ -281,56 +294,74 @@ private fun CurrentFolderHeader(
     }
 }
 
+private fun getFileIcon(fileName: String): ImageVector {
+    val ext = fileName.substringAfterLast('.', "").lowercase()
+    return when (ext) {
+        "jpg", "jpeg", "png", "webp", "gif", "bmp", "svg" -> Icons.Default.Image
+        "mp4", "mkv", "avi", "mov", "webm", "flv", "3gp" -> Icons.Default.VideoFile
+        "mp3", "wav", "ogg", "flac", "m4a", "aac", "wma" -> Icons.Default.MusicNote
+        "pdf", "doc", "docx", "txt", "rtf", "odt", "xls", "xlsx", "csv", "ods", "ppt", "pptx", "odp" -> Icons.Default.Description
+        "zip", "rar", "7z", "tar", "gz", "bz2" -> Icons.Default.FolderZip
+        "kt", "java", "py", "js", "ts", "html", "css", "json", "xml", "cpp", "c", "sh", "bat" -> Icons.Default.Code
+        else -> Icons.AutoMirrored.Filled.InsertDriveFile
+    }
+}
+
 @Composable
-private fun RootCard(root: FsRootEntry, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+private fun RootRow(
+    root: FsRootEntry,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FolderOpen,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Icon(
+                imageVector = Icons.Default.FolderOpen,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = root.label?.ifBlank { null } ?: root.path,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = root.path,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (root.totalBytes != null && root.freeBytes != null) {
                 Text(
-                    text = root.label?.ifBlank { null } ?: root.path,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = root.path,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(
+                        R.string.remote_files_storage_available,
+                        formatBytes(root.freeBytes),
+                        formatBytes(root.totalBytes),
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (root.totalBytes != null && root.freeBytes != null) {
-                    Text(
-                        text = stringResource(
-                            R.string.remote_files_storage_available,
-                            formatBytes(root.freeBytes),
-                            formatBytes(root.totalBytes),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
             }
         }
     }
@@ -377,7 +408,7 @@ private fun FileEntryRow(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = if (isDirectory) Icons.Default.Folder else Icons.AutoMirrored.Filled.InsertDriveFile,
+                imageVector = if (isDirectory) Icons.Default.Folder else getFileIcon(entry.name),
                 contentDescription = null,
                 tint = if (isDirectory) MaterialTheme.colorScheme.onSecondaryContainer
                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -436,7 +467,6 @@ private fun FileEntryRow(
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
 }
 
 @Composable
@@ -477,24 +507,32 @@ private fun FilesEmpty(message: String) {
 }
 
 @Composable
-private fun FilesError(message: String, onRetry: () -> Unit, onDismiss: () -> Unit) {
+private fun FilesError(message: String, onRetry: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
         shape = MaterialTheme.shapes.large,
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 6.dp),
             verticalAlignment = Alignment.Top,
         ) {
             Icon(Icons.Default.ErrorOutline, contentDescription = null, modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.remote_files_error_title), fontWeight = FontWeight.Bold)
-                Text(message, style = MaterialTheme.typography.bodySmall)
-                Row {
+                Text(
+                    text = stringResource(R.string.remote_files_error_title), 
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(message, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
                     TextButton(onClick = onRetry) { Text(stringResource(R.string.remote_files_retry)) }
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.lan_pairing_close)) }
                 }
             }
         }

@@ -386,16 +386,24 @@ private fun MainScaffold(
                 )
             },
             exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
+                if (targetState.destination.route == "filesystem/{deviceId}") {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                        animationSpec = tween(380, easing = PageTransitionEasing)
+                    )
+                }
             },
             popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
+                if (initialState.destination.route == "filesystem/{deviceId}") {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                        animationSpec = tween(380, easing = PageTransitionEasing)
+                    )
+                }
             },
             popExitTransition = {
                 slideOutOfContainer(
@@ -420,16 +428,24 @@ private fun MainScaffold(
                 )
             },
             exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
+                if (targetState.destination.route == "filesystem/{deviceId}") {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                        animationSpec = tween(380, easing = PageTransitionEasing)
+                    )
+                }
             },
             popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
+                if (initialState.destination.route == "filesystem/{deviceId}") {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                        animationSpec = tween(380, easing = PageTransitionEasing)
+                    )
+                }
             },
             popExitTransition = {
                 slideOutOfContainer(

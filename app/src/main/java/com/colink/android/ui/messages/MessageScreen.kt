@@ -298,6 +298,21 @@ fun MessageScreen(
                             )
                         }
                     },
+                    actions = {
+                        val device = selectedDevice
+                        if (device != null) {
+                            val interactionEnabled = device.online || device.lanAvailable
+                            IconButton(
+                                onClick = { onBrowseDeviceFiles(device.deviceId) },
+                                enabled = interactionEnabled
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = stringResource(R.string.browse_device_files_desc),
+                                )
+                            }
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
                     )
@@ -324,7 +339,6 @@ fun MessageScreen(
                         pendingFileTargetDeviceId = selectedDeviceId
                         filePicker.launch(openDocumentMimeTypes)
                     },
-                    onBrowseFiles = { onBrowseDeviceFiles(device.deviceId) },
                     onAcceptTransfer = transferViewModel::accept,
                     onRejectTransfer = transferViewModel::reject,
                     onOpenTransfer = { transfer -> openTransferFile(context, transfer) },
@@ -504,7 +518,6 @@ private fun ConversationScreen(
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
     onPickFile: () -> Unit,
-    onBrowseFiles: () -> Unit,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
     onOpenTransfer: (FileTransfer) -> Unit,
@@ -541,7 +554,6 @@ private fun ConversationScreen(
             onDraftChange = onDraftChange,
             onSendText = onSendText,
             onSendFile = onPickFile,
-            onBrowseFiles = onBrowseFiles,
             interactionEnabled = sendEnabled,
             sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
             placeholderText = stringResource(R.string.message_placeholder),
@@ -555,7 +567,6 @@ private fun ChatInputBar(
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
     onSendFile: () -> Unit,
-    onBrowseFiles: () -> Unit,
     interactionEnabled: Boolean,
     sendEnabled: Boolean,
     placeholderText: String,
@@ -575,18 +586,6 @@ private fun ChatInputBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            FilledTonalIconButton(
-                onClick = onBrowseFiles,
-                enabled = interactionEnabled,
-                modifier = Modifier.size(44.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FolderOpen,
-                    contentDescription = stringResource(R.string.browse_device_files_desc),
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-
             FilledTonalIconButton(
                 onClick = onSendFile,
                 enabled = interactionEnabled,
