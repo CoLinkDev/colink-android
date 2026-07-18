@@ -32,14 +32,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+import com.colink.android.util.TransferSpeedTracker
+
 private const val CHANNEL_ID = "colink_connection"
 private const val NOTIFICATION_ID = 1001
+private const val TRANSFER_NOTIFICATION_ID = 1002
 private const val MAIN_REQUEST_CODE = 100
 private const val TARGET_DEVICE_REQUEST_CODE_BASE = 10_000
 private const val TARGET_DEVICE_REQUEST_CODE_MASK = 0x0fffffff
 private const val ACTION_OPEN_MAIN = "com.colink.android.action.OPEN_MAIN"
 private const val ACTION_OPEN_DEVICE = "com.colink.android.action.OPEN_DEVICE"
-private const val TRANSFER_RESULT_VISIBLE_MILLIS = 5_000L
 private const val TRANSFER_NOTIFICATION_UPDATE_MILLIS = 1_500L
 
 @AndroidEntryPoint
@@ -48,9 +50,9 @@ class CoLinkService : Service() {
     @Inject lateinit var fileTransferRepository: FileTransferRepository
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var notificationJob: Job? = null
-    private var transferResultRestoreJob: Job? = null
     private var hasActiveTransfer = false
     private var lastNotificationKey: String? = null
+    private var lastFinishedNotificationKey: String? = null
     private var lastTransferProgressNotificationAt = 0L
 
     override fun onCreate() {
@@ -61,7 +63,7 @@ class CoLinkService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         CoLinkLog.i("Service", "CoLink service start command startId=$startId")
-        startForegroundCompat(buildNotification())
+        startForegroundCompat(buildServiceNotification())
         connectionManager.start()
         startNotificationUpdates()
         return START_STICKY
@@ -70,7 +72,6 @@ class CoLinkService : Service() {
     override fun onDestroy() {
         CoLinkLog.i("Service", "CoLink service destroyed")
         notificationJob?.cancel()
-        transferResultRestoreJob?.cancel()
         connectionManager.stop()
         super.onDestroy()
     }
@@ -90,17 +91,39 @@ class CoLinkService : Service() {
         lastNotificationKey = "normal"
     }
 
-    private fun buildNotification(transfer: FileTransfer? = null): Notification {
+    private fun buildServiceNotification(): Notification {
         val localizedContext = LocaleHelper.localized(this)
-        val targetDeviceId = transfer?.deviceId?.takeIf { it.isNotBlank() }
         val intent = Intent(this, MainActivity::class.java).apply {
-            if (targetDeviceId == null) {
-                action = ACTION_OPEN_MAIN
-                removeExtra(EXTRA_TARGET_DEVICE_ID)
-            } else {
-                action = ACTION_OPEN_DEVICE
-                putExtra(EXTRA_TARGET_DEVICE_ID, targetDeviceId)
-            }
+            action = ACTION_OPEN_MAIN
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            MAIN_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_logo)
+            .setContentTitle(localizedContext.getString(R.string.service_notification_title))
+            .setContentText(localizedContext.getString(R.string.service_notification_desc))
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(localizedContext.getString(R.string.service_notification_desc)),
+            )
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setShowWhen(false)
+            .build()
+    }
+
+    private fun buildTransferNotification(transfer: FileTransfer): Notification {
+        val localizedContext = LocaleHelper.localized(this)
+        val targetDeviceId = transfer.deviceId.takeIf { it.isNotBlank() }
+        val intent = Intent(this, MainActivity::class.java).apply {
+            action = ACTION_OPEN_DEVICE
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_TARGET_DEVICE_ID, targetDeviceId)
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -109,34 +132,36 @@ class CoLinkService : Service() {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val transferContent = transfer?.toNotificationContent()
+        val transferContent = transfer.toNotificationContent()
+        val isOngoing = transfer.status == "sending" || transfer.status == "receiving" || transfer.status == "verifying"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_logo)
-            .setContentTitle(transferContent?.title ?: localizedContext.getString(R.string.service_notification_title))
-            .setContentText(transferContent?.text ?: localizedContext.getString(R.string.service_notification_desc))
+            .setContentTitle(transferContent.title)
+            .setContentText(transferContent.text)
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText(transferContent?.text ?: localizedContext.getString(R.string.service_notification_desc)),
+                    .bigText(transferContent.text),
             )
             .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setRequestPromotedOngoing(transfer != null)
-            .setShowWhen(false)
+            .setOngoing(isOngoing)
+            .setAutoCancel(!isOngoing)
+            .setRequestPromotedOngoing(isOngoing)
+            .setShowWhen(!isOngoing)
             .apply {
-                if (transfer != null) {
-                    val percent = transfer.transferPercent()
-                    if (transfer.status == "sending" || transfer.status == "receiving") {
-                        setShortCriticalText("$percent%")
-                    } else if (transfer.status == "verifying") {
-                        setShortCriticalText(localizedContext.getString(R.string.status_verifying))
-                    } else {
-                        setShortCriticalText(transfer.statusLabel())
-                    }
+                val percent = transfer.transferPercent()
+                if (transfer.status == "sending" || transfer.status == "receiving") {
+                    setShortCriticalText("$percent%")
+                } else if (transfer.status == "verifying") {
+                    setShortCriticalText(localizedContext.getString(R.string.status_verifying))
+                } else {
+                    setShortCriticalText(transfer.statusLabel())
                 }
+                
                 when {
-                    transferContent?.indeterminateProgress == true -> setProgress(100, 0, true)
-                    transferContent?.progress != null -> setProgress(100, transferContent.progress, false)
+                    transferContent.indeterminateProgress -> setProgress(100, 0, true)
+                    transferContent.progress != null -> setProgress(100, transferContent.progress, false)
+                    else -> setProgress(0, 0, false)
                 }
             }
             .build()
@@ -164,10 +189,10 @@ class CoLinkService : Service() {
         val activeTransfer = transfers
             .filter { it.status == "sending" || it.status == "receiving" || it.status == "verifying" }
             .maxByOrNull { it.updatedAt }
+        
         if (activeTransfer != null) {
             hasActiveTransfer = true
-            transferResultRestoreJob?.cancel()
-            updateForegroundNotification(activeTransfer)
+            updateSeparateTransferNotification(activeTransfer)
             return
         }
 
@@ -175,31 +200,31 @@ class CoLinkService : Service() {
         val latestFinished = transfers
             .filter { it.status in setOf("completed", "failed", "cancelled", "rejected") }
             .maxByOrNull { it.updatedAt }
-        if (
-            latestFinished == null ||
-            System.currentTimeMillis() - latestFinished.updatedAt > TRANSFER_RESULT_VISIBLE_MILLIS
-        ) {
-            transferResultRestoreJob?.cancel()
-            updateForegroundNotification(null)
+        
+        if (latestFinished == null) {
+            updateSeparateTransferNotification(null)
             return
         }
 
-        transferResultRestoreJob?.cancel()
-        updateForegroundNotification(latestFinished)
-        transferResultRestoreJob = scope.launch {
-            delay(TRANSFER_RESULT_VISIBLE_MILLIS)
-            if (!hasActiveTransfer) {
-                updateForegroundNotification(null)
-            }
-        }
+        updateSeparateTransferNotification(latestFinished)
+        TransferSpeedTracker.remove(latestFinished.sessionId)
     }
 
-    private fun updateForegroundNotification(transfer: FileTransfer?) {
+    private fun updateSeparateTransferNotification(transfer: FileTransfer?) {
+        if (transfer == null) {
+            NotificationManagerCompat.from(this).cancel(TRANSFER_NOTIFICATION_ID)
+            lastNotificationKey = null
+            lastFinishedNotificationKey = null
+            return
+        }
+
         val notificationKey = transfer.notificationKey()
         if (lastNotificationKey == notificationKey) {
             return
         }
-        if (transfer != null && transfer.isProgressTransfer()) {
+
+        val isProgress = transfer.status == "sending" || transfer.status == "receiving"
+        if (isProgress) {
             val now = System.currentTimeMillis()
             val previous = lastNotificationKey
             val sameTransfer = previous?.startsWith("transfer:${transfer.sessionId}:${transfer.status}:") == true
@@ -208,8 +233,23 @@ class CoLinkService : Service() {
             }
             lastTransferProgressNotificationAt = now
         }
+
         lastNotificationKey = notificationKey
-        NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(transfer))
+        
+        if (!isProgress && transfer.status != "verifying") {
+            val finishedKey = "${transfer.sessionId}:${transfer.status}:${transfer.updatedAt}"
+            if (lastFinishedNotificationKey == finishedKey) {
+                return
+            }
+            lastFinishedNotificationKey = finishedKey
+        } else {
+            lastFinishedNotificationKey = null
+        }
+
+        NotificationManagerCompat.from(this).notify(
+            TRANSFER_NOTIFICATION_ID,
+            buildTransferNotification(transfer)
+        )
     }
 
     private fun FileTransfer?.notificationKey(): String {
@@ -238,29 +278,23 @@ class CoLinkService : Service() {
             else -> localizedContext.getString(R.string.service_notification_title)
         }
         val percent = transferPercent()
-        val detail = if (status == "sending" || status == "receiving") {
-            localizedContext.getString(
-                R.string.service_transfer_progress,
-                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
-                percent,
-                formatBytes(transferredBytes),
-                formatBytes(fileSize),
-            )
+        val displayName = fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) }
+        
+        val text = if (status == "sending" || status == "receiving") {
+            val speed = TransferSpeedTracker.getSpeed(sessionId, transferredBytes)
+            val speedText = TransferSpeedTracker.formatSpeed(speed)
+            val transferredText = TransferSpeedTracker.formatBytes(transferredBytes)
+            val totalText = TransferSpeedTracker.formatBytes(fileSize)
+            "$displayName\n$percent% · $speedText · $transferredText / $totalText"
         } else if (status == "verifying") {
-            localizedContext.getString(
-                R.string.service_transfer_verifying_text,
-                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
-            )
+            displayName
         } else {
-            localizedContext.getString(
-                R.string.service_transfer_result,
-                fileName.ifBlank { localizedContext.getString(R.string.unnamed_file) },
-                statusLabel(),
-            )
+            "$displayName\n${statusLabel()}"
         }
+        
         return TransferNotificationContent(
             title = title,
-            text = detail,
+            text = text,
             progress = if (status == "sending" || status == "receiving") percent else null,
             indeterminateProgress = status == "verifying",
         )
@@ -284,21 +318,6 @@ class CoLinkService : Service() {
                 else -> status
             }
         }
-
-    private fun formatBytes(bytes: Long): String {
-        val units = arrayOf("B", "KB", "MB", "GB")
-        var value = bytes.coerceAtLeast(0).toDouble()
-        var unitIndex = 0
-        while (value >= 1024 && unitIndex < units.lastIndex) {
-            value /= 1024
-            unitIndex += 1
-        }
-        return if (unitIndex == 0) {
-            "${value.toLong()} ${units[unitIndex]}"
-        } else {
-            String.format(Locale.US, "%.1f %s", value, units[unitIndex])
-        }
-    }
 
     private data class TransferNotificationContent(
         val title: String,

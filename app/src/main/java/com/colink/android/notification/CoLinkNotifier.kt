@@ -53,7 +53,7 @@ class CoLinkNotifier @Inject constructor(
         manager.createNotificationChannel(channel)
     }
 
-    suspend fun notifyEvent(title: String, text: String) {
+    suspend fun notifyEvent(title: String, text: String, deviceId: String? = null) {
         ensureEventChannel()
         if (!canNotify("event")) {
             return
@@ -62,7 +62,7 @@ class CoLinkNotifier @Inject constructor(
             .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(title)
             .setContentText(text)
-            .setContentIntent(mainActivityIntent())
+            .setContentIntent(mainActivityIntent(deviceId))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)

@@ -109,6 +109,7 @@ import com.colink.android.ui.transfers.TransfersViewModel
 import com.colink.android.ui.transfers.openTransferFile
 import android.widget.Toast
 import java.text.DateFormat
+import com.colink.android.util.TransferSpeedTracker
 import java.util.Date
 
 private val openDocumentMimeTypes = arrayOf("*/*")
@@ -806,6 +807,18 @@ private fun TransferBubble(
     val sizeText = remember(transfer.fileSize) {
         formatSize(transfer.fileSize)
     }
+    val progressText = remember(transfer.status, transfer.transferredBytes, transfer.fileSize, transfer.sessionId) {
+        if (transfer.status == "sending" || transfer.status == "receiving") {
+            val percent = if (transfer.fileSize <= 0) 0 else ((transfer.transferredBytes * 100) / transfer.fileSize).coerceIn(0, 100).toInt()
+            val speed = TransferSpeedTracker.getSpeed(transfer.sessionId, transfer.transferredBytes)
+            val speedText = TransferSpeedTracker.formatSpeed(speed)
+            val transferredText = TransferSpeedTracker.formatBytes(transfer.transferredBytes)
+            val totalText = TransferSpeedTracker.formatBytes(transfer.fileSize)
+            "$percent% · $speedText · $transferredText / $totalText"
+        } else {
+            null
+        }
+    }
 
     val bubbleShape = RoundedCornerShape(
         topStart = 16.dp,
@@ -887,7 +900,7 @@ private fun TransferBubble(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = sizeText,
+                            text = progressText ?: sizeText,
                             style = MaterialTheme.typography.bodySmall,
                             color = if (outgoing) {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
@@ -897,7 +910,6 @@ private fun TransferBubble(
                         )
                     }
                 }
-
                 if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending", "verifying")) {
                     val progress = (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
                     if (transfer.status == "verifying") {
@@ -908,7 +920,8 @@ private fun TransferBubble(
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
-                            }
+                            },
+                            gapSize = 0.dp
                         )
                     } else {
                         LinearProgressIndicator(
@@ -919,7 +932,9 @@ private fun TransferBubble(
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
-                            }
+                            },
+                            gapSize = 0.dp,
+                            drawStopIndicator = {}
                         )
                     }
                 }

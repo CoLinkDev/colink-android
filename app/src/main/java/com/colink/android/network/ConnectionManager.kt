@@ -1822,6 +1822,7 @@ class ConnectionManager @Inject constructor(
             ),
         )
         notifyEvent(
+            deviceId = state.deviceId,
             title = if (success) {
                 localizedContext.getString(R.string.notification_file_received_title)
             } else {
@@ -2915,8 +2916,8 @@ class ConnectionManager @Inject constructor(
         return candidate
     }
 
-    private suspend fun notifyEvent(title: String, text: String) {
-        notifier.notifyEvent(title, text)
+    private suspend fun notifyEvent(title: String, text: String, deviceId: String? = null) {
+        notifier.notifyEvent(title, text, deviceId)
     }
 
     private fun String.normalizedDeviceType(): String? {

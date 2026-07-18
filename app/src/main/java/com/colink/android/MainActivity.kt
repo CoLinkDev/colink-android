@@ -133,7 +133,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleShareIntent(intent)
-        handleLaunchIntent(intent)
+        if (savedInstanceState == null) {
+            handleLaunchIntent(intent)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -202,8 +204,9 @@ class MainActivity : ComponentActivity() {
             ?.takeIf { it.isNotBlank() }
         if (deviceId != null) {
             launchTarget = LaunchTarget(deviceId)
+            intent.removeExtra(com.colink.android.notification.EXTRA_TARGET_DEVICE_ID)
         } else if (intent?.action != Intent.ACTION_SEND) {
-            launchTarget = null
+            launchTarget = LaunchTarget()
         }
     }
 

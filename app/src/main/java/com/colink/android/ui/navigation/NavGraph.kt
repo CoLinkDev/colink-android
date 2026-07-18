@@ -234,10 +234,29 @@ private fun MainScaffold(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
+    var handledLaunchTargetToken by remember { mutableStateOf<Long?>(null) }
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
         }
+
+    LaunchedEffect(launchTarget?.token) {
+        val target = launchTarget ?: return@LaunchedEffect
+        if (handledLaunchTargetToken == target.token) {
+            return@LaunchedEffect
+        }
+        handledLaunchTargetToken = target.token
+
+        if (rootNavController.currentBackStackEntry?.destination?.route != "main") {
+            rootNavController.popBackStack("main", inclusive = false)
+        }
+        target.deviceId?.let { deviceId ->
+            rootNavController.navigate("conversation/${Uri.encode(deviceId)}") {
+                launchSingleTop = true
+            }
+        }
+        onLaunchTargetConsumed()
+    }
 
     NavHost(
         navController = rootNavController,
@@ -265,15 +284,6 @@ private fun MainScaffold(
                     rootNavController.popBackStack("main", inclusive = false)
                 }
                 nestedNavController.navigateTopLevel("messages")
-            }
-
-            LaunchedEffect(launchTarget) {
-                val target = launchTarget
-                if (target == null) {
-                    return@LaunchedEffect
-                }
-                rootNavController.navigate("conversation/${Uri.encode(target.deviceId)}")
-                onLaunchTargetConsumed()
             }
 
             Scaffold(
