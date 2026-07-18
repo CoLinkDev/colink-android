@@ -2,6 +2,8 @@ package com.colink.android.ui.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Translate
@@ -54,13 +57,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
 import com.colink.android.BuildConfig
 import com.colink.android.R
-import com.colink.android.domain.model.AppUpdate
+import com.colink.android.ui.components.AppUpdateDialog
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.util.CoLinkLog
-import com.colink.android.util.isBreakingVersionUpdate
+import com.colink.android.util.normalizeServerUrl
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,21 +73,11 @@ fun SettingsScreen(
     val context = LocalContext.current
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var serverUrl by rememberSaveable { mutableStateOf("") }
     var language by rememberSaveable { mutableStateOf("system") }
+    var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(settings) {
-        if (serverUrl.isEmpty()) {
-            serverUrl = settings.serverUrl
-        }
+    LaunchedEffect(settings.language) {
         language = settings.language
-    }
-
-    LaunchedEffect(serverUrl) {
-        if (serverUrl.isNotEmpty() && serverUrl != settings.serverUrl) {
-            delay(500)
-            viewModel.updateServerUrl(serverUrl)
-        }
     }
 
     LaunchedEffect(uiState.message) {
@@ -94,10 +86,20 @@ fun SettingsScreen(
         viewModel.clearMessage()
     }
 
-    SettingsUpdateDialog(
+    AppUpdateDialog(
         update = uiState.availableUpdate,
         onDismiss = viewModel::dismissUpdate,
     )
+    if (showServerUrlDialog) {
+        ServerUrlDialog(
+            initialServerUrl = settings.serverUrl,
+            onDismiss = { showServerUrlDialog = false },
+            onSave = {
+                viewModel.saveServerUrl(it)
+                showServerUrlDialog = false
+            },
+        )
+    }
 
     ScreenColumn(
         title = stringResource(R.string.settings_title),
@@ -123,22 +125,37 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = { serverUrl = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.server_url_label)) },
-                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                singleLine = true,
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { showServerUrlDialog = true },
                 shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                )
-            )
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Default.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.server_url_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = settings.serverUrl,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
             // Language Dropdown
             var expanded by remember { mutableStateOf(false) }
@@ -225,8 +242,63 @@ fun SettingsScreen(
         }
     }
 }
-
 private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
+
+@Composable
+private fun ServerUrlDialog(
+    initialServerUrl: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var serverUrl by rememberSaveable(initialServerUrl) { mutableStateOf(initialServerUrl) }
+    var invalidUrl by rememberSaveable { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.edit_server_url_title)) },
+        text = {
+            OutlinedTextField(
+                value = serverUrl,
+                onValueChange = {
+                    serverUrl = it
+                    invalidUrl = false
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.server_url_label)) },
+                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                singleLine = false,
+                maxLines = 3,
+                shape = RoundedCornerShape(16.dp),
+                isError = invalidUrl,
+                supportingText = if (invalidUrl) {
+                    { Text(stringResource(R.string.err_server_url_invalid)) }
+                } else {
+                    null
+                },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val normalizedServerUrl = normalizeServerUrl(serverUrl)
+                    if (normalizedServerUrl == null) {
+                        invalidUrl = true
+                    } else {
+                        onSave(normalizedServerUrl)
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.save_btn))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
+}
 
 @Composable
 private fun AboutCard(
@@ -315,58 +387,4 @@ private fun InfoRow(
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
-}
-
-@Composable
-private fun SettingsUpdateDialog(
-    update: AppUpdate?,
-    onDismiss: () -> Unit,
-) {
-    val current = update ?: return
-    val context = LocalContext.current
-    val asset = current.assets.firstOrNull()
-    val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
-    val body = buildString {
-        append(stringResource(R.string.update_available_body, current.version))
-        val notes = current.releaseNotes.trim()
-        if (notes.isNotEmpty()) {
-            append("\n\n")
-            append(notes)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = {
-            if (!required) {
-                onDismiss()
-            }
-        },
-        title = { Text(stringResource(R.string.update_available_title)) },
-        text = { Text(body) },
-        confirmButton = {
-            if (asset != null) {
-                TextButton(
-                    onClick = {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(asset.downloadUrl)))
-                        }.onFailure { error ->
-                            CoLinkLog.w("Update", "open update download failed", error)
-                        }
-                        if (!required) {
-                            onDismiss()
-                        }
-                    },
-                ) {
-                    Text(stringResource(R.string.update_download_btn))
-                }
-            }
-        },
-        dismissButton = {
-            if (!required) {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.update_later_btn))
-                }
-            }
-        },
-    )
 }

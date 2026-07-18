@@ -224,6 +224,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_subtitle">Configure CoLink parameters and behavior</string>
     <string name="server_url_label">Server address</string>
+    <string name="edit_server_url_title">Edit Server Address</string>
     <string name="device_name_label">Device name</string>
     <string name="auto_start_label">Auto-start on boot</string>
     <string name="auto_start_body">Start CoLink after this device restarts.</string>
@@ -255,6 +256,7 @@
     <string name="show_password_desc">Show password</string>
     <string name="hide_password_desc">Hide password</string>
     <string name="err_server_url_required">Server address is required</string>
+    <string name="err_server_url_invalid">Enter a valid HTTP or HTTPS server address</string>
     <string name="err_email_or_username_required">Email or username is required</string>
     <string name="err_password_required">Password is required</string>
     <string name="login_btn">Login</string>

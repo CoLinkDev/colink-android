@@ -146,6 +146,7 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.websockets)
     implementation(libs.material.components)
+    implementation("io.noties.markwon:core:4.6.2")
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.retrofit)

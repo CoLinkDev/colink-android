@@ -2,6 +2,7 @@ package com.colink.android.ui.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.colink.android.BuildConfig
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.LanPairingRequest
@@ -74,7 +75,9 @@ class MainViewModel @Inject constructor(
             authRepository.bootstrap()
             _bootstrapping.value = false
             launch { authRepository.refreshProfile() }
-            checkForUpdates()
+            if (!BuildConfig.DEBUG) {
+                checkForUpdates()
+            }
         }
     }
 

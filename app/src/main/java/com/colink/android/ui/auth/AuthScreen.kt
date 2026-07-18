@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
+import com.colink.android.util.normalizeServerUrl
 import com.colink.android.ui.components.StateMessage
 
 @Composable
@@ -243,7 +244,7 @@ private fun AuthContent(
                             if (localErrorResId != null) {
                                 return@Button
                             }
-                            val normalizedServerUrl = serverUrl.trim()
+                            val normalizedServerUrl = normalizeServerUrl(serverUrl) ?: return@Button
                             viewModel.login(normalizedServerUrl, identifier, password)
                         },
                         enabled = !uiState.loading,
@@ -278,7 +279,7 @@ private fun AuthContent(
                         if (localErrorResId != null) {
                             return@Button
                         }
-                        val normalizedServerUrl = serverUrl.trim()
+                        val normalizedServerUrl = normalizeServerUrl(serverUrl) ?: return@Button
                         viewModel.login(normalizedServerUrl, identifier, password)
                     },
                     enabled = !uiState.loading,
@@ -310,6 +311,9 @@ private fun validate(
 ): Int? {
     if (serverUrl.isBlank()) {
         return R.string.err_server_url_required
+    }
+    if (normalizeServerUrl(serverUrl) == null) {
+        return R.string.err_server_url_invalid
     }
     if (identifier.isBlank()) {
         return R.string.err_email_or_username_required

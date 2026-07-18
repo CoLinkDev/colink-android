@@ -224,6 +224,7 @@
     <string name="settings_title">設定</string>
     <string name="settings_subtitle">CoLink のパラメータと動作を設定</string>
     <string name="server_url_label">サーバーアドレス</string>
+    <string name="edit_server_url_title">サーバーアドレスの変更</string>
     <string name="device_name_label">デバイス名</string>
     <string name="auto_start_label">ログイン時に起動</string>
     <string name="auto_start_body">デバイスの再起動後に CoLink を自動起動します。</string>
@@ -255,6 +256,7 @@
     <string name="show_password_desc">パスワードを表示</string>
     <string name="hide_password_desc">パスワードを非表示</string>
     <string name="err_server_url_required">サーバーアドレスを入力してください</string>
+    <string name="err_server_url_invalid">有効な HTTP または HTTPS のサーバーアドレスを入力してください</string>
     <string name="err_email_or_username_required">メールアドレスまたはユーザー名を入力してください</string>
     <string name="err_password_required">パスワードを入力してください</string>
     <string name="login_btn">ログイン</string>

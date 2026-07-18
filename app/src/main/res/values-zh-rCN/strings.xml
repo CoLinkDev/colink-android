@@ -224,6 +224,7 @@
     <string name="settings_title">设置</string>
     <string name="settings_subtitle">配置CoLink的参数和行为</string>
     <string name="server_url_label">服务器地址</string>
+    <string name="edit_server_url_title">修改服务器地址</string>
     <string name="device_name_label">设备名称</string>
     <string name="auto_start_label">开机启动</string>
     <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
@@ -255,6 +256,7 @@
     <string name="show_password_desc">显示密码</string>
     <string name="hide_password_desc">隐藏密码</string>
     <string name="err_server_url_required">请输入服务器地址</string>
+    <string name="err_server_url_invalid">请输入合法的 HTTP 或 HTTPS 服务器地址</string>
     <string name="err_email_or_username_required">请输入邮箱或用户名</string>
     <string name="err_password_required">请输入密码</string>
     <string name="login_btn">登录</string>

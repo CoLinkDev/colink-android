@@ -1,8 +1,6 @@
 package com.colink.android.ui.navigation
 
-import android.content.Intent
 import android.net.Uri
-import com.colink.android.BuildConfig
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -89,8 +87,7 @@ import com.colink.android.ui.castboard.CastBoardScreen
 import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
-import com.colink.android.util.CoLinkLog
-import com.colink.android.util.isBreakingVersionUpdate
+import com.colink.android.ui.components.AppUpdateDialog
 import kotlinx.coroutines.flow.StateFlow
 
 private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
@@ -169,53 +166,7 @@ private fun UpdateDialogHost(
     update: AppUpdate?,
     onDismiss: () -> Unit,
 ) {
-    val current = update ?: return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val asset = current.assets.firstOrNull()
-    val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
-    val body = buildString {
-        append(stringResource(R.string.update_available_body, current.version))
-        val notes = current.releaseNotes.trim()
-        if (notes.isNotEmpty()) {
-            append("\n\n")
-            append(notes)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = {
-            if (!required) {
-                onDismiss()
-            }
-        },
-        title = { Text(stringResource(R.string.update_available_title)) },
-        text = { Text(body) },
-        confirmButton = {
-            if (asset != null) {
-                TextButton(
-                    onClick = {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(asset.downloadUrl)))
-                        }.onFailure { error ->
-                            CoLinkLog.w("Update", "open update download failed", error)
-                        }
-                        if (!required) {
-                            onDismiss()
-                        }
-                    },
-                ) {
-                    Text(stringResource(R.string.update_download_btn))
-                }
-            }
-        },
-        dismissButton = {
-            if (!required) {
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.update_later_btn))
-                }
-            }
-        },
-    )
+    AppUpdateDialog(update = update, onDismiss = onDismiss)
 }
 
 @Composable

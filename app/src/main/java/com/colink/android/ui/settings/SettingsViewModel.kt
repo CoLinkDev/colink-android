@@ -10,6 +10,7 @@ import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.util.LocaleHelper
+import com.colink.android.util.normalizeServerUrl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -46,13 +47,25 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    fun updateServerUrl(url: String) {
+    fun saveServerUrl(url: String) {
+        val normalizedUrl = normalizeServerUrl(url)
+        if (normalizedUrl == null) {
+            val localizedContext = LocaleHelper.localized(context)
+            _uiState.update {
+                it.copy(message = localizedContext.getString(R.string.err_server_url_invalid))
+            }
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val current = settingsDataStore.currentSettings()
-            if (current.serverUrl != url) {
-                val updated = current.copy(serverUrl = url)
+            if (current.serverUrl != normalizedUrl) {
+                val updated = current.copy(serverUrl = normalizedUrl)
                 settingsDataStore.saveSettings(updated)
                 connectionManager.applySettings(updated)
+            }
+            val localizedContext = LocaleHelper.localized(context)
+            _uiState.update {
+                it.copy(message = localizedContext.getString(R.string.settings_saved))
             }
         }
     }

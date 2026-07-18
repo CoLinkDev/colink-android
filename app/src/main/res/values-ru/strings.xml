@@ -224,6 +224,7 @@
     <string name="settings_title">Настройки</string>
     <string name="settings_subtitle">Настройка параметров и поведения CoLink</string>
     <string name="server_url_label">Адрес сервера</string>
+    <string name="edit_server_url_title">Изменить адрес сервера</string>
     <string name="device_name_label">Имя устройства</string>
     <string name="auto_start_label">Автозапуск при старте</string>
     <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
@@ -255,6 +256,7 @@
     <string name="show_password_desc">Показать пароль</string>
     <string name="hide_password_desc">Скрыть пароль</string>
     <string name="err_server_url_required">Введите адрес сервера</string>
+    <string name="err_server_url_invalid">Введите корректный адрес HTTP или HTTPS сервера</string>
     <string name="err_email_or_username_required">Введите имя пользователя или эл. почту</string>
     <string name="err_password_required">Введите пароль</string>
     <string name="login_btn">Войти</string>
