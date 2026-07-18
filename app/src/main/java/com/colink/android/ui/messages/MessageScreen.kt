@@ -5,9 +5,19 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -598,21 +608,57 @@ private fun ChatInputBar(
                 )
             }
 
-            OutlinedTextField(
-                value = draft,
-                onValueChange = onDraftChange,
-                enabled = interactionEnabled,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text(placeholderText) },
-                maxLines = 4,
-                shape = RoundedCornerShape(26.dp),
-                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-            )
+            var isFocused by remember { mutableStateOf(false) }
+            val focusRequester = remember { FocusRequester() }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 44.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(26.dp)
+                    )
+                    .border(
+                        width = if (isFocused) 2.dp else 1.dp,
+                        color = if (isFocused) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                        } else {
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                        },
+                        shape = RoundedCornerShape(26.dp)
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusRequester.requestFocus()
+                    }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (draft.isEmpty()) {
+                    Text(
+                        text = placeholderText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                BasicTextField(
+                    value = draft,
+                    onValueChange = onDraftChange,
+                    enabled = interactionEnabled,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { isFocused = it.isFocused },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    maxLines = 4,
+                )
+            }
 
             FilledIconButton(
                 enabled = sendEnabled,
@@ -761,17 +807,19 @@ private fun TransferBubble(
         formatSize(transfer.fileSize)
     }
 
+    val bubbleShape = RoundedCornerShape(
+        topStart = 16.dp,
+        topEnd = 16.dp,
+        bottomStart = if (outgoing) 16.dp else 4.dp,
+        bottomEnd = if (outgoing) 4.dp else 16.dp,
+    )
+
     Column(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = if (outgoing) Alignment.End else Alignment.Start,
     ) {
         Surface(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (outgoing) 16.dp else 4.dp,
-                bottomEnd = if (outgoing) 4.dp else 16.dp,
-            ),
+            shape = bubbleShape,
             color = if (outgoing) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {
@@ -784,7 +832,15 @@ private fun TransferBubble(
             },
             modifier = Modifier
                 .widthIn(min = 200.dp, max = 320.dp)
-                .then(if (canOpen) Modifier.clickable(onClick = onOpen) else Modifier),
+                .then(
+                    if (canOpen) {
+                        Modifier
+                            .clip(bubbleShape)
+                            .clickable(onClick = onOpen)
+                    } else {
+                        Modifier
+                    }
+                ),
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),

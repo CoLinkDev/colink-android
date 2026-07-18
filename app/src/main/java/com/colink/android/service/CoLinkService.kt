@@ -121,9 +121,19 @@ class CoLinkService : Service() {
             )
             .setContentIntent(pendingIntent)
             .setOngoing(true)
-            .setRequestPromotedOngoing(true)
+            .setRequestPromotedOngoing(transfer != null)
             .setShowWhen(false)
             .apply {
+                if (transfer != null) {
+                    val percent = transfer.transferPercent()
+                    if (transfer.status == "sending" || transfer.status == "receiving") {
+                        setShortCriticalText("$percent%")
+                    } else if (transfer.status == "verifying") {
+                        setShortCriticalText(localizedContext.getString(R.string.status_verifying))
+                    } else {
+                        setShortCriticalText(transfer.statusLabel())
+                    }
+                }
                 when {
                     transferContent?.indeterminateProgress == true -> setProgress(100, 0, true)
                     transferContent?.progress != null -> setProgress(100, transferContent.progress, false)
