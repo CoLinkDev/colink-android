@@ -49,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -209,21 +210,21 @@ fun RemoteFilesystemScreen(
                 }
                 if (state.hasMore) {
                     item {
-                        Button(
+                        LaunchedEffect(Unit) {
+                            if (!state.loadingMore) {
+                                viewModel.loadMore()
+                            }
+                        }
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
-                            onClick = viewModel::loadMore,
-                            enabled = !state.loadingMore,
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            if (state.loadingMore) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                Spacer(Modifier.width(10.dp))
-                            }
-                            Text(stringResource(R.string.remote_files_load_more))
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
                         }
                     }
                 }
