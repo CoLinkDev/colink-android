@@ -37,6 +37,7 @@ import com.colink.android.util.TransferSpeedTracker
 private const val CHANNEL_ID = "colink_connection"
 private const val NOTIFICATION_ID = 1001
 private const val TRANSFER_NOTIFICATION_ID = 1002
+private const val TRANSFER_NOTIFICATION_TAG_PREFIX = "transfer:"
 private const val MAIN_REQUEST_CODE = 100
 private const val TARGET_DEVICE_REQUEST_CODE_BASE = 10_000
 private const val TARGET_DEVICE_REQUEST_CODE_MASK = 0x0fffffff
@@ -50,10 +51,9 @@ class CoLinkService : Service() {
     @Inject lateinit var fileTransferRepository: FileTransferRepository
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var notificationJob: Job? = null
-    private var hasActiveTransfer = false
-    private var lastNotificationKey: String? = null
-    private var lastFinishedNotificationKey: String? = null
-    private var lastTransferProgressNotificationAt = 0L
+    private val transferNotificationKeys = mutableMapOf<String, String>()
+    private val lastTransferProgressNotificationAt = mutableMapOf<String, Long>()
+    private var legacyTransferNotificationCleared = false
 
     override fun onCreate() {
         super.onCreate()
@@ -88,7 +88,6 @@ class CoLinkService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
-        lastNotificationKey = "normal"
     }
 
     private fun buildServiceNotification(): Notification {
@@ -186,76 +185,70 @@ class CoLinkService : Service() {
     }
 
     private fun updateTransferNotification(transfers: List<FileTransfer>) {
-        val activeTransfer = transfers
+        clearLegacyTransferNotification()
+
+        val activeTransfers = transfers
             .filter { it.status == "sending" || it.status == "receiving" || it.status == "verifying" }
-            .maxByOrNull { it.updatedAt }
-        
-        if (activeTransfer != null) {
-            hasActiveTransfer = true
-            updateSeparateTransferNotification(activeTransfer)
-            return
-        }
+        val activeSessionIds = activeTransfers.mapTo(mutableSetOf()) { it.sessionId }
 
-        hasActiveTransfer = false
-        val latestFinished = transfers
-            .filter { it.status in setOf("completed", "failed", "cancelled", "rejected") }
-            .maxByOrNull { it.updatedAt }
-        
-        if (latestFinished == null) {
-            updateSeparateTransferNotification(null)
-            return
-        }
+        transferNotificationKeys.keys
+            .filter { it !in activeSessionIds }
+            .toList()
+            .forEach(::cancelTransferNotification)
 
-        updateSeparateTransferNotification(latestFinished)
-        TransferSpeedTracker.remove(latestFinished.sessionId)
+        transfers
+            .filter { it.sessionId !in activeSessionIds }
+            .forEach { TransferSpeedTracker.remove(it.sessionId) }
+
+        activeTransfers.forEach(::updateSeparateTransferNotification)
     }
 
-    private fun updateSeparateTransferNotification(transfer: FileTransfer?) {
-        if (transfer == null) {
-            NotificationManagerCompat.from(this).cancel(TRANSFER_NOTIFICATION_ID)
-            lastNotificationKey = null
-            lastFinishedNotificationKey = null
-            return
-        }
-
+    private fun updateSeparateTransferNotification(transfer: FileTransfer) {
         val notificationKey = transfer.notificationKey()
-        if (lastNotificationKey == notificationKey) {
+        if (transferNotificationKeys[transfer.sessionId] == notificationKey) {
             return
         }
 
         val isProgress = transfer.status == "sending" || transfer.status == "receiving"
         if (isProgress) {
             val now = System.currentTimeMillis()
-            val previous = lastNotificationKey
-            val sameTransfer = previous?.startsWith("transfer:${transfer.sessionId}:${transfer.status}:") == true
-            if (sameTransfer && now - lastTransferProgressNotificationAt < TRANSFER_NOTIFICATION_UPDATE_MILLIS) {
+            val previousUpdateAt = lastTransferProgressNotificationAt[transfer.sessionId] ?: 0L
+            if (now - previousUpdateAt < TRANSFER_NOTIFICATION_UPDATE_MILLIS) {
                 return
             }
-            lastTransferProgressNotificationAt = now
+            lastTransferProgressNotificationAt[transfer.sessionId] = now
         }
 
-        lastNotificationKey = notificationKey
-        
-        if (!isProgress && transfer.status != "verifying") {
-            val finishedKey = "${transfer.sessionId}:${transfer.status}:${transfer.updatedAt}"
-            if (lastFinishedNotificationKey == finishedKey) {
-                return
-            }
-            lastFinishedNotificationKey = finishedKey
-        } else {
-            lastFinishedNotificationKey = null
-        }
+        transferNotificationKeys[transfer.sessionId] = notificationKey
 
         NotificationManagerCompat.from(this).notify(
+            transferNotificationTag(transfer.sessionId),
             TRANSFER_NOTIFICATION_ID,
             buildTransferNotification(transfer)
         )
     }
 
-    private fun FileTransfer?.notificationKey(): String {
-        if (this == null) {
-            return "normal"
+    private fun cancelTransferNotification(sessionId: String) {
+        NotificationManagerCompat.from(this).cancel(
+            transferNotificationTag(sessionId),
+            TRANSFER_NOTIFICATION_ID,
+        )
+        transferNotificationKeys.remove(sessionId)
+        lastTransferProgressNotificationAt.remove(sessionId)
+    }
+
+    private fun clearLegacyTransferNotification() {
+        if (legacyTransferNotificationCleared) {
+            return
         }
+        NotificationManagerCompat.from(this).cancel(TRANSFER_NOTIFICATION_ID)
+        legacyTransferNotificationCleared = true
+    }
+
+    private fun transferNotificationTag(sessionId: String): String =
+        "$TRANSFER_NOTIFICATION_TAG_PREFIX$sessionId"
+
+    private fun FileTransfer.notificationKey(): String {
         return if (isProgressTransfer()) {
             "transfer:$sessionId:$status:${transferPercent()}"
         } else {
