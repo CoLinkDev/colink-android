@@ -25,6 +25,8 @@ import com.colink.android.network.lan.LanTrustStore
 import com.colink.android.network.lan.LanWebSocketServer
 import com.colink.android.network.lan.NsdDiscovery
 import com.colink.android.network.lan.TransferConnection
+import com.colink.android.network.filesystem.LocalFilesystem
+import com.colink.android.network.filesystem.LocalFilesystemException
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
@@ -63,6 +65,21 @@ import com.colink.android.network.message.FileOfferPayload
 import com.colink.android.network.message.FileReadyPayload
 import com.colink.android.network.message.FileRejectPayload
 import com.colink.android.network.message.FileRetransmitPayload
+import com.colink.android.network.message.FS_DOWNLOAD_TYPE
+import com.colink.android.network.message.FS_ERROR_TYPE
+import com.colink.android.network.message.FS_LIST_RESULT_TYPE
+import com.colink.android.network.message.FS_LIST_TYPE
+import com.colink.android.network.message.FS_ROOTS_RESULT_TYPE
+import com.colink.android.network.message.FS_ROOTS_TYPE
+import com.colink.android.network.message.FS_STAT_TYPE
+import com.colink.android.network.message.FS_STAT_RESULT_TYPE
+import com.colink.android.network.message.FsDownloadPayload
+import com.colink.android.network.message.FsErrorPayload
+import com.colink.android.network.message.FsListPayload
+import com.colink.android.network.message.FsListResultPayload
+import com.colink.android.network.message.FsRootsPayload
+import com.colink.android.network.message.FsRootsResultPayload
+import com.colink.android.network.message.FsStatPayload
 import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
@@ -70,6 +87,7 @@ import com.colink.android.network.message.TextMessagePayload
 import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
+import com.colink.android.network.transfer.buildFileOffer
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.FileChecksumVerifier
@@ -110,6 +128,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -128,6 +147,7 @@ private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
+private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
@@ -135,6 +155,25 @@ private const val REASON_TRANSFER_USER_CANCELLED = "colink:transfer.user_cancell
 private const val REASON_TRANSFER_USER_REJECTED = "colink:transfer.user_rejected.v1"
 private const val REASON_TRANSFER_CHECKSUM_MISMATCH = "colink:transfer.checksum_mismatch.v1"
 private const val REASON_TRANSFER_GENERIC = "colink:transfer.generic.v1"
+
+enum class RemoteFilesystemSupport {
+    SUPPORTED,
+    TOO_OLD,
+    UNKNOWN,
+}
+
+class RemoteFilesystemUnsupportedException : IllegalStateException(
+    "Remote device does not support filesystem browsing",
+)
+
+data class RemoteFilesystemDownload(
+    val requestId: String,
+    val deviceId: String,
+    val remotePath: String,
+    val requestedAt: Long,
+    val sessionId: String? = null,
+    val error: String? = null,
+)
 
 @Singleton
 class ConnectionManager @Inject constructor(
@@ -158,6 +197,7 @@ class ConnectionManager @Inject constructor(
     private val clipboardSyncHandler: ClipboardSyncHandler,
     private val lanNetworkMonitor: LanNetworkMonitor,
     private val messageRouter: MessageRouter,
+    private val localFilesystem: LocalFilesystem,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _cloudState = MutableStateFlow(CloudConnectionState())
@@ -169,6 +209,9 @@ class ConnectionManager @Inject constructor(
     private val incomingTransfers = ConcurrentHashMap<String, IncomingTransferState>()
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
     private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
+    private val pendingFilesystemRequests = ConcurrentHashMap<String, PendingFilesystemRequest>()
+    private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
+    private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val swimEndpoints = ConcurrentHashMap<String, LanEndpoint>()
     private val swimNames = ConcurrentHashMap<String, String>()
@@ -187,6 +230,8 @@ class ConnectionManager @Inject constructor(
     private var probeRoundCandidates = emptyList<String>()
 
     val cloudState: StateFlow<CloudConnectionState> = _cloudState.asStateFlow()
+    val remoteFilesystemDownloads: StateFlow<Map<String, RemoteFilesystemDownload>> =
+        _remoteFilesystemDownloads.asStateFlow()
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
         _lanPairingCandidates.asStateFlow()
@@ -251,6 +296,8 @@ class ConnectionManager @Inject constructor(
         musicSyncManager.reset()
         incomingTransfers.clear()
         outgoingTransfers.clear()
+        pendingFilesystemDownloads.clear()
+        _remoteFilesystemDownloads.value = emptyMap()
         ackSignals.values.forEach { it.complete(Unit) }
         ackSignals.clear()
         swimEndpoints.clear()
@@ -424,15 +471,17 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         business: BusinessEnvelope,
         correlationId: String? = null,
+        envelopeId: String? = null,
     ): Result<String> =
         runCatching {
-            if (trySendViaExistingLan(targetDeviceId, business, correlationId)) {
+            if (trySendViaExistingLan(targetDeviceId, business, correlationId, envelopeId)) {
                 return@runCatching "lan"
             }
 
             val pending = PendingLanSend(
                 message = business,
                 correlationId = correlationId,
+                envelopeId = envelopeId,
                 result = CompletableDeferred<Result<Unit>>(),
             )
             val shouldConnect = synchronized(lanPeerLock) {
@@ -467,12 +516,13 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         business: BusinessEnvelope,
         correlationId: String? = null,
+        envelopeId: String? = null,
     ): Result<String> =
         runCatching {
             check(_cloudState.value.connected) { "cloud connection is not ready" }
             ensureCloudBusinessCompatible(targetDeviceId)
             val envelope = CloudClientEnvelope(
-                id = UUID.randomUUID().toString(),
+                id = envelopeId ?: UUID.randomUUID().toString(),
                 type = "relay",
                 to = targetDeviceId,
                 correlationId = correlationId,
@@ -502,11 +552,12 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         business: BusinessEnvelope,
         correlationId: String? = null,
+        envelopeId: String? = null,
     ): Boolean {
-        if (lanWebSocketServer.send(targetDeviceId, business, correlationId)) {
+        if (lanWebSocketServer.send(targetDeviceId, business, correlationId, envelopeId)) {
             return true
         }
-        return lanWebSocketClient.send(targetDeviceId, business, correlationId)
+        return lanWebSocketClient.send(targetDeviceId, business, correlationId, envelopeId)
     }
 
     private fun hasLanPeer(deviceId: String): Boolean =
@@ -613,7 +664,18 @@ class ConnectionManager @Inject constructor(
                 }
             } ?: return
 
-            if (trySendViaExistingLan(deviceId, pending.message, pending.correlationId)) {
+            if (
+                isFilesystemRequest(pending.message) &&
+                remoteFilesystemSupport(deviceId) == RemoteFilesystemSupport.TOO_OLD
+            ) {
+                pending.result.complete(Result.failure(RemoteFilesystemUnsupportedException()))
+            } else if (trySendViaExistingLan(
+                    deviceId,
+                    pending.message,
+                    pending.correlationId,
+                    pending.envelopeId,
+                )
+            ) {
                 pending.result.complete(Result.success(Unit))
             } else {
                 pending.result.complete(Result.failure(IllegalStateException("LAN peer is unavailable")))
@@ -659,13 +721,14 @@ class ConnectionManager @Inject constructor(
     private suspend fun saveInboundBusinessMessage(
         fromDeviceId: String,
         envelopeId: String?,
+        correlationId: String?,
         business: BusinessEnvelope,
         route: String,
     ) {
         when (business.type) {
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
             CLIPBOARD_SYNC_TYPE -> clipboardSyncHandler.receive(business)
-            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, business, route)
+            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, correlationId, business, route)
             FILE_ACCEPT_TYPE -> handleFileAccept(fromDeviceId, business)
             FILE_READY_TYPE -> handleFileReady(fromDeviceId, business)
             FILE_CHUNK_TYPE -> handleFileChunk(fromDeviceId, business, route)
@@ -686,8 +749,321 @@ class ConnectionManager @Inject constructor(
             SYSINFO_STATS_TYPE -> runCatching {
                 json.decodeFromJsonElement(SysInfoStatsPayload.serializer(), business.payload)
             }.getOrNull()?.let { sysInfoSyncManager.acceptStats(fromDeviceId, it) }
+            FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
+                handleFilesystemRequest(fromDeviceId, envelopeId, business)
+            FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE ->
+                completeFilesystemRequest(fromDeviceId, correlationId, business)
+            FS_ERROR_TYPE -> {
+                completeFilesystemRequest(fromDeviceId, correlationId, business)
+                completeFilesystemDownloadError(fromDeviceId, correlationId, business)
+            }
         }
     }
+
+    fun remoteFilesystemSupport(deviceId: String): RemoteFilesystemSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return RemoteFilesystemSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 4)) {
+            RemoteFilesystemSupport.SUPPORTED
+        } else {
+            RemoteFilesystemSupport.TOO_OLD
+        }
+    }
+
+    suspend fun listRemoteFilesystemRoots(deviceId: String): Result<FsRootsResultPayload> =
+        runCatching {
+            requireRemoteFilesystemSupport(deviceId)
+            val response = requestFilesystem(
+                deviceId = deviceId,
+                request = BusinessEnvelope(
+                    type = FS_ROOTS_TYPE,
+                    payload = json.encodeToJsonElement(FsRootsPayload),
+                ),
+                expectedResponseType = FS_ROOTS_RESULT_TYPE,
+            ).getOrThrow()
+            json.decodeFromJsonElement(FsRootsResultPayload.serializer(), response.payload)
+        }
+
+    suspend fun listRemoteFilesystem(
+        deviceId: String,
+        path: String,
+        offset: Long = 0L,
+    ): Result<FsListResultPayload> =
+        runCatching {
+            requireRemoteFilesystemSupport(deviceId)
+            val response = requestFilesystem(
+                deviceId = deviceId,
+                request = BusinessEnvelope(
+                    type = FS_LIST_TYPE,
+                    payload = json.encodeToJsonElement(
+                        FsListPayload(
+                            path = path,
+                            offset = offset,
+                        ),
+                    ),
+                ),
+                expectedResponseType = FS_LIST_RESULT_TYPE,
+            ).getOrThrow()
+            json.decodeFromJsonElement(FsListResultPayload.serializer(), response.payload)
+        }
+
+    suspend fun downloadRemoteFilesystemFile(deviceId: String, path: String): Result<Unit> {
+        if (remoteFilesystemSupport(deviceId) == RemoteFilesystemSupport.TOO_OLD) {
+            return Result.failure(IllegalStateException("Remote device does not support filesystem browsing"))
+        }
+        val requestId = UUID.randomUUID().toString()
+        val download = RemoteFilesystemDownload(
+            requestId = requestId,
+            deviceId = deviceId,
+            remotePath = path,
+            requestedAt = System.currentTimeMillis(),
+        )
+        pendingFilesystemDownloads[requestId] = download
+        rememberRemoteFilesystemDownload(download)
+        val sent = sendBusinessMessage(
+            targetDeviceId = deviceId,
+            business = BusinessEnvelope(
+                type = FS_DOWNLOAD_TYPE,
+                payload = json.encodeToJsonElement(FsDownloadPayload(path)),
+            ),
+            envelopeId = requestId,
+        ).map { Unit }
+        if (sent.isFailure) {
+            pendingFilesystemDownloads.remove(requestId, download)
+            removeRemoteFilesystemDownload(requestId)
+            return sent
+        }
+        scope.launch {
+            delay(FILE_OFFER_TIMEOUT_MILLIS)
+            if (pendingFilesystemDownloads.remove(requestId, download)) {
+                updateRemoteFilesystemDownload(requestId) {
+                    it.copy(error = "Remote device did not start the download")
+                }
+            }
+        }
+        return sent
+    }
+
+    private fun rememberRemoteFilesystemDownload(download: RemoteFilesystemDownload) {
+        _remoteFilesystemDownloads.update { current ->
+            val updated = current + (download.requestId to download)
+            if (updated.size <= 100) {
+                updated
+            } else {
+                updated.values
+                    .sortedByDescending { it.requestedAt }
+                    .take(100)
+                    .associateBy { it.requestId }
+            }
+        }
+    }
+
+    private fun updateRemoteFilesystemDownload(
+        requestId: String,
+        transform: (RemoteFilesystemDownload) -> RemoteFilesystemDownload,
+    ) {
+        _remoteFilesystemDownloads.update { current ->
+            current[requestId]?.let { download ->
+                current + (requestId to transform(download))
+            } ?: current
+        }
+    }
+
+    private fun removeRemoteFilesystemDownload(requestId: String) {
+        _remoteFilesystemDownloads.update { current -> current - requestId }
+    }
+
+    private suspend fun requestFilesystem(
+        deviceId: String,
+        request: BusinessEnvelope,
+        expectedResponseType: String,
+    ): Result<BusinessEnvelope> {
+        val requestId = UUID.randomUUID().toString()
+        val pending = PendingFilesystemRequest(
+            deviceId = deviceId,
+            expectedResponseType = expectedResponseType,
+            result = CompletableDeferred(),
+        )
+        pendingFilesystemRequests[requestId] = pending
+        val sent = sendBusinessMessage(
+            targetDeviceId = deviceId,
+            business = request,
+            envelopeId = requestId,
+        )
+        if (sent.isFailure) {
+            pendingFilesystemRequests.remove(requestId, pending)
+            return Result.failure(sent.exceptionOrNull() ?: IllegalStateException("Filesystem request failed"))
+        }
+        return try {
+            withTimeoutOrNull(FILESYSTEM_REQUEST_TIMEOUT_MILLIS) {
+                pending.result.await()
+            } ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
+        } finally {
+            pendingFilesystemRequests.remove(requestId, pending)
+        }
+    }
+
+    private fun requireRemoteFilesystemSupport(deviceId: String) {
+        if (remoteFilesystemSupport(deviceId) == RemoteFilesystemSupport.TOO_OLD) {
+            throw RemoteFilesystemUnsupportedException()
+        }
+    }
+
+    private fun isFilesystemRequest(message: BusinessEnvelope): Boolean =
+        message.type in setOf(FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE)
+
+    private suspend fun handleFilesystemRequest(
+        fromDeviceId: String,
+        envelopeId: String?,
+        business: BusinessEnvelope,
+    ) {
+        val requestId = envelopeId ?: run {
+            CoLinkLog.w("Filesystem", "ignored request without an envelope id from=${CoLinkLog.shortId(fromDeviceId)}")
+            return
+        }
+        when (business.type) {
+            FS_ROOTS_TYPE -> {
+                if (decodeFilesystemPayload<FsRootsPayload>(business) == null) {
+                    sendFilesystemError(fromDeviceId, requestId, "generic", "Invalid roots request")
+                    return
+                }
+                runFilesystemOperation { localFilesystem.roots() }
+                    .onSuccess { sendFilesystemResponse(fromDeviceId, requestId, FS_ROOTS_RESULT_TYPE, it) }
+                    .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
+            }
+            FS_LIST_TYPE -> {
+                val request = decodeFilesystemPayload<FsListPayload>(business) ?: run {
+                    sendFilesystemError(fromDeviceId, requestId, "generic", "Invalid list request")
+                    return
+                }
+                runFilesystemOperation { localFilesystem.list(request) }
+                    .onSuccess { sendFilesystemResponse(fromDeviceId, requestId, FS_LIST_RESULT_TYPE, it) }
+                    .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
+            }
+            FS_STAT_TYPE -> {
+                val request = decodeFilesystemPayload<FsStatPayload>(business) ?: run {
+                    sendFilesystemError(fromDeviceId, requestId, "generic", "Invalid stat request")
+                    return
+                }
+                runFilesystemOperation { localFilesystem.stat(request) }
+                    .onSuccess { sendFilesystemResponse(fromDeviceId, requestId, FS_STAT_RESULT_TYPE, it) }
+                    .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
+            }
+            FS_DOWNLOAD_TYPE -> {
+                val request = decodeFilesystemPayload<FsDownloadPayload>(business) ?: run {
+                    sendFilesystemError(fromDeviceId, requestId, "generic", "Invalid download request")
+                    return
+                }
+                runFilesystemOperation { localFilesystem.download(request) }
+                    .onSuccess { file ->
+                        runCatching { buildFileOffer(file) }
+                            .onSuccess { offer ->
+                                sendFileOffer(fromDeviceId, offer, correlationId = requestId)
+                                    .onFailure { error ->
+                                        sendFilesystemOperationError(fromDeviceId, requestId, error)
+                                    }
+                            }
+                            .onFailure { error -> sendFilesystemOperationError(fromDeviceId, requestId, error) }
+                    }
+                    .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
+            }
+        }
+    }
+
+    private fun completeFilesystemRequest(
+        fromDeviceId: String,
+        correlationId: String?,
+        business: BusinessEnvelope,
+    ) {
+        val requestId = correlationId ?: return
+        val pending = pendingFilesystemRequests[requestId] ?: return
+        if (pending.deviceId != fromDeviceId) {
+            CoLinkLog.w(
+                "Filesystem",
+                "ignored response from unexpected device=${CoLinkLog.shortId(fromDeviceId)}",
+            )
+            return
+        }
+        if (business.type != FS_ERROR_TYPE && business.type != pending.expectedResponseType) {
+            return
+        }
+        if (!pendingFilesystemRequests.remove(requestId, pending)) {
+            return
+        }
+        val result = if (business.type == FS_ERROR_TYPE) {
+            val error = decodeFilesystemPayload<FsErrorPayload>(business)
+            Result.failure(IllegalStateException(error?.message ?: "Remote filesystem request failed"))
+        } else {
+            Result.success(business)
+        }
+        pending.result.complete(result)
+    }
+
+    private fun completeFilesystemDownloadError(
+        fromDeviceId: String,
+        correlationId: String?,
+        business: BusinessEnvelope,
+    ) {
+        val requestId = correlationId ?: return
+        val download = pendingFilesystemDownloads[requestId] ?: return
+        if (download.deviceId != fromDeviceId || !pendingFilesystemDownloads.remove(requestId, download)) {
+            return
+        }
+        val error = decodeFilesystemPayload<FsErrorPayload>(business)
+        updateRemoteFilesystemDownload(requestId) {
+            it.copy(error = error?.message ?: "Remote filesystem request failed")
+        }
+    }
+
+    private suspend fun <T> runFilesystemOperation(operation: () -> T): Result<T> =
+        withContext(Dispatchers.IO) { runCatching(operation) }
+
+    private suspend inline fun <reified T> sendFilesystemResponse(
+        deviceId: String,
+        requestId: String,
+        type: String,
+        payload: T,
+    ) {
+        sendBusinessMessage(
+            targetDeviceId = deviceId,
+            business = BusinessEnvelope(type = type, payload = json.encodeToJsonElement(payload)),
+            correlationId = requestId,
+        ).onFailure { error ->
+            CoLinkLog.w("Filesystem", "failed to send filesystem response", error)
+        }
+    }
+
+    private suspend fun sendFilesystemOperationError(
+        deviceId: String,
+        requestId: String,
+        error: Throwable,
+    ) {
+        val filesystemError = error as? LocalFilesystemException
+        sendFilesystemError(
+            deviceId,
+            requestId,
+            filesystemError?.reason ?: "io_error",
+            filesystemError?.message ?: error.message ?: "Filesystem operation failed",
+        )
+    }
+
+    private suspend fun sendFilesystemError(
+        deviceId: String,
+        requestId: String,
+        reason: String,
+        message: String,
+    ) {
+        sendFilesystemResponse(
+            deviceId,
+            requestId,
+            FS_ERROR_TYPE,
+            FsErrorPayload(reason = reason, message = message),
+        )
+    }
+
+    private inline fun <reified T> decodeFilesystemPayload(business: BusinessEnvelope): T? =
+        runCatching {
+            json.decodeFromJsonElement(kotlinx.serialization.serializer<T>(), business.payload)
+        }.getOrNull()
 
     private suspend fun saveInboundTextMessage(
         fromDeviceId: String,
@@ -714,6 +1090,7 @@ class ConnectionManager @Inject constructor(
     private suspend fun handleFileOffer(
         fromDeviceId: String,
         envelopeId: String?,
+        correlationId: String?,
         business: BusinessEnvelope,
         route: String,
     ) {
@@ -761,13 +1138,37 @@ class ConnectionManager @Inject constructor(
             ),
         )
         envelopeId?.let { incomingFileOfferCorrelationIds[payload.sessionId] = it }
-        notifier.notifyFileOffer(
-            sessionId = payload.sessionId,
-            deviceId = fromDeviceId,
-            deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
-            fileName = payload.fileName,
-        )
         scheduleOfferExpiry(payload.sessionId)
+        val requestedDownload = correlationId?.let { requestId ->
+            pendingFilesystemDownloads[requestId]
+                ?.takeIf { it.deviceId == fromDeviceId }
+                ?.also { download ->
+                    pendingFilesystemDownloads.remove(requestId, download)
+                    updateRemoteFilesystemDownload(requestId) {
+                        it.copy(sessionId = payload.sessionId, error = null)
+                    }
+                }
+        }
+        if (requestedDownload != null) {
+            acceptFileOffer(payload.sessionId)
+                .onFailure { error ->
+                    CoLinkLog.w(
+                        "Filesystem",
+                        "failed to accept requested download session=${CoLinkLog.shortId(payload.sessionId)}",
+                        error,
+                    )
+                    updateRemoteFilesystemDownload(requestedDownload.requestId) {
+                        it.copy(error = error.message ?: "Download could not start")
+                    }
+                }
+        } else {
+            notifier.notifyFileOffer(
+                sessionId = payload.sessionId,
+                deviceId = fromDeviceId,
+                deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
+                fileName = payload.fileName,
+            )
+        }
     }
 
     suspend fun acceptFileOffer(sessionId: String): Result<Unit> =
@@ -813,7 +1214,11 @@ class ConnectionManager @Inject constructor(
             }
         }
 
-    suspend fun sendFileOffer(targetDeviceId: String, offer: BuiltFileOffer): Result<Unit> =
+    suspend fun sendFileOffer(
+        targetDeviceId: String,
+        offer: BuiltFileOffer,
+        correlationId: String? = null,
+    ): Result<Unit> =
         runCatching {
             val now = System.currentTimeMillis()
             val route = routeForDevice(targetDeviceId)
@@ -847,6 +1252,7 @@ class ConnectionManager @Inject constructor(
                     type = FILE_OFFER_TYPE,
                     payload = json.encodeToJsonElement(offer.payload),
                 ),
+                correlationId = correlationId,
             ).getOrThrow()
             fileTransferRepository.get(offer.payload.sessionId)?.let { transfer ->
                 if (transfer.route != actualRoute) {
@@ -1206,11 +1612,12 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         business: BusinessEnvelope,
         correlationId: String? = null,
+        envelopeId: String? = null,
     ): Result<String> = messageRouter.send(
         targetDeviceId = targetDeviceId,
         business = business,
-        sendLan = { sendViaLan(targetDeviceId, business, correlationId) },
-        sendCloud = { sendViaCloud(targetDeviceId, business, correlationId) },
+        sendLan = { sendViaLan(targetDeviceId, business, correlationId, envelopeId) },
+        sendCloud = { sendViaCloud(targetDeviceId, business, correlationId, envelopeId) },
     )
 
     private suspend fun routeForDevice(deviceId: String): String {
@@ -1227,12 +1634,19 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
-            override fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope) {
+            override fun onMessage(
+                fromDeviceId: String,
+                envelopeId: String,
+                correlationId: String?,
+                message: BusinessEnvelope,
+            ) {
                 CoLinkLog.d(
                     "LAN",
                     "received outbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
                 )
-                scope.launch { saveInboundBusinessMessage(fromDeviceId, envelopeId, message, "lan") }
+                scope.launch {
+                    saveInboundBusinessMessage(fromDeviceId, envelopeId, correlationId, message, "lan")
+                }
             }
 
             override fun onConnectionFailed(deviceId: String, reason: String) {
@@ -1426,12 +1840,19 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
-            override fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope) {
+            override fun onMessage(
+                fromDeviceId: String,
+                envelopeId: String,
+                correlationId: String?,
+                message: BusinessEnvelope,
+            ) {
                 CoLinkLog.d(
                     "LAN",
                     "received inbound peer message device=${CoLinkLog.shortId(fromDeviceId)} type=${message.type}",
                 )
-                scope.launch { saveInboundBusinessMessage(fromDeviceId, envelopeId, message, "lan") }
+                scope.launch {
+                    saveInboundBusinessMessage(fromDeviceId, envelopeId, correlationId, message, "lan")
+                }
             }
 
             override fun onDisconnected(deviceId: String) {
@@ -1674,7 +2095,7 @@ class ConnectionManager @Inject constructor(
                 val business = runCatching {
                     json.decodeFromJsonElement(BusinessEnvelope.serializer(), payload)
                 }.getOrNull() ?: return
-                saveInboundBusinessMessage(from, message.id, business, "cloud")
+                saveInboundBusinessMessage(from, message.id, message.correlationId, business, "cloud")
             }
         }
     }
@@ -2531,7 +2952,14 @@ private data class OutgoingTransferState(
 private data class PendingLanSend(
     val message: BusinessEnvelope,
     val correlationId: String? = null,
+    val envelopeId: String? = null,
     val result: CompletableDeferred<Result<Unit>>,
+)
+
+private data class PendingFilesystemRequest(
+    val deviceId: String,
+    val expectedResponseType: String,
+    val result: CompletableDeferred<Result<BusinessEnvelope>>,
 )
 
 private data class LanEndpoint(

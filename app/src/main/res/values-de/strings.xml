@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">Handshake-Signatur ungültig</string>
     <string name="err_handshake_key_changed">Identitätsschlüssel geändert</string>
     <string name="err_handshake_user_rejected">Kopplungsanfrage abgelehnt</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">Dateien des Geräts durchsuchen</string>
+    <string name="remote_files_title">Dateien</string>
+    <string name="remote_files_locations_title">Gerätespeicherorte</string>
+    <string name="remote_files_locations_body">Durchsuche die auf diesem Gerät verfügbaren Speicherorte.</string>
+    <string name="remote_files_locations_empty">Auf diesem Gerät sind keine lesbaren Speicherorte verfügbar.</string>
+    <string name="remote_files_directory_empty">Dieser Ordner ist leer.</string>
+    <string name="remote_files_refresh_desc">Dateien aktualisieren</string>
+    <string name="remote_files_up_desc">Eine Ebene höher</string>
+    <string name="remote_files_item_count">%1$d Elemente</string>
+    <string name="remote_files_storage_available">%1$s frei von %2$s</string>
+    <string name="remote_files_load_more">Mehr laden</string>
+    <string name="remote_files_download_desc">Datei herunterladen</string>
+    <string name="remote_files_download_started">Download-Anfrage gesendet</string>
+    <string name="remote_files_download_waiting">Warte auf das Gerät</string>
+    <string name="remote_files_open_download">Heruntergeladene Datei öffnen</string>
+    <string name="remote_files_error_title">Dateien konnten nicht geladen werden</string>
+    <string name="remote_files_retry">Erneut versuchen</string>
+    <string name="remote_files_request_failed">Das Gerät konnte die Dateianfrage nicht abschließen.</string>
+    <string name="remote_files_read_only">Schreibgeschützt</string>
+    <string name="remote_files_unsupported_title">Dieses Gerät ist zu alt</string>
+    <string name="remote_files_unsupported_body">Aktualisiere CoLink auf diesem Gerät, um seine Dateien zu durchsuchen.</string>
+    <string name="remote_files_root_app_storage">App-Speicher</string>
+    <string name="remote_files_root_app_files">App-Dateien</string>
+    <string name="remote_files_root_app_files_extra">App-Dateien %1$d</string>
+    <string name="remote_files_root_shared_storage">Gemeinsamer Speicher</string>
     
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>

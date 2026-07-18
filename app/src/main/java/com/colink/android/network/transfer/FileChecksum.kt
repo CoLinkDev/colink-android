@@ -2,6 +2,7 @@ package com.colink.android.network.transfer
 
 import android.content.ContentResolver
 import android.net.Uri
+import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 import org.bouncycastle.crypto.digests.Blake3Digest
@@ -34,6 +35,11 @@ fun ContentResolver.fileChecksum(uri: Uri): String =
     openInputStream(uri)?.use { input ->
         buildFileChecksum(input, DEFAULT_FILE_CHECKSUM_ALGORITHM)
     } ?: error("file is unavailable")
+
+fun File.fileChecksum(): String =
+    inputStream().use { input ->
+        buildFileChecksum(input, DEFAULT_FILE_CHECKSUM_ALGORITHM)
+    }
 
 private fun buildFileChecksum(input: InputStream, algorithm: String): String {
     val hasher = FileChecksumHasher.create(algorithm)

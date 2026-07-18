@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">Недействительная подпись рукопожатия</string>
     <string name="err_handshake_key_changed">Ключ идентификации изменен</string>
     <string name="err_handshake_user_rejected">Запрос на сопряжение отклонен</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">Просмотреть файлы устройства</string>
+    <string name="remote_files_title">Файлы</string>
+    <string name="remote_files_locations_title">Расположения устройства</string>
+    <string name="remote_files_locations_body">Просматривайте доступные на этом устройстве расположения.</string>
+    <string name="remote_files_locations_empty">На этом устройстве нет доступных для чтения расположений.</string>
+    <string name="remote_files_directory_empty">Эта папка пуста.</string>
+    <string name="remote_files_refresh_desc">Обновить файлы</string>
+    <string name="remote_files_up_desc">На уровень выше</string>
+    <string name="remote_files_item_count">%1$d элементов</string>
+    <string name="remote_files_storage_available">Свободно %1$s из %2$s</string>
+    <string name="remote_files_load_more">Загрузить ещё</string>
+    <string name="remote_files_download_desc">Скачать файл</string>
+    <string name="remote_files_download_started">Запрос на скачивание отправлен</string>
+    <string name="remote_files_download_waiting">Ожидание ответа устройства</string>
+    <string name="remote_files_open_download">Открыть скачанный файл</string>
+    <string name="remote_files_error_title">Не удалось загрузить файлы</string>
+    <string name="remote_files_retry">Повторить</string>
+    <string name="remote_files_request_failed">Устройство не смогло выполнить запрос файла.</string>
+    <string name="remote_files_read_only">Только для чтения</string>
+    <string name="remote_files_unsupported_title">Версия этого устройства слишком старая</string>
+    <string name="remote_files_unsupported_body">Обновите CoLink на этом устройстве, чтобы просматривать его файлы.</string>
+    <string name="remote_files_root_app_storage">Хранилище приложения</string>
+    <string name="remote_files_root_app_files">Файлы приложения</string>
+    <string name="remote_files_root_app_files_extra">Файлы приложения %1$d</string>
+    <string name="remote_files_root_shared_storage">Общее хранилище</string>
     
     <!-- Settings -->
     <string name="settings_title">Настройки</string>

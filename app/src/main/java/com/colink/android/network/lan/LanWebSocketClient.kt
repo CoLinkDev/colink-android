@@ -670,17 +670,44 @@ class LanWebSocketClient @Inject constructor(
                         json.decodeFromJsonElement(EncryptedBusinessPayload.serializer(), envelope.payload)
                     }.getOrNull() ?: return
                     val message = runCatching { crypto.decrypt(payload) }.getOrNull() ?: return
-                    listener.onMessage(envelope.from, envelope.id, message)
+                    listener.onMessage(envelope.from, envelope.id, envelope.correlationId, message)
                 }
             },
         )
     }
 
-    fun send(deviceId: String, message: BusinessEnvelope, correlationId: String? = null): Boolean {
+    fun send(
+        deviceId: String,
+        message: BusinessEnvelope,
+        correlationId: String? = null,
+        envelopeId: String? = null,
+    ): Boolean {
         val connection = peers[deviceId] ?: return false
         val crypto = connection.crypto ?: return false
         val payload = crypto.encrypt(message)
-        val sent = sendLanMessage(connection.webSocket, connection.identity ?: return false, deviceId, "business.v1.message", payload, correlationId, sequence = connection.sequence)
+        val identity = connection.identity ?: return false
+        val sent = if (envelopeId == null) {
+            sendLanMessage(
+                connection.webSocket,
+                identity,
+                deviceId,
+                "business.v1.message",
+                payload,
+                correlationId,
+                sequence = connection.sequence,
+            )
+        } else {
+            sendLanMessageWithId(
+                connection.webSocket,
+                identity,
+                deviceId,
+                "business.v1.message",
+                payload,
+                envelopeId,
+                correlationId,
+                sequence = connection.sequence,
+            )
+        }
         if (!sent && peers.remove(deviceId, connection)) {
             connection.keepaliveJob?.cancel()
         }
@@ -836,7 +863,12 @@ class LanWebSocketClient @Inject constructor(
 
     interface Listener {
         fun onConnected(deviceId: String)
-        fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope)
+        fun onMessage(
+            fromDeviceId: String,
+            envelopeId: String,
+            correlationId: String?,
+            message: BusinessEnvelope,
+        )
         fun onConnectionFailed(deviceId: String, reason: String)
         fun onDisconnected(deviceId: String)
         fun onKeyChanged(deviceId: String, name: String)

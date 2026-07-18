@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">配对签名无效</string>
     <string name="err_handshake_key_changed">设备身份密钥已更改</string>
     <string name="err_handshake_user_rejected">配对请求已被拒绝</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">浏览设备文件</string>
+    <string name="remote_files_title">文件</string>
+    <string name="remote_files_locations_title">设备位置</string>
+    <string name="remote_files_locations_body">浏览这台设备当前可访问的位置。</string>
+    <string name="remote_files_locations_empty">这台设备没有可读取的位置。</string>
+    <string name="remote_files_directory_empty">此文件夹为空。</string>
+    <string name="remote_files_refresh_desc">刷新文件</string>
+    <string name="remote_files_up_desc">返回上一级</string>
+    <string name="remote_files_item_count">共 %1$d 项</string>
+    <string name="remote_files_storage_available">可用 %1$s，共 %2$s</string>
+    <string name="remote_files_load_more">加载更多</string>
+    <string name="remote_files_download_desc">下载文件</string>
+    <string name="remote_files_download_started">已发送下载请求</string>
+    <string name="remote_files_download_waiting">等待设备响应</string>
+    <string name="remote_files_open_download">打开已下载文件</string>
+    <string name="remote_files_error_title">无法加载文件</string>
+    <string name="remote_files_retry">重试</string>
+    <string name="remote_files_request_failed">设备未能完成文件请求。</string>
+    <string name="remote_files_read_only">只读</string>
+    <string name="remote_files_unsupported_title">设备版本过低</string>
+    <string name="remote_files_unsupported_body">请更新这台设备上的 CoLink 后再浏览文件。</string>
+    <string name="remote_files_root_app_storage">应用存储</string>
+    <string name="remote_files_root_app_files">应用文件</string>
+    <string name="remote_files_root_app_files_extra">应用文件 %1$d</string>
+    <string name="remote_files_root_shared_storage">共享存储</string>
     
     <!-- Settings -->
     <string name="settings_title">设置</string>

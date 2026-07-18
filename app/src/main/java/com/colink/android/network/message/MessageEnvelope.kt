@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.3.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.4.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -24,6 +24,14 @@ const val MUSIC_ALIVE_TYPE = "music.v1.alive"
 const val MUSIC_REQUEST_TYPE = "music.v1.request"
 const val SYSINFO_STATS_TYPE = "sysinfo.v1.stats"
 const val SYSINFO_ALIVE_TYPE = "sysinfo.v1.alive"
+const val FS_ROOTS_TYPE = "fs.v1.roots"
+const val FS_ROOTS_RESULT_TYPE = "fs.v1.roots-result"
+const val FS_LIST_TYPE = "fs.v1.list"
+const val FS_LIST_RESULT_TYPE = "fs.v1.list-result"
+const val FS_STAT_TYPE = "fs.v1.stat"
+const val FS_STAT_RESULT_TYPE = "fs.v1.stat-result"
+const val FS_DOWNLOAD_TYPE = "fs.v1.download"
+const val FS_ERROR_TYPE = "fs.v1.error"
 
 @Serializable
 data class BusinessEnvelope(
@@ -275,6 +283,78 @@ data class BusinessVersionAckPayload(
 data class BusinessKeyExchangePayload(
     val ephemeralPublicKey: String,
     val signature: String,
+)
+
+@Serializable
+object FsRootsPayload
+
+@Serializable
+data class FsRootsResultPayload(
+    val roots: List<FsRootEntry>,
+)
+
+@Serializable
+data class FsRootEntry(
+    val path: String,
+    val label: String? = null,
+    val totalBytes: Long? = null,
+    val freeBytes: Long? = null,
+)
+
+@Serializable
+data class FsListPayload(
+    val path: String,
+    val offset: Long? = null,
+    val limit: Long? = null,
+)
+
+@Serializable
+data class FsListResultPayload(
+    val path: String,
+    val entries: List<FsEntry>,
+    val total: Long,
+    val offset: Long,
+    val hasMore: Boolean,
+)
+
+@Serializable
+data class FsEntry(
+    val name: String,
+    val kind: String,
+    val size: Long? = null,
+    val modified: Long? = null,
+    val created: Long? = null,
+    val readonly: Boolean,
+    val hidden: Boolean,
+)
+
+@Serializable
+data class FsStatPayload(
+    val path: String,
+)
+
+@Serializable
+data class FsStatResultPayload(
+    val path: String,
+    val exists: Boolean,
+    val kind: String? = null,
+    val size: Long? = null,
+    val modified: Long? = null,
+    val created: Long? = null,
+    val readonly: Boolean? = null,
+    val hidden: Boolean? = null,
+)
+
+@Serializable
+data class FsDownloadPayload(
+    val path: String,
+)
+
+@Serializable
+data class FsErrorPayload(
+    val reason: String,
+    val message: String,
+    val details: JsonElement? = null,
 )
 
 @Serializable

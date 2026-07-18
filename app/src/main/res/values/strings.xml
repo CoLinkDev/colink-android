@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">Handshake signature invalid</string>
     <string name="err_handshake_key_changed">Identity key changed</string>
     <string name="err_handshake_user_rejected">Pairing request rejected</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">Browse device files</string>
+    <string name="remote_files_title">Files</string>
+    <string name="remote_files_locations_title">Device locations</string>
+    <string name="remote_files_locations_body">Browse the locations available on this device.</string>
+    <string name="remote_files_locations_empty">No readable locations are available on this device.</string>
+    <string name="remote_files_directory_empty">This folder is empty.</string>
+    <string name="remote_files_refresh_desc">Refresh files</string>
+    <string name="remote_files_up_desc">Up one folder</string>
+    <string name="remote_files_item_count">%1$d items</string>
+    <string name="remote_files_storage_available">%1$s free of %2$s</string>
+    <string name="remote_files_load_more">Load more</string>
+    <string name="remote_files_download_desc">Download file</string>
+    <string name="remote_files_download_started">Download request sent</string>
+    <string name="remote_files_download_waiting">Waiting for device</string>
+    <string name="remote_files_open_download">Open downloaded file</string>
+    <string name="remote_files_error_title">Couldn\'t load files</string>
+    <string name="remote_files_retry">Try again</string>
+    <string name="remote_files_request_failed">The device couldn\'t complete the file request.</string>
+    <string name="remote_files_read_only">Read-only</string>
+    <string name="remote_files_unsupported_title">This device is too old</string>
+    <string name="remote_files_unsupported_body">Update CoLink on this device to browse its files.</string>
+    <string name="remote_files_root_app_storage">App storage</string>
+    <string name="remote_files_root_app_files">App files</string>
+    <string name="remote_files_root_app_files_extra">App files %1$d</string>
+    <string name="remote_files_root_shared_storage">Shared storage</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>

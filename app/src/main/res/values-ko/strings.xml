@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">핸드셰이크 서명이 잘못되었습니다</string>
     <string name="err_handshake_key_changed">식별 키가 변경되었습니다</string>
     <string name="err_handshake_user_rejected">페어링 요청이 거절되었습니다</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">기기 파일 찾아보기</string>
+    <string name="remote_files_title">파일</string>
+    <string name="remote_files_locations_title">기기 위치</string>
+    <string name="remote_files_locations_body">이 기기에서 사용할 수 있는 위치를 찾아봅니다.</string>
+    <string name="remote_files_locations_empty">이 기기에서 읽을 수 있는 위치가 없습니다.</string>
+    <string name="remote_files_directory_empty">이 폴더는 비어 있습니다.</string>
+    <string name="remote_files_refresh_desc">파일 새로고침</string>
+    <string name="remote_files_up_desc">상위 폴더로</string>
+    <string name="remote_files_item_count">%1$d개 항목</string>
+    <string name="remote_files_storage_available">%2$s 중 %1$s 사용 가능</string>
+    <string name="remote_files_load_more">더 보기</string>
+    <string name="remote_files_download_desc">파일 다운로드</string>
+    <string name="remote_files_download_started">다운로드 요청을 보냈습니다</string>
+    <string name="remote_files_download_waiting">기기 응답 대기 중</string>
+    <string name="remote_files_open_download">다운로드한 파일 열기</string>
+    <string name="remote_files_error_title">파일을 불러올 수 없습니다</string>
+    <string name="remote_files_retry">다시 시도</string>
+    <string name="remote_files_request_failed">기기가 파일 요청을 완료하지 못했습니다.</string>
+    <string name="remote_files_read_only">읽기 전용</string>
+    <string name="remote_files_unsupported_title">이 기기의 버전이 너무 낮습니다</string>
+    <string name="remote_files_unsupported_body">파일을 보려면 이 기기의 CoLink를 업데이트하세요.</string>
+    <string name="remote_files_root_app_storage">앱 저장소</string>
+    <string name="remote_files_root_app_files">앱 파일</string>
+    <string name="remote_files_root_app_files_extra">앱 파일 %1$d</string>
+    <string name="remote_files_root_shared_storage">공유 저장소</string>
     
     <!-- Settings -->
     <string name="settings_title">설정</string>

@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">Firma de saludo no válida</string>
     <string name="err_handshake_key_changed">Clave de identidad cambiada</string>
     <string name="err_handshake_user_rejected">Solicitud de emparejamiento rechazada</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">Explorar archivos del dispositivo</string>
+    <string name="remote_files_title">Archivos</string>
+    <string name="remote_files_locations_title">Ubicaciones del dispositivo</string>
+    <string name="remote_files_locations_body">Explora las ubicaciones disponibles en este dispositivo.</string>
+    <string name="remote_files_locations_empty">No hay ubicaciones legibles disponibles en este dispositivo.</string>
+    <string name="remote_files_directory_empty">Esta carpeta está vacía.</string>
+    <string name="remote_files_refresh_desc">Actualizar archivos</string>
+    <string name="remote_files_up_desc">Subir una carpeta</string>
+    <string name="remote_files_item_count">%1$d elementos</string>
+    <string name="remote_files_storage_available">%1$s libres de %2$s</string>
+    <string name="remote_files_load_more">Cargar más</string>
+    <string name="remote_files_download_desc">Descargar archivo</string>
+    <string name="remote_files_download_started">Solicitud de descarga enviada</string>
+    <string name="remote_files_download_waiting">Esperando al dispositivo</string>
+    <string name="remote_files_open_download">Abrir archivo descargado</string>
+    <string name="remote_files_error_title">No se pudieron cargar los archivos</string>
+    <string name="remote_files_retry">Intentar de nuevo</string>
+    <string name="remote_files_request_failed">El dispositivo no pudo completar la solicitud de archivo.</string>
+    <string name="remote_files_read_only">Solo lectura</string>
+    <string name="remote_files_unsupported_title">Este dispositivo es demasiado antiguo</string>
+    <string name="remote_files_unsupported_body">Actualiza CoLink en este dispositivo para explorar sus archivos.</string>
+    <string name="remote_files_root_app_storage">Almacenamiento de la aplicación</string>
+    <string name="remote_files_root_app_files">Archivos de la aplicación</string>
+    <string name="remote_files_root_app_files_extra">Archivos de la aplicación %1$d</string>
+    <string name="remote_files_root_shared_storage">Almacenamiento compartido</string>
     
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>

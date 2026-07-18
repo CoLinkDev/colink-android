@@ -83,6 +83,7 @@ import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
+import com.colink.android.ui.filesystem.RemoteFilesystemScreen
 import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.castboard.CastBoardScreen
 import com.colink.android.ui.messages.MessageScreen
@@ -440,8 +441,46 @@ private fun MainScaffold(
             MessageScreen(
                 pendingShareStore = pendingShareStore,
                 fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBrowseDeviceFiles = { deviceId ->
+                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                        rootNavController.navigate("filesystem/${Uri.encode(deviceId)}")
+                    }
+                },
                 onBack = { rootNavController.popBackStack() },
                 modifier = Modifier.shadow(4.dp)
+            )
+        }
+
+        composable(
+            route = "filesystem/{deviceId}",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+        ) {
+            RemoteFilesystemScreen(
+                onBack = { rootNavController.popBackStack() },
+                modifier = Modifier.shadow(4.dp),
             )
         }
 

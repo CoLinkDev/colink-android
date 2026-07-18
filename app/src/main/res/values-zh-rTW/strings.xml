@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">配對簽章無效</string>
     <string name="err_handshake_key_changed">裝置識別金鑰已變更</string>
     <string name="err_handshake_user_rejected">配對請求已被拒絕</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">瀏覽裝置檔案</string>
+    <string name="remote_files_title">檔案</string>
+    <string name="remote_files_locations_title">裝置位置</string>
+    <string name="remote_files_locations_body">瀏覽這台裝置目前可存取的位置。</string>
+    <string name="remote_files_locations_empty">這台裝置沒有可讀取的位置。</string>
+    <string name="remote_files_directory_empty">此資料夾是空的。</string>
+    <string name="remote_files_refresh_desc">重新整理檔案</string>
+    <string name="remote_files_up_desc">返回上一層</string>
+    <string name="remote_files_item_count">共 %1$d 項</string>
+    <string name="remote_files_storage_available">可用 %1$s，共 %2$s</string>
+    <string name="remote_files_load_more">載入更多</string>
+    <string name="remote_files_download_desc">下載檔案</string>
+    <string name="remote_files_download_started">已傳送下載請求</string>
+    <string name="remote_files_download_waiting">等待裝置回應</string>
+    <string name="remote_files_open_download">開啟已下載檔案</string>
+    <string name="remote_files_error_title">無法載入檔案</string>
+    <string name="remote_files_retry">重試</string>
+    <string name="remote_files_request_failed">裝置未能完成檔案請求。</string>
+    <string name="remote_files_read_only">唯讀</string>
+    <string name="remote_files_unsupported_title">裝置版本過低</string>
+    <string name="remote_files_unsupported_body">請更新這台裝置上的 CoLink 後再瀏覽檔案。</string>
+    <string name="remote_files_root_app_storage">應用程式儲存空間</string>
+    <string name="remote_files_root_app_files">應用程式檔案</string>
+    <string name="remote_files_root_app_files_extra">應用程式檔案 %1$d</string>
+    <string name="remote_files_root_shared_storage">共用儲存空間</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

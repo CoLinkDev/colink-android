@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.colink.android.network.message.FileOfferPayload
+import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,6 +34,28 @@ suspend fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFil
                 checksum = contentResolver.fileChecksum(uri),
             ),
             localUri = uri.toString(),
+        )
+    }
+
+suspend fun buildFileOffer(file: File): BuiltFileOffer =
+    withContext(Dispatchers.IO) {
+        require(file.isFile) { "file is unavailable" }
+        val size = file.length()
+        val totalChunks = if (size == 0L) {
+            0
+        } else {
+            (size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+        }
+        BuiltFileOffer(
+            payload = FileOfferPayload(
+                sessionId = UUID.randomUUID().toString(),
+                fileName = file.name.ifBlank { "file" },
+                fileSize = size,
+                totalChunks = totalChunks,
+                chunkSize = FILE_CHUNK_SIZE,
+                checksum = file.fileChecksum(),
+            ),
+            localUri = file.toURI().toString(),
         )
     }
 

@@ -192,6 +192,33 @@
     <string name="err_handshake_signature_invalid">ハンドシェイク署名が無効です</string>
     <string name="err_handshake_key_changed">識別キーが変更されました</string>
     <string name="err_handshake_user_rejected">ペアリング要求が拒否されました</string>
+
+    <!-- Remote files -->
+    <string name="browse_device_files_desc">デバイスのファイルを閲覧</string>
+    <string name="remote_files_title">ファイル</string>
+    <string name="remote_files_locations_title">デバイスの場所</string>
+    <string name="remote_files_locations_body">このデバイスで利用できる場所を閲覧します。</string>
+    <string name="remote_files_locations_empty">このデバイスに読み取り可能な場所はありません。</string>
+    <string name="remote_files_directory_empty">このフォルダーは空です。</string>
+    <string name="remote_files_refresh_desc">ファイルを更新</string>
+    <string name="remote_files_up_desc">1 つ上のフォルダーへ</string>
+    <string name="remote_files_item_count">%1$d 件</string>
+    <string name="remote_files_storage_available">%2$s 中 %1$s 使用可能</string>
+    <string name="remote_files_load_more">さらに読み込む</string>
+    <string name="remote_files_download_desc">ファイルをダウンロード</string>
+    <string name="remote_files_download_started">ダウンロード要求を送信しました</string>
+    <string name="remote_files_download_waiting">デバイスの応答を待機中</string>
+    <string name="remote_files_open_download">ダウンロードしたファイルを開く</string>
+    <string name="remote_files_error_title">ファイルを読み込めませんでした</string>
+    <string name="remote_files_retry">再試行</string>
+    <string name="remote_files_request_failed">デバイスはファイル要求を完了できませんでした。</string>
+    <string name="remote_files_read_only">読み取り専用</string>
+    <string name="remote_files_unsupported_title">このデバイスのバージョンは古すぎます</string>
+    <string name="remote_files_unsupported_body">ファイルを閲覧するには、このデバイスの CoLink を更新してください。</string>
+    <string name="remote_files_root_app_storage">アプリのストレージ</string>
+    <string name="remote_files_root_app_files">アプリのファイル</string>
+    <string name="remote_files_root_app_files_extra">アプリのファイル %1$d</string>
+    <string name="remote_files_root_shared_storage">共有ストレージ</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

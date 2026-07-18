@@ -133,11 +133,35 @@ class LanWebSocketServer @Inject constructor(
         CoLinkLog.i("LAN", "LAN server stopped")
     }
 
-    suspend fun send(deviceId: String, message: BusinessEnvelope, correlationId: String? = null): Boolean {
+    suspend fun send(
+        deviceId: String,
+        message: BusinessEnvelope,
+        correlationId: String? = null,
+        envelopeId: String? = null,
+    ): Boolean {
         val connection = peers[deviceId] ?: return false
         val payload = connection.crypto.encrypt(message)
         val sent = runCatching {
-            connection.session.sendLanMessage(connection.identity, deviceId, "business.v1.message", payload, correlationId, connection.sequence)
+            if (envelopeId == null) {
+                connection.session.sendLanMessage(
+                    connection.identity,
+                    deviceId,
+                    "business.v1.message",
+                    payload,
+                    correlationId,
+                    connection.sequence,
+                )
+            } else {
+                connection.session.sendLanMessageWithId(
+                    connection.identity,
+                    deviceId,
+                    "business.v1.message",
+                    payload,
+                    envelopeId,
+                    correlationId,
+                    connection.sequence,
+                )
+            }
             true
         }.getOrDefault(false)
         if (!sent) {
@@ -226,7 +250,7 @@ class LanWebSocketServer @Inject constructor(
                     json.decodeFromJsonElement(EncryptedBusinessPayload.serializer(), envelope.payload)
                 }.getOrNull() ?: continue
                 val message = runCatching { ready.crypto.decrypt(payload) }.getOrNull() ?: continue
-                listener?.onMessage(ready.peerId, envelope.id, message)
+                listener?.onMessage(ready.peerId, envelope.id, envelope.correlationId, message)
             }
         } finally {
             keepaliveJob?.cancel()
@@ -893,7 +917,12 @@ class LanWebSocketServer @Inject constructor(
 
     interface Listener {
         fun onConnected(deviceId: String)
-        fun onMessage(fromDeviceId: String, envelopeId: String, message: BusinessEnvelope)
+        fun onMessage(
+            fromDeviceId: String,
+            envelopeId: String,
+            correlationId: String?,
+            message: BusinessEnvelope,
+        )
         fun onDisconnected(deviceId: String)
         fun onKeyChanged(deviceId: String, name: String)
         fun onTransferConnected(sessionId: String)

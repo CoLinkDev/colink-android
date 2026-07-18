@@ -1,6 +1,5 @@
 package com.colink.android.ui.messages
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,6 +38,7 @@ import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FolderOff
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.UploadFile
@@ -82,7 +82,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.domain.model.Device
@@ -97,8 +96,8 @@ import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.transfers.TransfersViewModel
+import com.colink.android.ui.transfers.openTransferFile
 import android.widget.Toast
-import java.io.File
 import java.text.DateFormat
 import java.util.Date
 
@@ -113,6 +112,7 @@ fun MessageScreen(
     pendingShareStore: PendingShareStore? = null,
     fixedDeviceId: String? = null,
     onConversationSelected: (String) -> Unit = {},
+    onBrowseDeviceFiles: (String) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: MessagesViewModel = hiltViewModel(),
     transferViewModel: TransfersViewModel = hiltViewModel(),
@@ -324,6 +324,7 @@ fun MessageScreen(
                         pendingFileTargetDeviceId = selectedDeviceId
                         filePicker.launch(openDocumentMimeTypes)
                     },
+                    onBrowseFiles = { onBrowseDeviceFiles(device.deviceId) },
                     onAcceptTransfer = transferViewModel::accept,
                     onRejectTransfer = transferViewModel::reject,
                     onOpenTransfer = { transfer -> openTransferFile(context, transfer) },
@@ -503,6 +504,7 @@ private fun ConversationScreen(
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
     onPickFile: () -> Unit,
+    onBrowseFiles: () -> Unit,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
     onOpenTransfer: (FileTransfer) -> Unit,
@@ -539,6 +541,7 @@ private fun ConversationScreen(
             onDraftChange = onDraftChange,
             onSendText = onSendText,
             onSendFile = onPickFile,
+            onBrowseFiles = onBrowseFiles,
             interactionEnabled = sendEnabled,
             sendEnabled = draft.isNotBlank() && !isSendingMessage && sendEnabled,
             placeholderText = stringResource(R.string.message_placeholder),
@@ -552,6 +555,7 @@ private fun ChatInputBar(
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
     onSendFile: () -> Unit,
+    onBrowseFiles: () -> Unit,
     interactionEnabled: Boolean,
     sendEnabled: Boolean,
     placeholderText: String,
@@ -571,6 +575,18 @@ private fun ChatInputBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            FilledTonalIconButton(
+                onClick = onBrowseFiles,
+                enabled = interactionEnabled,
+                modifier = Modifier.size(44.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FolderOpen,
+                    contentDescription = stringResource(R.string.browse_device_files_desc),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
             FilledTonalIconButton(
                 onClick = onSendFile,
                 enabled = interactionEnabled,
@@ -917,37 +933,6 @@ private fun TransferBubble(
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
         )
-    }
-}
-
-private fun openTransferFile(context: Context, transfer: FileTransfer) {
-    val rawUri = transfer.localUri?.takeIf { it.isNotBlank() } ?: return
-    val parsed = Uri.parse(rawUri)
-    val uri = when (parsed.scheme) {
-        "content" -> parsed
-        "file" -> FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            File(parsed.path.orEmpty()),
-        )
-        else -> FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            File(rawUri),
-        )
-    }
-    val mimeType = if (uri.scheme == "content") {
-        context.contentResolver.getType(uri)
-    } else {
-        null
-    } ?: "*/*"
-    val intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(uri, mimeType)
-        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    runCatching {
-        context.startActivity(Intent.createChooser(intent, transfer.fileName.ifBlank { context.getString(R.string.unnamed_file) }))
-    }.onFailure {
-        Toast.makeText(context, R.string.toast_open_file_failed, Toast.LENGTH_SHORT).show()
     }
 }
 
