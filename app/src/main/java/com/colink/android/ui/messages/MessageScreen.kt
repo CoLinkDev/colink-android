@@ -138,7 +138,7 @@ fun MessageScreen(
 
     val isConversationRoute = !fixedDeviceId.isNullOrBlank()
     var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
-    var pendingFileUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingFileUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var pendingFileTargetDeviceId by remember { mutableStateOf<String?>(null) }
 
 
@@ -160,23 +160,27 @@ fun MessageScreen(
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) {
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isEmpty()) {
             pendingFileTargetDeviceId = null
             return@rememberLauncherForActivityResult
         }
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+        uris.forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
         }
         val targetDeviceId = pendingFileTargetDeviceId
         pendingFileTargetDeviceId = null
         if (targetDeviceId != null) {
-            transferViewModel.send(context.contentResolver, targetDeviceId, uri)
+            uris.forEach { uri ->
+                transferViewModel.send(context.contentResolver, targetDeviceId, uri)
+            }
         } else {
-            pendingFileUri = uri
+            pendingFileUris = uris
         }
     }
 
@@ -189,7 +193,7 @@ fun MessageScreen(
             is PendingShare.Text -> draft = share.text
             is PendingShare.File -> {
                 pendingFileTargetDeviceId = null
-                pendingFileUri = share.uri
+                pendingFileUris = listOf(share.uri)
             }
             null -> Unit
         }
@@ -374,18 +378,20 @@ fun MessageScreen(
         }
     }
 
-    val pendingUri = pendingFileUri
-    if (pendingUri != null) {
+    val pendingUris = pendingFileUris
+    if (pendingUris.isNotEmpty()) {
         SelectDeviceDialog(
             devices = targetDevices,
             initialDeviceId = selectedDeviceId,
             onDismiss = {
-                pendingFileUri = null
+                pendingFileUris = emptyList()
                 pendingFileTargetDeviceId = null
             },
             onSelect = { deviceId ->
-                transferViewModel.send(context.contentResolver, deviceId, pendingUri)
-                pendingFileUri = null
+                pendingUris.forEach { uri ->
+                    transferViewModel.send(context.contentResolver, deviceId, uri)
+                }
+                pendingFileUris = emptyList()
                 pendingFileTargetDeviceId = null
             },
         )
