@@ -44,7 +44,7 @@ sealed interface TimelineItem {
 
     data class Transfer(val transfer: FileTransfer) : TimelineItem {
         override val id: String get() = transfer.sessionId
-        override val timestamp: Long get() = transfer.updatedAt
+        override val timestamp: Long get() = transfer.createdAt
         override val direction: MessageDirection get() = if (transfer.direction == FileTransferDirection.Incoming) MessageDirection.Incoming else MessageDirection.Outgoing
         override val route: String get() = transfer.route
     }
