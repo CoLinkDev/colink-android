@@ -100,7 +100,10 @@ class MainActivity : ComponentActivity() {
                             title = { Text(stringResource(R.string.port_occupied_title)) },
                             text = { Text(stringResource(R.string.port_occupied_message)) },
                             confirmButton = {
-                                TextButton(onClick = { finish() }) {
+                                TextButton(onClick = {
+                                    finishAndRemoveTask()
+                                    kotlin.system.exitProcess(0)
+                                }) {
                                     Text(stringResource(R.string.exit_btn))
                                 }
                             }
