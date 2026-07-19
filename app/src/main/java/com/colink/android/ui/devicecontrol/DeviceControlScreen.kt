@@ -31,6 +31,7 @@ fun DeviceControlScreen(
     modifier: Modifier = Modifier,
     castBoardViewModel: CastBoardViewModel = hiltViewModel(),
     powerControlViewModel: DevicePowerControlViewModel = hiltViewModel(),
+    mediaControlViewModel: DeviceMediaControlViewModel = hiltViewModel(),
 ) {
     val devices by powerControlViewModel.devices.collectAsStateWithLifecycle()
     val localDeviceId by powerControlViewModel.localDeviceId.collectAsStateWithLifecycle()
@@ -45,6 +46,7 @@ fun DeviceControlScreen(
             availableDevices.firstOrNull()?.deviceId?.let { deviceId ->
                 powerControlViewModel.selectDevice(deviceId)
                 castBoardViewModel.selectDevice(deviceId)
+                mediaControlViewModel.selectDevice(deviceId)
             }
         }
     }
@@ -67,6 +69,7 @@ fun DeviceControlScreen(
                     onSelectedDeviceChange = { deviceId ->
                         powerControlViewModel.selectDevice(deviceId)
                         castBoardViewModel.selectDevice(deviceId)
+                        mediaControlViewModel.selectDevice(deviceId)
                     },
                     modifier = Modifier.padding(bottom = 4.dp),
                 )
@@ -77,6 +80,10 @@ fun DeviceControlScreen(
             )
             DevicePowerControlCard(
                 viewModel = powerControlViewModel,
+            )
+            DeviceMediaControlCard(
+                hasAvailableDevice = availableDevices.isNotEmpty(),
+                viewModel = mediaControlViewModel,
             )
             Spacer(modifier = Modifier.height(24.dp))
         }

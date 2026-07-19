@@ -30,6 +30,16 @@
     <string name="device_power_confirm_body">¿Enviar el comando %1$s a %2$s?</string>
     <string name="device_power_command_sent">Comando %1$s enviado</string>
     <string name="device_power_unsupported">Este equipo necesita CoLink 1.5.0 o posterior para recibir comandos de energía.</string>
+    <string name="device_media_control_title">Multimedia y sonido</string>
+    <string name="device_media_control_subtitle">Controla la sesión multimedia actual y el volumen del sistema</string>
+    <string name="device_media_previous">Anterior</string>
+    <string name="device_media_play">Reproducir</string>
+    <string name="device_media_pause">Pausar</string>
+    <string name="device_media_next">Siguiente</string>
+    <string name="device_media_mute">Silenciar</string>
+    <string name="device_media_volume">Volumen: %1$d%%</string>
+    <string name="device_media_set_volume">Establecer volumen</string>
+    <string name="device_media_unsupported">Este equipo necesita CoLink 1.6.0 o posterior para recibir comandos multimedia y de sonido.</string>
     <string name="nav_transfers">Transferencias</string>
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>

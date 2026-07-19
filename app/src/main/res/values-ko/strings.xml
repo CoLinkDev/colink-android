@@ -30,6 +30,16 @@
     <string name="device_power_confirm_body">%2$s을(를) %1$s하시겠습니까?</string>
     <string name="device_power_command_sent">%1$s 명령을 보냈습니다</string>
     <string name="device_power_unsupported">이 컴퓨터는 전원 명령을 받으려면 CoLink 1.5.0 이상이 필요합니다.</string>
+    <string name="device_media_control_title">미디어 및 소리</string>
+    <string name="device_media_control_subtitle">현재 미디어 세션과 시스템 볼륨을 제어합니다</string>
+    <string name="device_media_previous">이전</string>
+    <string name="device_media_play">재생</string>
+    <string name="device_media_pause">일시 정지</string>
+    <string name="device_media_next">다음</string>
+    <string name="device_media_mute">음소거</string>
+    <string name="device_media_volume">볼륨: %1$d%%</string>
+    <string name="device_media_set_volume">볼륨 설정</string>
+    <string name="device_media_unsupported">이 컴퓨터는 미디어 및 소리 명령을 받으려면 CoLink 1.6.0 이상이 필요합니다.</string>
     <string name="nav_transfers">파일 전송</string>
     <string name="nav_settings">설정</string>
     <string name="castboard_start">시작</string>

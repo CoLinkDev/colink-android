@@ -270,4 +270,24 @@ class MessageEnvelopeTest {
             encoded,
         )
     }
+
+    @Test
+    fun serializesVolumeSystemControlCommand() {
+        val envelope = BusinessEnvelope(
+            type = SYSTEM_CONTROL_COMMAND_TYPE,
+            payload = json.encodeToJsonElement(
+                SystemControlCommandPayload(
+                    action = SystemControlAction.SetVolume.wireValue,
+                    volume = 72,
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"system-control.v1.command","payload":{"action":"set-volume","volume":72}}""",
+            encoded,
+        )
+    }
 }

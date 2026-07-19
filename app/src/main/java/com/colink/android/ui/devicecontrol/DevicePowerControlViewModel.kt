@@ -80,6 +80,7 @@ class DevicePowerControlViewModel @Inject constructor(
                             SystemControlAction.Sleep -> R.string.device_power_sleep
                             SystemControlAction.Shutdown -> R.string.device_power_shutdown
                             SystemControlAction.Lock -> R.string.device_power_lock
+                            else -> error("Not a power control action")
                         }
                         val label = localizedContext().getString(labelRes)
                         Toast.makeText(

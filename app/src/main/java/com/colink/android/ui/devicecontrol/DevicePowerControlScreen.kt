@@ -198,5 +198,6 @@ private fun SystemControlAction.label(): String =
             SystemControlAction.Sleep -> R.string.device_power_sleep
             SystemControlAction.Shutdown -> R.string.device_power_shutdown
             SystemControlAction.Lock -> R.string.device_power_lock
+            else -> error("Not a power control action")
         },
     )

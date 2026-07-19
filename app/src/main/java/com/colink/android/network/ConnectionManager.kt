@@ -398,8 +398,15 @@ class ConnectionManager @Inject constructor(
     suspend fun sendSystemControl(
         targetDeviceId: String,
         action: SystemControlAction,
+        volume: Int? = null,
     ): Result<Unit> {
-        if (systemControlSupport(targetDeviceId) == SystemControlSupport.TOO_OLD) {
+        require(action.requiresVolume == (volume != null)) {
+            "Volume must be present only for set-volume"
+        }
+        require(volume == null || volume in 0..100) {
+            "Volume must be between 0 and 100"
+        }
+        if (systemControlSupport(targetDeviceId, action) == SystemControlSupport.TOO_OLD) {
             return Result.failure(SystemControlUnsupportedException())
         }
         return sendBusinessMessage(
@@ -407,7 +414,10 @@ class ConnectionManager @Inject constructor(
             BusinessEnvelope(
                 type = SYSTEM_CONTROL_COMMAND_TYPE,
                 payload = json.encodeToJsonElement(
-                    SystemControlCommandPayload(action = action.wireValue),
+                    SystemControlCommandPayload(
+                        action = action.wireValue,
+                        volume = volume,
+                    ),
                 ),
             ),
         ).map { Unit }
@@ -506,7 +516,7 @@ class ConnectionManager @Inject constructor(
     ): Result<String> =
         runCatching {
             if (isSystemControlCommand(business) && hasLanPeer(targetDeviceId)) {
-                requireSystemControlSupport(targetDeviceId)
+                requireSystemControlSupport(targetDeviceId, business)
             }
             if (trySendViaExistingLan(targetDeviceId, business, correlationId, envelopeId)) {
                 return@runCatching "lan"
@@ -555,7 +565,7 @@ class ConnectionManager @Inject constructor(
         runCatching {
             check(_cloudState.value.connected) { "cloud connection is not ready" }
             if (isSystemControlCommand(business)) {
-                requireSystemControlSupport(targetDeviceId)
+                requireSystemControlSupport(targetDeviceId, business)
             }
             ensureCloudBusinessCompatible(targetDeviceId)
             val envelope = CloudClientEnvelope(
@@ -607,16 +617,37 @@ class ConnectionManager @Inject constructor(
     }
 
     fun systemControlSupport(deviceId: String): SystemControlSupport {
+        return systemControlSupport(deviceId, SystemControlAction.Sleep)
+    }
+
+    fun mediaControlSupport(deviceId: String): SystemControlSupport {
+        return systemControlSupport(deviceId, SystemControlAction.Play)
+    }
+
+    private fun systemControlSupport(
+        deviceId: String,
+        action: SystemControlAction,
+    ): SystemControlSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
-        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 5)) {
+        return if (
+            supportsBusinessProtocolAtLeast(
+                peerVersion,
+                major = 1,
+                minor = action.minimumBusinessProtocolMinor,
+            )
+        ) {
             SystemControlSupport.SUPPORTED
         } else {
             SystemControlSupport.TOO_OLD
         }
     }
 
-    private fun requireSystemControlSupport(deviceId: String) {
-        if (systemControlSupport(deviceId) != SystemControlSupport.SUPPORTED) {
+    private fun requireSystemControlSupport(
+        deviceId: String,
+        message: BusinessEnvelope,
+    ) {
+        val action = systemControlAction(message) ?: return
+        if (systemControlSupport(deviceId, action) != SystemControlSupport.SUPPORTED) {
             throw SystemControlUnsupportedException()
         }
     }
@@ -718,7 +749,7 @@ class ConnectionManager @Inject constructor(
 
             if (
                 isSystemControlCommand(pending.message) &&
-                systemControlSupport(deviceId) != SystemControlSupport.SUPPORTED
+                !supportsSystemControlMessage(deviceId, pending.message)
             ) {
                 pending.result.complete(Result.failure(SystemControlUnsupportedException()))
             } else if (
@@ -970,6 +1001,21 @@ class ConnectionManager @Inject constructor(
 
     private fun isSystemControlCommand(message: BusinessEnvelope): Boolean =
         message.type == SYSTEM_CONTROL_COMMAND_TYPE
+
+    private fun supportsSystemControlMessage(
+        deviceId: String,
+        message: BusinessEnvelope,
+    ): Boolean =
+        systemControlAction(message)?.let { action ->
+            systemControlSupport(deviceId, action) == SystemControlSupport.SUPPORTED
+        } == true
+
+    private fun systemControlAction(message: BusinessEnvelope): SystemControlAction? =
+        runCatching {
+            json.decodeFromJsonElement(SystemControlCommandPayload.serializer(), message.payload)
+        }.getOrNull()?.let { payload ->
+            SystemControlAction.fromWireValue(payload.action)
+        }
 
     private suspend fun handleFilesystemRequest(
         fromDeviceId: String,
