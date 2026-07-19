@@ -55,10 +55,16 @@ import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.message.SYSINFO_ALIVE_TYPE
 import com.colink.android.network.message.SYSINFO_STATS_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_COMMAND_TYPE
+import com.colink.android.network.message.SYSTEM_CONTROL_ERROR_TYPE
+import com.colink.android.network.message.SYSTEM_CONTROL_QUERY_TYPE
+import com.colink.android.network.message.SYSTEM_CONTROL_RESULT_TYPE
 import com.colink.android.network.message.SysInfoAlivePayload
 import com.colink.android.network.message.SysInfoStatsPayload
 import com.colink.android.network.message.SystemControlAction
 import com.colink.android.network.message.SystemControlCommandPayload
+import com.colink.android.network.message.SystemControlErrorPayload
+import com.colink.android.network.message.SystemControlQueryPayload
+import com.colink.android.network.message.SystemControlResultPayload
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
 import com.colink.android.network.message.FileCancelPayload
@@ -151,6 +157,8 @@ private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
+private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
+private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
@@ -177,6 +185,10 @@ class RemoteFilesystemUnsupportedException : IllegalStateException(
 
 class SystemControlUnsupportedException : IllegalStateException(
     "Remote device does not support system control",
+)
+
+class SystemControlQueryUnsupportedException : IllegalStateException(
+    "Remote device does not support system state queries",
 )
 
 data class RemoteFilesystemDownload(
@@ -223,6 +235,7 @@ class ConnectionManager @Inject constructor(
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
     private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
     private val pendingFilesystemRequests = ConcurrentHashMap<String, PendingFilesystemRequest>()
+    private val pendingSystemControlQueries = ConcurrentHashMap<String, PendingSystemControlQuery>()
     private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
     private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
@@ -423,6 +436,21 @@ class ConnectionManager @Inject constructor(
         ).map { Unit }
     }
 
+    suspend fun querySystemControlState(deviceId: String): Result<SystemControlResultPayload> =
+        runCatching {
+            requireSystemControlQuerySupport(deviceId)
+            val response = requestSystemControlState(
+                deviceId = deviceId,
+                request = BusinessEnvelope(
+                    type = SYSTEM_CONTROL_QUERY_TYPE,
+                    payload = json.encodeToJsonElement(
+                        SystemControlQueryPayload(fields = SYSTEM_CONTROL_QUERY_FIELDS),
+                    ),
+                ),
+            ).getOrThrow()
+            json.decodeFromJsonElement(SystemControlResultPayload.serializer(), response.payload)
+        }
+
     private fun startLan() {
         lanGeneration.incrementAndGet()
         CoLinkLog.i("LAN", "starting LAN services")
@@ -518,6 +546,9 @@ class ConnectionManager @Inject constructor(
             if (isSystemControlCommand(business) && hasLanPeer(targetDeviceId)) {
                 requireSystemControlSupport(targetDeviceId, business)
             }
+            if (isSystemControlQuery(business) && hasLanPeer(targetDeviceId)) {
+                requireSystemControlQuerySupport(targetDeviceId)
+            }
             if (trySendViaExistingLan(targetDeviceId, business, correlationId, envelopeId)) {
                 return@runCatching "lan"
             }
@@ -566,6 +597,9 @@ class ConnectionManager @Inject constructor(
             check(_cloudState.value.connected) { "cloud connection is not ready" }
             if (isSystemControlCommand(business)) {
                 requireSystemControlSupport(targetDeviceId, business)
+            }
+            if (isSystemControlQuery(business)) {
+                requireSystemControlQuerySupport(targetDeviceId)
             }
             ensureCloudBusinessCompatible(targetDeviceId)
             val envelope = CloudClientEnvelope(
@@ -624,6 +658,15 @@ class ConnectionManager @Inject constructor(
         return systemControlSupport(deviceId, SystemControlAction.Play)
     }
 
+    fun systemControlQuerySupport(deviceId: String): SystemControlSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 7)) {
+            SystemControlSupport.SUPPORTED
+        } else {
+            SystemControlSupport.TOO_OLD
+        }
+    }
+
     private fun systemControlSupport(
         deviceId: String,
         action: SystemControlAction,
@@ -649,6 +692,12 @@ class ConnectionManager @Inject constructor(
         val action = systemControlAction(message) ?: return
         if (systemControlSupport(deviceId, action) != SystemControlSupport.SUPPORTED) {
             throw SystemControlUnsupportedException()
+        }
+    }
+
+    private fun requireSystemControlQuerySupport(deviceId: String) {
+        if (systemControlQuerySupport(deviceId) == SystemControlSupport.TOO_OLD) {
+            throw SystemControlQueryUnsupportedException()
         }
     }
 
@@ -753,6 +802,11 @@ class ConnectionManager @Inject constructor(
             ) {
                 pending.result.complete(Result.failure(SystemControlUnsupportedException()))
             } else if (
+                isSystemControlQuery(pending.message) &&
+                !supportsSystemControlQueryMessage(deviceId)
+            ) {
+                pending.result.complete(Result.failure(SystemControlQueryUnsupportedException()))
+            } else if (
                 isFilesystemRequest(pending.message) &&
                 remoteFilesystemSupport(deviceId) == RemoteFilesystemSupport.TOO_OLD
             ) {
@@ -837,6 +891,8 @@ class ConnectionManager @Inject constructor(
             SYSINFO_STATS_TYPE -> runCatching {
                 json.decodeFromJsonElement(SysInfoStatsPayload.serializer(), business.payload)
             }.getOrNull()?.let { sysInfoSyncManager.acceptStats(fromDeviceId, it) }
+            SYSTEM_CONTROL_RESULT_TYPE, SYSTEM_CONTROL_ERROR_TYPE ->
+                completeSystemControlQuery(fromDeviceId, correlationId, business)
             FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
                 handleFilesystemRequest(fromDeviceId, envelopeId, business)
             FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE ->
@@ -1002,6 +1058,9 @@ class ConnectionManager @Inject constructor(
     private fun isSystemControlCommand(message: BusinessEnvelope): Boolean =
         message.type == SYSTEM_CONTROL_COMMAND_TYPE
 
+    private fun isSystemControlQuery(message: BusinessEnvelope): Boolean =
+        message.type == SYSTEM_CONTROL_QUERY_TYPE
+
     private fun supportsSystemControlMessage(
         deviceId: String,
         message: BusinessEnvelope,
@@ -1010,12 +1069,64 @@ class ConnectionManager @Inject constructor(
             systemControlSupport(deviceId, action) == SystemControlSupport.SUPPORTED
         } == true
 
+    private fun supportsSystemControlQueryMessage(deviceId: String): Boolean =
+        systemControlQuerySupport(deviceId) == SystemControlSupport.SUPPORTED
+
     private fun systemControlAction(message: BusinessEnvelope): SystemControlAction? =
         runCatching {
             json.decodeFromJsonElement(SystemControlCommandPayload.serializer(), message.payload)
         }.getOrNull()?.let { payload ->
             SystemControlAction.fromWireValue(payload.action)
         }
+
+    private suspend fun requestSystemControlState(
+        deviceId: String,
+        request: BusinessEnvelope,
+    ): Result<BusinessEnvelope> {
+        val requestId = UUID.randomUUID().toString()
+        val pending = PendingSystemControlQuery(
+            deviceId = deviceId,
+            result = CompletableDeferred(),
+        )
+        pendingSystemControlQueries[requestId] = pending
+        val sent = sendBusinessMessage(
+            targetDeviceId = deviceId,
+            business = request,
+            envelopeId = requestId,
+        )
+        if (sent.isFailure) {
+            pendingSystemControlQueries.remove(requestId, pending)
+            return Result.failure(sent.exceptionOrNull() ?: IllegalStateException("System state query failed"))
+        }
+        return try {
+            withTimeoutOrNull(SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS) {
+                pending.result.await()
+            } ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
+        } finally {
+            pendingSystemControlQueries.remove(requestId, pending)
+        }
+    }
+
+    private fun completeSystemControlQuery(
+        fromDeviceId: String,
+        correlationId: String?,
+        business: BusinessEnvelope,
+    ) {
+        val requestId = correlationId ?: return
+        val pending = pendingSystemControlQueries[requestId] ?: return
+        if (pending.deviceId != fromDeviceId || !pendingSystemControlQueries.remove(requestId, pending)) {
+            return
+        }
+        val result = if (business.type == SYSTEM_CONTROL_ERROR_TYPE) {
+            val error = runCatching {
+                json.decodeFromJsonElement(SystemControlErrorPayload.serializer(), business.payload)
+            }.getOrNull()
+            Result.failure(IllegalStateException(error?.message ?: "Remote system state query failed"))
+        } else {
+            Result.success(business)
+        }
+        pending.result.complete(result)
+    }
 
     private suspend fun handleFilesystemRequest(
         fromDeviceId: String,
@@ -3066,6 +3177,11 @@ private data class PendingLanSend(
 private data class PendingFilesystemRequest(
     val deviceId: String,
     val expectedResponseType: String,
+    val result: CompletableDeferred<Result<BusinessEnvelope>>,
+)
+
+private data class PendingSystemControlQuery(
+    val deviceId: String,
     val result: CompletableDeferred<Result<BusinessEnvelope>>,
 )
 

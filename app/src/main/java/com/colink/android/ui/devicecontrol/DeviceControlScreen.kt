@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -46,9 +47,19 @@ fun DeviceControlScreen(
             availableDevices.firstOrNull()?.deviceId?.let { deviceId ->
                 powerControlViewModel.selectDevice(deviceId)
                 castBoardViewModel.selectDevice(deviceId)
-                mediaControlViewModel.selectDevice(deviceId)
             }
         }
+    }
+
+    LaunchedEffect(selectedDeviceId) {
+        selectedDeviceId?.let { deviceId ->
+            mediaControlViewModel.selectDevice(deviceId)
+            mediaControlViewModel.startSystemStatePolling()
+        } ?: mediaControlViewModel.stopSystemStatePolling()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose(mediaControlViewModel::stopSystemStatePolling)
     }
 
     ScreenColumn(
@@ -69,7 +80,6 @@ fun DeviceControlScreen(
                     onSelectedDeviceChange = { deviceId ->
                         powerControlViewModel.selectDevice(deviceId)
                         castBoardViewModel.selectDevice(deviceId)
-                        mediaControlViewModel.selectDevice(deviceId)
                     },
                     modifier = Modifier.padding(bottom = 4.dp),
                 )

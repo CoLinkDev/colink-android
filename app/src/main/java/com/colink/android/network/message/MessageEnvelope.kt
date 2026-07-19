@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.6.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.7.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -33,6 +33,9 @@ const val FS_STAT_RESULT_TYPE = "fs.v1.stat-result"
 const val FS_DOWNLOAD_TYPE = "fs.v1.download"
 const val FS_ERROR_TYPE = "fs.v1.error"
 const val SYSTEM_CONTROL_COMMAND_TYPE = "system-control.v1.command"
+const val SYSTEM_CONTROL_QUERY_TYPE = "system-control.v1.query"
+const val SYSTEM_CONTROL_RESULT_TYPE = "system-control.v1.result"
+const val SYSTEM_CONTROL_ERROR_TYPE = "system-control.v1.error"
 
 @Serializable
 data class BusinessEnvelope(
@@ -399,6 +402,25 @@ enum class SystemControlAction(val wireValue: String) {
 data class SystemControlCommandPayload(
     val action: String,
     val volume: Int? = null,
+)
+
+@Serializable
+data class SystemControlQueryPayload(
+    val fields: List<String>,
+)
+
+@Serializable
+data class SystemControlResultPayload(
+    val volume: Int? = null,
+    val muted: Boolean? = null,
+    val playback: String? = null,
+)
+
+@Serializable
+data class SystemControlErrorPayload(
+    val reason: String,
+    val message: String,
+    val details: JsonElement? = null,
 )
 
 @Serializable

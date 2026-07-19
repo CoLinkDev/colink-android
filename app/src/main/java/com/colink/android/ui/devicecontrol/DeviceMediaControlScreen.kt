@@ -21,9 +21,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -36,8 +33,6 @@ import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.message.SystemControlAction
 import com.colink.android.ui.components.StateMessage
 import kotlin.math.roundToInt
-
-private const val DEFAULT_VOLUME = 50f
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -52,8 +47,9 @@ fun DeviceMediaControlCard(
     val enabled = hasAvailableDevice &&
         selectedDeviceId != null &&
         !state.submitting &&
-        support != SystemControlSupport.TOO_OLD
-    var volume by rememberSaveable(selectedDeviceId) { mutableStateOf(DEFAULT_VOLUME) }
+        !state.querying &&
+        support == SystemControlSupport.SUPPORTED
+    val playing = state.playback == "playing"
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -99,22 +95,22 @@ fun DeviceMediaControlCard(
                         onClick = { viewModel.send(SystemControlAction.Previous) },
                     )
                     MediaActionButton(
-                        label = stringResource(R.string.device_media_play),
-                        icon = Icons.Default.PlayArrow,
-                        enabled = enabled,
-                        onClick = { viewModel.send(SystemControlAction.Play) },
-                    )
-                    MediaActionButton(
-                        label = stringResource(R.string.device_media_pause),
-                        icon = Icons.Default.Pause,
-                        enabled = enabled,
-                        onClick = { viewModel.send(SystemControlAction.Pause) },
-                    )
-                    MediaActionButton(
                         label = stringResource(R.string.device_media_next),
                         icon = Icons.Default.SkipNext,
                         enabled = enabled,
                         onClick = { viewModel.send(SystemControlAction.Next) },
+                    )
+                    MediaActionButton(
+                        label = stringResource(
+                            if (playing) R.string.device_media_pause else R.string.device_media_play,
+                        ),
+                        icon = if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        enabled = enabled,
+                        onClick = {
+                            viewModel.send(
+                                if (playing) SystemControlAction.Pause else SystemControlAction.Play,
+                            )
+                        },
                     )
                     MediaActionButton(
                         label = stringResource(R.string.device_media_mute),
@@ -124,14 +120,14 @@ fun DeviceMediaControlCard(
                     )
                 }
                 Text(
-                    text = stringResource(R.string.device_media_volume, volume.roundToInt()),
+                    text = stringResource(R.string.device_media_volume, state.volume),
                     style = MaterialTheme.typography.labelLarge,
                 )
                 Slider(
-                    value = volume,
-                    onValueChange = { volume = it },
+                    value = state.volume.toFloat(),
+                    onValueChange = { viewModel.updateVolume(it.roundToInt()) },
                     onValueChangeFinished = {
-                        viewModel.send(SystemControlAction.SetVolume, volume.roundToInt())
+                        viewModel.send(SystemControlAction.SetVolume, state.volume)
                     },
                     valueRange = 0f..100f,
                     steps = 99,

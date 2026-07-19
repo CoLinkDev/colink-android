@@ -290,4 +290,42 @@ class MessageEnvelopeTest {
             encoded,
         )
     }
+
+    @Test
+    fun serializesSystemControlStateQuery() {
+        val envelope = BusinessEnvelope(
+            type = SYSTEM_CONTROL_QUERY_TYPE,
+            payload = json.encodeToJsonElement(
+                SystemControlQueryPayload(fields = listOf("volume", "muted", "playback")),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"system-control.v1.query","payload":{"fields":["volume","muted","playback"]}}""",
+            encoded,
+        )
+    }
+
+    @Test
+    fun serializesSystemControlStateResult() {
+        val envelope = BusinessEnvelope(
+            type = SYSTEM_CONTROL_RESULT_TYPE,
+            payload = json.encodeToJsonElement(
+                SystemControlResultPayload(
+                    volume = 72,
+                    muted = false,
+                    playback = "playing",
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"system-control.v1.result","payload":{"volume":72,"muted":false,"playback":"playing"}}""",
+            encoded,
+        )
+    }
 }
