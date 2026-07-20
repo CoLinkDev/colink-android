@@ -50,6 +50,7 @@ class DeviceMediaControlViewModel @Inject constructor(
         _selectedDeviceId.value = deviceId
         _uiState.update {
             it.copy(
+                submitting = false,
                 querying = connectionManager.systemControlQuerySupport(deviceId) != SystemControlSupport.TOO_OLD,
                 volume = DEFAULT_VOLUME,
                 playback = null,

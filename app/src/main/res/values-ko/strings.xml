@@ -29,7 +29,7 @@
     <string name="device_power_confirm_title">%1$s 확인</string>
     <string name="device_power_confirm_body">%2$s을(를) %1$s하시겠습니까?</string>
     <string name="device_power_command_sent">%1$s 명령을 보냈습니다</string>
-    <string name="device_power_unsupported">이 컴퓨터는 전원 명령을 받으려면 CoLink 1.5.0 이상이 필요합니다.</string>
+    <string name="device_power_unsupported">상대 디바이스의 CoLink가 이 프로토콜을 지원하지 않습니다. 디바이스의 CoLink 버전을 업데이트하세요.</string>
     <string name="device_wake_on_lan_title">기기 깨우기</string>
     <string name="device_wake_on_lan_subtitle">대상 네트워크의 온라인 CoLink 기기를 통해 Wake-on-LAN 패킷을 보냅니다</string>
     <string name="device_wake_on_lan_no_proxies">대상 네트워크의 온라인 CoLink 기기를 먼저 연결하세요.</string>
@@ -41,7 +41,7 @@
     <string name="device_wake_on_lan_confirm_title">깨우기 패킷을 보낼까요?</string>
     <string name="device_wake_on_lan_confirm_body">%2$s을(를) 통해 %1$s에 깨우기 패킷을 보낼까요?</string>
     <string name="device_wake_on_lan_packet_sent">깨우기 패킷을 보냈습니다</string>
-    <string name="device_wake_on_lan_unsupported">깨우기 패킷을 보내려면 이 기기에 CoLink 1.8.0 이상이 필요합니다.</string>
+    <string name="device_wake_on_lan_unsupported">상대 디바이스의 CoLink가 이 프로토콜을 지원하지 않습니다. 디바이스의 CoLink 버전을 업데이트하세요.</string>
     <string name="device_media_control_title">미디어 및 소리</string>
     <string name="device_media_control_subtitle">현재 미디어 세션과 시스템 볼륨을 제어합니다</string>
     <string name="device_media_previous">이전</string>
@@ -51,7 +51,7 @@
     <string name="device_media_mute">음소거</string>
     <string name="device_media_volume">볼륨: %1$d%%</string>
     <string name="device_media_set_volume">볼륨 설정</string>
-    <string name="device_media_unsupported">이 컴퓨터는 미디어 및 소리 명령을 받으려면 CoLink 1.6.0 이상이 필요합니다.</string>
+    <string name="device_media_unsupported">상대 디바이스의 CoLink가 이 프로토콜을 지원하지 않습니다. 디바이스의 CoLink 버전을 업데이트하세요.</string>
     <string name="nav_transfers">파일 전송</string>
     <string name="nav_settings">설정</string>
     <string name="castboard_start">시작</string>

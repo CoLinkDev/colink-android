@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -93,21 +94,23 @@ fun DeviceControlScreen(
                     modifier = Modifier.padding(bottom = 4.dp),
                 )
             }
-            if (selectedComputer) {
-                CastBoardControlCard(
-                    onStartFullscreen = onStartCastBoard,
-                    viewModel = castBoardViewModel,
-                )
-                DevicePowerControlCard(
-                    viewModel = powerControlViewModel,
-                )
-            }
-            WakeOnLanControlCard(selectedDevice = selectedDevice)
-            if (selectedComputer) {
-                DeviceMediaControlCard(
-                    hasAvailableDevice = true,
-                    viewModel = mediaControlViewModel,
-                )
+            key(selectedDeviceId) {
+                if (selectedComputer) {
+                    CastBoardControlCard(
+                        onStartFullscreen = onStartCastBoard,
+                        viewModel = castBoardViewModel,
+                    )
+                    DevicePowerControlCard(
+                        viewModel = powerControlViewModel,
+                    )
+                }
+                WakeOnLanControlCard(selectedDevice = selectedDevice)
+                if (selectedComputer) {
+                    DeviceMediaControlCard(
+                        hasAvailableDevice = true,
+                        viewModel = mediaControlViewModel,
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

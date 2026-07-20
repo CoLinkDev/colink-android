@@ -29,7 +29,7 @@
     <string name="device_power_confirm_title">%1$s bestätigen</string>
     <string name="device_power_confirm_body">Befehl %1$s an %2$s senden?</string>
     <string name="device_power_command_sent">Befehl %1$s gesendet</string>
-    <string name="device_power_unsupported">Dieser Computer benötigt CoLink 1.5.0 oder neuer, um Energiebefehle zu empfangen.</string>
+    <string name="device_power_unsupported">CoLink auf dem Gegenstellengerät unterstützt dieses Protokoll nicht. Bitte aktualisieren Sie die CoLink-Version des Geräts.</string>
     <string name="device_wake_on_lan_title">Gerät aufwecken</string>
     <string name="device_wake_on_lan_subtitle">Ein Wake-on-LAN-Paket über ein verbundenes CoLink-Gerät im Zielnetz senden</string>
     <string name="device_wake_on_lan_no_proxies">Verbinden Sie zuerst ein Online-CoLink-Gerät im Zielnetz.</string>
@@ -41,7 +41,7 @@
     <string name="device_wake_on_lan_confirm_title">Wake-Paket senden?</string>
     <string name="device_wake_on_lan_confirm_body">Ein Wake-Paket für %1$s über %2$s senden?</string>
     <string name="device_wake_on_lan_packet_sent">Wake-Paket gesendet</string>
-    <string name="device_wake_on_lan_unsupported">Dieses Gerät benötigt CoLink 1.8.0 oder neuer, um Wake-Pakete zu senden.</string>
+    <string name="device_wake_on_lan_unsupported">CoLink auf dem Gegenstellengerät unterstützt dieses Protokoll nicht. Bitte aktualisieren Sie die CoLink-Version des Geräts.</string>
     <string name="device_media_control_title">Medien und Ton</string>
     <string name="device_media_control_subtitle">Aktuelle Medienwiedergabe und Systemlautstärke steuern</string>
     <string name="device_media_previous">Vorheriger Titel</string>
@@ -51,7 +51,7 @@
     <string name="device_media_mute">Stummschalten</string>
     <string name="device_media_volume">Lautstärke: %1$d%%</string>
     <string name="device_media_set_volume">Lautstärke festlegen</string>
-    <string name="device_media_unsupported">Dieser Computer benötigt CoLink 1.6.0 oder neuer, um Medien- und Tonbefehle zu empfangen.</string>
+    <string name="device_media_unsupported">CoLink auf dem Gegenstellengerät unterstützt dieses Protokoll nicht. Bitte aktualisieren Sie die CoLink-Version des Geräts.</string>
     <string name="nav_transfers">Übertragungen</string>
     <string name="nav_settings">Einstellungen</string>
     <string name="castboard_start">Starten</string>

@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +77,10 @@ class WakeOnLanViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList(),
         )
+
+    fun resetState() {
+        _uiState.update { WakeOnLanUiState() }
+    }
 
     fun wakeOnLanSupport(deviceId: String): SystemControlSupport =
         connectionManager.wakeOnLanSupport(deviceId)
@@ -140,6 +145,10 @@ fun WakeOnLanControlCard(
     val normalizedMac = viewModel.normalizedMac(targetMac)
     val validMac = isValidWakeOnLanMac(normalizedMac)
 
+    LaunchedEffect(selectedDevice?.deviceId) {
+        viewModel.resetState()
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -170,6 +179,7 @@ fun WakeOnLanControlCard(
                 if (support == SystemControlSupport.TOO_OLD) {
                     StateMessage(text = stringResource(R.string.device_wake_on_lan_unsupported))
                 }
+                StateMessage(text = state.error)
                 OutlinedTextField(
                     value = targetMac,
                     onValueChange = { targetMac = it },
@@ -207,7 +217,6 @@ fun WakeOnLanControlCard(
                 if (targetMac.isNotBlank() && !validMac) {
                     StateMessage(text = stringResource(R.string.device_wake_on_lan_invalid_mac))
                 }
-                StateMessage(text = state.error)
                 Button(
                     enabled = validMac &&
                         !state.submitting &&

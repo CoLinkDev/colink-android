@@ -60,7 +60,7 @@ class DevicePowerControlViewModel @Inject constructor(
 
     fun selectDevice(deviceId: String) {
         _selectedDeviceId.value = deviceId
-        _uiState.update { it.copy(error = null, sentAction = null) }
+        _uiState.update { DevicePowerControlUiState() }
     }
 
     fun systemControlSupport(deviceId: String?): SystemControlSupport =

@@ -29,7 +29,7 @@
     <string name="device_power_confirm_title">確認%1$s</string>
     <string name="device_power_confirm_body">確認令 %2$s %1$s嗎？</string>
     <string name="device_power_command_sent">已傳送%1$s命令</string>
-    <string name="device_power_unsupported">這台電腦需要 CoLink 1.5.0 或更高版本才能接收電源控制命令。</string>
+    <string name="device_power_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
     <string name="device_wake_on_lan_title">喚醒裝置</string>
     <string name="device_wake_on_lan_subtitle">透過目標網路中在線的 CoLink 裝置傳送區域網路喚醒封包</string>
     <string name="device_wake_on_lan_no_proxies">請先連線至目標網路中在線的 CoLink 裝置</string>
@@ -41,7 +41,7 @@
     <string name="device_wake_on_lan_confirm_title">傳送喚醒封包？</string>
     <string name="device_wake_on_lan_confirm_body">確定要透過 %2$s 為 %1$s 傳送喚醒封包嗎？</string>
     <string name="device_wake_on_lan_packet_sent">已傳送喚醒封包</string>
-    <string name="device_wake_on_lan_unsupported">此裝置需要 CoLink 1.8.0 或更新版本才能傳送喚醒封包。</string>
+    <string name="device_wake_on_lan_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
     <string name="device_media_control_title">媒體與聲音</string>
     <string name="device_media_control_subtitle">控制目前媒體工作階段和系統音量</string>
     <string name="device_media_previous">上一首</string>
@@ -51,7 +51,7 @@
     <string name="device_media_mute">靜音</string>
     <string name="device_media_volume">音量：%1$d%%</string>
     <string name="device_media_set_volume">設定音量</string>
-    <string name="device_media_unsupported">這台電腦需要 CoLink 1.6.0 或更高版本才能接收媒體與聲音控制命令。</string>
+    <string name="device_media_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
     <string name="nav_transfers">檔案傳輸</string>
     <string name="nav_settings">設定</string>
     <string name="castboard_start">啟動</string>

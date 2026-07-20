@@ -29,7 +29,7 @@
     <string name="device_power_confirm_title">Confirmar %1$s</string>
     <string name="device_power_confirm_body">¿Enviar el comando %1$s a %2$s?</string>
     <string name="device_power_command_sent">Comando %1$s enviado</string>
-    <string name="device_power_unsupported">Este equipo necesita CoLink 1.5.0 o posterior para recibir comandos de energía.</string>
+    <string name="device_power_unsupported">CoLink en el dispositivo remoto no admite este protocolo. Actualice la versión de CoLink del dispositivo.</string>
     <string name="device_wake_on_lan_title">Activar dispositivo</string>
     <string name="device_wake_on_lan_subtitle">Envía un paquete Wake-on-LAN mediante un dispositivo CoLink en línea de la red de destino</string>
     <string name="device_wake_on_lan_no_proxies">Conecta primero un dispositivo CoLink en línea en la red de destino.</string>
@@ -41,7 +41,7 @@
     <string name="device_wake_on_lan_confirm_title">¿Enviar paquete de activación?</string>
     <string name="device_wake_on_lan_confirm_body">¿Enviar un paquete de activación para %1$s mediante %2$s?</string>
     <string name="device_wake_on_lan_packet_sent">Paquete de activación enviado</string>
-    <string name="device_wake_on_lan_unsupported">Este dispositivo necesita CoLink 1.8.0 o posterior para enviar paquetes de activación.</string>
+    <string name="device_wake_on_lan_unsupported">CoLink en el dispositivo remoto no admite este protocolo. Actualice la versión de CoLink del dispositivo.</string>
     <string name="device_media_control_title">Multimedia y sonido</string>
     <string name="device_media_control_subtitle">Controla la sesión multimedia actual y el volumen del sistema</string>
     <string name="device_media_previous">Anterior</string>
@@ -51,7 +51,7 @@
     <string name="device_media_mute">Silenciar</string>
     <string name="device_media_volume">Volumen: %1$d%%</string>
     <string name="device_media_set_volume">Establecer volumen</string>
-    <string name="device_media_unsupported">Este equipo necesita CoLink 1.6.0 o posterior para recibir comandos multimedia y de sonido.</string>
+    <string name="device_media_unsupported">CoLink en el dispositivo remoto no admite este protocolo. Actualice la versión de CoLink del dispositivo.</string>
     <string name="nav_transfers">Transferencias</string>
     <string name="nav_settings">Ajustes</string>
     <string name="castboard_start">Iniciar</string>

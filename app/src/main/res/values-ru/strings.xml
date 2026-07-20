@@ -29,7 +29,7 @@
     <string name="device_power_confirm_title">Подтвердить: %1$s</string>
     <string name="device_power_confirm_body">Отправить команду «%1$s» устройству %2$s?</string>
     <string name="device_power_command_sent">Команда «%1$s» отправлена</string>
-    <string name="device_power_unsupported">Этому компьютеру требуется CoLink 1.5.0 или новее для приёма команд питания.</string>
+    <string name="device_power_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
     <string name="device_wake_on_lan_title">Включить устройство</string>
     <string name="device_wake_on_lan_subtitle">Отправьте пакет Wake-on-LAN через онлайн-устройство CoLink в целевой сети</string>
     <string name="device_wake_on_lan_no_proxies">Сначала подключите онлайн-устройство CoLink в целевой сети.</string>
@@ -41,7 +41,7 @@
     <string name="device_wake_on_lan_confirm_title">Отправить пакет пробуждения?</string>
     <string name="device_wake_on_lan_confirm_body">Отправить пакет пробуждения для %1$s через %2$s?</string>
     <string name="device_wake_on_lan_packet_sent">Пакет пробуждения отправлен</string>
-    <string name="device_wake_on_lan_unsupported">Этому устройству требуется CoLink 1.8.0 или новее для отправки пакетов пробуждения.</string>
+    <string name="device_wake_on_lan_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
     <string name="device_media_control_title">Медиа и звук</string>
     <string name="device_media_control_subtitle">Управляйте текущим медиасеансом и системной громкостью</string>
     <string name="device_media_previous">Предыдущий</string>
@@ -51,7 +51,7 @@
     <string name="device_media_mute">Без звука</string>
     <string name="device_media_volume">Громкость: %1$d%%</string>
     <string name="device_media_set_volume">Установить громкость</string>
-    <string name="device_media_unsupported">Этому компьютеру требуется CoLink 1.6.0 или новее для приёма мультимедийных и звуковых команд.</string>
+    <string name="device_media_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
     <string name="nav_transfers">Передачи</string>
     <string name="nav_settings">Настройки</string>
     <string name="castboard_start">Запуск</string>
