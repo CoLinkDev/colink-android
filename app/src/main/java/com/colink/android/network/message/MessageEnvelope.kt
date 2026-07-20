@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.7.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.8.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -371,6 +371,7 @@ enum class SystemControlAction(val wireValue: String) {
     Previous("previous"),
     SetVolume("set-volume"),
     Mute("mute"),
+    WakeOnLan("wake-on-lan"),
     ;
 
     val minimumBusinessProtocolMinor: Int
@@ -387,10 +388,15 @@ enum class SystemControlAction(val wireValue: String) {
             SetVolume,
             Mute,
             -> 6
+
+            WakeOnLan -> 8
         }
 
     val requiresVolume: Boolean
         get() = this == SetVolume
+
+    val requiresTargetMac: Boolean
+        get() = this == WakeOnLan
 
     companion object {
         fun fromWireValue(value: String): SystemControlAction? =
@@ -402,7 +408,15 @@ enum class SystemControlAction(val wireValue: String) {
 data class SystemControlCommandPayload(
     val action: String,
     val volume: Int? = null,
+    val targetMac: String? = null,
 )
+
+fun isValidWakeOnLanMac(value: String): Boolean =
+    value.length == 17 && value.split(':').all { part ->
+        part.length == 2 && part.all { character ->
+            character in '0'..'9' || character in 'a'..'f' || character in 'A'..'F'
+        }
+    }
 
 @Serializable
 data class SystemControlQueryPayload(

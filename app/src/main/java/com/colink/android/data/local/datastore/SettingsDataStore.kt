@@ -11,6 +11,7 @@ import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -88,6 +89,11 @@ class SettingsDataStore @Inject constructor(
             }
         }
 
+    val recentWakeOnLanMacs: Flow<List<String>> =
+        dataStore.data.map { preferences ->
+            decodeRecentWakeOnLanMacs(preferences[RECENT_WAKE_ON_LAN_MACS])
+        }
+
     suspend fun currentSettings(): AppSettings = settings.first()
 
     suspend fun currentSession(): Session? = session.first()
@@ -107,6 +113,17 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveServerUrl(serverUrl: String) {
         dataStore.edit { preferences ->
             preferences[SERVER_URL] = normalizeServerUrl(serverUrl)
+        }
+    }
+
+    suspend fun rememberWakeOnLanMac(mac: String) {
+        val normalizedMac = normalizeWakeOnLanMac(mac)
+            ?: throw IllegalArgumentException("invalid Wake-on-LAN MAC address")
+        dataStore.edit { preferences ->
+            preferences[RECENT_WAKE_ON_LAN_MACS] = updateRecentWakeOnLanMacs(
+                decodeRecentWakeOnLanMacs(preferences[RECENT_WAKE_ON_LAN_MACS]),
+                normalizedMac,
+            ).joinToString(RECENT_WAKE_ON_LAN_MACS_SEPARATOR)
         }
     }
 
@@ -181,6 +198,8 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_EMAIL = stringPreferencesKey("session_email")
         private val LANGUAGE = stringPreferencesKey("language")
         private val ENABLE_CLIPBOARD_SYNC = booleanPreferencesKey("enable_clipboard_sync")
+        private val RECENT_WAKE_ON_LAN_MACS = stringPreferencesKey("recent_wake_on_lan_macs")
+        private const val RECENT_WAKE_ON_LAN_MACS_SEPARATOR = ","
 
         private fun normalizeServerUrl(serverUrl: String): String {
             val trimmed = serverUrl.trim().trimEnd('/').ifBlank {
@@ -194,3 +213,26 @@ class SettingsDataStore @Inject constructor(
         }
     }
 }
+
+internal fun normalizeWakeOnLanMac(value: String): String? {
+    val normalized = value.trim().replace('-', ':').uppercase(Locale.ROOT)
+    return normalized.takeIf { mac ->
+        mac.length == 17 && mac.split(':').all { part ->
+            part.length == 2 && part.all { character ->
+                character in '0'..'9' || character in 'A'..'F'
+            }
+        }
+    }
+}
+
+internal fun decodeRecentWakeOnLanMacs(value: String?): List<String> =
+    value.orEmpty()
+        .split(',')
+        .mapNotNull(::normalizeWakeOnLanMac)
+        .distinct()
+        .take(MAX_RECENT_WAKE_ON_LAN_MACS)
+
+internal fun updateRecentWakeOnLanMacs(current: List<String>, mac: String): List<String> =
+    (listOf(mac) + current.filter { it != mac }).take(MAX_RECENT_WAKE_ON_LAN_MACS)
+
+private const val MAX_RECENT_WAKE_ON_LAN_MACS = 8

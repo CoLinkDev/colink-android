@@ -292,6 +292,34 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesWakeOnLanSystemControlCommand() {
+        val envelope = BusinessEnvelope(
+            type = SYSTEM_CONTROL_COMMAND_TYPE,
+            payload = json.encodeToJsonElement(
+                SystemControlCommandPayload(
+                    action = SystemControlAction.WakeOnLan.wireValue,
+                    targetMac = "01:23:45:67:89:ab",
+                ),
+            ),
+        )
+
+        val encoded = json.encodeToString(envelope)
+
+        assertEquals(
+            """{"type":"system-control.v1.command","payload":{"action":"wake-on-lan","targetMac":"01:23:45:67:89:ab"}}""",
+            encoded,
+        )
+    }
+
+    @Test
+    fun validatesWakeOnLanMacAddress() {
+        assertEquals(true, isValidWakeOnLanMac("01:23:45:67:89:ab"))
+        assertEquals(true, isValidWakeOnLanMac("01:23:45:67:89:AB"))
+        assertEquals(false, isValidWakeOnLanMac("01-23-45-67-89-ab"))
+        assertEquals(false, isValidWakeOnLanMac("01:23:45:67:89"))
+    }
+
+    @Test
     fun serializesSystemControlStateQuery() {
         val envelope = BusinessEnvelope(
             type = SYSTEM_CONTROL_QUERY_TYPE,

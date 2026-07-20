@@ -65,6 +65,7 @@ import com.colink.android.network.message.SystemControlCommandPayload
 import com.colink.android.network.message.SystemControlErrorPayload
 import com.colink.android.network.message.SystemControlQueryPayload
 import com.colink.android.network.message.SystemControlResultPayload
+import com.colink.android.network.message.isValidWakeOnLanMac
 import com.colink.android.network.message.FileAckPayload
 import com.colink.android.network.message.FileAcceptPayload
 import com.colink.android.network.message.FileCancelPayload
@@ -412,12 +413,19 @@ class ConnectionManager @Inject constructor(
         targetDeviceId: String,
         action: SystemControlAction,
         volume: Int? = null,
+        targetMac: String? = null,
     ): Result<Unit> {
         require(action.requiresVolume == (volume != null)) {
             "Volume must be present only for set-volume"
         }
         require(volume == null || volume in 0..100) {
             "Volume must be between 0 and 100"
+        }
+        require(action.requiresTargetMac == (targetMac != null)) {
+            "Target MAC must be present only for wake-on-lan"
+        }
+        require(targetMac == null || isValidWakeOnLanMac(targetMac)) {
+            "Target MAC must use XX:XX:XX:XX:XX:XX format"
         }
         if (systemControlSupport(targetDeviceId, action) == SystemControlSupport.TOO_OLD) {
             return Result.failure(SystemControlUnsupportedException())
@@ -430,6 +438,7 @@ class ConnectionManager @Inject constructor(
                     SystemControlCommandPayload(
                         action = action.wireValue,
                         volume = volume,
+                        targetMac = targetMac,
                     ),
                 ),
             ),
@@ -656,6 +665,10 @@ class ConnectionManager @Inject constructor(
 
     fun mediaControlSupport(deviceId: String): SystemControlSupport {
         return systemControlSupport(deviceId, SystemControlAction.Play)
+    }
+
+    fun wakeOnLanSupport(deviceId: String): SystemControlSupport {
+        return systemControlSupport(deviceId, SystemControlAction.WakeOnLan)
     }
 
     fun systemControlQuerySupport(deviceId: String): SystemControlSupport {
@@ -891,6 +904,7 @@ class ConnectionManager @Inject constructor(
             SYSINFO_STATS_TYPE -> runCatching {
                 json.decodeFromJsonElement(SysInfoStatsPayload.serializer(), business.payload)
             }.getOrNull()?.let { sysInfoSyncManager.acceptStats(fromDeviceId, it) }
+            SYSTEM_CONTROL_COMMAND_TYPE -> handleSystemControlCommand(business)
             SYSTEM_CONTROL_RESULT_TYPE, SYSTEM_CONTROL_ERROR_TYPE ->
                 completeSystemControlQuery(fromDeviceId, correlationId, business)
             FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
@@ -1104,6 +1118,29 @@ class ConnectionManager @Inject constructor(
             } ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
         } finally {
             pendingSystemControlQueries.remove(requestId, pending)
+        }
+    }
+
+    private fun handleSystemControlCommand(business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(SystemControlCommandPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val targetMac = payload.targetMac ?: return
+        if (
+            SystemControlAction.fromWireValue(payload.action) != SystemControlAction.WakeOnLan ||
+            payload.volume != null ||
+            !isValidWakeOnLanMac(targetMac)
+        ) {
+            return
+        }
+        scope.launch {
+            runCatching { WakeOnLan.send(targetMac) }
+                .onSuccess { destinations ->
+                    CoLinkLog.i("WakeOnLan", "sent magic packet to $destinations broadcast interface(s)")
+                }
+                .onFailure { error ->
+                    CoLinkLog.w("WakeOnLan", "failed to send magic packet", error)
+                }
         }
     }
 

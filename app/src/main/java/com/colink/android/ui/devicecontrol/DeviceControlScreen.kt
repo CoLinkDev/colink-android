@@ -39,20 +39,27 @@ fun DeviceControlScreen(
     val selectedDeviceId by powerControlViewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val availableDevices = remember(devices, localDeviceId) {
         devicesWithoutLocalDevice(devices, localDeviceId)
-            .filter { (it.online || it.lanAvailable) && isComputerDevice(it) }
+            .filter { it.online || it.lanAvailable }
     }
+    val selectedDevice = remember(availableDevices, selectedDeviceId) {
+        availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
+    }
+    val selectedComputer = selectedDevice?.let(::isComputerDevice) == true
 
     LaunchedEffect(availableDevices, selectedDeviceId) {
         if (selectedDeviceId == null || availableDevices.none { it.deviceId == selectedDeviceId }) {
             availableDevices.firstOrNull()?.deviceId?.let { deviceId ->
                 powerControlViewModel.selectDevice(deviceId)
-                castBoardViewModel.selectDevice(deviceId)
+                if (availableDevices.firstOrNull { it.deviceId == deviceId }?.let(::isComputerDevice) == true) {
+                    castBoardViewModel.selectDevice(deviceId)
+                }
             }
         }
     }
 
-    LaunchedEffect(selectedDeviceId) {
-        selectedDeviceId?.let { deviceId ->
+    LaunchedEffect(selectedDevice) {
+        selectedDevice?.takeIf(::isComputerDevice)?.let { device ->
+            val deviceId = device.deviceId
             mediaControlViewModel.selectDevice(deviceId)
             mediaControlViewModel.startSystemStatePolling()
         } ?: mediaControlViewModel.stopSystemStatePolling()
@@ -79,22 +86,29 @@ fun DeviceControlScreen(
                     selectedDeviceId = selectedDeviceId,
                     onSelectedDeviceChange = { deviceId ->
                         powerControlViewModel.selectDevice(deviceId)
-                        castBoardViewModel.selectDevice(deviceId)
+                        if (availableDevices.firstOrNull { it.deviceId == deviceId }?.let(::isComputerDevice) == true) {
+                            castBoardViewModel.selectDevice(deviceId)
+                        }
                     },
                     modifier = Modifier.padding(bottom = 4.dp),
                 )
             }
-            CastBoardControlCard(
-                onStartFullscreen = onStartCastBoard,
-                viewModel = castBoardViewModel,
-            )
-            DevicePowerControlCard(
-                viewModel = powerControlViewModel,
-            )
-            DeviceMediaControlCard(
-                hasAvailableDevice = availableDevices.isNotEmpty(),
-                viewModel = mediaControlViewModel,
-            )
+            if (selectedComputer) {
+                CastBoardControlCard(
+                    onStartFullscreen = onStartCastBoard,
+                    viewModel = castBoardViewModel,
+                )
+                DevicePowerControlCard(
+                    viewModel = powerControlViewModel,
+                )
+            }
+            WakeOnLanControlCard(selectedDevice = selectedDevice)
+            if (selectedComputer) {
+                DeviceMediaControlCard(
+                    hasAvailableDevice = true,
+                    viewModel = mediaControlViewModel,
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
