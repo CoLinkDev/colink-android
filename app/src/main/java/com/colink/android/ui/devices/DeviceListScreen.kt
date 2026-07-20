@@ -220,7 +220,7 @@ private fun LanPairingCandidateCard(
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
                     BadgeChip(
-                        text = stringResource(R.string.lan_pairing_tag),
+                        text = stringResource(R.string.lan_pairing_title),
                         icon = Icons.Default.SyncAlt,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -325,7 +325,7 @@ private fun DeviceCard(
                         )
                     } else if (lanAvailable) {
                         BadgeChip(
-                            text = stringResource(R.string.device_tag_lan),
+                            text = stringResource(R.string.route_lan),
                             icon = Icons.Default.Wifi,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,

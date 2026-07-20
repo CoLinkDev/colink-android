@@ -175,7 +175,7 @@ fun CastBoardFullScreen(
 
     val statusText = when (connectionStatus) {
         CastBoardConnectionStatus.WaitingForDevice -> stringResource(R.string.castboard_status_waiting)
-        CastBoardConnectionStatus.Connected -> stringResource(R.string.castboard_status_connected)
+        CastBoardConnectionStatus.Connected -> stringResource(R.string.cloud_status_connected)
         CastBoardConnectionStatus.Idle -> null
     }
     val statusColor = when (connectionStatus) {

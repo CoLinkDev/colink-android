@@ -107,7 +107,7 @@ class DeviceMediaControlViewModel @Inject constructor(
                             submitting = false,
                             error = when (error) {
                                 is SystemControlUnsupportedException -> localizedContext().getString(
-                                    R.string.device_media_unsupported,
+                                    R.string.device_control_unsupported,
                                 )
 
                                 else -> error.message?.takeIf(String::isNotBlank)

@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink 連線</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink 服務運行中</string>
@@ -9,9 +8,6 @@
     <string name="service_transfer_completed_title">檔案傳輸完成</string>
     <string name="service_transfer_failed_title">檔案傳輸失敗</string>
     <string name="service_transfer_cancelled_title">檔案傳輸已取消</string>
-    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
-    <string name="service_transfer_verifying_text">正在檢查檔案完整性：%1$s</string>
-    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">裝置</string>
@@ -21,27 +17,23 @@
     <string name="device_control_subtitle">存取遠端裝置功能</string>
     <string name="device_power_control_title">裝置電源控制</string>
     <string name="device_power_control_subtitle">控制遠端裝置的電源狀態</string>
-    <string name="device_control_no_devices_title">沒有可用電腦</string>
-    <string name="device_control_no_devices_body">透過區域網路或 Cloud 連線一台電腦裝置來控制它</string>
     <string name="device_power_sleep">睡眠</string>
     <string name="device_power_lock">鎖定螢幕</string>
     <string name="device_power_shutdown">關機</string>
     <string name="device_power_confirm_title">確認%1$s</string>
     <string name="device_power_confirm_body">確認令 %2$s %1$s嗎？</string>
     <string name="device_power_command_sent">已傳送%1$s命令</string>
-    <string name="device_power_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
+    <string name="device_control_unsupported">對端裝置不支援此功能，請更新該裝置上的 CoLink。</string>
     <string name="device_wake_on_lan_title">喚醒裝置</string>
     <string name="device_wake_on_lan_subtitle">透過目標網路中在線的 CoLink 裝置傳送區域網路喚醒封包</string>
     <string name="device_wake_on_lan_no_proxies">請先連線至目標網路中在線的 CoLink 裝置</string>
     <string name="device_wake_on_lan_mac_label">目標 MAC 位址</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
-    <string name="device_wake_on_lan_recent">最近使用的位址</string>
     <string name="device_wake_on_lan_invalid_mac">請輸入 XX:XX:XX:XX:XX:XX 格式的 MAC 位址。</string>
     <string name="device_wake_on_lan_send">傳送喚醒封包</string>
     <string name="device_wake_on_lan_confirm_title">傳送喚醒封包？</string>
     <string name="device_wake_on_lan_confirm_body">確定要透過 %2$s 為 %1$s 傳送喚醒封包嗎？</string>
     <string name="device_wake_on_lan_packet_sent">已傳送喚醒封包</string>
-    <string name="device_wake_on_lan_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
     <string name="device_media_control_title">媒體與聲音</string>
     <string name="device_media_control_subtitle">控制目前媒體工作階段和系統音量</string>
     <string name="device_media_previous">上一首</string>
@@ -50,16 +42,9 @@
     <string name="device_media_next">下一首</string>
     <string name="device_media_mute">靜音</string>
     <string name="device_media_volume">音量：%1$d%%</string>
-    <string name="device_media_set_volume">設定音量</string>
-    <string name="device_media_unsupported">對端設備上的 CoLink 不支援該協定，請更新設備 CoLink 版本。</string>
-    <string name="nav_transfers">檔案傳輸</string>
-    <string name="nav_settings">設定</string>
     <string name="castboard_start">啟動</string>
     <string name="castboard_subtitle">將指定裝置的多項狀態投射到本機</string>
     <string name="castboard_status_waiting">等待裝置連接...</string>
-    <string name="castboard_status_connected">已連線</string>
-    <string name="castboard_no_devices_title">還沒有可用裝置</string>
-    <string name="castboard_no_devices_body">透過區域網路或雲端連線一台電腦裝置來使用此功能</string>
     <string name="device_control_no_devices_message">還沒有可用裝置。透過區域網路或雲端連線一台電腦裝置來使用此功能。</string>
 
     <!-- Notifications -->
@@ -78,7 +63,6 @@
     <string name="lan_pairing_wants_to_pair">%1$s 想要與此裝置配對。\n配對碼：%2$s</string>
     <string name="lan_pairing_waiting">等待另一台裝置確認...</string>
     <string name="lan_pairing_accept">接受</string>
-    <string name="lan_pairing_reject">拒絕</string>
     <string name="lan_pairing_close">關閉</string>
     <string name="lan_pairing_waiting_btn">等待中</string>
     <string name="lan_connection_failed_title">LAN 連線失敗</string>
@@ -92,7 +76,6 @@
     <!-- Cloud Status -->
     <string name="cloud_status_connected">已連線</string>
     <string name="cloud_status_disconnected">未連線</string>
-    <string name="cloud_status_connecting">連線中</string>
     <string name="account_desc">雲端帳戶</string>
 
     <!-- Updates -->
@@ -109,19 +92,15 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
-    <string name="refresh_devices">重新整理裝置</string>
     <string name="no_devices_title">還沒有裝置記錄</string>
     <string name="no_devices_body">在另一台裝置上登入，然後重新整理此列表。</string>
-    <string name="lan_pairing_tag">區域網路配對</string>
     <string name="pair_btn">配對</string>
-    <string name="device_tag_lan">區域網路</string>
     <string name="device_tag_cloud">雲端</string>
     <string name="device_tag_local">本機</string>
     <string name="device_tag_offline">離線</string>
     <string name="device_tag_trusted">已信任</string>
     <string name="device_tag_lan_suspect">區域網路可能斷開</string>
     <string name="unnamed_device">未命名裝置</string>
-    <string name="unknown_type">未知</string>
     
     <!-- Device Details -->
     <string name="device_details_title">裝置詳細資訊</string>
@@ -149,16 +128,14 @@
     <string name="label_device_id">裝置 ID</string>
     <string name="label_platform">平台</string>
     <string name="label_fetch_source">獲取來源</string>
-    <string name="label_local_reachable">本機</string>
+    <string name="label_local_device">本機</string>
     <string name="label_cloud_available">雲端可達</string>
     <string name="label_lan_available">區域網路可達</string>
     <string name="label_lan_endpoint">區域網路端點</string>
     <string name="label_active_route">當前路由</string>
-    <string name="label_security_state">信任狀態</string>
     <string name="label_last_alive">上次存活時間</string>
     <string name="label_trusted_by_lan">由區域網路信任</string>
     <string name="label_trusted_by_cloud">由雲端信任</string>
-    <string name="label_last_seen">上次在線</string>
     <string name="label_public_key_fingerprint">公鑰指紋</string>
     <string name="label_public_key">公鑰</string>
     <string name="value_yes">是</string>
@@ -167,11 +144,6 @@
     <string name="source_local_identity">本機身份</string>
     <string name="source_server_device_list">伺服器裝置列表</string>
     <string name="source_trusted_peer_key">可信裝置金鑰</string>
-    <string name="security_verified">金鑰可信</string>
-    <string name="security_unverified">未信任</string>
-    <string name="security_trusted">已信任</string>
-    <string name="security_unknown">未知</string>
-    <string name="security_key_changed">金鑰變更</string>
     <string name="route_lan">區域網路</string>
     <string name="route_cloud">雲端</string>
     <string name="route_sending">傳送中...</string>
@@ -181,8 +153,6 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">傳送訊息和檔案</string>
-    <string name="messages_chat_tab">聊天</string>
-    <string name="messages_files_tab">檔案</string>
     <string name="messages_contacts_empty_title">還沒有聯絡人</string>
     <string name="messages_contacts_empty_body">透過區域網路或雲端連線裝置來傳送訊息和檔案</string>
     <string name="message_select_target_device">選擇目標裝置</string>
@@ -191,29 +161,16 @@
     <string name="no_messages_body">選擇一個裝置並發送第一條訊息。</string>
     <string name="message_placeholder">訊息</string>
     <string name="send_message_desc">發送訊息</string>
-    <string name="message_via">通過 %1$s</string>
     
     <!-- Transfers -->
-    <string name="transfers_subtitle">點擊 + 選擇檔案並發送</string>
     <string name="send_file_desc">發送檔案</string>
-    <string name="no_transfers_title">暫無傳輸</string>
-    <string name="no_transfers_body">點擊 + 按鈕選擇要發送的檔案。</string>
-    <string name="send_file_btn">發送檔案</string>
-    <string name="accept_file_title">接收檔案</string>
-    <string name="accept_file_body">確定接收 %1$s 嗎？</string>
     <string name="accept_btn">接受</string>
-    <string name="reject_file_title">拒絕檔案</string>
-    <string name="reject_file_body">確定拒絕 %1$s 嗎？</string>
     <string name="reject_btn">拒絕</string>
     <string name="unnamed_file">未命名檔案</string>
-    <string name="transfer_details">%1$s · %2$s · %3$s</string>
-    <string name="direction_incoming">接收</string>
-    <string name="direction_outgoing">發送</string>
     <string name="select_destination_title">選擇傳輸目標</string>
     <string name="no_devices_available">無可用裝置。</string>
     <string name="lan_available_tag">區域網路可用</string>
     <string name="cloud_available_tag">雲端可用</string>
-    <string name="offline_tag">離線</string>
 
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">已接受檔案傳輸</string>
@@ -232,17 +189,13 @@
     <!-- Remote files -->
     <string name="browse_device_files_desc">瀏覽裝置檔案</string>
     <string name="remote_files_title">檔案</string>
-    <string name="remote_files_locations_title">裝置位置</string>
-    <string name="remote_files_locations_body">瀏覽這台裝置目前可存取的位置。</string>
     <string name="remote_files_locations_empty">這台裝置沒有可讀取的位置。</string>
     <string name="remote_files_directory_empty">此資料夾是空的。</string>
     <string name="remote_files_refresh_desc">重新整理檔案</string>
     <string name="remote_files_up_desc">返回上一層</string>
     <string name="remote_files_item_count">共 %1$d 項</string>
     <string name="remote_files_storage_available">可用 %1$s，共 %2$s</string>
-    <string name="remote_files_load_more">載入更多</string>
     <string name="remote_files_download_desc">下載檔案</string>
-    <string name="remote_files_download_started">已傳送下載請求</string>
     <string name="remote_files_download_waiting">等待裝置回應</string>
     <string name="remote_files_open_download">開啟已下載檔案</string>
     <string name="remote_files_error_title">無法載入檔案</string>
@@ -262,29 +215,16 @@
     <string name="server_url_label">伺服器地址</string>
     <string name="edit_server_url_title">修改伺服器地址</string>
     <string name="device_name_label">裝置名稱</string>
-    <string name="auto_start_label">開機啟動</string>
-    <string name="auto_start_body">在裝置重新啟動後自動啟動 CoLink。</string>
     <string name="language_label">語言 (Language)</string>
-    <string name="language_body">選擇介面顯示語言</string>
-    <string name="lang_english">英文</string>
-    <string name="lang_simplified_chinese">簡體中文</string>
-    <string name="lang_traditional_chinese">繁體中文</string>
-    <string name="lang_japanese">日文</string>
-    <string name="lang_korean">韓文</string>
-    <string name="lang_spanish">西班牙文</string>
-    <string name="lang_german">德文</string>
-    <string name="lang_russian">俄文</string>
     <string name="save_btn">儲存</string>
     
     <!-- Authentication -->
-    <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">連接此裝置到您的帳戶</string>
     <string name="cloud_account_title">雲端帳戶</string>
     <string name="cloud_account_login_status">登入狀態</string>
     <string name="cloud_account_logged_in">已登入</string>
     <string name="cloud_account_not_logged_in">未登入</string>
     <string name="cloud_account_connection_status">連線狀態</string>
-    <string name="cloud_account_login_tip">登入以同步裝置</string>
     <string name="cloud_account_connected_body">此裝置已登入雲端帳戶 %1$s（%2$s，%3$s）。</string>
     <string name="logout_btn">登出</string>
     <string name="email_or_username_label">電子郵件或使用者名稱</string>
@@ -296,7 +236,6 @@
     <string name="err_email_or_username_required">請輸入電子郵件或使用者名稱</string>
     <string name="err_password_required">請輸入密碼</string>
     <string name="login_btn">登入</string>
-    <string name="working_status">連線中…</string>
     <string name="send_btn">傳送</string>
     <string name="message_sent">訊息已傳送</string>
     <string name="settings_saved">設定已儲存</string>

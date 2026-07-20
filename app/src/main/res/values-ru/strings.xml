@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">CoLink</string>
     <string name="service_channel_name">Подключение CoLink</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">Служба CoLink запущена</string>
@@ -9,9 +8,6 @@
     <string name="service_transfer_completed_title">Передача файла завершена</string>
     <string name="service_transfer_failed_title">Ошибка передачи файла</string>
     <string name="service_transfer_cancelled_title">Передача файла отменена</string>
-    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
-    <string name="service_transfer_verifying_text">Проверка целостности файла: %1$s</string>
-    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
@@ -21,27 +17,23 @@
     <string name="device_control_subtitle">Доступ к удалённым функциям устройства</string>
     <string name="device_power_control_title">Управление питанием устройства</string>
     <string name="device_power_control_subtitle">Управление питанием удаленного устройства</string>
-    <string name="device_control_no_devices_title">Нет доступных компьютеров</string>
-    <string name="device_control_no_devices_body">Подключите компьютер по LAN или Cloud, чтобы управлять им</string>
     <string name="device_power_sleep">Сон</string>
     <string name="device_power_lock">Заблокировать экран</string>
     <string name="device_power_shutdown">Выключить</string>
     <string name="device_power_confirm_title">Подтвердить: %1$s</string>
     <string name="device_power_confirm_body">Отправить команду «%1$s» устройству %2$s?</string>
     <string name="device_power_command_sent">Команда «%1$s» отправлена</string>
-    <string name="device_power_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
+    <string name="device_control_unsupported">Удалённое устройство не поддерживает эту функцию. Обновите CoLink на этом устройстве.</string>
     <string name="device_wake_on_lan_title">Включить устройство</string>
     <string name="device_wake_on_lan_subtitle">Отправьте пакет Wake-on-LAN через онлайн-устройство CoLink в целевой сети</string>
     <string name="device_wake_on_lan_no_proxies">Сначала подключите онлайн-устройство CoLink в целевой сети.</string>
     <string name="device_wake_on_lan_mac_label">MAC-адрес цели</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
-    <string name="device_wake_on_lan_recent">Недавние адреса</string>
     <string name="device_wake_on_lan_invalid_mac">Введите MAC-адрес в формате XX:XX:XX:XX:XX:XX.</string>
     <string name="device_wake_on_lan_send">Отправить пакет пробуждения</string>
     <string name="device_wake_on_lan_confirm_title">Отправить пакет пробуждения?</string>
     <string name="device_wake_on_lan_confirm_body">Отправить пакет пробуждения для %1$s через %2$s?</string>
     <string name="device_wake_on_lan_packet_sent">Пакет пробуждения отправлен</string>
-    <string name="device_wake_on_lan_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
     <string name="device_media_control_title">Медиа и звук</string>
     <string name="device_media_control_subtitle">Управляйте текущим медиасеансом и системной громкостью</string>
     <string name="device_media_previous">Предыдущий</string>
@@ -50,16 +42,9 @@
     <string name="device_media_next">Следующий</string>
     <string name="device_media_mute">Без звука</string>
     <string name="device_media_volume">Громкость: %1$d%%</string>
-    <string name="device_media_set_volume">Установить громкость</string>
-    <string name="device_media_unsupported">CoLink на удаленном устройстве не поддерживает этот протокол. Пожалуйста, обновите версию CoLink на устройстве.</string>
-    <string name="nav_transfers">Передачи</string>
-    <string name="nav_settings">Настройки</string>
     <string name="castboard_start">Запуск</string>
     <string name="castboard_subtitle">Проецирует несколько состояний выбранного устройства на это устройство</string>
     <string name="castboard_status_waiting">Ожидание подключения устройства...</string>
-    <string name="castboard_status_connected">Подключено</string>
-    <string name="castboard_no_devices_title">Нет доступных устройств</string>
-    <string name="castboard_no_devices_body">Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию</string>
     <string name="device_control_no_devices_message">Нет доступных устройств. Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию.</string>
 
     <!-- Notifications -->
@@ -78,7 +63,6 @@
     <string name="lan_pairing_wants_to_pair">%1$s хочет выполнить сопряжение с этим устройством.\nКод: %2$s</string>
     <string name="lan_pairing_waiting">Ожидание подтверждения на другом устройстве...</string>
     <string name="lan_pairing_accept">Принять</string>
-    <string name="lan_pairing_reject">Отклонить</string>
     <string name="lan_pairing_close">Закрыть</string>
     <string name="lan_pairing_waiting_btn">Ожидание</string>
     <string name="lan_connection_failed_title">Ошибка LAN-подключения</string>
@@ -92,7 +76,6 @@
     <!-- Cloud Status -->
     <string name="cloud_status_connected">Подключено</string>
     <string name="cloud_status_disconnected">Не подключено</string>
-    <string name="cloud_status_connecting">Подключение</string>
     <string name="account_desc">Облачный аккаунт</string>
 
     <!-- Updates -->
@@ -109,19 +92,15 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">Доступно %1$d · Всего %2$d</string>
-    <string name="refresh_devices">Обновить устройства</string>
     <string name="no_devices_title">Устройства не найдены</string>
     <string name="no_devices_body">Войдите на другом устройстве, а затем обновите этот список.</string>
-    <string name="lan_pairing_tag">LAN-сопряжение</string>
     <string name="pair_btn">Сопрячь</string>
-    <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">Облако</string>
     <string name="device_tag_local">Локальное</string>
     <string name="device_tag_offline">Вне сети</string>
     <string name="device_tag_trusted">Доверенное</string>
     <string name="device_tag_lan_suspect">LAN может отключиться</string>
     <string name="unnamed_device">Устройство без имени</string>
-    <string name="unknown_type">Неизвестно</string>
     
     <!-- Device Details -->
     <string name="device_details_title">Сведения об устройстве</string>
@@ -149,16 +128,14 @@
     <string name="label_device_id">ID устройства</string>
     <string name="label_platform">Платформа</string>
     <string name="label_fetch_source">Источник</string>
-    <string name="label_local_reachable">Локально</string>
+    <string name="label_local_device">Локально</string>
     <string name="label_cloud_available">Облако доступно</string>
     <string name="label_lan_available">LAN доступна</string>
     <string name="label_lan_endpoint">Точка доступа LAN</string>
     <string name="label_active_route">Активный маршрут</string>
-    <string name="label_security_state">Статус доверия</string>
     <string name="label_last_alive">Последняя активность</string>
     <string name="label_trusted_by_lan">Доверено LAN</string>
     <string name="label_trusted_by_cloud">Доверено облаком</string>
-    <string name="label_last_seen">Последняя активность</string>
     <string name="label_public_key_fingerprint">Отпечаток публичного ключа</string>
     <string name="label_public_key">Публичный ключ</string>
     <string name="value_yes">Да</string>
@@ -167,11 +144,6 @@
     <string name="source_local_identity">Локальная идентичность</string>
     <string name="source_server_device_list">Список устройств сервера</string>
     <string name="source_trusted_peer_key">Доверенный ключ устройства</string>
-    <string name="security_verified">Доверенный ключ</string>
-    <string name="security_unverified">Недоверенный</string>
-    <string name="security_trusted">Доверенное</string>
-    <string name="security_unknown">Неизвестно</string>
-    <string name="security_key_changed">Ключ изменен</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Облачный ретранслятор</string>
     <string name="route_sending">Отправка...</string>
@@ -181,8 +153,6 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">Отправить сообщения и файлы</string>
-    <string name="messages_chat_tab">Чат</string>
-    <string name="messages_files_tab">Файлы</string>
     <string name="messages_contacts_empty_title">Контактов пока нет</string>
     <string name="messages_contacts_empty_body">Подключите устройства по LAN или Cloud, чтобы отправлять сообщения и файлы</string>
     <string name="message_select_target_device">Выберите устройство назначения</string>
@@ -191,29 +161,16 @@
     <string name="no_messages_body">Выберите устройство и отправьте первое сообщение.</string>
     <string name="message_placeholder">Сообщение</string>
     <string name="send_message_desc">Отправить сообщение</string>
-    <string name="message_via">через %1$s</string>
     
     <!-- Transfers -->
-    <string name="transfers_subtitle">Нажмите +, чтобы выбрать файл и отправить</string>
     <string name="send_file_desc">Отправить файл</string>
-    <string name="no_transfers_title">Передач нет</string>
-    <string name="no_transfers_body">Нажмите +, чтобы выбрать файл для отправки.</string>
-    <string name="send_file_btn">Отправить файл</string>
-    <string name="accept_file_title">Принять файл</string>
-    <string name="accept_file_body">Принять %1$s?</string>
     <string name="accept_btn">Принять</string>
-    <string name="reject_file_title">Отклонить файл</string>
-    <string name="reject_file_body">Отклонить %1$s?</string>
     <string name="reject_btn">Отклонить</string>
     <string name="unnamed_file">Файл без имени</string>
-    <string name="transfer_details">%1$s · %2$s · %3$s</string>
-    <string name="direction_incoming">Получить</string>
-    <string name="direction_outgoing">Отправить</string>
     <string name="select_destination_title">Выберите получателя</string>
     <string name="no_devices_available">Нет доступных устройств.</string>
     <string name="lan_available_tag">LAN доступна</string>
     <string name="cloud_available_tag">Облако доступно</string>
-    <string name="offline_tag">Вне сети</string>
 
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">Передача принята</string>
@@ -232,17 +189,13 @@
     <!-- Remote files -->
     <string name="browse_device_files_desc">Просмотреть файлы устройства</string>
     <string name="remote_files_title">Файлы</string>
-    <string name="remote_files_locations_title">Расположения устройства</string>
-    <string name="remote_files_locations_body">Просматривайте доступные на этом устройстве расположения.</string>
     <string name="remote_files_locations_empty">На этом устройстве нет доступных для чтения расположений.</string>
     <string name="remote_files_directory_empty">Эта папка пуста.</string>
     <string name="remote_files_refresh_desc">Обновить файлы</string>
     <string name="remote_files_up_desc">На уровень выше</string>
     <string name="remote_files_item_count">%1$d элементов</string>
     <string name="remote_files_storage_available">Свободно %1$s из %2$s</string>
-    <string name="remote_files_load_more">Загрузить ещё</string>
     <string name="remote_files_download_desc">Скачать файл</string>
-    <string name="remote_files_download_started">Запрос на скачивание отправлен</string>
     <string name="remote_files_download_waiting">Ожидание ответа устройства</string>
     <string name="remote_files_open_download">Открыть скачанный файл</string>
     <string name="remote_files_error_title">Не удалось загрузить файлы</string>
@@ -262,29 +215,16 @@
     <string name="server_url_label">Адрес сервера</string>
     <string name="edit_server_url_title">Изменить адрес сервера</string>
     <string name="device_name_label">Имя устройства</string>
-    <string name="auto_start_label">Автозапуск при старте</string>
-    <string name="auto_start_body">Запускать CoLink после перезапуска устройства.</string>
     <string name="language_label">Язык (Language)</string>
-    <string name="language_body">Выберите язык интерфейса</string>
-    <string name="lang_english">Английский</string>
-    <string name="lang_simplified_chinese">Китайский (упрощенный)</string>
-    <string name="lang_traditional_chinese">Китайский (традиционный)</string>
-    <string name="lang_japanese">Японский</string>
-    <string name="lang_korean">Корейский</string>
-    <string name="lang_spanish">Испанский</string>
-    <string name="lang_german">Немецкий</string>
-    <string name="lang_russian">Русский</string>
     <string name="save_btn">Сохранить</string>
     
     <!-- Authentication -->
-    <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Войдите в аккаунт для синхронизации</string>
     <string name="cloud_account_title">Облачный аккаунт</string>
     <string name="cloud_account_login_status">Статус входа</string>
     <string name="cloud_account_logged_in">Выполнен вход</string>
     <string name="cloud_account_not_logged_in">Вход не выполнен</string>
     <string name="cloud_account_connection_status">Статус подключения</string>
-    <string name="cloud_account_login_tip">Войдите, чтобы синхронизировать устройства</string>
     <string name="cloud_account_connected_body">На этом устройстве выполнен вход в облачный аккаунт %1$s (%2$s, %3$s).</string>
     <string name="logout_btn">Выйти</string>
     <string name="email_or_username_label">Имя пользователя или эл. почта</string>
@@ -296,7 +236,6 @@
     <string name="err_email_or_username_required">Введите имя пользователя или эл. почту</string>
     <string name="err_password_required">Введите пароль</string>
     <string name="login_btn">Войти</string>
-    <string name="working_status">Подключение...</string>
     <string name="send_btn">Отправить</string>
     <string name="message_sent">Сообщение отправлено</string>
     <string name="settings_saved">Настройки сохранены</string>

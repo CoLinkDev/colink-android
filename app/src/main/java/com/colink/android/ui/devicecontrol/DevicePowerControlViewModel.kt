@@ -99,7 +99,7 @@ class DevicePowerControlViewModel @Inject constructor(
                             submitting = false,
                             error = when (error) {
                                 is SystemControlUnsupportedException -> localizedContext().getString(
-                                    R.string.device_power_unsupported,
+                                    R.string.device_control_unsupported,
                                 )
                                 else -> error.message?.takeIf { it.isNotBlank() }
                                     ?: localizedContext().getString(R.string.message_route_unavailable)

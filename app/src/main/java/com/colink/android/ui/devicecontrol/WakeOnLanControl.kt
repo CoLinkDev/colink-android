@@ -116,7 +116,7 @@ class WakeOnLanViewModel @Inject constructor(
                         submitting = false,
                         error = when (error) {
                             is SystemControlUnsupportedException -> localizedContext().getString(
-                                R.string.device_wake_on_lan_unsupported,
+                                R.string.device_control_unsupported,
                             )
                             else -> error?.message?.takeIf(String::isNotBlank)
                                 ?: localizedContext().getString(R.string.message_route_unavailable)
@@ -177,7 +177,7 @@ fun WakeOnLanControlCard(
                 )
             } else {
                 if (support == SystemControlSupport.TOO_OLD) {
-                    StateMessage(text = stringResource(R.string.device_wake_on_lan_unsupported))
+                    StateMessage(text = stringResource(R.string.device_control_unsupported))
                 }
                 StateMessage(text = state.error)
                 OutlinedTextField(

@@ -103,7 +103,7 @@ private val topLevelRoutes =
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
         TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
         TopLevelRoute("device-control", R.string.nav_device_control, Icons.Default.Tune),
-        TopLevelRoute("settings", R.string.nav_settings, Icons.Default.Settings),
+        TopLevelRoute("settings", R.string.settings_title, Icons.Default.Settings),
     )
 
 @Composable
@@ -702,7 +702,7 @@ private fun PairingRequestDialogHost(
                     if (current.waiting) {
                         stringResource(R.string.cancel_btn)
                     } else {
-                        stringResource(R.string.lan_pairing_reject)
+                        stringResource(R.string.reject_btn)
                     },
                 )
             }

@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink 接続</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink サービス実行中</string>
@@ -9,9 +8,6 @@
     <string name="service_transfer_completed_title">ファイル転送が完了しました</string>
     <string name="service_transfer_failed_title">ファイル転送に失敗しました</string>
     <string name="service_transfer_cancelled_title">ファイル転送をキャンセルしました</string>
-    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
-    <string name="service_transfer_verifying_text">ファイルの整合性を確認中: %1$s</string>
-    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">デバイス</string>
@@ -21,27 +17,23 @@
     <string name="device_control_subtitle">リモートデバイスの機能にアクセスします</string>
     <string name="device_power_control_title">デバイス電源制御</string>
     <string name="device_power_control_subtitle">リモートデバイスの電源状態を制御します</string>
-    <string name="device_control_no_devices_title">利用可能なコンピューターがありません</string>
-    <string name="device_control_no_devices_body">操作するには、LAN または Cloud でコンピューターを接続してください</string>
     <string name="device_power_sleep">スリープ</string>
     <string name="device_power_lock">画面ロック</string>
     <string name="device_power_shutdown">シャットダウン</string>
     <string name="device_power_confirm_title">%1$sを確認</string>
     <string name="device_power_confirm_body">%2$sを%1$sしますか？</string>
     <string name="device_power_command_sent">%1$s コマンドを送信しました</string>
-    <string name="device_power_unsupported">リモートデバイスのCoLinkはこのプロトコルをサポートしていません。デバイスのCoLinkバージョンを更新してください。</string>
+    <string name="device_control_unsupported">リモートデバイスはこの機能をサポートしていません。デバイスの CoLink を更新してください。</string>
     <string name="device_wake_on_lan_title">デバイスを起動</string>
     <string name="device_wake_on_lan_subtitle">対象ネットワーク上のオンライン CoLink デバイス経由で Wake-on-LAN パケットを送信します</string>
     <string name="device_wake_on_lan_no_proxies">対象ネットワーク上のオンライン CoLink デバイスを先に接続してください。</string>
     <string name="device_wake_on_lan_mac_label">対象 MAC アドレス</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
-    <string name="device_wake_on_lan_recent">最近使用したアドレス</string>
     <string name="device_wake_on_lan_invalid_mac">XX:XX:XX:XX:XX:XX 形式の MAC アドレスを入力してください。</string>
     <string name="device_wake_on_lan_send">起動パケットを送信</string>
     <string name="device_wake_on_lan_confirm_title">起動パケットを送信しますか？</string>
     <string name="device_wake_on_lan_confirm_body">%2$s 経由で %1$s に起動パケットを送信しますか？</string>
     <string name="device_wake_on_lan_packet_sent">起動パケットを送信しました</string>
-    <string name="device_wake_on_lan_unsupported">リモートデバイスのCoLinkはこのプロトコルをサポートしていません。デバイスのCoLinkバージョンを更新してください。</string>
     <string name="device_media_control_title">メディアとサウンド</string>
     <string name="device_media_control_subtitle">現在のメディアセッションとシステム音量を制御します</string>
     <string name="device_media_previous">前へ</string>
@@ -50,16 +42,9 @@
     <string name="device_media_next">次へ</string>
     <string name="device_media_mute">ミュート</string>
     <string name="device_media_volume">音量: %1$d%%</string>
-    <string name="device_media_set_volume">音量を設定</string>
-    <string name="device_media_unsupported">リモートデバイスのCoLinkはこのプロトコルをサポートしていません。デバイスのCoLinkバージョンを更新してください。</string>
-    <string name="nav_transfers">ファイル転送</string>
-    <string name="nav_settings">設定</string>
     <string name="castboard_start">開始</string>
     <string name="castboard_subtitle">指定したデバイスの複数の状態をこのデバイスに投影します</string>
     <string name="castboard_status_waiting">デバイスの接続を待機中...</string>
-    <string name="castboard_status_connected">接続済み</string>
-    <string name="castboard_no_devices_title">利用可能なデバイスがありません</string>
-    <string name="castboard_no_devices_body">この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください</string>
     <string name="device_control_no_devices_message">利用可能なデバイスがありません。この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください。</string>
 
     <!-- Notifications -->
@@ -78,7 +63,6 @@
     <string name="lan_pairing_wants_to_pair">%1$s がこのデバイスとのペアリングを求めています。\nコード: %2$s</string>
     <string name="lan_pairing_waiting">相手の確認を待っています...</string>
     <string name="lan_pairing_accept">承認</string>
-    <string name="lan_pairing_reject">拒否</string>
     <string name="lan_pairing_close">閉じる</string>
     <string name="lan_pairing_waiting_btn">待機中</string>
     <string name="lan_connection_failed_title">LAN 接続に失敗しました</string>
@@ -92,7 +76,6 @@
     <!-- Cloud Status -->
     <string name="cloud_status_connected">接続済み</string>
     <string name="cloud_status_disconnected">未接続</string>
-    <string name="cloud_status_connecting">接続中</string>
     <string name="account_desc">クラウド接続</string>
 
     <!-- Updates -->
@@ -109,19 +92,15 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>
-    <string name="refresh_devices">デバイス一覧を更新</string>
     <string name="no_devices_title">デバイスが見つかりません</string>
     <string name="no_devices_body">他のデバイスでログインしてから、この一覧を更新してください。</string>
-    <string name="lan_pairing_tag">LAN ペアリング</string>
     <string name="pair_btn">ペアリング</string>
-    <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">クラウド</string>
     <string name="device_tag_local">ローカル</string>
     <string name="device_tag_offline">オフライン</string>
     <string name="device_tag_trusted">信頼済み</string>
     <string name="device_tag_lan_suspect">LAN が切断される可能性あり</string>
     <string name="unnamed_device">名前なしデバイス</string>
-    <string name="unknown_type">不明</string>
     
     <!-- Device Details -->
     <string name="device_details_title">デバイス詳細</string>
@@ -149,16 +128,14 @@
     <string name="label_device_id">デバイス ID</string>
     <string name="label_platform">プラットフォーム</string>
     <string name="label_fetch_source">取得元</string>
-    <string name="label_local_reachable">ローカル</string>
+    <string name="label_local_device">ローカル</string>
     <string name="label_cloud_available">クラウド到達可</string>
     <string name="label_lan_available">LAN 到達可</string>
     <string name="label_lan_endpoint">LAN エンドポイント</string>
     <string name="label_active_route">現在の経路</string>
-    <string name="label_security_state">信頼状態</string>
     <string name="label_last_alive">最終生存時刻</string>
     <string name="label_trusted_by_lan">LAN で信頼</string>
     <string name="label_trusted_by_cloud">クラウドで信頼</string>
-    <string name="label_last_seen">最終オンライン</string>
     <string name="label_public_key_fingerprint">公開鍵フィンガープリント</string>
     <string name="label_public_key">公開鍵</string>
     <string name="value_yes">はい</string>
@@ -167,11 +144,6 @@
     <string name="source_local_identity">ローカル ID</string>
     <string name="source_server_device_list">サーバーデバイス一覧</string>
     <string name="source_trusted_peer_key">信頼済みデバイスキー</string>
-    <string name="security_verified">信頼済みキー</string>
-    <string name="security_unverified">未信頼</string>
-    <string name="security_trusted">信頼済み</string>
-    <string name="security_unknown">不明</string>
-    <string name="security_key_changed">キー変更</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">クラウドリレー</string>
     <string name="route_sending">送信中...</string>
@@ -181,8 +153,6 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">メッセージとファイルを送信</string>
-    <string name="messages_chat_tab">チャット</string>
-    <string name="messages_files_tab">ファイル</string>
     <string name="messages_contacts_empty_title">連絡先がまだありません</string>
     <string name="messages_contacts_empty_body">メッセージとファイルを送信するには、LAN または Cloud でデバイスを接続してください</string>
     <string name="message_select_target_device">送信先デバイスを選択してください</string>
@@ -191,29 +161,16 @@
     <string name="no_messages_body">デバイスを選択して、最初のメッセージを送信します。</string>
     <string name="message_placeholder">メッセージ</string>
     <string name="send_message_desc">メッセージを送信</string>
-    <string name="message_via">%1$s 経由</string>
     
     <!-- Transfers -->
-    <string name="transfers_subtitle">+ をタップしてファイルを選択し、送信します</string>
     <string name="send_file_desc">ファイルを送信</string>
-    <string name="no_transfers_title">転送履歴はありません</string>
-    <string name="no_transfers_body">+ ボタンをタップして、送信するファイルを選択します。</string>
-    <string name="send_file_btn">ファイルを送信</string>
-    <string name="accept_file_title">ファイルの受信</string>
-    <string name="accept_file_body">%1$s を受信しますか？</string>
     <string name="accept_btn">受信</string>
-    <string name="reject_file_title">ファイルの拒否</string>
-    <string name="reject_file_body">%1$s を拒否しますか？</string>
     <string name="reject_btn">拒否</string>
     <string name="unnamed_file">名前なしファイル</string>
-    <string name="transfer_details">%1$s · %2$s · %3$s</string>
-    <string name="direction_incoming">受信</string>
-    <string name="direction_outgoing">送信</string>
     <string name="select_destination_title">送信先を選択</string>
     <string name="no_devices_available">利用可能なデバイスはありません。</string>
     <string name="lan_available_tag">LAN 利用可能</string>
     <string name="cloud_available_tag">クラウド利用可能</string>
-    <string name="offline_tag">オフライン</string>
 
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">転送が受け入れられました</string>
@@ -232,17 +189,13 @@
     <!-- Remote files -->
     <string name="browse_device_files_desc">デバイスのファイルを閲覧</string>
     <string name="remote_files_title">ファイル</string>
-    <string name="remote_files_locations_title">デバイスの場所</string>
-    <string name="remote_files_locations_body">このデバイスで利用できる場所を閲覧します。</string>
     <string name="remote_files_locations_empty">このデバイスに読み取り可能な場所はありません。</string>
     <string name="remote_files_directory_empty">このフォルダーは空です。</string>
     <string name="remote_files_refresh_desc">ファイルを更新</string>
     <string name="remote_files_up_desc">1 つ上のフォルダーへ</string>
     <string name="remote_files_item_count">%1$d 件</string>
     <string name="remote_files_storage_available">%2$s 中 %1$s 使用可能</string>
-    <string name="remote_files_load_more">さらに読み込む</string>
     <string name="remote_files_download_desc">ファイルをダウンロード</string>
-    <string name="remote_files_download_started">ダウンロード要求を送信しました</string>
     <string name="remote_files_download_waiting">デバイスの応答を待機中</string>
     <string name="remote_files_open_download">ダウンロードしたファイルを開く</string>
     <string name="remote_files_error_title">ファイルを読み込めませんでした</string>
@@ -262,29 +215,16 @@
     <string name="server_url_label">サーバーアドレス</string>
     <string name="edit_server_url_title">サーバーアドレスの変更</string>
     <string name="device_name_label">デバイス名</string>
-    <string name="auto_start_label">ログイン時に起動</string>
-    <string name="auto_start_body">デバイスの再起動後に CoLink を自動起動します。</string>
     <string name="language_label">言語 (Language)</string>
-    <string name="language_body">表示言語を選択してください</string>
-    <string name="lang_english">英語</string>
-    <string name="lang_simplified_chinese">簡体字中国語</string>
-    <string name="lang_traditional_chinese">繁体字中国語</string>
-    <string name="lang_japanese">日本語</string>
-    <string name="lang_korean">韓国語</string>
-    <string name="lang_spanish">スペイン語</string>
-    <string name="lang_german">ドイツ語</string>
-    <string name="lang_russian">ロシア語</string>
     <string name="save_btn">保存</string>
     
     <!-- Authentication -->
-    <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">デバイスを同期するためにアカウントに接続</string>
     <string name="cloud_account_title">クラウドアカウント</string>
     <string name="cloud_account_login_status">ログイン状態</string>
     <string name="cloud_account_logged_in">ログイン済み</string>
     <string name="cloud_account_not_logged_in">未ログイン</string>
     <string name="cloud_account_connection_status">接続状態</string>
-    <string name="cloud_account_login_tip">ログインしてデバイスを同期</string>
     <string name="cloud_account_connected_body">このデバイスはクラウドアカウント %1$s にログインしています（%2$s、%3$s）。</string>
     <string name="logout_btn">ログアウト</string>
     <string name="email_or_username_label">メールアドレスまたはユーザー名</string>
@@ -296,7 +236,6 @@
     <string name="err_email_or_username_required">メールアドレスまたはユーザー名を入力してください</string>
     <string name="err_password_required">パスワードを入力してください</string>
     <string name="login_btn">ログイン</string>
-    <string name="working_status">接続中...</string>
     <string name="send_btn">送信</string>
     <string name="message_sent">メッセージを送信しました</string>
     <string name="settings_saved">設定を保存しました</string>

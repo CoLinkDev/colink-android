@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink 连接</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink 服务运行中</string>
@@ -9,9 +8,6 @@
     <string name="service_transfer_completed_title">文件传输完成</string>
     <string name="service_transfer_failed_title">文件传输失败</string>
     <string name="service_transfer_cancelled_title">文件传输已取消</string>
-    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
-    <string name="service_transfer_verifying_text">正在检查文件完整性：%1$s</string>
-    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
@@ -21,27 +17,23 @@
     <string name="device_control_subtitle">访问远程设备功能</string>
     <string name="device_power_control_title">设备电源控制</string>
     <string name="device_power_control_subtitle">控制远程设备的电源状态</string>
-    <string name="device_control_no_devices_title">没有可用电脑</string>
-    <string name="device_control_no_devices_body">通过局域网或云端连接一台电脑设备来控制它</string>
     <string name="device_power_sleep">睡眠</string>
     <string name="device_power_lock">锁定屏幕</string>
     <string name="device_power_shutdown">关机</string>
     <string name="device_power_confirm_title">确认%1$s</string>
     <string name="device_power_confirm_body">确认令 %2$s %1$s吗？</string>
     <string name="device_power_command_sent">已发送%1$s命令</string>
-    <string name="device_power_unsupported">对端设备上的 CoLink 不支持该协议，请更新设备 CoLink 版本。</string>
+    <string name="device_control_unsupported">对端设备不支持此功能，请更新该设备上的 CoLink。</string>
     <string name="device_wake_on_lan_title">唤醒设备</string>
     <string name="device_wake_on_lan_subtitle">通过目标网络中在线的 CoLink 设备发送局域网唤醒包</string>
     <string name="device_wake_on_lan_no_proxies">请先连接目标网络中在线的 CoLink 设备</string>
     <string name="device_wake_on_lan_mac_label">目标 MAC 地址</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
-    <string name="device_wake_on_lan_recent">最近使用的地址</string>
     <string name="device_wake_on_lan_invalid_mac">请输入 XX:XX:XX:XX:XX:XX 格式的 MAC 地址。</string>
     <string name="device_wake_on_lan_send">发送唤醒包</string>
     <string name="device_wake_on_lan_confirm_title">发送唤醒包？</string>
     <string name="device_wake_on_lan_confirm_body">确认通过 %2$s 为 %1$s 发送唤醒包吗？</string>
     <string name="device_wake_on_lan_packet_sent">已发送唤醒包</string>
-    <string name="device_wake_on_lan_unsupported">对端设备上的 CoLink 不支持该协议，请更新设备 CoLink 版本。</string>
     <string name="device_media_control_title">媒体与声音</string>
     <string name="device_media_control_subtitle">控制当前媒体会话和系统音量</string>
     <string name="device_media_previous">上一首</string>
@@ -50,16 +42,9 @@
     <string name="device_media_next">下一首</string>
     <string name="device_media_mute">静音</string>
     <string name="device_media_volume">音量：%1$d%%</string>
-    <string name="device_media_set_volume">设置音量</string>
-    <string name="device_media_unsupported">对端设备上的 CoLink 不支持该协议，请更新设备 CoLink 版本。</string>
-    <string name="nav_transfers">文件传输</string>
-    <string name="nav_settings">设置</string>
     <string name="castboard_start">启动</string>
     <string name="castboard_subtitle">将指定设备的多项状态投射到本机</string>
     <string name="castboard_status_waiting">等待设备连接...</string>
-    <string name="castboard_status_connected">已连接</string>
-    <string name="castboard_no_devices_title">还没有可用设备</string>
-    <string name="castboard_no_devices_body">通过局域网或云端连接一台电脑设备来使用此功能</string>
     <string name="device_control_no_devices_message">还没有可用设备。通过局域网或云端连接一台电脑设备来使用此功能。</string>
 
     <!-- Notifications -->
@@ -78,7 +63,6 @@
     <string name="lan_pairing_wants_to_pair">%1$s 想要与此设备配对。\n配对码：%2$s</string>
     <string name="lan_pairing_waiting">等待另一台设备确认...</string>
     <string name="lan_pairing_accept">接受</string>
-    <string name="lan_pairing_reject">拒绝</string>
     <string name="lan_pairing_close">关闭</string>
     <string name="lan_pairing_waiting_btn">等待中</string>
     <string name="lan_connection_failed_title">LAN 连接失败</string>
@@ -92,7 +76,6 @@
     <!-- Cloud Status -->
     <string name="cloud_status_connected">已连接</string>
     <string name="cloud_status_disconnected">未连接</string>
-    <string name="cloud_status_connecting">连接中</string>
     <string name="account_desc">云端账户</string>
 
     <!-- Updates -->
@@ -109,19 +92,15 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
-    <string name="refresh_devices">刷新设备</string>
     <string name="no_devices_title">还没有设备记录</string>
     <string name="no_devices_body">在另一台设备上登录，然后刷新此列表。</string>
-    <string name="lan_pairing_tag">局域网配对</string>
     <string name="pair_btn">配对</string>
-    <string name="device_tag_lan">局域网</string>
     <string name="device_tag_cloud">云端</string>
     <string name="device_tag_local">本机</string>
     <string name="device_tag_offline">离线</string>
     <string name="device_tag_trusted">已信任</string>
     <string name="device_tag_lan_suspect">局域网可能断开</string>
     <string name="unnamed_device">未命名设备</string>
-    <string name="unknown_type">未知</string>
     
     <!-- Device Details -->
     <string name="device_details_title">设备详细信息</string>
@@ -149,16 +128,14 @@
     <string name="label_device_id">设备 ID</string>
     <string name="label_platform">平台</string>
     <string name="label_fetch_source">获取来源</string>
-    <string name="label_local_reachable">本机</string>
+    <string name="label_local_device">本机</string>
     <string name="label_cloud_available">云端可达</string>
     <string name="label_lan_available">局域网可达</string>
     <string name="label_lan_endpoint">局域网端点</string>
     <string name="label_active_route">当前路由</string>
-    <string name="label_security_state">信任状态</string>
     <string name="label_last_alive">上次存活时间</string>
     <string name="label_trusted_by_lan">由局域网信任</string>
     <string name="label_trusted_by_cloud">由云端信任</string>
-    <string name="label_last_seen">上次在线</string>
     <string name="label_public_key_fingerprint">公钥指纹</string>
     <string name="label_public_key">公钥</string>
     <string name="value_yes">是</string>
@@ -167,11 +144,6 @@
     <string name="source_local_identity">本机身份</string>
     <string name="source_server_device_list">服务端设备列表</string>
     <string name="source_trusted_peer_key">可信设备密钥</string>
-    <string name="security_verified">密钥可信</string>
-    <string name="security_unverified">未信任</string>
-    <string name="security_trusted">已信任</string>
-    <string name="security_unknown">未知</string>
-    <string name="security_key_changed">密钥变更</string>
     <string name="route_lan">局域网</string>
     <string name="route_cloud">云端</string>
     <string name="route_sending">发送中...</string>
@@ -181,8 +153,6 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">发送消息和文件</string>
-    <string name="messages_chat_tab">聊天</string>
-    <string name="messages_files_tab">文件</string>
     <string name="messages_contacts_empty_title">还没有联系人</string>
     <string name="messages_contacts_empty_body">通过局域网或云端连接设备来发送消息和文件</string>
     <string name="message_select_target_device">选择目标设备</string>
@@ -191,29 +161,16 @@
     <string name="no_messages_body">选择一个设备并发送第一条消息。</string>
     <string name="message_placeholder">消息</string>
     <string name="send_message_desc">发送消息</string>
-    <string name="message_via">通过 %1$s</string>
     
     <!-- Transfers -->
-    <string name="transfers_subtitle">点击 + 选择文件并发送</string>
     <string name="send_file_desc">发送文件</string>
-    <string name="no_transfers_title">暂无传输</string>
-    <string name="no_transfers_body">点击 + 按钮选择要发送的文件。</string>
-    <string name="send_file_btn">发送文件</string>
-    <string name="accept_file_title">接收文件</string>
-    <string name="accept_file_body">确定接收 %1$s 吗？</string>
     <string name="accept_btn">接受</string>
-    <string name="reject_file_title">拒绝文件</string>
-    <string name="reject_file_body">确定拒绝 %1$s 吗？</string>
     <string name="reject_btn">拒绝</string>
     <string name="unnamed_file">未命名文件</string>
-    <string name="transfer_details">%1$s · %2$s · %3$s</string>
-    <string name="direction_incoming">接收</string>
-    <string name="direction_outgoing">发送</string>
     <string name="select_destination_title">选择传输目标</string>
     <string name="no_devices_available">无可用设备。</string>
     <string name="lan_available_tag">局域网可用</string>
     <string name="cloud_available_tag">云端可用</string>
-    <string name="offline_tag">离线</string>
 
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">已接受文件传输</string>
@@ -232,17 +189,13 @@
     <!-- Remote files -->
     <string name="browse_device_files_desc">浏览设备文件</string>
     <string name="remote_files_title">文件</string>
-    <string name="remote_files_locations_title">设备位置</string>
-    <string name="remote_files_locations_body">浏览这台设备当前可访问的位置。</string>
     <string name="remote_files_locations_empty">这台设备没有可读取的位置。</string>
     <string name="remote_files_directory_empty">此文件夹为空。</string>
     <string name="remote_files_refresh_desc">刷新文件</string>
     <string name="remote_files_up_desc">返回上一级</string>
     <string name="remote_files_item_count">共 %1$d 项</string>
     <string name="remote_files_storage_available">可用 %1$s，共 %2$s</string>
-    <string name="remote_files_load_more">加载更多</string>
     <string name="remote_files_download_desc">下载文件</string>
-    <string name="remote_files_download_started">已发送下载请求</string>
     <string name="remote_files_download_waiting">等待设备响应</string>
     <string name="remote_files_open_download">打开已下载文件</string>
     <string name="remote_files_error_title">无法加载文件</string>
@@ -262,29 +215,16 @@
     <string name="server_url_label">服务器地址</string>
     <string name="edit_server_url_title">修改服务器地址</string>
     <string name="device_name_label">设备名称</string>
-    <string name="auto_start_label">开机启动</string>
-    <string name="auto_start_body">在设备重启后自动启动 CoLink。</string>
     <string name="language_label">语言 (Language)</string>
-    <string name="language_body">选择界面显示语言</string>
-    <string name="lang_english">英语</string>
-    <string name="lang_simplified_chinese">简体中文</string>
-    <string name="lang_traditional_chinese">繁體中文</string>
-    <string name="lang_japanese">日语</string>
-    <string name="lang_korean">韩语</string>
-    <string name="lang_spanish">西班牙语</string>
-    <string name="lang_german">德语</string>
-    <string name="lang_russian">俄语</string>
     <string name="save_btn">保存</string>
     
     <!-- Authentication -->
-    <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">连接此设备到您的账户</string>
     <string name="cloud_account_title">云端账户</string>
     <string name="cloud_account_login_status">登录状态</string>
     <string name="cloud_account_logged_in">已登录</string>
     <string name="cloud_account_not_logged_in">未登录</string>
     <string name="cloud_account_connection_status">连接状态</string>
-    <string name="cloud_account_login_tip">登录以同步设备</string>
     <string name="cloud_account_connected_body">此设备已登录云端账户 %1$s（%2$s，%3$s）。</string>
     <string name="logout_btn">退出</string>
     <string name="email_or_username_label">邮箱或用户名</string>
@@ -296,7 +236,6 @@
     <string name="err_email_or_username_required">请输入邮箱或用户名</string>
     <string name="err_password_required">请输入密码</string>
     <string name="login_btn">登录</string>
-    <string name="working_status">连接中…</string>
     <string name="send_btn">发送</string>
     <string name="message_sent">消息已发送</string>
     <string name="settings_saved">设置已保存</string>

@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">CoLink</string>
     <string name="service_channel_name">CoLink connection</string>
     <string name="service_notification_title">CoLink</string>
     <string name="service_notification_desc">CoLink service is running</string>
@@ -9,9 +8,6 @@
     <string name="service_transfer_completed_title">File transfer complete</string>
     <string name="service_transfer_failed_title">File transfer failed</string>
     <string name="service_transfer_cancelled_title">File transfer cancelled</string>
-    <string name="service_transfer_progress">%1$s · %2$d%% · %3$s / %4$s</string>
-    <string name="service_transfer_verifying_text">Checking file integrity: %1$s</string>
-    <string name="service_transfer_result">%1$s · %2$s</string>
     
     <!-- Navigation -->
     <string name="nav_devices">Devices</string>
@@ -21,27 +17,23 @@
     <string name="device_control_subtitle">Access remote device features</string>
     <string name="device_power_control_title">Device power control</string>
     <string name="device_power_control_subtitle">Control the power state of a remote device</string>
-    <string name="device_control_no_devices_title">No available computers</string>
-    <string name="device_control_no_devices_body">Connect a computer over LAN or Cloud to control it</string>
     <string name="device_power_sleep">Sleep</string>
     <string name="device_power_lock">Lock screen</string>
     <string name="device_power_shutdown">Shutdown</string>
     <string name="device_power_confirm_title">Confirm %1$s</string>
     <string name="device_power_confirm_body">Send the %1$s command to %2$s?</string>
     <string name="device_power_command_sent">%1$s command sent</string>
-    <string name="device_power_unsupported">CoLink on the remote device does not support this protocol. Please update the device\'s CoLink version.</string>
+    <string name="device_control_unsupported">The remote device does not support this feature. Update CoLink on that device.</string>
     <string name="device_wake_on_lan_title">Wake device</string>
     <string name="device_wake_on_lan_subtitle">Send a Wake-on-LAN packet through an online CoLink device on the target network</string>
     <string name="device_wake_on_lan_no_proxies">Connect an online CoLink device on the target network first</string>
     <string name="device_wake_on_lan_mac_label">Target MAC address</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
-    <string name="device_wake_on_lan_recent">Recent addresses</string>
     <string name="device_wake_on_lan_invalid_mac">Enter a MAC address in XX:XX:XX:XX:XX:XX format.</string>
     <string name="device_wake_on_lan_send">Send wake packet</string>
     <string name="device_wake_on_lan_confirm_title">Send wake packet?</string>
     <string name="device_wake_on_lan_confirm_body">Send a wake packet for %1$s through %2$s?</string>
     <string name="device_wake_on_lan_packet_sent">Wake packet sent</string>
-    <string name="device_wake_on_lan_unsupported">CoLink on the remote device does not support this protocol. Please update the device\'s CoLink version.</string>
     <string name="device_media_control_title">Media and sound</string>
     <string name="device_media_control_subtitle">Control the current media session and system volume</string>
     <string name="device_media_previous">Previous</string>
@@ -50,16 +42,9 @@
     <string name="device_media_next">Next</string>
     <string name="device_media_mute">Mute</string>
     <string name="device_media_volume">Volume: %1$d%%</string>
-    <string name="device_media_set_volume">Set volume</string>
-    <string name="device_media_unsupported">CoLink on the remote device does not support this protocol. Please update the device\'s CoLink version.</string>
-    <string name="nav_transfers">Transfers</string>
-    <string name="nav_settings">Settings</string>
     <string name="castboard_start">Start</string>
     <string name="castboard_subtitle">Cast multiple states from a selected device to this device</string>
     <string name="castboard_status_waiting">Waiting for device to connect...</string>
-    <string name="castboard_status_connected">Connected</string>
-    <string name="castboard_no_devices_title">No available devices</string>
-    <string name="castboard_no_devices_body">Connect a computer device over LAN or Cloud to use this feature</string>
     <string name="device_control_no_devices_message">No available devices. Connect a computer device over LAN or Cloud to use this feature.</string>
 
     <!-- Notifications -->
@@ -78,7 +63,6 @@
     <string name="lan_pairing_wants_to_pair">%1$s wants to pair with this device.\nCode: %2$s</string>
     <string name="lan_pairing_waiting">Waiting for the other device...</string>
     <string name="lan_pairing_accept">Accept</string>
-    <string name="lan_pairing_reject">Reject</string>
     <string name="lan_pairing_close">Close</string>
     <string name="lan_pairing_waiting_btn">Waiting</string>
     <string name="lan_connection_failed_title">LAN connection failed</string>
@@ -92,7 +76,6 @@
     <!-- Cloud Status -->
     <string name="cloud_status_connected">Connected</string>
     <string name="cloud_status_disconnected">Disconnected</string>
-    <string name="cloud_status_connecting">Connecting</string>
     <string name="account_desc">Cloud account</string>
 
     <!-- Updates -->
@@ -109,19 +92,15 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d available · %2$d total</string>
-    <string name="refresh_devices">Refresh devices</string>
     <string name="no_devices_title">No devices yet</string>
     <string name="no_devices_body">Sign in on another device, then refresh this list.</string>
-    <string name="lan_pairing_tag">LAN pairing</string>
     <string name="pair_btn">Pair</string>
-    <string name="device_tag_lan">LAN</string>
     <string name="device_tag_cloud">Cloud</string>
     <string name="device_tag_local">Local</string>
     <string name="device_tag_offline">Offline</string>
     <string name="device_tag_trusted">Trusted</string>
     <string name="device_tag_lan_suspect">LAN may disconnect</string>
     <string name="unnamed_device">Unnamed device</string>
-    <string name="unknown_type">Unknown type</string>
     
     <!-- Device Details -->
     <string name="device_details_title">Device details</string>
@@ -149,16 +128,14 @@
     <string name="label_device_id">Device ID</string>
     <string name="label_platform">Platform</string>
     <string name="label_fetch_source">Fetch source</string>
-    <string name="label_local_reachable">Local</string>
+    <string name="label_local_device">Local</string>
     <string name="label_cloud_available">Cloud reachable</string>
     <string name="label_lan_available">LAN reachable</string>
     <string name="label_lan_endpoint">LAN endpoint</string>
     <string name="label_active_route">Active route</string>
-    <string name="label_security_state">Security state</string>
     <string name="label_last_alive">Last alive</string>
     <string name="label_trusted_by_lan">Trusted by LAN</string>
     <string name="label_trusted_by_cloud">Trusted by Cloud</string>
-    <string name="label_last_seen">Last seen</string>
     <string name="label_public_key_fingerprint">Public key fingerprint</string>
     <string name="label_public_key">Public key</string>
     <string name="value_yes">Yes</string>
@@ -167,11 +144,6 @@
     <string name="source_local_identity">Local identity</string>
     <string name="source_server_device_list">Server device list</string>
     <string name="source_trusted_peer_key">Trusted peer key</string>
-    <string name="security_verified">Verified</string>
-    <string name="security_unverified">Unverified</string>
-    <string name="security_trusted">Trusted</string>
-    <string name="security_unknown">Unknown</string>
-    <string name="security_key_changed">Key changed</string>
     <string name="route_lan">LAN</string>
     <string name="route_cloud">Cloud</string>
     <string name="route_sending">Sending...</string>
@@ -181,8 +153,6 @@
     
     <!-- Messages -->
     <string name="messages_choose_device">Send messages and files</string>
-    <string name="messages_chat_tab">Chat</string>
-    <string name="messages_files_tab">Files</string>
     <string name="messages_contacts_empty_title">No contacts yet</string>
     <string name="messages_contacts_empty_body">Connect devices over LAN or Cloud to send messages and files</string>
     <string name="message_select_target_device">Select a target device</string>
@@ -191,29 +161,16 @@
     <string name="no_messages_body">Pick a device and send the first message.</string>
     <string name="message_placeholder">Message</string>
     <string name="send_message_desc">Send message</string>
-    <string name="message_via">via %1$s</string>
     
     <!-- Transfers -->
-    <string name="transfers_subtitle">Tap + to select a file and send</string>
     <string name="send_file_desc">Send file</string>
-    <string name="no_transfers_title">No transfers</string>
-    <string name="no_transfers_body">Tap the + button to select a file to send.</string>
-    <string name="send_file_btn">Send file</string>
-    <string name="accept_file_title">Accept file</string>
-    <string name="accept_file_body">Receive %1$s?</string>
     <string name="accept_btn">Accept</string>
-    <string name="reject_file_title">Reject file</string>
-    <string name="reject_file_body">Reject %1$s?</string>
     <string name="reject_btn">Reject</string>
     <string name="unnamed_file">Unnamed file</string>
-    <string name="transfer_details">%1$s · %2$s · %3$s</string>
-    <string name="direction_incoming">Incoming</string>
-    <string name="direction_outgoing">Outgoing</string>
     <string name="select_destination_title">Select destination</string>
     <string name="no_devices_available">No devices available.</string>
     <string name="lan_available_tag">LAN Available</string>
     <string name="cloud_available_tag">Cloud Available</string>
-    <string name="offline_tag">Offline</string>
 
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">Transfer accepted</string>
@@ -232,17 +189,13 @@
     <!-- Remote files -->
     <string name="browse_device_files_desc">Browse device files</string>
     <string name="remote_files_title">Files</string>
-    <string name="remote_files_locations_title">Device locations</string>
-    <string name="remote_files_locations_body">Browse the locations available on this device.</string>
     <string name="remote_files_locations_empty">No readable locations are available on this device.</string>
     <string name="remote_files_directory_empty">This folder is empty.</string>
     <string name="remote_files_refresh_desc">Refresh files</string>
     <string name="remote_files_up_desc">Up one folder</string>
     <string name="remote_files_item_count">%1$d items</string>
     <string name="remote_files_storage_available">%1$s free of %2$s</string>
-    <string name="remote_files_load_more">Load more</string>
     <string name="remote_files_download_desc">Download file</string>
-    <string name="remote_files_download_started">Download request sent</string>
     <string name="remote_files_download_waiting">Waiting for device</string>
     <string name="remote_files_open_download">Open downloaded file</string>
     <string name="remote_files_error_title">Couldn\'t load files</string>
@@ -262,29 +215,16 @@
     <string name="server_url_label">Server address</string>
     <string name="edit_server_url_title">Edit Server Address</string>
     <string name="device_name_label">Device name</string>
-    <string name="auto_start_label">Auto-start on boot</string>
-    <string name="auto_start_body">Start CoLink after this device restarts.</string>
     <string name="language_label">Language (Language)</string>
-    <string name="language_body">Select UI display language</string>
-    <string name="lang_english">English</string>
-    <string name="lang_simplified_chinese">Simplified Chinese</string>
-    <string name="lang_traditional_chinese">Traditional Chinese</string>
-    <string name="lang_japanese">Japanese</string>
-    <string name="lang_korean">Korean</string>
-    <string name="lang_spanish">Spanish</string>
-    <string name="lang_german">German</string>
-    <string name="lang_russian">Russian</string>
     <string name="save_btn">Save</string>
     
     <!-- Authentication -->
-    <string name="auth_title">CoLink</string>
     <string name="auth_subtitle">Connect this device to your account</string>
     <string name="cloud_account_title">Cloud account</string>
     <string name="cloud_account_login_status">Login status</string>
     <string name="cloud_account_logged_in">Signed in</string>
     <string name="cloud_account_not_logged_in">Not signed in</string>
     <string name="cloud_account_connection_status">Connection status</string>
-    <string name="cloud_account_login_tip">Login to sync devices</string>
     <string name="cloud_account_connected_body">This device is signed in to Cloud account %1$s (%2$s, %3$s).</string>
     <string name="logout_btn">Logout</string>
     <string name="email_or_username_label">Email or username</string>
@@ -296,7 +236,6 @@
     <string name="err_email_or_username_required">Email or username is required</string>
     <string name="err_password_required">Password is required</string>
     <string name="login_btn">Login</string>
-    <string name="working_status">Working...</string>
     <string name="send_btn">Send</string>
     <string name="message_sent">Message sent</string>
     <string name="settings_saved">Settings saved</string>

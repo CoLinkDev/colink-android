@@ -369,7 +369,7 @@ private fun DeviceInformationCard(
         DetailRowData(stringResource(R.string.label_device_id), device.deviceId, mono = true),
         DetailRowData(stringResource(R.string.label_platform), formatPlatformName(device.type)),
         DetailRowData(stringResource(R.string.label_fetch_source), describeSources(device, isLocalDevice)),
-        DetailRowData(stringResource(R.string.label_local_reachable), formatBoolean(isLocalDevice)),
+        DetailRowData(stringResource(R.string.label_local_device), formatBoolean(isLocalDevice)),
         DetailRowData(stringResource(R.string.label_cloud_available), formatBoolean(device.cloudAvailable)),
         DetailRowData(stringResource(R.string.label_lan_available), formatBoolean(device.lanAvailable)),
         DetailRowData(stringResource(R.string.label_lan_endpoint), formatLanEndpoint(device)),

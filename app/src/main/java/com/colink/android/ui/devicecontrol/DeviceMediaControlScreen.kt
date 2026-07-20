@@ -80,7 +80,7 @@ fun DeviceMediaControlCard(
                 )
             } else {
                 if (support == SystemControlSupport.TOO_OLD) {
-                    StateMessage(text = stringResource(R.string.device_media_unsupported))
+                    StateMessage(text = stringResource(R.string.device_control_unsupported))
                 }
                 StateMessage(text = state.error)
                 FlowRow(

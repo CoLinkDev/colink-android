@@ -278,7 +278,7 @@ fun MessageScreen(
                                     ) {
                                         if (device.lanAvailable) {
                                             BadgeChip(
-                                                text = stringResource(R.string.device_tag_lan),
+                                                text = stringResource(R.string.route_lan),
                                                 icon = Icons.Default.Wifi,
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -491,7 +491,7 @@ private fun ContactCard(
                 ) {
                     if (device.lanAvailable) {
                         BadgeChip(
-                            text = stringResource(R.string.device_tag_lan),
+                            text = stringResource(R.string.route_lan),
                             icon = Icons.Default.Wifi,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,

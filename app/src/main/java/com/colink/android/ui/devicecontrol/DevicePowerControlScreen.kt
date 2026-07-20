@@ -93,7 +93,7 @@ fun DevicePowerControlCard(
 
                 if (support == SystemControlSupport.TOO_OLD) {
                     StateMessage(
-                        text = stringResource(R.string.device_power_unsupported),
+                        text = stringResource(R.string.device_control_unsupported),
                     )
                 }
                 StateMessage(text = state.error)
