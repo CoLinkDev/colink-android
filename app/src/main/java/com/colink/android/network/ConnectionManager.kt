@@ -1403,16 +1403,24 @@ class ConnectionManager @Inject constructor(
                     }
                 }
         }
-        if (requestedDownload != null) {
+        if (requestedDownload != null || settingsDataStore.currentSettings().autoAcceptFileOffers) {
             acceptFileOffer(payload.sessionId)
                 .onFailure { error ->
-                    CoLinkLog.w(
-                        "Filesystem",
-                        "failed to accept requested download session=${CoLinkLog.shortId(payload.sessionId)}",
-                        error,
-                    )
-                    updateRemoteFilesystemDownload(requestedDownload.requestId) {
-                        it.copy(error = error.message ?: "Download could not start")
+                    if (requestedDownload != null) {
+                        CoLinkLog.w(
+                            "Filesystem",
+                            "failed to accept requested download session=${CoLinkLog.shortId(payload.sessionId)}",
+                            error,
+                        )
+                        updateRemoteFilesystemDownload(requestedDownload.requestId) {
+                            it.copy(error = error.message ?: "Download could not start")
+                        }
+                    } else {
+                        CoLinkLog.w(
+                            "Transfer",
+                            "failed to automatically accept file offer session=${CoLinkLog.shortId(payload.sessionId)}",
+                            error,
+                        )
                     }
                 }
         } else {

@@ -89,6 +89,8 @@
     <string name="update_check_failed">No se pudo buscar actualizaciones</string>
     <string name="settings_clipboard_sync_title">Sincronizar portapapeles</string>
     <string name="settings_clipboard_sync_desc">Compartir elementos del portapapeles con dispositivos conectados</string>
+    <string name="settings_auto_accept_file_offers_title">Aceptar transferencias de archivos automáticamente</string>
+    <string name="settings_auto_accept_file_offers_desc">Aceptar solicitudes de transferencia de archivos entrantes sin confirmación</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d disponibles · %2$d en total</string>

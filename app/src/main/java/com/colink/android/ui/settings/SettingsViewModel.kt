@@ -92,6 +92,15 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun updateAutoAcceptFileOffers(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val current = settingsDataStore.currentSettings()
+            if (current.autoAcceptFileOffers != enabled) {
+                settingsDataStore.saveSettings(current.copy(autoAcceptFileOffers = enabled))
+            }
+        }
+    }
+
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
     }

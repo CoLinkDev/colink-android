@@ -89,6 +89,8 @@
     <string name="update_check_failed">업데이트 확인 실패</string>
     <string name="settings_clipboard_sync_title">클립보드 동기화</string>
     <string name="settings_clipboard_sync_desc">연결된 기기와 클립보드 항목 공유</string>
+    <string name="settings_auto_accept_file_offers_title">파일 전송 자동 수락</string>
+    <string name="settings_auto_accept_file_offers_desc">수신 파일 전송 요청을 확인 없이 수락합니다</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">사용 가능 %1$d · 총 %2$d</string>

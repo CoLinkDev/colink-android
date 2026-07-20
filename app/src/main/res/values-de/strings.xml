@@ -89,6 +89,8 @@
     <string name="update_check_failed">Update-Suche fehlgeschlagen</string>
     <string name="settings_clipboard_sync_title">Zwischenablage synchronisieren</string>
     <string name="settings_clipboard_sync_desc">Inhalte der Zwischenablage mit verbundenen Geräten teilen</string>
+    <string name="settings_auto_accept_file_offers_title">Dateiübertragungen automatisch annehmen</string>
+    <string name="settings_auto_accept_file_offers_desc">Eingehende Dateiübertragungsanfragen ohne Bestätigung annehmen</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d verfügbar · %2$d insgesamt</string>

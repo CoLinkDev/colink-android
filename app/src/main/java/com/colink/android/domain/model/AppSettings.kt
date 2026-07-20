@@ -6,4 +6,5 @@ data class AppSettings(
     val deviceName: String = "",
     val language: String = "system",
     val enableClipboardSync: Boolean = true,
+    val autoAcceptFileOffers: Boolean = true,
 )

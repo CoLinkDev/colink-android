@@ -89,6 +89,8 @@
     <string name="update_check_failed">检查更新失败</string>
     <string name="settings_clipboard_sync_title">同步剪贴板</string>
     <string name="settings_clipboard_sync_desc">在已连接的设备之间共享剪贴板内容</string>
+    <string name="settings_auto_accept_file_offers_title">自动接受文件传输</string>
+    <string name="settings_auto_accept_file_offers_desc">收到文件发送请求时无需确认直接接受</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>

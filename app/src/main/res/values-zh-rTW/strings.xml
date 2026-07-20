@@ -89,6 +89,8 @@
     <string name="update_check_failed">檢查更新失敗</string>
     <string name="settings_clipboard_sync_title">同步剪貼簿</string>
     <string name="settings_clipboard_sync_desc">在已連線的裝置之間共用剪貼簿內容</string>
+    <string name="settings_auto_accept_file_offers_title">自動接受檔案傳輸</string>
+    <string name="settings_auto_accept_file_offers_desc">收到檔案傳送請求時無需確認直接接受</string>
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>

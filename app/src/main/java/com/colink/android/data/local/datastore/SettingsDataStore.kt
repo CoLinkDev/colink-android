@@ -34,6 +34,7 @@ class SettingsDataStore @Inject constructor(
                 deviceName = preferences[SETTINGS_DEVICE_NAME] ?: "",
                 language = preferences[LANGUAGE] ?: "system",
                 enableClipboardSync = preferences[ENABLE_CLIPBOARD_SYNC] ?: true,
+                autoAcceptFileOffers = preferences[AUTO_ACCEPT_FILE_OFFERS] ?: true,
             )
         }
 
@@ -107,6 +108,7 @@ class SettingsDataStore @Inject constructor(
             preferences[SETTINGS_DEVICE_NAME] = settings.deviceName.trim()
             preferences[LANGUAGE] = settings.language
             preferences[ENABLE_CLIPBOARD_SYNC] = settings.enableClipboardSync
+            preferences[AUTO_ACCEPT_FILE_OFFERS] = settings.autoAcceptFileOffers
         }
     }
 
@@ -198,6 +200,7 @@ class SettingsDataStore @Inject constructor(
         private val SESSION_EMAIL = stringPreferencesKey("session_email")
         private val LANGUAGE = stringPreferencesKey("language")
         private val ENABLE_CLIPBOARD_SYNC = booleanPreferencesKey("enable_clipboard_sync")
+        private val AUTO_ACCEPT_FILE_OFFERS = booleanPreferencesKey("auto_accept_file_offers")
         private val RECENT_WAKE_ON_LAN_MACS = stringPreferencesKey("recent_wake_on_lan_macs")
         private const val RECENT_WAKE_ON_LAN_MACS_SEPARATOR = ","
 
