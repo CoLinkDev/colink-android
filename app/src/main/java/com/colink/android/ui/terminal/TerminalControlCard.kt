@@ -18,12 +18,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.colink.android.R
+import com.colink.android.network.SystemControlSupport
+import com.colink.android.ui.components.StateMessage
 
 @Composable
 fun TerminalControlCard(
     deviceId: String,
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
+    support: SystemControlSupport = SystemControlSupport.SUPPORTED,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -46,7 +49,13 @@ fun TerminalControlCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(onClick = { onOpen(deviceId) }) {
+            if (support == SystemControlSupport.TOO_OLD) {
+                StateMessage(text = stringResource(R.string.device_control_unsupported))
+            }
+            Button(
+                onClick = { onOpen(deviceId) },
+                enabled = support != SystemControlSupport.TOO_OLD,
+            ) {
                 Icon(Icons.Default.Code, contentDescription = null)
                 Text(
                     text = stringResource(R.string.terminal_open),

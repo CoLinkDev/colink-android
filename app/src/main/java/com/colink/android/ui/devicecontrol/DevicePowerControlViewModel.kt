@@ -63,6 +63,12 @@ class DevicePowerControlViewModel @Inject constructor(
         _uiState.update { DevicePowerControlUiState() }
     }
 
+    fun wakeOnLanSupport(deviceId: String): SystemControlSupport =
+        connectionManager.wakeOnLanSupport(deviceId)
+
+    fun terminalSupport(deviceId: String): SystemControlSupport =
+        connectionManager.terminalSupport(deviceId)
+
     fun systemControlSupport(deviceId: String?): SystemControlSupport =
         deviceId?.let(connectionManager::systemControlSupport) ?: SystemControlSupport.UNKNOWN
 

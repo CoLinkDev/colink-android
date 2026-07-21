@@ -750,6 +750,15 @@ class ConnectionManager @Inject constructor(
         return systemControlSupport(deviceId, SystemControlAction.WakeOnLan)
     }
 
+    fun terminalSupport(deviceId: String): SystemControlSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 9)) {
+            SystemControlSupport.SUPPORTED
+        } else {
+            SystemControlSupport.TOO_OLD
+        }
+    }
+
     fun systemControlQuerySupport(deviceId: String): SystemControlSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
         return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 7)) {

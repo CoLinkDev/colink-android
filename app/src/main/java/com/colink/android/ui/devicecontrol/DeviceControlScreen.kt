@@ -112,6 +112,7 @@ fun DeviceControlScreen(
                         TerminalControlCard(
                             deviceId = deviceId,
                             onOpen = onStartTerminal,
+                            support = powerControlViewModel.terminalSupport(deviceId),
                         )
                     }
                     DeviceMediaControlCard(
