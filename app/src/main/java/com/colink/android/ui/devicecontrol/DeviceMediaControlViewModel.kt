@@ -83,7 +83,7 @@ class DeviceMediaControlViewModel @Inject constructor(
 
     fun send(action: SystemControlAction, volume: Int? = null) {
         val targetDeviceId = _selectedDeviceId.value ?: return
-        if (_uiState.value.submitting || _uiState.value.querying) {
+        if (_uiState.value.submitting) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {

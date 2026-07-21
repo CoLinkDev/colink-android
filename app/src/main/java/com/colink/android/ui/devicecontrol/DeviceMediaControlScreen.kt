@@ -47,7 +47,6 @@ fun DeviceMediaControlCard(
     val enabled = hasAvailableDevice &&
         selectedDeviceId != null &&
         !state.submitting &&
-        !state.querying &&
         support == SystemControlSupport.SUPPORTED
     val playing = state.playback == "playing"
 
