@@ -78,6 +78,7 @@ import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.auth.AuthDialogContent
+import com.colink.android.ui.terminal.TerminalScreen
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
@@ -315,6 +316,9 @@ private fun MainScaffold(
                             onStartCastBoard = { deviceId ->
                                 context.startActivity(CastBoardActivity.createIntent(context, deviceId))
                             },
+                            onStartTerminal = { deviceId ->
+                                rootNavController.navigate("terminal/${Uri.encode(deviceId)}")
+                            },
                         )
                     }
                     composable("settings") { SettingsScreen() }
@@ -458,6 +462,40 @@ private fun MainScaffold(
             RemoteFilesystemScreen(
                 onBack = { rootNavController.popBackStack() },
                 modifier = Modifier.shadow(4.dp),
+            )
+        }
+
+        composable(
+            route = "terminal/{deviceId}",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+        ) { entry ->
+            TerminalScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
+                viewModel = hiltViewModel(),
             )
         }
 

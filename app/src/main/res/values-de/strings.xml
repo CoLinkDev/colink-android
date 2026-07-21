@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">Gerätesteuerung</string>
     <string name="device_control_subtitle">Remotezugriff auf Gerätefunktionen</string>
+    <string name="device_control_terminal">Terminal</string>
+    <string name="terminal_subtitle">Öffnen Sie ein interaktives Terminal auf dem ausgewählten Computer</string>
+    <string name="terminal_open">Terminal öffnen</string>
+    <string name="terminal_exit_confirm_title">Terminal trennen?</string>
+    <string name="terminal_exit_confirm_body">Das Beenden schließt die aktive Terminalsitzung und alle darin laufenden Prozesse.</string>
+    <string name="terminal_exit_confirm_btn">Trennen</string>
     <string name="device_power_control_title">Geräteenergie steuern</string>
     <string name="device_power_control_subtitle">Den Energiezustand eines Remote-Geräts steuern</string>
     <string name="device_power_sleep">Ruhezustand</string>

@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">デバイス制御</string>
     <string name="device_control_subtitle">リモートデバイスの機能にアクセスします</string>
+    <string name="device_control_terminal">ターミナル</string>
+    <string name="terminal_subtitle">選択したコンピューターで対話型ターミナルを開きます</string>
+    <string name="terminal_open">ターミナルを開く</string>
+    <string name="terminal_exit_confirm_title">ターミナルを切断しますか？</string>
+    <string name="terminal_exit_confirm_body">終了すると、アクティブなターミナルセッションと実行中のプロセスが終了します。</string>
+    <string name="terminal_exit_confirm_btn">切断</string>
     <string name="device_power_control_title">デバイス電源制御</string>
     <string name="device_power_control_subtitle">リモートデバイスの電源状態を制御します</string>
     <string name="device_power_sleep">スリープ</string>

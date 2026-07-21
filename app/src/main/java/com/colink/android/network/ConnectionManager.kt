@@ -58,6 +58,11 @@ import com.colink.android.network.message.SYSTEM_CONTROL_COMMAND_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_ERROR_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_QUERY_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_RESULT_TYPE
+import com.colink.android.network.message.TERMINAL_CLOSE_TYPE
+import com.colink.android.network.message.TERMINAL_DATA_TYPE
+import com.colink.android.network.message.TERMINAL_OPEN_ACK_TYPE
+import com.colink.android.network.message.TERMINAL_OPEN_TYPE
+import com.colink.android.network.message.TERMINAL_RESIZE_TYPE
 import com.colink.android.network.message.SysInfoAlivePayload
 import com.colink.android.network.message.SysInfoStatsPayload
 import com.colink.android.network.message.SystemControlAction
@@ -94,6 +99,11 @@ import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
 import com.colink.android.network.message.TextMessagePayload
+import com.colink.android.network.message.TerminalClosePayload
+import com.colink.android.network.message.TerminalDataPayload
+import com.colink.android.network.message.TerminalOpenAckPayload
+import com.colink.android.network.message.TerminalOpenPayload
+import com.colink.android.network.message.TerminalResizePayload
 import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
@@ -132,8 +142,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -192,6 +204,13 @@ class SystemControlQueryUnsupportedException : IllegalStateException(
     "Remote device does not support system state queries",
 )
 
+sealed interface TerminalEvent {
+    data class Opened(val sessionId: String) : TerminalEvent
+    data class Output(val sessionId: String, val data: String) : TerminalEvent
+    data class Closed(val sessionId: String, val exitCode: Int?) : TerminalEvent
+    data class Failed(val sessionId: String, val message: String) : TerminalEvent
+}
+
 data class RemoteFilesystemDownload(
     val requestId: String,
     val deviceId: String,
@@ -237,6 +256,9 @@ class ConnectionManager @Inject constructor(
     private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
     private val pendingFilesystemRequests = ConcurrentHashMap<String, PendingFilesystemRequest>()
     private val pendingSystemControlQueries = ConcurrentHashMap<String, PendingSystemControlQuery>()
+    private val terminalOpenRequestIds = ConcurrentHashMap<String, String>()
+    private val activeTerminalSessions = ConcurrentHashMap<String, String>()
+    private val terminalEventChannel = Channel<TerminalEvent>(Channel.UNLIMITED)
     private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
     private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
@@ -259,6 +281,7 @@ class ConnectionManager @Inject constructor(
     val cloudState: StateFlow<CloudConnectionState> = _cloudState.asStateFlow()
     val remoteFilesystemDownloads: StateFlow<Map<String, RemoteFilesystemDownload>> =
         _remoteFilesystemDownloads.asStateFlow()
+    val terminalEvents: Flow<TerminalEvent> = terminalEventChannel.receiveAsFlow()
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
         _lanPairingCandidates.asStateFlow()
@@ -459,6 +482,62 @@ class ConnectionManager @Inject constructor(
             ).getOrThrow()
             json.decodeFromJsonElement(SystemControlResultPayload.serializer(), response.payload)
         }
+
+    suspend fun openTerminal(deviceId: String, cols: Int, rows: Int): Result<String> = runCatching {
+        require(cols > 0 && rows > 0) { "Terminal dimensions must be positive" }
+        val peerVersion = peerBusinessVersion(deviceId)
+            ?: error("Remote device version is unavailable")
+        check(supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 9)) {
+            "Remote device does not support terminal control"
+        }
+        val sessionId = UUID.randomUUID().toString()
+        val requestId = UUID.randomUUID().toString()
+        activeTerminalSessions[sessionId] = deviceId
+        terminalOpenRequestIds[sessionId] = requestId
+        sendBusinessMessage(
+            targetDeviceId = deviceId,
+            business = BusinessEnvelope(
+                type = TERMINAL_OPEN_TYPE,
+                payload = json.encodeToJsonElement(TerminalOpenPayload(sessionId, cols, rows)),
+            ),
+            envelopeId = requestId,
+        ).getOrElse { error ->
+            activeTerminalSessions.remove(sessionId)
+            terminalOpenRequestIds.remove(sessionId)
+            throw error
+        }
+        sessionId
+    }
+
+    suspend fun sendTerminalInput(deviceId: String, sessionId: String, input: String): Result<Unit> =
+        runCatching {
+            check(activeTerminalSessions[sessionId] == deviceId) { "Terminal session is not active" }
+            val data = Base64.getEncoder().encodeToString(input.toByteArray(Charsets.UTF_8))
+            sendBusinessMessage(
+                deviceId,
+                BusinessEnvelope(TERMINAL_DATA_TYPE, json.encodeToJsonElement(TerminalDataPayload(sessionId, "input", data))),
+            ).getOrThrow()
+        }
+
+    suspend fun resizeTerminal(deviceId: String, sessionId: String, cols: Int, rows: Int): Result<Unit> =
+        runCatching {
+            require(cols > 0 && rows > 0) { "Terminal dimensions must be positive" }
+            check(activeTerminalSessions[sessionId] == deviceId) { "Terminal session is not active" }
+            sendBusinessMessage(
+                deviceId,
+                BusinessEnvelope(TERMINAL_RESIZE_TYPE, json.encodeToJsonElement(TerminalResizePayload(sessionId, cols, rows))),
+            ).getOrThrow()
+        }
+
+    suspend fun closeTerminal(deviceId: String, sessionId: String): Result<Unit> = runCatching {
+        if (activeTerminalSessions.remove(sessionId, deviceId)) {
+            terminalOpenRequestIds.remove(sessionId)
+            sendBusinessMessage(
+                deviceId,
+                BusinessEnvelope(TERMINAL_CLOSE_TYPE, json.encodeToJsonElement(TerminalClosePayload(sessionId))),
+            ).getOrThrow()
+        }
+    }
 
     private fun startLan() {
         lanGeneration.incrementAndGet()
@@ -907,6 +986,10 @@ class ConnectionManager @Inject constructor(
             SYSTEM_CONTROL_COMMAND_TYPE -> handleSystemControlCommand(business)
             SYSTEM_CONTROL_RESULT_TYPE, SYSTEM_CONTROL_ERROR_TYPE ->
                 completeSystemControlQuery(fromDeviceId, correlationId, business)
+            TERMINAL_OPEN_TYPE -> rejectTerminalOpen(fromDeviceId, envelopeId, business)
+            TERMINAL_OPEN_ACK_TYPE -> handleTerminalOpenAck(fromDeviceId, correlationId, business)
+            TERMINAL_DATA_TYPE -> handleTerminalData(fromDeviceId, business)
+            TERMINAL_CLOSE_TYPE -> handleTerminalClose(fromDeviceId, business)
             FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
                 handleFilesystemRequest(fromDeviceId, envelopeId, business)
             FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE ->
@@ -1118,6 +1201,67 @@ class ConnectionManager @Inject constructor(
             } ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
         } finally {
             pendingSystemControlQueries.remove(requestId, pending)
+        }
+    }
+
+    private suspend fun rejectTerminalOpen(fromDeviceId: String, envelopeId: String?, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(TerminalOpenPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val requestId = envelopeId ?: return
+        sendBusinessMessage(
+            fromDeviceId,
+            BusinessEnvelope(
+                TERMINAL_OPEN_ACK_TYPE,
+                json.encodeToJsonElement(
+                    TerminalOpenAckPayload(
+                        sessionId = payload.sessionId,
+                        accepted = false,
+                        reason = "colink:terminal.rejected.v1",
+                        message = "Android devices do not host terminal sessions",
+                    ),
+                ),
+            ),
+            correlationId = requestId,
+        )
+    }
+
+    private fun handleTerminalOpenAck(
+        fromDeviceId: String,
+        correlationId: String?,
+        business: BusinessEnvelope,
+    ) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(TerminalOpenAckPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        if (
+            activeTerminalSessions[payload.sessionId] != fromDeviceId ||
+            terminalOpenRequestIds.remove(payload.sessionId) != correlationId
+        ) return
+        if (payload.accepted) {
+            terminalEventChannel.trySend(TerminalEvent.Opened(payload.sessionId))
+        } else {
+            activeTerminalSessions.remove(payload.sessionId, fromDeviceId)
+            terminalEventChannel.trySend(TerminalEvent.Failed(payload.sessionId, payload.message ?: payload.reason ?: "Terminal request rejected"))
+        }
+    }
+
+    private fun handleTerminalData(fromDeviceId: String, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(TerminalDataPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        if (payload.stream != "output" || activeTerminalSessions[payload.sessionId] != fromDeviceId) return
+        if (runCatching { Base64.getDecoder().decode(payload.data) }.isFailure) return
+        terminalEventChannel.trySend(TerminalEvent.Output(payload.sessionId, payload.data))
+    }
+
+    private fun handleTerminalClose(fromDeviceId: String, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(TerminalClosePayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        if (activeTerminalSessions.remove(payload.sessionId, fromDeviceId)) {
+            terminalOpenRequestIds.remove(payload.sessionId)
+            terminalEventChannel.trySend(TerminalEvent.Closed(payload.sessionId, payload.exitCode))
         }
     }
 

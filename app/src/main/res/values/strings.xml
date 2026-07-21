@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">Device control</string>
     <string name="device_control_subtitle">Access remote device features</string>
+    <string name="device_control_terminal">Terminal</string>
+    <string name="terminal_subtitle">Open an interactive terminal on the selected computer</string>
+    <string name="terminal_open">Open terminal</string>
+    <string name="terminal_exit_confirm_title">Disconnect terminal?</string>
+    <string name="terminal_exit_confirm_body">Exiting will terminate the active terminal session and all running processes inside it.</string>
+    <string name="terminal_exit_confirm_btn">Disconnect</string>
     <string name="device_power_control_title">Device power control</string>
     <string name="device_power_control_subtitle">Control the power state of a remote device</string>
     <string name="device_power_sleep">Sleep</string>

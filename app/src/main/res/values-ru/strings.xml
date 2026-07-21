@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">Управление устройствами</string>
     <string name="device_control_subtitle">Доступ к удалённым функциям устройства</string>
+    <string name="device_control_terminal">Терминал</string>
+    <string name="terminal_subtitle">Открыть интерактивный терминал на выбранном компьютере</string>
+    <string name="terminal_open">Открыть терминал</string>
+    <string name="terminal_exit_confirm_title">Отключить терминал?</string>
+    <string name="terminal_exit_confirm_body">Выход завершит активный сеанс терминала и все запущенные в нем процессы.</string>
+    <string name="terminal_exit_confirm_btn">Отключить</string>
     <string name="device_power_control_title">Управление питанием устройства</string>
     <string name="device_power_control_subtitle">Управление питанием удаленного устройства</string>
     <string name="device_power_sleep">Сон</string>

@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="xterm.css">
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #111827;
+    }
+    #terminal {
+      position: fixed;
+      inset: 0;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <script src="xterm.js"></script>
+  <script src="addon-fit.js"></script>
+  <script>
+    const term = new Terminal({ cursorBlink: true, theme: { background: '#111827' } });
+    const fit = new FitAddon.FitAddon();
+    const root = document.getElementById('terminal');
+
+    let pendingOutput = [];
+    let writePending = false;
+    let flushScheduled = false;
+    let terminalReady = false;
+    let resizeTimer = null;
+
+    function fitTerminal() {
+      if (!root.clientWidth || !root.clientHeight) return;
+      fit.fit();
+      if (!terminalReady) {
+        terminalReady = true;
+        AndroidTerminal.ready(term.cols, term.rows);
+      }
+    }
+
+    function debouncedResize(cols, rows) {
+      if (!terminalReady) return;
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        AndroidTerminal.resize(cols, rows);
+      }, 150);
+    }
+
+    function scheduleOutputFlush() {
+      if (!writePending && !flushScheduled && pendingOutput.length) {
+        flushScheduled = true;
+        requestAnimationFrame(flushOutput);
+      }
+    }
+
+    function flushOutput() {
+      flushScheduled = false;
+      if (!pendingOutput.length) return;
+      const chunks = pendingOutput;
+      pendingOutput = [];
+      let size = 0;
+      const decoded = chunks.map(chunk => {
+        const bytes = Uint8Array.from(atob(chunk), c => c.charCodeAt(0));
+        size += bytes.length;
+        return bytes;
+      });
+      const output = new Uint8Array(size);
+      let offset = 0;
+      decoded.forEach(bytes => {
+        output.set(bytes, offset);
+        offset += bytes.length;
+      });
+      writePending = true;
+      term.write(output, () => {
+        writePending = false;
+        scheduleOutputFlush();
+      });
+    }
+
+    term.loadAddon(fit);
+    term.open(root);
+
+    new ResizeObserver(fitTerminal).observe(root);
+    requestAnimationFrame(fitTerminal);
+
+    term.onData(d => AndroidTerminal.input(d));
+    term.onResize(s => debouncedResize(s.cols, s.rows));
+
+    window.queueTerminalOutput = data => {
+      pendingOutput.push(data);
+      scheduleOutputFlush();
+    };
+
+    window.focusTerminal = () => term.focus();
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchY = 0;
+    let accumulatedDeltaY = 0;
+    let isScrolling = false;
+    const ROW_HEIGHT = 18;
+
+    root.addEventListener('touchstart', e => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        lastTouchY = e.touches[0].clientY;
+        accumulatedDeltaY = 0;
+        isScrolling = false;
+      }
+    }, { passive: true });
+
+    root.addEventListener('touchmove', e => {
+      if (e.touches.length === 1) {
+        const currentY = e.touches[0].clientY;
+        const currentX = e.touches[0].clientX;
+        const deltaY = lastTouchY - currentY;
+        const totalDx = Math.abs(currentX - touchStartX);
+        const totalDy = Math.abs(currentY - touchStartY);
+
+        if (totalDy > 5 && totalDy > totalDx) {
+          isScrolling = true;
+          accumulatedDeltaY += deltaY;
+          const linesToScroll = Math.trunc(accumulatedDeltaY / ROW_HEIGHT);
+          if (linesToScroll !== 0) {
+            term.scrollLines(linesToScroll);
+            accumulatedDeltaY -= linesToScroll * ROW_HEIGHT;
+          }
+        }
+        lastTouchY = currentY;
+      }
+    }, { passive: true });
+
+    root.addEventListener('touchend', e => {
+      if (!isScrolling && e.changedTouches.length === 1) {
+        const endX = e.changedTouches[0].clientX;
+        const endY = e.changedTouches[0].clientY;
+        const dx = Math.abs(endX - touchStartX);
+        const dy = Math.abs(endY - touchStartY);
+        if (dx < 10 && dy < 10) {
+          term.focus();
+          setTimeout(() => AndroidTerminal.requestKeyboard(), 0);
+        }
+      }
+    }, { passive: true });
+
+    window.addEventListener('resize', fitTerminal);
+  </script>
+</body>
+</html>
+

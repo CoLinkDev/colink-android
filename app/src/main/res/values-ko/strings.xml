@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">기기 제어</string>
     <string name="device_control_subtitle">원격 기기 기능에 접근합니다</string>
+    <string name="device_control_terminal">터미널</string>
+    <string name="terminal_subtitle">선택한 컴퓨터에서 대화형 터미널을 엽니다</string>
+    <string name="terminal_open">터미널 열기</string>
+    <string name="terminal_exit_confirm_title">터미널을 종료하시겠습니까?</string>
+    <string name="terminal_exit_confirm_body">종료하면 활성 터미널 세션과 내부에서 실행 중인 모든 프로세스가 종료됩니다.</string>
+    <string name="terminal_exit_confirm_btn">종료</string>
     <string name="device_power_control_title">기기 전원 제어</string>
     <string name="device_power_control_subtitle">원격 기기의 전원 상태를 제어합니다</string>
     <string name="device_power_sleep">절전</string>

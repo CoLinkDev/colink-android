@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">裝置控制</string>
     <string name="device_control_subtitle">存取遠端裝置功能</string>
+    <string name="device_control_terminal">終端</string>
+    <string name="terminal_subtitle">在所選電腦上開啟互動式終端機</string>
+    <string name="terminal_open">開啟終端機</string>
+    <string name="terminal_exit_confirm_title">退出終端機？</string>
+    <string name="terminal_exit_confirm_body">退出終端機將終止當前終端機會話及其內部運行的進程。</string>
+    <string name="terminal_exit_confirm_btn">退出終端機</string>
     <string name="device_power_control_title">裝置電源控制</string>
     <string name="device_power_control_subtitle">控制遠端裝置的電源狀態</string>
     <string name="device_power_sleep">睡眠</string>

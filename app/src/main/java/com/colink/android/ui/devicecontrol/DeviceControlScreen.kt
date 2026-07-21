@@ -26,10 +26,12 @@ import com.colink.android.ui.components.DevicePicker
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
+import com.colink.android.ui.terminal.TerminalControlCard
 
 @Composable
 fun DeviceControlScreen(
     onStartCastBoard: (String) -> Unit,
+    onStartTerminal: (String) -> Unit,
     modifier: Modifier = Modifier,
     castBoardViewModel: CastBoardViewModel = hiltViewModel(),
     powerControlViewModel: DevicePowerControlViewModel = hiltViewModel(),
@@ -106,6 +108,12 @@ fun DeviceControlScreen(
                 }
                 WakeOnLanControlCard(selectedDevice = selectedDevice)
                 if (selectedComputer) {
+                    selectedDeviceId?.let { deviceId ->
+                        TerminalControlCard(
+                            deviceId = deviceId,
+                            onOpen = onStartTerminal,
+                        )
+                    }
                     DeviceMediaControlCard(
                         hasAvailableDevice = true,
                         viewModel = mediaControlViewModel,

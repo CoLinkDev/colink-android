@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">Control de dispositivos</string>
     <string name="device_control_subtitle">Accede a las funciones remotas del dispositivo</string>
+    <string name="device_control_terminal">Terminal</string>
+    <string name="terminal_subtitle">Abrir una terminal interactiva en el equipo seleccionado</string>
+    <string name="terminal_open">Abrir terminal</string>
+    <string name="terminal_exit_confirm_title">¿Desconectar terminal?</string>
+    <string name="terminal_exit_confirm_body">Al salir se terminará la sesión de terminal activa y todos los procesos en ejecución.</string>
+    <string name="terminal_exit_confirm_btn">Desconectar</string>
     <string name="device_power_control_title">Control de energía del dispositivo</string>
     <string name="device_power_control_subtitle">Controla el estado de energía de un dispositivo remoto</string>
     <string name="device_power_sleep">Suspender</string>

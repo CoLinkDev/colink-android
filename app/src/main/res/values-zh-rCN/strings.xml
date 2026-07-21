@@ -15,6 +15,12 @@
     <string name="nav_castboard">CastBoard</string>
     <string name="nav_device_control">设备控制</string>
     <string name="device_control_subtitle">访问远程设备功能</string>
+    <string name="device_control_terminal">终端</string>
+    <string name="terminal_subtitle">在所选电脑上打开交互式终端</string>
+    <string name="terminal_open">打开终端</string>
+    <string name="terminal_exit_confirm_title">退出终端？</string>
+    <string name="terminal_exit_confirm_body">退出终端将终止当前终端会话及其内部运行的进程。</string>
+    <string name="terminal_exit_confirm_btn">退出终端</string>
     <string name="device_power_control_title">设备电源控制</string>
     <string name="device_power_control_subtitle">控制远程设备的电源状态</string>
     <string name="device_power_sleep">睡眠</string>

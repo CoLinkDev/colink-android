@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.8.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.9.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -36,6 +36,11 @@ const val SYSTEM_CONTROL_COMMAND_TYPE = "system-control.v1.command"
 const val SYSTEM_CONTROL_QUERY_TYPE = "system-control.v1.query"
 const val SYSTEM_CONTROL_RESULT_TYPE = "system-control.v1.result"
 const val SYSTEM_CONTROL_ERROR_TYPE = "system-control.v1.error"
+const val TERMINAL_OPEN_TYPE = "terminal.v1.open"
+const val TERMINAL_OPEN_ACK_TYPE = "terminal.v1.open-ack"
+const val TERMINAL_DATA_TYPE = "terminal.v1.data"
+const val TERMINAL_RESIZE_TYPE = "terminal.v1.resize"
+const val TERMINAL_CLOSE_TYPE = "terminal.v1.close"
 
 @Serializable
 data class BusinessEnvelope(
@@ -436,6 +441,35 @@ data class SystemControlErrorPayload(
     val message: String,
     val details: JsonElement? = null,
 )
+
+@Serializable
+data class TerminalOpenPayload(
+    val sessionId: String,
+    val cols: Int,
+    val rows: Int,
+    val env: Map<String, String>? = null,
+)
+
+@Serializable
+data class TerminalOpenAckPayload(
+    val sessionId: String,
+    val accepted: Boolean,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class TerminalDataPayload(
+    val sessionId: String,
+    val stream: String,
+    val data: String,
+)
+
+@Serializable
+data class TerminalResizePayload(val sessionId: String, val cols: Int, val rows: Int)
+
+@Serializable
+data class TerminalClosePayload(val sessionId: String, val exitCode: Int? = null)
 
 @Serializable
 data class BusinessKeyExchangeNoncePayload(
