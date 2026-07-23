@@ -8,6 +8,7 @@ import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.network.RemoteCameraSupport
 import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.SystemControlUnsupportedException
 import com.colink.android.network.message.SystemControlAction
@@ -68,6 +69,9 @@ class DevicePowerControlViewModel @Inject constructor(
 
     fun terminalSupport(deviceId: String): SystemControlSupport =
         connectionManager.terminalSupport(deviceId)
+
+    fun remoteCameraSupport(deviceId: String): RemoteCameraSupport =
+        connectionManager.remoteCameraSupport(deviceId)
 
     fun systemControlSupport(deviceId: String?): SystemControlSupport =
         deviceId?.let(connectionManager::systemControlSupport) ?: SystemControlSupport.UNKNOWN

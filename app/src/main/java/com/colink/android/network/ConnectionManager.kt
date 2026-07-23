@@ -27,6 +27,9 @@ import com.colink.android.network.lan.NsdDiscovery
 import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.filesystem.LocalFilesystem
 import com.colink.android.network.filesystem.LocalFilesystemException
+import com.colink.android.network.camera.CameraStreamHost
+import com.colink.android.network.camera.EncodedCameraFrame
+import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
@@ -63,6 +66,16 @@ import com.colink.android.network.message.TERMINAL_DATA_TYPE
 import com.colink.android.network.message.TERMINAL_OPEN_ACK_TYPE
 import com.colink.android.network.message.TERMINAL_OPEN_TYPE
 import com.colink.android.network.message.TERMINAL_RESIZE_TYPE
+import com.colink.android.network.message.CAMERA_ALIVE_TYPE
+import com.colink.android.network.message.CAMERA_CLOSE_TYPE
+import com.colink.android.network.message.CAMERA_CONFIG_ACK_TYPE
+import com.colink.android.network.message.CAMERA_CONFIG_TYPE
+import com.colink.android.network.message.CAMERA_FRAME_TYPE
+import com.colink.android.network.message.CAMERA_LIST_RESULT_TYPE
+import com.colink.android.network.message.CAMERA_LIST_TYPE
+import com.colink.android.network.message.CAMERA_OPEN_ACK_TYPE
+import com.colink.android.network.message.CAMERA_OPEN_TYPE
+import com.colink.android.network.message.CAMERA_READY_TYPE
 import com.colink.android.network.message.SysInfoAlivePayload
 import com.colink.android.network.message.SysInfoStatsPayload
 import com.colink.android.network.message.SystemControlAction
@@ -104,6 +117,16 @@ import com.colink.android.network.message.TerminalDataPayload
 import com.colink.android.network.message.TerminalOpenAckPayload
 import com.colink.android.network.message.TerminalOpenPayload
 import com.colink.android.network.message.TerminalResizePayload
+import com.colink.android.network.message.CameraAlivePayload
+import com.colink.android.network.message.CameraClosePayload
+import com.colink.android.network.message.CameraConfigAckPayload
+import com.colink.android.network.message.CameraConfigPayload
+import com.colink.android.network.message.CameraFramePayload
+import com.colink.android.network.message.CameraOpenAckPayload
+import com.colink.android.network.message.CameraListPayload
+import com.colink.android.network.message.CameraListResultPayload
+import com.colink.android.network.message.CameraOpenPayload
+import com.colink.android.network.message.CameraReadyPayload
 import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
@@ -139,13 +162,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -160,6 +186,8 @@ import kotlinx.serialization.json.encodeToJsonElement
 private const val MAX_TEXT_LENGTH = 10_000
 private const val FILE_ACK_INTERVAL_CHUNKS = 7L
 private const val LAN_SEND_WINDOW_CHUNKS = 8L
+private const val CAMERA_CLOUD_QUEUE_LIMIT_BYTES = 64L * 1024L
+private const val CAMERA_LAN_QUEUE_LIMIT_BYTES = 128L * 1024L
 private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
 private const val SWIM_PERIOD_MILLIS = 5_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 3_000L
@@ -171,6 +199,7 @@ private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
 private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
+private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
 private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
@@ -179,8 +208,15 @@ private const val REASON_TRANSFER_USER_CANCELLED = "colink:transfer.user_cancell
 private const val REASON_TRANSFER_USER_REJECTED = "colink:transfer.user_rejected.v1"
 private const val REASON_TRANSFER_CHECKSUM_MISMATCH = "colink:transfer.checksum_mismatch.v1"
 private const val REASON_TRANSFER_GENERIC = "colink:transfer.generic.v1"
+private const val REASON_CAMERA_GENERIC = "colink:camera.generic.v1"
 
 enum class RemoteFilesystemSupport {
+    SUPPORTED,
+    TOO_OLD,
+    UNKNOWN,
+}
+
+enum class RemoteCameraSupport {
     SUPPORTED,
     TOO_OLD,
     UNKNOWN,
@@ -196,6 +232,17 @@ class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
 )
 
+class RemoteCameraUnsupportedException : IllegalStateException(
+    "Remote device does not support camera streaming",
+)
+
+class RemoteCameraTimeoutException(message: String) : IllegalStateException(message)
+
+class RemoteCameraProtocolException(
+    val reason: String? = null,
+    message: String,
+) : IllegalStateException(message)
+
 class SystemControlUnsupportedException : IllegalStateException(
     "Remote device does not support system control",
 )
@@ -209,6 +256,35 @@ sealed interface TerminalEvent {
     data class Output(val sessionId: String, val data: String) : TerminalEvent
     data class Closed(val sessionId: String, val exitCode: Int?) : TerminalEvent
     data class Failed(val sessionId: String, val message: String) : TerminalEvent
+}
+
+sealed interface CameraEvent {
+    data class Opened(
+        val sessionId: String,
+        val codec: String,
+        val width: Int,
+        val height: Int,
+        val fps: Int,
+        val transport: String,
+    ) : CameraEvent
+    data class Frame(
+        val sessionId: String,
+        val codec: String,
+        val keyframe: Boolean,
+        val sequence: Long,
+        val timestampMs: Long,
+        val data: ByteArray,
+    ) : CameraEvent
+    data class Closed(
+        val sessionId: String,
+        val message: String?,
+        val reason: String? = null,
+    ) : CameraEvent
+    data class Failed(
+        val sessionId: String,
+        val message: String,
+        val reason: String? = null,
+    ) : CameraEvent
 }
 
 data class RemoteFilesystemDownload(
@@ -245,6 +321,11 @@ class ConnectionManager @Inject constructor(
     private val localFilesystem: LocalFilesystem,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val cameraStreamHost = CameraStreamHost(
+        context,
+        ::enqueueCameraFrame,
+        ::handleHostedCameraClosed,
+    )
     private val _cloudState = MutableStateFlow(CloudConnectionState())
     private val _lanPairingCandidates = MutableStateFlow<List<LanPairingCandidate>>(emptyList())
     private val _lanConnectionError = MutableStateFlow<String?>(null)
@@ -259,6 +340,20 @@ class ConnectionManager @Inject constructor(
     private val terminalOpenRequestIds = ConcurrentHashMap<String, String>()
     private val activeTerminalSessions = ConcurrentHashMap<String, String>()
     private val terminalEventChannel = Channel<TerminalEvent>(Channel.UNLIMITED)
+    private val cameraEventChannel = Channel<CameraEvent>(Channel.UNLIMITED)
+    private val cameraFrameFlow = MutableSharedFlow<CameraEvent.Frame>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    private val pendingCameraLists = ConcurrentHashMap<String, CompletableDeferred<List<com.colink.android.network.message.CameraEntry>>>()
+    private val cameraOpenRequestIds = ConcurrentHashMap<String, String>()
+    private val activeCameraSessions = ConcurrentHashMap<String, String>()
+    private val activeCameraCodecs = ConcurrentHashMap<String, String>()
+    private val cameraFrameSending = ConcurrentHashMap.newKeySet<String>()
+    private val cameraHostTransports = ConcurrentHashMap<String, String>()
+    private val cameraHostDevices = ConcurrentHashMap<String, String>()
+    private val cameraHostDataConnections = ConcurrentHashMap.newKeySet<String>()
+    private val cameraPendingLanReady = ConcurrentHashMap<String, Pair<String, CameraReadyPayload>>()
     private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
     private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
@@ -282,6 +377,8 @@ class ConnectionManager @Inject constructor(
     val remoteFilesystemDownloads: StateFlow<Map<String, RemoteFilesystemDownload>> =
         _remoteFilesystemDownloads.asStateFlow()
     val terminalEvents: Flow<TerminalEvent> = terminalEventChannel.receiveAsFlow()
+    val cameraEvents: Flow<CameraEvent> = cameraEventChannel.receiveAsFlow()
+    val cameraFrames: Flow<CameraEvent.Frame> = cameraFrameFlow.asSharedFlow()
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
         _lanPairingCandidates.asStateFlow()
@@ -345,6 +442,15 @@ class ConnectionManager @Inject constructor(
         stopLan()
         musicSyncManager.reset()
         incomingTransfers.clear()
+        cameraStreamHost.closeAll()
+        activeCameraSessions.clear()
+        activeCameraCodecs.clear()
+        cameraOpenRequestIds.clear()
+        cameraHostTransports.clear()
+        cameraHostDevices.clear()
+        cameraHostDataConnections.clear()
+        cameraPendingLanReady.clear()
+        cameraFrameSending.clear()
         outgoingTransfers.clear()
         pendingFilesystemDownloads.clear()
         _remoteFilesystemDownloads.value = emptyMap()
@@ -518,6 +624,74 @@ class ConnectionManager @Inject constructor(
                 BusinessEnvelope(TERMINAL_DATA_TYPE, json.encodeToJsonElement(TerminalDataPayload(sessionId, "input", data))),
             ).getOrThrow()
         }
+
+    suspend fun listRemoteCameras(deviceId: String): Result<List<com.colink.android.network.message.CameraEntry>> = runCatching {
+        requireRemoteCameraSupport(deviceId)
+        val requestId = UUID.randomUUID().toString()
+        val pending = CompletableDeferred<List<com.colink.android.network.message.CameraEntry>>()
+        pendingCameraLists[requestId] = pending
+        try {
+            sendBusinessMessage(deviceId, BusinessEnvelope(CAMERA_LIST_TYPE, json.encodeToJsonElement(CameraListPayload())), envelopeId = requestId).getOrThrow()
+            withTimeoutOrNull(CAMERA_LIST_TIMEOUT_MILLIS) { pending.await() }
+                ?: throw RemoteCameraTimeoutException("Remote camera list timed out")
+        } finally { pendingCameraLists.remove(requestId, pending) }
+    }
+
+    suspend fun openRemoteCamera(
+        deviceId: String,
+        cameraId: String,
+        sessionId: String = UUID.randomUUID().toString(),
+    ): Result<String> = runCatching {
+        requireRemoteCameraSupport(deviceId)
+        val requestId = UUID.randomUUID().toString()
+        activeCameraSessions[sessionId] = deviceId
+        cameraOpenRequestIds[sessionId] = requestId
+        val lanAvailable = hasLanPeer(deviceId)
+        val preferredWidth = if (lanAvailable) 960 else 640
+        val preferredHeight = if (lanAvailable) 540 else 360
+        val preferredFps = if (lanAvailable) 15 else 8
+        CoLinkLog.i(
+            "Camera",
+            "viewer open requested session=${CoLinkLog.shortId(sessionId)} device=${CoLinkLog.shortId(deviceId)} " +
+                "camera=$cameraId codecs=h264,webp,jpeg preferred=${preferredWidth}x$preferredHeight@$preferredFps lan=$lanAvailable",
+        )
+        sendBusinessMessage(
+            deviceId,
+            BusinessEnvelope(
+                CAMERA_OPEN_TYPE,
+                json.encodeToJsonElement(
+                    CameraOpenPayload(
+                        sessionId,
+                        cameraId,
+                        listOf("h264", "webp", "jpeg"),
+                        // Prefer 540p for live preview: far cheaper to encode/ship than 720p/1080p,
+                        // with little visible quality loss on phone screens.
+                        preferredWidth,
+                        preferredHeight,
+                        preferredFps,
+                    ),
+                ),
+            ),
+            envelopeId = requestId,
+        ).getOrElse {
+            activeCameraSessions.remove(sessionId); cameraOpenRequestIds.remove(sessionId); throw it
+        }
+        sessionId
+    }
+
+    suspend fun sendCameraAlive(deviceId: String, sessionId: String): Result<Unit> = runCatching {
+        check(activeCameraSessions[sessionId] == deviceId) { "Camera session is not active" }
+        sendBusinessMessage(deviceId, BusinessEnvelope(CAMERA_ALIVE_TYPE, json.encodeToJsonElement(CameraAlivePayload(sessionId)))).getOrThrow()
+    }
+
+    suspend fun closeRemoteCamera(deviceId: String, sessionId: String): Result<Unit> = runCatching {
+        if (activeCameraSessions.remove(sessionId, deviceId)) {
+            cameraOpenRequestIds.remove(sessionId)
+            activeCameraCodecs.remove(sessionId)
+            lanWebSocketClient.disconnectCamera(sessionId)
+            sendBusinessMessage(deviceId, BusinessEnvelope(CAMERA_CLOSE_TYPE, json.encodeToJsonElement(CameraClosePayload(sessionId)))).getOrThrow()
+        }
+    }
 
     suspend fun resizeTerminal(deviceId: String, sessionId: String, cols: Int, rows: Int): Result<Unit> =
         runCatching {
@@ -750,6 +924,15 @@ class ConnectionManager @Inject constructor(
         return systemControlSupport(deviceId, SystemControlAction.WakeOnLan)
     }
 
+    fun remoteCameraSupport(deviceId: String): RemoteCameraSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return RemoteCameraSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 10)) {
+            RemoteCameraSupport.SUPPORTED
+        } else {
+            RemoteCameraSupport.TOO_OLD
+        }
+    }
+
     fun terminalSupport(deviceId: String): SystemControlSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
         return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 9)) {
@@ -793,6 +976,12 @@ class ConnectionManager @Inject constructor(
         val action = systemControlAction(message) ?: return
         if (systemControlSupport(deviceId, action) != SystemControlSupport.SUPPORTED) {
             throw SystemControlUnsupportedException()
+        }
+    }
+
+    private fun requireRemoteCameraSupport(deviceId: String) {
+        if (remoteCameraSupport(deviceId) != RemoteCameraSupport.SUPPORTED) {
+            throw RemoteCameraUnsupportedException()
         }
     }
 
@@ -875,7 +1064,39 @@ class ConnectionManager @Inject constructor(
             failPendingLanSends(deviceId, "LAN peer disconnected")
             return
         }
+        if (!hasLanPeer(deviceId)) {
+            closeCameraSessionsForDevice(deviceId)
+        }
         flushPendingLanSends(deviceId)
+    }
+
+    private suspend fun closeCameraSessionsForDevice(deviceId: String) {
+        activeCameraSessions.entries
+            .filter { it.value == deviceId }
+            .map { it.key }
+            .forEach { sessionId ->
+                if (activeCameraSessions.remove(sessionId, deviceId)) {
+                    activeCameraCodecs.remove(sessionId)
+                    cameraOpenRequestIds.remove(sessionId)
+                    lanWebSocketClient.disconnectCamera(sessionId)
+                    cameraEventChannel.trySend(
+                        CameraEvent.Closed(
+                            sessionId,
+                            "Camera device disconnected",
+                            "colink:camera.device_lost.v1",
+                        ),
+                    )
+                }
+            }
+        cameraHostDevices.entries
+            .filter { it.value == deviceId }
+            .map { it.key }
+            .forEach { sessionId ->
+                cameraHostDevices.remove(sessionId)
+                cameraHostTransports.remove(sessionId)
+                lanWebSocketServer.unregisterCamera(sessionId)
+            }
+        cameraStreamHost.closeForDevice(deviceId)
     }
 
     private suspend fun flushPendingLanSends(deviceId: String) {
@@ -999,6 +1220,15 @@ class ConnectionManager @Inject constructor(
             TERMINAL_OPEN_ACK_TYPE -> handleTerminalOpenAck(fromDeviceId, correlationId, business)
             TERMINAL_DATA_TYPE -> handleTerminalData(fromDeviceId, business)
             TERMINAL_CLOSE_TYPE -> handleTerminalClose(fromDeviceId, business)
+            CAMERA_LIST_TYPE -> handleCameraList(fromDeviceId, envelopeId, business)
+            CAMERA_OPEN_TYPE -> handleCameraOpen(fromDeviceId, envelopeId, business)
+            CAMERA_READY_TYPE -> handleCameraReady(fromDeviceId, business)
+            CAMERA_ALIVE_TYPE -> handleCameraAlive(fromDeviceId, business)
+            CAMERA_CLOSE_TYPE -> handleCameraClose(fromDeviceId, business)
+            CAMERA_CONFIG_TYPE -> handleCameraConfig(fromDeviceId, envelopeId, business)
+            CAMERA_LIST_RESULT_TYPE -> handleCameraListResult(fromDeviceId, correlationId, business)
+            CAMERA_OPEN_ACK_TYPE -> handleCameraOpenAck(fromDeviceId, correlationId, business)
+            CAMERA_FRAME_TYPE -> handleCameraFrame(fromDeviceId, business)
             FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
                 handleFilesystemRequest(fromDeviceId, envelopeId, business)
             FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE ->
@@ -1228,6 +1458,451 @@ class ConnectionManager @Inject constructor(
                         accepted = false,
                         reason = "colink:terminal.rejected.v1",
                         message = "Android devices do not host terminal sessions",
+                    ),
+                ),
+            ),
+            correlationId = requestId,
+        )
+    }
+
+    private suspend fun handleCameraList(fromDeviceId: String, envelopeId: String?, business: BusinessEnvelope) {
+        if (envelopeId == null || runCatching {
+                json.decodeFromJsonElement(CameraListPayload.serializer(), business.payload)
+            }.isFailure) return
+        sendBusinessMessage(
+            fromDeviceId,
+            BusinessEnvelope(
+                CAMERA_LIST_RESULT_TYPE,
+                json.encodeToJsonElement(CameraListResultPayload(cameraStreamHost.list())),
+            ),
+            correlationId = envelopeId,
+        )
+    }
+
+    private suspend fun handleCameraOpen(fromDeviceId: String, envelopeId: String?, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraOpenPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val requestId = envelopeId ?: return
+        var ack = cameraStreamHost.open(fromDeviceId, payload)
+        if (ack.accepted) {
+            cameraHostTransports[payload.sessionId] = "pending"
+            cameraHostDevices[payload.sessionId] = fromDeviceId
+            if (hasLanPeer(fromDeviceId) && lanWebSocketServer.isRunning()) {
+                val token = UUID.randomUUID().toString().replace("-", "")
+                lanWebSocketServer.registerCameraToken(payload.sessionId, token)
+                ack = ack.copy(streamToken = token)
+            }
+            CoLinkLog.i(
+                "Camera",
+                "host open accepted session=${CoLinkLog.shortId(payload.sessionId)} controller=${CoLinkLog.shortId(fromDeviceId)} " +
+                    "codec=${ack.negotiatedCodec} stream=${ack.width}x${ack.height}@${ack.fps} lanToken=${ack.streamToken != null}",
+            )
+        } else {
+            CoLinkLog.w(
+                "Camera",
+                "host open rejected session=${CoLinkLog.shortId(payload.sessionId)} reason=${ack.reason} message=${ack.message}",
+            )
+        }
+        sendBusinessMessage(
+            fromDeviceId,
+            BusinessEnvelope(CAMERA_OPEN_ACK_TYPE, json.encodeToJsonElement(ack)),
+            correlationId = requestId,
+        )
+    }
+
+    private fun handleCameraReady(fromDeviceId: String, business: BusinessEnvelope) {
+        runCatching { json.decodeFromJsonElement(CameraReadyPayload.serializer(), business.payload) }
+            .getOrNull()
+            ?.let { payload ->
+                // Silently ignore subsequent ready messages once transport is selected.
+                val current = cameraHostTransports[payload.sessionId]
+                if (current != null && current != "pending") return
+
+                // Protocol: accept transport:lan only after the dedicated data WebSocket is up.
+                // Controllers may send ready slightly before the host coroutine records the socket;
+                // queue that case and apply when onCameraConnected fires.
+                if (payload.transport == "lan" && !cameraHostDataConnections.contains(payload.sessionId)) {
+                    cameraPendingLanReady[payload.sessionId] = fromDeviceId to payload
+                    CoLinkLog.d(
+                        "Camera",
+                        "queued lan ready awaiting data connection session=${CoLinkLog.shortId(payload.sessionId)}",
+                    )
+                    return
+                }
+                applyCameraReady(fromDeviceId, payload)
+            }
+    }
+
+    private fun applyCameraReady(fromDeviceId: String, payload: CameraReadyPayload) {
+        val current = cameraHostTransports[payload.sessionId]
+        if (current != null && current != "pending") return
+        cameraPendingLanReady.remove(payload.sessionId)
+        cameraHostTransports[payload.sessionId] = payload.transport
+        if (payload.transport == "relay") {
+            scope.launch { lanWebSocketServer.unregisterCamera(payload.sessionId) }
+        }
+        CoLinkLog.i(
+            "Camera",
+            "host ready session=${CoLinkLog.shortId(payload.sessionId)} controller=${CoLinkLog.shortId(fromDeviceId)} transport=${payload.transport}",
+        )
+        cameraStreamHost.ready(fromDeviceId, payload)
+    }
+
+    private fun handleCameraAlive(fromDeviceId: String, business: BusinessEnvelope) {
+        runCatching { json.decodeFromJsonElement(CameraAlivePayload.serializer(), business.payload) }
+            .getOrNull()
+            ?.let { cameraStreamHost.alive(fromDeviceId, it) }
+    }
+
+    private fun handleCameraClose(fromDeviceId: String, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraClosePayload.serializer(), business.payload)
+        }.getOrElse {
+            failRemoteCameraSessionsForDevice(
+                fromDeviceId,
+                "Camera close response was invalid",
+                REASON_CAMERA_GENERIC,
+            )
+            return
+        }
+        if (activeCameraSessions.remove(payload.sessionId, fromDeviceId)) {
+            activeCameraCodecs.remove(payload.sessionId)
+            cameraOpenRequestIds.remove(payload.sessionId)
+            lanWebSocketClient.disconnectCamera(payload.sessionId)
+            CoLinkLog.i(
+                "Camera",
+                "viewer closed session=${CoLinkLog.shortId(payload.sessionId)} message=${payload.message ?: payload.reason}",
+            )
+            cameraEventChannel.trySend(
+                CameraEvent.Closed(payload.sessionId, payload.message ?: payload.reason, payload.reason),
+            )
+        } else {
+            cameraHostTransports.remove(payload.sessionId)
+            cameraHostDevices.remove(payload.sessionId)
+            cameraPendingLanReady.remove(payload.sessionId)
+            scope.launch { lanWebSocketServer.unregisterCamera(payload.sessionId) }
+            cameraStreamHost.close(fromDeviceId, payload.sessionId)
+        }
+    }
+
+    private fun handleCameraListResult(fromDeviceId: String, correlationId: String?, business: BusinessEnvelope) {
+        val requestId = correlationId ?: return
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraListResultPayload.serializer(), business.payload)
+        }.getOrElse {
+            pendingCameraLists.remove(requestId)?.completeExceptionally(
+                RemoteCameraProtocolException(message = "Camera list response was invalid"),
+            )
+            return
+        }
+        if (payload.reason != null) {
+            pendingCameraLists.remove(requestId)?.completeExceptionally(
+                RemoteCameraProtocolException(
+                    reason = payload.reason,
+                    message = payload.message ?: "Remote camera list request failed",
+                ),
+            )
+        } else {
+            pendingCameraLists.remove(requestId)?.complete(payload.cameras)
+        }
+    }
+
+    private suspend fun handleCameraOpenAck(fromDeviceId: String, correlationId: String?, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraOpenAckPayload.serializer(), business.payload)
+        }.getOrElse {
+            failRemoteCameraOpenRequest(
+                fromDeviceId,
+                correlationId,
+                "Camera open response was invalid",
+                REASON_CAMERA_GENERIC,
+            )
+            return
+        }
+        if (
+            activeCameraSessions[payload.sessionId] != fromDeviceId ||
+            cameraOpenRequestIds[payload.sessionId] != correlationId
+        ) {
+            failRemoteCameraOpenRequest(
+                fromDeviceId,
+                correlationId,
+                "Camera open response did not match the request",
+                REASON_CAMERA_GENERIC,
+            )
+            return
+        }
+        cameraOpenRequestIds.remove(payload.sessionId, correlationId)
+        val codec = payload.negotiatedCodec
+        CoLinkLog.i(
+            "Camera",
+            "viewer open ack session=${CoLinkLog.shortId(payload.sessionId)} device=${CoLinkLog.shortId(fromDeviceId)} " +
+                "accepted=${payload.accepted} codec=$codec stream=${payload.width}x${payload.height}@${payload.fps} lanToken=${payload.streamToken != null}",
+        )
+        if (payload.accepted && codec in setOf("h264", "webp", "jpeg") && payload.width != null && payload.height != null) {
+            activeCameraCodecs[payload.sessionId] = requireNotNull(codec)
+            val device = deviceRepository.getDevice(fromDeviceId)
+            val token = payload.streamToken
+            if (token != null && device?.localIp != null && device.localPort != null) {
+                val activated = AtomicBoolean(false)
+                val opened = AtomicBoolean(false)
+                lanWebSocketClient.connectCamera(
+                    payload.sessionId,
+                    token,
+                    device.localIp,
+                    device.localPort,
+                    object : LanWebSocketClient.CameraListener {
+                        override fun onOpen() {
+                            if (!activated.compareAndSet(false, true)) return
+                            opened.set(true)
+                            activateRemoteCamera(fromDeviceId, payload, codec, "lan")
+                        }
+
+                        override fun onFrame(frame: CameraDataFrame) {
+                            if (
+                                activeCameraSessions[payload.sessionId] == fromDeviceId &&
+                                activeCameraCodecs[payload.sessionId] == frame.codec
+                            ) {
+                                // Pass raw bytes through — avoid Base64 on the hot LAN path.
+                                cameraFrameFlow.tryEmit(
+                                    CameraEvent.Frame(
+                                        payload.sessionId,
+                                        frame.codec,
+                                        frame.keyframe,
+                                        frame.sequence,
+                                        frame.timestampMs,
+                                        frame.payload,
+                                    ),
+                                )
+                            }
+                        }
+
+                        override fun onClosed(reason: String) {
+                            if (!activated.compareAndSet(false, true)) {
+                                if (opened.get() && activeCameraSessions.remove(payload.sessionId, fromDeviceId)) {
+                                    activeCameraCodecs.remove(payload.sessionId)
+                                    cameraEventChannel.trySend(CameraEvent.Closed(payload.sessionId, reason))
+                                }
+                                return
+                            }
+                            activateRemoteCamera(fromDeviceId, payload, codec, "relay")
+                        }
+                    },
+                )
+            } else {
+                activateRemoteCamera(fromDeviceId, payload, codec, "relay")
+            }
+        } else {
+            failRemoteCameraSession(
+                fromDeviceId,
+                payload.sessionId,
+                payload.message ?: payload.reason ?: "Camera request rejected",
+                payload.reason ?: REASON_CAMERA_GENERIC,
+            )
+        }
+    }
+
+    private fun activateRemoteCamera(
+        deviceId: String,
+        payload: CameraOpenAckPayload,
+        codec: String,
+        transport: String,
+    ) {
+        scope.launch {
+            val result = sendBusinessMessage(
+                deviceId,
+                BusinessEnvelope(
+                    CAMERA_READY_TYPE,
+                    json.encodeToJsonElement(CameraReadyPayload(payload.sessionId, transport)),
+                ),
+            )
+            if (result.isSuccess) {
+                CoLinkLog.i(
+                    "Camera",
+                    "viewer activated session=${CoLinkLog.shortId(payload.sessionId)} device=${CoLinkLog.shortId(deviceId)} " +
+                        "transport=$transport codec=$codec stream=${payload.width}x${payload.height}@${payload.fps}",
+                )
+                cameraEventChannel.trySend(CameraEvent.Opened(
+                    payload.sessionId,
+                    codec,
+                    requireNotNull(payload.width),
+                    requireNotNull(payload.height),
+                    payload.fps ?: 0,
+                    transport,
+                ))
+            } else {
+                failRemoteCameraSession(
+                    deviceId,
+                    payload.sessionId,
+                    result.exceptionOrNull()?.message ?: "Camera transport failed",
+                    REASON_CAMERA_GENERIC,
+                )
+            }
+        }
+    }
+
+    private fun handleCameraFrame(fromDeviceId: String, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraFramePayload.serializer(), business.payload)
+        }.getOrElse {
+            failRemoteCameraSessionsForDevice(
+                fromDeviceId,
+                "Camera frame was invalid",
+                REASON_CAMERA_GENERIC,
+            )
+            return
+        }
+        if (activeCameraSessions[payload.sessionId] == fromDeviceId && activeCameraCodecs[payload.sessionId] == payload.codec) {
+            val bytes = runCatching { Base64.getDecoder().decode(payload.data) }.getOrElse {
+                failRemoteCameraSession(
+                    fromDeviceId,
+                    payload.sessionId,
+                    "Camera frame payload was invalid",
+                    REASON_CAMERA_GENERIC,
+                )
+                return
+            }
+            cameraFrameFlow.tryEmit(CameraEvent.Frame(
+                payload.sessionId,
+                payload.codec,
+                payload.keyframe,
+                payload.sequence,
+                payload.timestampMs,
+                bytes,
+            ))
+        }
+    }
+
+    private fun failRemoteCameraOpenRequest(
+        deviceId: String,
+        correlationId: String?,
+        message: String,
+        reason: String,
+    ) {
+        val requestId = correlationId ?: return
+        val sessionId = cameraOpenRequestIds.entries
+            .firstOrNull { it.value == requestId }
+            ?.key
+            ?: return
+        failRemoteCameraSession(deviceId, sessionId, message, reason)
+    }
+
+    private fun failRemoteCameraSessionsForDevice(
+        deviceId: String,
+        message: String,
+        reason: String,
+    ) {
+        activeCameraSessions.entries
+            .filter { it.value == deviceId }
+            .map { it.key }
+            .forEach { sessionId ->
+                failRemoteCameraSession(deviceId, sessionId, message, reason)
+            }
+    }
+
+    private fun failRemoteCameraSession(
+        deviceId: String,
+        sessionId: String,
+        message: String,
+        reason: String,
+    ) {
+        if (!activeCameraSessions.remove(sessionId, deviceId)) return
+        activeCameraCodecs.remove(sessionId)
+        cameraOpenRequestIds.remove(sessionId)
+        lanWebSocketClient.disconnectCamera(sessionId)
+        cameraEventChannel.trySend(CameraEvent.Failed(sessionId, message, reason))
+    }
+
+    private fun enqueueCameraFrame(deviceId: String, frame: EncodedCameraFrame): Boolean {
+        val transport = cameraHostTransports[frame.sessionId] ?: return false
+        if (transport == "lan") {
+            return lanWebSocketServer.sendCameraFrame(
+                frame.sessionId,
+                CameraDataFrame(
+                    frame.codec,
+                    frame.keyframe,
+                    frame.sequence,
+                    frame.timestampMs,
+                    frame.bytes,
+                ),
+            )
+        }
+        if (transport != "relay") return false
+        if (!hasLanPeer(deviceId) && cloudWebSocketClient.queuedBytes() >= CAMERA_CLOUD_QUEUE_LIMIT_BYTES) {
+            return false
+        }
+        if (
+            !lanWebSocketServer.hasPeer(deviceId) &&
+            lanWebSocketClient.queuedBytes(deviceId) >= CAMERA_LAN_QUEUE_LIMIT_BYTES
+        ) {
+            return false
+        }
+        // Relay is expensive (JSON + Base64 + business encryption). Keep single-flight.
+        if (!cameraFrameSending.add(frame.sessionId)) {
+            return false
+        }
+        scope.launch {
+            try {
+                val payload = CameraFramePayload(
+                    frame.sessionId,
+                    frame.codec,
+                    frame.keyframe,
+                    frame.sequence,
+                    frame.timestampMs,
+                    Base64.getEncoder().encodeToString(frame.bytes),
+                )
+                sendBusinessMessage(
+                    deviceId,
+                    BusinessEnvelope(CAMERA_FRAME_TYPE, json.encodeToJsonElement(payload)),
+                )
+            } finally {
+                cameraFrameSending.remove(frame.sessionId)
+            }
+        }
+        return true
+    }
+
+    private fun handleHostedCameraClosed(deviceId: String, sessionId: String, reason: String) {
+        cameraHostTransports.remove(sessionId)
+        cameraHostDevices.remove(sessionId)
+        cameraPendingLanReady.remove(sessionId)
+        scope.launch {
+            lanWebSocketServer.unregisterCamera(sessionId)
+            sendBusinessMessage(
+                deviceId,
+                BusinessEnvelope(
+                    CAMERA_CLOSE_TYPE,
+                    json.encodeToJsonElement(
+                        CameraClosePayload(
+                            sessionId,
+                            reason,
+                            if (reason == "colink:camera.alive_timeout.v1") {
+                                "Camera heartbeat timed out"
+                            } else {
+                                "Camera device became unavailable"
+                            },
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+
+    private suspend fun handleCameraConfig(fromDeviceId: String, envelopeId: String?, business: BusinessEnvelope) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(CameraConfigPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val requestId = envelopeId ?: return
+        sendBusinessMessage(
+            fromDeviceId,
+            BusinessEnvelope(
+                CAMERA_CONFIG_ACK_TYPE,
+                json.encodeToJsonElement(
+                    CameraConfigAckPayload(
+                        sessionId = payload.sessionId,
+                        applied = false,
+                        reason = "colink:camera.config_rejected.v1",
+                        message = "Camera stream reconfiguration is not available",
                     ),
                 ),
             ),
@@ -2307,6 +2982,38 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
+            override fun onCameraConnected(sessionId: String) {
+                cameraHostDataConnections.add(sessionId)
+                cameraPendingLanReady.remove(sessionId)?.let { (deviceId, payload) ->
+                    applyCameraReady(deviceId, payload)
+                }
+            }
+
+            override fun onCameraFrame(sessionId: String, frame: CameraDataFrame) = Unit
+
+            override fun onCameraClosed(sessionId: String) {
+                if (!cameraHostDataConnections.remove(sessionId)) return
+                cameraHostTransports.remove(sessionId)
+                cameraPendingLanReady.remove(sessionId)
+                val deviceId = cameraHostDevices.remove(sessionId) ?: return
+                cameraStreamHost.close(deviceId, sessionId)
+                scope.launch {
+                    sendBusinessMessage(
+                        deviceId,
+                        BusinessEnvelope(
+                            CAMERA_CLOSE_TYPE,
+                            json.encodeToJsonElement(
+                                CameraClosePayload(
+                                    sessionId,
+                                    "colink:camera.device_lost.v1",
+                                    "LAN camera connection closed",
+                                ),
+                            ),
+                        ),
+                    )
+                }
+            }
+
             override fun onSwimMessage(message: SwimEnvelope, sourceIp: String?) {
                 CoLinkLog.d(
                     "SWIM",
@@ -2499,6 +3206,7 @@ class ConnectionManager @Inject constructor(
             "device.offline" -> {
                 message.from?.let { deviceId ->
                     cloudBusinessVersions.remove(deviceId)
+                    closeCameraSessionsForDevice(deviceId)
                     deviceRepository.markCloudPresence(
                         deviceId = deviceId,
                         online = false,

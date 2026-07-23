@@ -29,6 +29,7 @@ import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
 import com.colink.android.network.transfer.FileDataFrame
+import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
 import java.security.SecureRandom
 import java.util.Base64
@@ -82,6 +83,7 @@ class LanWebSocketClient @Inject constructor(
     private val peers = ConcurrentHashMap<String, ClientPeerConnection>()
     private val connectingPeers = ConcurrentHashMap.newKeySet<String>()
     private val connectingWebSockets = ConcurrentHashMap<String, WebSocket>()
+    private val cameraConnections = ConcurrentHashMap<String, WebSocket>()
 
     fun connect(
         identity: DeviceIdentity,
@@ -716,6 +718,8 @@ class LanWebSocketClient @Inject constructor(
 
     fun hasPeer(deviceId: String): Boolean = peers[deviceId]?.crypto != null
 
+    fun queuedBytes(deviceId: String): Long = peers[deviceId]?.webSocket?.queueSize() ?: 0L
+
     fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
 
     fun disconnect(deviceId: String) {
@@ -731,6 +735,7 @@ class LanWebSocketClient @Inject constructor(
         connectingPeers.clear()
         connectingWebSockets.keys.toList().forEach { connectingWebSockets.remove(it)?.close(1000, "client closing") }
         peers.keys.toList().forEach(::disconnect)
+        cameraConnections.keys.toList().forEach(::disconnectCamera)
     }
 
     fun connectTransfer(sessionId: String, token: String, ip: String, port: Int, listener: TransferListener) {
@@ -755,6 +760,50 @@ class LanWebSocketClient @Inject constructor(
                 }
             },
         )
+    }
+
+    fun connectCamera(sessionId: String, token: String, ip: String, port: Int, listener: CameraListener) {
+        val request = Request.Builder().url("ws://$ip:$port/camera-stream/$sessionId?token=$token").build()
+        okHttpClient.newWebSocket(
+            request,
+            object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    cameraConnections[sessionId] = webSocket
+                    CoLinkLog.i(
+                        "CameraLAN",
+                        "viewer data stream opened session=${CoLinkLog.shortId(sessionId)} endpoint=$ip:$port",
+                    )
+                    listener.onOpen()
+                }
+
+                override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) {
+                    CameraDataFrame.decode(bytes.toByteArray())?.let(listener::onFrame)
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    cameraConnections.remove(sessionId, webSocket)
+                    CoLinkLog.i(
+                        "CameraLAN",
+                        "viewer data stream closed session=${CoLinkLog.shortId(sessionId)} code=$code reason=$reason",
+                    )
+                    listener.onClosed(reason)
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    cameraConnections.remove(sessionId, webSocket)
+                    CoLinkLog.w(
+                        "CameraLAN",
+                        "viewer data stream failed session=${CoLinkLog.shortId(sessionId)} status=${response?.code}",
+                        t,
+                    )
+                    listener.onClosed(t.message ?: "camera connection failed")
+                }
+            },
+        )
+    }
+
+    fun disconnectCamera(sessionId: String) {
+        cameraConnections.remove(sessionId)?.close(1000, "camera session closed")
     }
 
     private fun sendHello(webSocket: WebSocket, identity: DeviceIdentity): Boolean =
@@ -877,6 +926,12 @@ class LanWebSocketClient @Inject constructor(
     interface TransferListener {
         fun onOpen(connection: TransferConnection)
         fun onFrame(frame: FileDataFrame)
+        fun onClosed(reason: String)
+    }
+
+    interface CameraListener {
+        fun onOpen()
+        fun onFrame(frame: CameraDataFrame)
         fun onClosed(reason: String)
     }
 }

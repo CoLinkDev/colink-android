@@ -33,6 +33,7 @@ import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
 import com.colink.android.network.transfer.FileDataFrame
+import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
@@ -64,6 +65,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -78,6 +80,7 @@ private const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
 private const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
 private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
+private const val CAMERA_SEND_BUFFER_CAPACITY = 3
 private const val REASON_AUTH_UNKNOWN_DEVICE = "colink:auth.unknown_device.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
@@ -104,6 +107,9 @@ class LanWebSocketServer @Inject constructor(
     private val peers = ConcurrentHashMap<String, ServerPeerConnection>()
     private val transferTokens = ConcurrentHashMap<String, String>()
     private val transferConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
+    private val cameraTokens = ConcurrentHashMap<String, String>()
+    private val cameraConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
+    private val cameraSenders = ConcurrentHashMap<String, Channel<CameraDataFrame>>()
     private var engine: ApplicationEngine? = null
     private var listener: Listener? = null
 
@@ -119,6 +125,7 @@ class LanWebSocketServer @Inject constructor(
                 post("/peer/swim/v1") { call.handleSwimPing() }
                 webSocket("/peer") { handlePeer(this) }
                 webSocket("/transfer/{sessionId}") { handleTransfer(this) }
+                webSocket("/camera-stream/{sessionId}") { handleCamera(this) }
             }
         }.start(wait = false)
         CoLinkLog.i("LAN", "LAN server started port=$LAN_PORT")
@@ -130,6 +137,10 @@ class LanWebSocketServer @Inject constructor(
         peers.clear()
         transferTokens.clear()
         transferConnections.clear()
+        cameraTokens.clear()
+        cameraConnections.clear()
+        cameraSenders.values.forEach { it.close() }
+        cameraSenders.clear()
         CoLinkLog.i("LAN", "LAN server stopped")
     }
 
@@ -195,6 +206,27 @@ class LanWebSocketServer @Inject constructor(
             session.send(Frame.Binary(fin = true, data = frame.encode()))
             true
         }.getOrDefault(false)
+    }
+
+    fun registerCameraToken(sessionId: String, token: String) {
+        cameraTokens[sessionId] = token
+    }
+
+    suspend fun unregisterCamera(sessionId: String) {
+        cameraTokens.remove(sessionId)
+        cameraSenders.remove(sessionId)?.close()
+        cameraConnections.remove(sessionId)?.let { runCatching { it.close() } }
+    }
+
+    fun sendCameraFrame(sessionId: String, frame: CameraDataFrame): Boolean {
+        val accepted = cameraSenders[sessionId]?.trySend(frame)?.isSuccess == true
+        if (!accepted && frame.keyframe) {
+            CoLinkLog.w(
+                "CameraLAN",
+                "keyframe rejected session=${CoLinkLog.shortId(sessionId)} sequence=${frame.sequence} bytes=${frame.payload.size}",
+            )
+        }
+        return accepted
     }
 
     private suspend fun handlePeer(session: DefaultWebSocketServerSession) {
@@ -796,6 +828,42 @@ class LanWebSocketServer @Inject constructor(
         }
     }
 
+    private suspend fun handleCamera(session: DefaultWebSocketServerSession) {
+        val sessionId = session.call.parameters["sessionId"]?.takeIf { it.isNotBlank() } ?: return session.close()
+        val token = session.call.request.queryParameters["token"].orEmpty()
+        val expected = cameraTokens.remove(sessionId)
+        if (expected == null || expected != token) {
+            session.close()
+            return
+        }
+        val sender = Channel<CameraDataFrame>(CAMERA_SEND_BUFFER_CAPACITY)
+        cameraConnections[sessionId] = session
+        cameraSenders[sessionId] = sender
+        CoLinkLog.i(
+            "CameraLAN",
+            "data stream attached session=${CoLinkLog.shortId(sessionId)} sendCapacity=$CAMERA_SEND_BUFFER_CAPACITY",
+        )
+        listener?.onCameraConnected(sessionId)
+        val writer = CoroutineScope(kotlin.coroutines.coroutineContext).launch {
+            for (frame in sender) {
+                session.send(Frame.Binary(fin = true, data = frame.encode()))
+            }
+        }
+        try {
+            for (frame in session.incoming) {
+                val bytes = (frame as? Frame.Binary)?.data ?: continue
+                CameraDataFrame.decode(bytes)?.let { listener?.onCameraFrame(sessionId, it) }
+            }
+        } finally {
+            cameraSenders.remove(sessionId, sender)
+            sender.close()
+            writer.cancel()
+            cameraConnections.remove(sessionId)
+            CoLinkLog.i("CameraLAN", "data stream detached session=${CoLinkLog.shortId(sessionId)}")
+            listener?.onCameraClosed(sessionId)
+        }
+    }
+
     private suspend fun markPeerEndpoint(deviceId: String, session: DefaultWebSocketServerSession) {
         deviceRepository.markLanEndpoint(deviceId, session.call.request.local.remoteHost, LAN_PORT)
     }
@@ -928,6 +996,9 @@ class LanWebSocketServer @Inject constructor(
         fun onTransferConnected(sessionId: String)
         fun onTransferFrame(sessionId: String, frame: FileDataFrame)
         fun onTransferClosed(sessionId: String)
+        fun onCameraConnected(sessionId: String)
+        fun onCameraFrame(sessionId: String, frame: CameraDataFrame)
+        fun onCameraClosed(sessionId: String)
         fun onSwimMessage(message: SwimEnvelope, sourceIp: String?)
         fun currentSwimGossip(localDeviceId: String): List<SwimGossip>
         fun currentSwimIncarnation(localDeviceId: String): Long

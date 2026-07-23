@@ -66,6 +66,8 @@ class CloudWebSocketClient @Inject constructor(
         return sent
     }
 
+    fun queuedBytes(): Long = webSocket?.queueSize() ?: 0L
+
     fun close() {
         CoLinkLog.d("Cloud", "closing cloud websocket")
         webSocket?.close(1000, "client closing")

@@ -57,6 +57,11 @@ class MainActivity : ComponentActivity() {
             CoLinkLog.i("Notification", "POST_NOTIFICATIONS permission granted=$granted")
         }
 
+    private val cameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            CoLinkLog.i("Camera", "CAMERA permission granted=$granted")
+        }
+
     override fun attachBaseContext(newBase: Context) {
         val language = LocaleHelper.cachedLanguage(newBase)
         val wrappedContext = LocaleHelper.wrap(newBase, language)
@@ -136,6 +141,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleShareIntent(intent)
+        requestCameraPermission()
         if (savedInstanceState == null) {
             handleLaunchIntent(intent)
         }
@@ -163,6 +169,13 @@ class MainActivity : ComponentActivity() {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             CoLinkLog.d("Notification", "POST_NOTIFICATIONS permission already granted")
+        }
+    }
+
+    private fun requestCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            CoLinkLog.i("Camera", "requesting CAMERA permission")
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 

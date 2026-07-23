@@ -79,6 +79,7 @@ import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.terminal.TerminalScreen
+import com.colink.android.ui.camera.CameraScreen
 import com.colink.android.ui.devices.DeviceDetailsScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
@@ -319,6 +320,7 @@ private fun MainScaffold(
                             onStartTerminal = { deviceId ->
                                 rootNavController.navigate("terminal/${Uri.encode(deviceId)}")
                             },
+                            onStartCamera = { deviceId -> rootNavController.navigate("camera/${Uri.encode(deviceId)}") },
                         )
                     }
                     composable("settings") { SettingsScreen() }
@@ -493,6 +495,39 @@ private fun MainScaffold(
             },
         ) { entry ->
             TerminalScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
+                viewModel = hiltViewModel(),
+            )
+        }
+        composable(
+            route = "camera/{deviceId}",
+            enterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            exitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popEnterTransition = {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+            popExitTransition = {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(380, easing = PageTransitionEasing),
+                )
+            },
+        ) { entry ->
+            CameraScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
                 viewModel = hiltViewModel(),

@@ -27,11 +27,13 @@ import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.terminal.TerminalControlCard
+import com.colink.android.ui.camera.CameraControlCard
 
 @Composable
 fun DeviceControlScreen(
     onStartCastBoard: (String) -> Unit,
     onStartTerminal: (String) -> Unit,
+    onStartCamera: (String) -> Unit,
     modifier: Modifier = Modifier,
     castBoardViewModel: CastBoardViewModel = hiltViewModel(),
     powerControlViewModel: DevicePowerControlViewModel = hiltViewModel(),
@@ -107,6 +109,13 @@ fun DeviceControlScreen(
                     )
                 }
                 WakeOnLanControlCard(selectedDevice = selectedDevice)
+                selectedDeviceId?.let { deviceId ->
+                    CameraControlCard(
+                        deviceId = deviceId,
+                        onOpen = onStartCamera,
+                        support = powerControlViewModel.remoteCameraSupport(deviceId),
+                    )
+                }
                 if (selectedComputer) {
                     selectedDeviceId?.let { deviceId ->
                         TerminalControlCard(

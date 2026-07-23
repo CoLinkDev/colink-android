@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.9.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.10.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -41,6 +41,16 @@ const val TERMINAL_OPEN_ACK_TYPE = "terminal.v1.open-ack"
 const val TERMINAL_DATA_TYPE = "terminal.v1.data"
 const val TERMINAL_RESIZE_TYPE = "terminal.v1.resize"
 const val TERMINAL_CLOSE_TYPE = "terminal.v1.close"
+const val CAMERA_LIST_TYPE = "camera.v1.list"
+const val CAMERA_LIST_RESULT_TYPE = "camera.v1.list-result"
+const val CAMERA_OPEN_TYPE = "camera.v1.open"
+const val CAMERA_OPEN_ACK_TYPE = "camera.v1.open-ack"
+const val CAMERA_READY_TYPE = "camera.v1.ready"
+const val CAMERA_ALIVE_TYPE = "camera.v1.alive"
+const val CAMERA_CONFIG_TYPE = "camera.v1.config"
+const val CAMERA_CONFIG_ACK_TYPE = "camera.v1.config-ack"
+const val CAMERA_CLOSE_TYPE = "camera.v1.close"
+const val CAMERA_FRAME_TYPE = "camera.v1.frame"
 
 @Serializable
 data class BusinessEnvelope(
@@ -470,6 +480,89 @@ data class TerminalResizePayload(val sessionId: String, val cols: Int, val rows:
 
 @Serializable
 data class TerminalClosePayload(val sessionId: String, val exitCode: Int? = null)
+
+@Serializable
+data class CameraListPayload(val unused: String? = null)
+
+@Serializable
+data class CameraListResultPayload(
+    val cameras: List<CameraEntry>,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class CameraEntry(
+    val cameraId: String,
+    val label: String,
+    val position: String? = null,
+    val capabilities: CameraCapabilities? = null,
+)
+
+@Serializable
+data class CameraCapabilities(val resolutions: List<CameraResolution>, val fpsRange: CameraFpsRange)
+
+@Serializable
+data class CameraResolution(val width: Int, val height: Int)
+
+@Serializable
+data class CameraFpsRange(val min: Int, val max: Int)
+
+@Serializable
+data class CameraOpenPayload(
+    val sessionId: String,
+    val cameraId: String,
+    val preferredCodecs: List<String>,
+    val preferredWidth: Int? = null,
+    val preferredHeight: Int? = null,
+    val preferredFps: Int? = null,
+)
+
+@Serializable
+data class CameraOpenAckPayload(
+    val sessionId: String,
+    val accepted: Boolean,
+    val negotiatedCodec: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Int? = null,
+    val streamToken: String? = null,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class CameraReadyPayload(val sessionId: String, val transport: String)
+
+@Serializable
+data class CameraAlivePayload(val sessionId: String)
+
+@Serializable
+data class CameraConfigPayload(val sessionId: String, val width: Int? = null, val height: Int? = null, val fps: Int? = null)
+
+@Serializable
+data class CameraConfigAckPayload(
+    val sessionId: String,
+    val applied: Boolean,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Int? = null,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class CameraClosePayload(val sessionId: String, val reason: String? = null, val message: String? = null)
+
+@Serializable
+data class CameraFramePayload(
+    val sessionId: String,
+    val codec: String,
+    val keyframe: Boolean,
+    val sequence: Long,
+    val timestampMs: Long,
+    val data: String,
+)
 
 @Serializable
 data class BusinessKeyExchangeNoncePayload(
