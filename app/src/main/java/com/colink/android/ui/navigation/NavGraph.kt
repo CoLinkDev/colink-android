@@ -57,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -185,6 +186,16 @@ private fun UpdateDialogHost(
 }
 
 @Composable
+private fun InterruptibleSecondaryPage(
+    interrupted: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = if (interrupted) Modifier.alpha(0f) else Modifier) {
+        content()
+    }
+}
+
+@Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainScaffold(
     cloudStatus: StateFlow<CloudStatus>,
@@ -201,6 +212,12 @@ private fun MainScaffold(
     val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
     var handledLaunchTargetToken by remember { mutableStateOf<Long?>(null) }
+    var previousRootEntryId by remember { mutableStateOf<String?>(null) }
+    var previousRootRoute by remember { mutableStateOf<String?>(null) }
+    var seenRootEntryIds by remember { mutableStateOf(emptySet<String>()) }
+    var exitingSecondaryPageEntryId by remember { mutableStateOf<String?>(null) }
+    var interruptedSecondaryPageEntryId by remember { mutableStateOf<String?>(null) }
+    var pendingSecondaryPageRoute by remember { mutableStateOf<String?>(null) }
     val rootBackStackEntry by rootNavController.currentBackStackEntryAsState()
     val secondaryPageScrimAlpha by animateFloatAsState(
         targetValue = if (rootBackStackEntry?.destination?.route in secondaryPageRoutes) 1f else 0f,
@@ -222,6 +239,43 @@ private fun MainScaffold(
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
         }
+
+    LaunchedEffect(rootBackStackEntry?.id) {
+        val currentEntry = rootBackStackEntry ?: return@LaunchedEffect
+        if (
+            currentEntry.id in seenRootEntryIds &&
+                previousRootRoute in secondaryPageRoutes
+        ) {
+            exitingSecondaryPageEntryId = previousRootEntryId
+        }
+        seenRootEntryIds = seenRootEntryIds + currentEntry.id
+        previousRootEntryId = currentEntry.id
+        previousRootRoute = currentEntry.destination.route
+    }
+
+    LaunchedEffect(pendingSecondaryPageRoute) {
+        val route = pendingSecondaryPageRoute ?: return@LaunchedEffect
+        withFrameNanos { }
+        pendingSecondaryPageRoute = null
+        rootNavController.navigate(route) {
+            launchSingleTop = true
+        }
+    }
+
+    fun requestSecondaryPage(route: String) {
+        val currentEntry = rootNavController.currentBackStackEntry
+        if (currentEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+            rootNavController.navigate(route) {
+                launchSingleTop = true
+            }
+        } else if (
+            currentEntry?.destination?.route in setOf("main", "conversation/{deviceId}") &&
+                exitingSecondaryPageEntryId != null
+        ) {
+            interruptedSecondaryPageEntryId = exitingSecondaryPageEntryId
+            pendingSecondaryPageRoute = route
+        }
+    }
 
     LaunchedEffect(launchTarget?.token) {
         val target = launchTarget ?: return@LaunchedEffect
@@ -376,21 +430,13 @@ private fun MainScaffold(
                     ) {
                         composable("devices") {
                             DeviceListScreen(
-                                onDeviceSelected = { deviceId ->
-                                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                                        rootNavController.navigate("device/${Uri.encode(deviceId)}")
-                                    }
-                                },
+                                onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
                             )
                         }
                         composable("messages") {
                             MessageScreen(
                                 pendingShareStore = pendingShareStore,
-                                onConversationSelected = { deviceId ->
-                                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                                        rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
-                                    }
-                                },
+                                onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
                             )
                         }
                         composable("device-control") {
@@ -398,10 +444,8 @@ private fun MainScaffold(
                                 onStartCastBoard = { deviceId ->
                                     context.startActivity(CastBoardActivity.createIntent(context, deviceId))
                                 },
-                                onStartTerminal = { deviceId ->
-                                    rootNavController.navigate("terminal/${Uri.encode(deviceId)}")
-                                },
-                                onStartCamera = { deviceId -> rootNavController.navigate("camera/${Uri.encode(deviceId)}") },
+                                onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
+                                onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
                             )
                         }
                         composable("settings") { SettingsScreen() }
@@ -434,55 +478,61 @@ private fun MainScaffold(
         }
 
         composable(route = "device/{deviceId}") { entry ->
-            DeviceDetailsScreen(
-                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                onBack = { rootNavController.popBackStack() },
-            )
-        }
-
-        composable(route = "conversation/{deviceId}") { entry ->
-            Box {
-                MessageScreen(
-                    pendingShareStore = pendingShareStore,
-                    fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                    onBrowseDeviceFiles = { deviceId ->
-                        if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                            rootNavController.navigate("filesystem/${Uri.encode(deviceId)}")
-                        }
-                    },
+            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
+                DeviceDetailsScreen(
+                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                     onBack = { rootNavController.popBackStack() },
-                    modifier = Modifier,
-                )
-
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .alpha(conversationScrimAlpha)
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
                 )
             }
         }
 
-        composable(route = "filesystem/{deviceId}") {
-            RemoteFilesystemScreen(
-                onBack = { rootNavController.popBackStack() },
-                modifier = Modifier,
-            )
+        composable(route = "conversation/{deviceId}") { entry ->
+            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
+                Box {
+                    MessageScreen(
+                        pendingShareStore = pendingShareStore,
+                        fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                        onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
+                        onBack = { rootNavController.popBackStack() },
+                        modifier = Modifier,
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(conversationScrimAlpha)
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                    )
+                }
+            }
+        }
+
+        composable(route = "filesystem/{deviceId}") { entry ->
+            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
+                RemoteFilesystemScreen(
+                    onBack = { rootNavController.popBackStack() },
+                    modifier = Modifier,
+                )
+            }
         }
 
         composable(route = "terminal/{deviceId}") { entry ->
-            TerminalScreen(
-                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                onBack = { rootNavController.popBackStack() },
-                viewModel = hiltViewModel(),
-            )
+            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
+                TerminalScreen(
+                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                    onBack = { rootNavController.popBackStack() },
+                    viewModel = hiltViewModel(),
+                )
+            }
         }
         composable(route = "camera/{deviceId}") { entry ->
-            CameraScreen(
-                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                onBack = { rootNavController.popBackStack() },
-                viewModel = hiltViewModel(),
-            )
+            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
+                CameraScreen(
+                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                    onBack = { rootNavController.popBackStack() },
+                    viewModel = hiltViewModel(),
+                )
+            }
         }
 
     }
