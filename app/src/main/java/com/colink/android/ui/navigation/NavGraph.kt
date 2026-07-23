@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -12,7 +13,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,7 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -93,6 +96,16 @@ import com.colink.android.ui.components.AppUpdateDialog
 import kotlinx.coroutines.flow.StateFlow
 
 private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
+private val SecondaryPageTransitionEasing = CubicBezierEasing(0.5f, 0f, 0f, 1f)
+private const val SecondaryPageTransitionDurationMillis = 500
+private val secondaryPageRoutes =
+    setOf(
+        "device/{deviceId}",
+        "conversation/{deviceId}",
+        "filesystem/{deviceId}",
+        "terminal/{deviceId}",
+        "camera/{deviceId}",
+    )
 
 private data class TopLevelRoute(
     val route: String,
@@ -188,6 +201,23 @@ private fun MainScaffold(
     val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
     var handledLaunchTargetToken by remember { mutableStateOf<Long?>(null) }
+    val rootBackStackEntry by rootNavController.currentBackStackEntryAsState()
+    val secondaryPageScrimAlpha by animateFloatAsState(
+        targetValue = if (rootBackStackEntry?.destination?.route in secondaryPageRoutes) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = SecondaryPageTransitionDurationMillis,
+            easing = SecondaryPageTransitionEasing,
+        ),
+        label = "secondary page scrim",
+    )
+    val conversationScrimAlpha by animateFloatAsState(
+        targetValue = if (rootBackStackEntry?.destination?.route == "filesystem/{deviceId}") 1f else 0f,
+        animationSpec = tween(
+            durationMillis = SecondaryPageTransitionDurationMillis,
+            easing = SecondaryPageTransitionEasing,
+        ),
+        label = "conversation scrim",
+    )
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
@@ -215,6 +245,56 @@ private fun MainScaffold(
         navController = rootNavController,
         startDestination = "main",
         modifier = modifier,
+        enterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                animationSpec = tween(
+                    durationMillis = SecondaryPageTransitionDurationMillis,
+                    easing = SecondaryPageTransitionEasing,
+                ),
+            )
+        },
+        exitTransition = {
+            if (
+                initialState.destination.route == "conversation/{deviceId}" &&
+                    targetState.destination.route == "filesystem/{deviceId}"
+            ) {
+                ExitTransition.None
+            } else {
+                slideOutOfContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
+                    animationSpec = tween(
+                        durationMillis = SecondaryPageTransitionDurationMillis,
+                        easing = SecondaryPageTransitionEasing,
+                    ),
+                )
+            }
+        },
+        popEnterTransition = {
+            if (
+                initialState.destination.route == "filesystem/{deviceId}" &&
+                    targetState.destination.route == "conversation/{deviceId}"
+            ) {
+                EnterTransition.None
+            } else {
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                    animationSpec = tween(
+                        durationMillis = SecondaryPageTransitionDurationMillis,
+                        easing = SecondaryPageTransitionEasing,
+                    ),
+                )
+            }
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(
+                    durationMillis = SecondaryPageTransitionDurationMillis,
+                    easing = SecondaryPageTransitionEasing,
+                ),
+            )
+        },
     ) {
         composable(
             route = "main",
@@ -239,92 +319,101 @@ private fun MainScaffold(
                 nestedNavController.navigateTopLevel("messages")
             }
 
-            Scaffold(
-                contentWindowInsets = WindowInsets(0.dp),
-                topBar = {
-                    MainTopBar(
-                        cloudStatus = cloudStatus,
-                        authenticated = authenticated,
-                        onAccountClick = { showAccountDialog = true },
-                    )
-                },
-                bottomBar = {
-                    MainBottomBar(navController = nestedNavController)
-                },
-            ) { innerPadding ->
-                NavHost(
-                    navController = nestedNavController,
-                    startDestination = "devices",
-                    modifier = Modifier.padding(innerPadding),
-                    enterTransition = {
-                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val isLeftToRight = targetIndex >= initialIndex
-                        slideIntoContainer(
-                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(380, easing = PageTransitionEasing)
-                        ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-                    },
-                    exitTransition = {
-                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val isLeftToRight = targetIndex >= initialIndex
-                        slideOutOfContainer(
-                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(380, easing = PageTransitionEasing)
-                        ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-                    },
-                    popEnterTransition = {
-                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val isLeftToRight = targetIndex >= initialIndex
-                        slideIntoContainer(
-                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(380, easing = PageTransitionEasing)
-                        ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-                    },
-                    popExitTransition = {
-                        val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                        val isLeftToRight = targetIndex >= initialIndex
-                        slideOutOfContainer(
-                            towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                            animationSpec = tween(380, easing = PageTransitionEasing)
-                        ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-                    },
-                ) {
-                    composable("devices") {
-                        DeviceListScreen(
-                            onDeviceSelected = { deviceId ->
-                                if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                                    rootNavController.navigate("device/${Uri.encode(deviceId)}")
-                                }
-                            },
+            Box {
+                Scaffold(
+                    contentWindowInsets = WindowInsets(0.dp),
+                    topBar = {
+                        MainTopBar(
+                            cloudStatus = cloudStatus,
+                            authenticated = authenticated,
+                            onAccountClick = { showAccountDialog = true },
                         )
+                    },
+                    bottomBar = {
+                        MainBottomBar(navController = nestedNavController)
+                    },
+                ) { innerPadding ->
+                    NavHost(
+                        navController = nestedNavController,
+                        startDestination = "devices",
+                        modifier = Modifier.padding(innerPadding),
+                        enterTransition = {
+                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val isLeftToRight = targetIndex >= initialIndex
+                            slideIntoContainer(
+                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(380, easing = PageTransitionEasing)
+                            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
+                        },
+                        exitTransition = {
+                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val isLeftToRight = targetIndex >= initialIndex
+                            slideOutOfContainer(
+                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(380, easing = PageTransitionEasing)
+                            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
+                        },
+                        popEnterTransition = {
+                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val isLeftToRight = targetIndex >= initialIndex
+                            slideIntoContainer(
+                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(380, easing = PageTransitionEasing)
+                            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
+                        },
+                        popExitTransition = {
+                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+                            val isLeftToRight = targetIndex >= initialIndex
+                            slideOutOfContainer(
+                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                                animationSpec = tween(380, easing = PageTransitionEasing)
+                            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
+                        },
+                    ) {
+                        composable("devices") {
+                            DeviceListScreen(
+                                onDeviceSelected = { deviceId ->
+                                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                                        rootNavController.navigate("device/${Uri.encode(deviceId)}")
+                                    }
+                                },
+                            )
+                        }
+                        composable("messages") {
+                            MessageScreen(
+                                pendingShareStore = pendingShareStore,
+                                onConversationSelected = { deviceId ->
+                                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                                        rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
+                                    }
+                                },
+                            )
+                        }
+                        composable("device-control") {
+                            DeviceControlScreen(
+                                onStartCastBoard = { deviceId ->
+                                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                                },
+                                onStartTerminal = { deviceId ->
+                                    rootNavController.navigate("terminal/${Uri.encode(deviceId)}")
+                                },
+                                onStartCamera = { deviceId -> rootNavController.navigate("camera/${Uri.encode(deviceId)}") },
+                            )
+                        }
+                        composable("settings") { SettingsScreen() }
                     }
-                    composable("messages") {
-                        MessageScreen(
-                            pendingShareStore = pendingShareStore,
-                            onConversationSelected = { deviceId ->
-                                if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                                    rootNavController.navigate("conversation/${Uri.encode(deviceId)}")
-                                }
-                            },
-                        )
-                    }
-                    composable("device-control") {
-                        DeviceControlScreen(
-                            onStartCastBoard = { deviceId ->
-                                context.startActivity(CastBoardActivity.createIntent(context, deviceId))
-                            },
-                            onStartTerminal = { deviceId ->
-                                rootNavController.navigate("terminal/${Uri.encode(deviceId)}")
-                            },
-                            onStartCamera = { deviceId -> rootNavController.navigate("camera/${Uri.encode(deviceId)}") },
-                        )
-                    }
-                    composable("settings") { SettingsScreen() }
                 }
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(secondaryPageScrimAlpha)
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                )
             }
 
             if (showAccountDialog) {
@@ -344,189 +433,51 @@ private fun MainScaffold(
             }
         }
 
-        composable(
-            route = "device/{deviceId}",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
-            },
-            exitTransition = {
-                if (targetState.destination.route == "filesystem/{deviceId}") {
-                    ExitTransition.None
-                } else {
-                    slideOutOfContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                        animationSpec = tween(380, easing = PageTransitionEasing)
-                    )
-                }
-            },
-            popEnterTransition = {
-                if (initialState.destination.route == "filesystem/{deviceId}") {
-                    EnterTransition.None
-                } else {
-                    slideIntoContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                        animationSpec = tween(380, easing = PageTransitionEasing)
-                    )
-                }
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
-                )
-            }
-        ) { entry ->
+        composable(route = "device/{deviceId}") { entry ->
             DeviceDetailsScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
-                modifier = Modifier.shadow(4.dp)
             )
         }
 
-        composable(
-            route = "conversation/{deviceId}",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
+        composable(route = "conversation/{deviceId}") { entry ->
+            Box {
+                MessageScreen(
+                    pendingShareStore = pendingShareStore,
+                    fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                    onBrowseDeviceFiles = { deviceId ->
+                        if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                            rootNavController.navigate("filesystem/${Uri.encode(deviceId)}")
+                        }
+                    },
+                    onBack = { rootNavController.popBackStack() },
+                    modifier = Modifier,
                 )
-            },
-            exitTransition = {
-                if (targetState.destination.route == "filesystem/{deviceId}") {
-                    ExitTransition.None
-                } else {
-                    slideOutOfContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                        animationSpec = tween(380, easing = PageTransitionEasing)
-                    )
-                }
-            },
-            popEnterTransition = {
-                if (initialState.destination.route == "filesystem/{deviceId}") {
-                    EnterTransition.None
-                } else {
-                    slideIntoContainer(
-                        towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                        animationSpec = tween(380, easing = PageTransitionEasing)
-                    )
-                }
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing)
+
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .alpha(conversationScrimAlpha)
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
                 )
             }
-        ) { entry ->
-            MessageScreen(
-                pendingShareStore = pendingShareStore,
-                fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                onBrowseDeviceFiles = { deviceId ->
-                    if (rootNavController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
-                        rootNavController.navigate("filesystem/${Uri.encode(deviceId)}")
-                    }
-                },
-                onBack = { rootNavController.popBackStack() },
-                modifier = Modifier.shadow(4.dp)
-            )
         }
 
-        composable(
-            route = "filesystem/{deviceId}",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-        ) {
+        composable(route = "filesystem/{deviceId}") {
             RemoteFilesystemScreen(
                 onBack = { rootNavController.popBackStack() },
-                modifier = Modifier.shadow(4.dp),
+                modifier = Modifier,
             )
         }
 
-        composable(
-            route = "terminal/{deviceId}",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-        ) { entry ->
+        composable(route = "terminal/{deviceId}") { entry ->
             TerminalScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
                 viewModel = hiltViewModel(),
             )
         }
-        composable(
-            route = "camera/{deviceId}",
-            enterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            exitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popEnterTransition = {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-            popExitTransition = {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(380, easing = PageTransitionEasing),
-                )
-            },
-        ) { entry ->
+        composable(route = "camera/{deviceId}") { entry ->
             CameraScreen(
                 deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                 onBack = { rootNavController.popBackStack() },
