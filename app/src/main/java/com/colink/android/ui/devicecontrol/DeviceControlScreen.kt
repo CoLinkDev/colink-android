@@ -104,11 +104,14 @@ fun DeviceControlScreen(
                         onStartFullscreen = onStartCastBoard,
                         viewModel = castBoardViewModel,
                     )
+                    DeviceMediaControlCard(
+                        hasAvailableDevice = true,
+                        viewModel = mediaControlViewModel,
+                    )
                     DevicePowerControlCard(
                         viewModel = powerControlViewModel,
                     )
                 }
-                WakeOnLanControlCard(selectedDevice = selectedDevice)
                 selectedDeviceId?.let { deviceId ->
                     CameraControlCard(
                         deviceId = deviceId,
@@ -124,11 +127,8 @@ fun DeviceControlScreen(
                             support = powerControlViewModel.terminalSupport(deviceId),
                         )
                     }
-                    DeviceMediaControlCard(
-                        hasAvailableDevice = true,
-                        viewModel = mediaControlViewModel,
-                    )
                 }
+                WakeOnLanControlCard(selectedDevice = selectedDevice)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
