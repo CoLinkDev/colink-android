@@ -819,65 +819,45 @@ private fun MainTopLevelNavHost(
     NavHost(
         navController = navController,
         startDestination = "devices",
-        modifier = modifier,
-        enterTransition = {
-            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-            val isLeftToRight = targetIndex >= initialIndex
-            slideIntoContainer(
-                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(380, easing = PageTransitionEasing)
-            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-        },
-        exitTransition = {
-            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-            val isLeftToRight = targetIndex >= initialIndex
-            slideOutOfContainer(
-                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(380, easing = PageTransitionEasing)
-            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-        },
-        popEnterTransition = {
-            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-            val isLeftToRight = targetIndex >= initialIndex
-            slideIntoContainer(
-                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(380, easing = PageTransitionEasing)
-            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-        },
-        popExitTransition = {
-            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-            val isLeftToRight = targetIndex >= initialIndex
-            slideOutOfContainer(
-                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(380, easing = PageTransitionEasing)
-            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-        },
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
     ) {
         composable("devices") {
-            DeviceListScreen(
-                onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
-            )
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                DeviceListScreen(
+                    onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
+                )
+            }
         }
         composable("messages") {
-            MessageScreen(
-                pendingShareStore = pendingShareStore,
-                onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
-            )
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                MessageScreen(
+                    pendingShareStore = pendingShareStore,
+                    onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
+                )
+            }
         }
         composable("device-control") {
-            DeviceControlScreen(
-                onStartCastBoard = { deviceId ->
-                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
-                },
-                onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
-                onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
-            )
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                DeviceControlScreen(
+                    onStartCastBoard = { deviceId ->
+                        context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                    },
+                    onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
+                    onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
+                )
+            }
         }
-        composable("settings") { SettingsScreen() }
+        composable("settings") {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                SettingsScreen()
+            }
+        }
     }
 }
 
