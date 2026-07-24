@@ -45,7 +45,7 @@ fun AppUpdateDialog(
 ) {
     val current = update ?: return
     val context = LocalContext.current
-    val asset = current.assets.firstOrNull()
+    val asset = current.assets.singleOrNull()
     val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
     val releaseNotes = current.releaseNotes.trim().ifBlank {
         stringResource(R.string.update_available_body, current.version)

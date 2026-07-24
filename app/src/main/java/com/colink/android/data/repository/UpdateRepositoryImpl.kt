@@ -1,5 +1,6 @@
 package com.colink.android.data.repository
 
+import android.os.Build
 import com.colink.android.BuildConfig
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.data.remote.api.UpdateApi
@@ -21,10 +22,18 @@ class UpdateRepositoryImpl @Inject constructor(
     override suspend fun checkForUpdate(): Result<AppUpdate?> =
         runCatching {
             val settings = settingsDataStore.currentSettings()
-            val version = URLEncoder.encode(BuildConfig.VERSION_NAME, StandardCharsets.UTF_8.name())
+            val architecture = selectUpdateArchitecture(Build.SUPPORTED_ABIS)
+                ?: error("unsupported update architecture")
+            val query = listOf(
+                "platform" to "android",
+                "arch" to architecture,
+                "version" to BuildConfig.VERSION_NAME,
+            ).joinToString("&") { (name, value) ->
+                "$name=${URLEncoder.encode(value, StandardCharsets.UTF_8.name())}"
+            }
             val response = updateApi
                 .checkUpdate(
-                    apiEndpoint(settings.serverUrl, "/api/v1/update/check?platform=android&version=$version"),
+                    apiEndpoint(settings.serverUrl, "/api/v1/update/check?$query"),
                 )
                 .requireData()
 
