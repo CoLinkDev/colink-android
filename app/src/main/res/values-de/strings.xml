@@ -121,7 +121,11 @@
     <!-- Updates -->
     <string name="update_available_title">Update verfügbar</string>
     <string name="update_available_body">Version %1$s ist verfügbar.</string>
-    <string name="update_download_btn">Herunterladen</string>
+    <string name="update_download_btn">Update</string>
+    <string name="update_downloading_progress">Update wird heruntergeladen... %1$d%%</string>
+    <string name="update_downloading">Update wird heruntergeladen...</string>
+    <string name="update_installing">Installationsprogramm wird geöffnet...</string>
+    <string name="update_download_failed">Update konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.</string>
     <string name="update_later_btn">Später</string>
     <string name="update_check_btn">Update</string>
     <string name="update_checking_btn">Suche...</string>

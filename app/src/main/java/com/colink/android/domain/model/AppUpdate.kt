@@ -12,3 +12,15 @@ data class AppUpdateAsset(
     val size: Long,
     val downloadUrl: String,
 )
+
+sealed interface UpdateDownloadState {
+    object Idle : UpdateDownloadState
+
+    data class Downloading(
+        val downloadedBytes: Long,
+        val totalBytes: Long?,
+    ) : UpdateDownloadState
+
+    object Installing : UpdateDownloadState
+    object Failed : UpdateDownloadState
+}

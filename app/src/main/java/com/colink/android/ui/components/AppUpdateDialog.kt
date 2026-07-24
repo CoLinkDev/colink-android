@@ -1,7 +1,5 @@
 package com.colink.android.ui.components
 
-import android.content.Intent
-import android.net.Uri
 import android.text.method.LinkMovementMethod
 import android.util.TypedValue
 import android.widget.TextView
@@ -17,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,30 +33,38 @@ import androidx.compose.ui.window.DialogProperties
 import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.domain.model.AppUpdate
-import com.colink.android.util.CoLinkLog
+import com.colink.android.domain.model.UpdateDownloadState
 import com.colink.android.util.isBreakingVersionUpdate
 import io.noties.markwon.Markwon
 
 @Composable
 fun AppUpdateDialog(
     update: AppUpdate?,
+    downloadState: UpdateDownloadState,
     onDismiss: () -> Unit,
+    onUpdate: () -> Unit,
 ) {
     val current = update ?: return
-    val context = LocalContext.current
     val asset = current.assets.singleOrNull()
     val required = asset != null && !BuildConfig.DEBUG && isBreakingVersionUpdate(BuildConfig.VERSION_NAME, current.version)
+    val downloading = downloadState as? UpdateDownloadState.Downloading
+    val downloadingInProgress = downloading != null
+    val installing = downloadState is UpdateDownloadState.Installing
     val releaseNotes = current.releaseNotes.trim().ifBlank {
         stringResource(R.string.update_available_body, current.version)
     }
 
     Dialog(
         onDismissRequest = {
-            if (!required) {
+            if (!required && !downloadingInProgress) {
                 onDismiss()
             }
         },
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = !downloadingInProgress,
+            dismissOnClickOutside = !downloadingInProgress,
+        ),
     ) {
         Card(
             modifier = Modifier
@@ -88,28 +95,52 @@ fun AppUpdateDialog(
                 ) {
                     MarkdownReleaseNotes(releaseNotes)
                 }
+                when (downloadState) {
+                    is UpdateDownloadState.Downloading -> {
+                        val progress = downloadState.totalBytes
+                            ?.takeIf { it > 0 }
+                            ?.let { total -> (downloadState.downloadedBytes.toFloat() / total).coerceIn(0f, 1f) }
+                        Text(
+                            text = progress?.let {
+                                stringResource(R.string.update_downloading_progress, (it * 100).toInt())
+                            } ?: stringResource(R.string.update_downloading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (progress == null) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        } else {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                    UpdateDownloadState.Installing -> Text(
+                        text = stringResource(R.string.update_installing),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    UpdateDownloadState.Failed -> Text(
+                        text = stringResource(R.string.update_download_failed),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    UpdateDownloadState.Idle -> Unit
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (!required) {
+                    if (!required && !downloadingInProgress) {
                         TextButton(onClick = onDismiss) {
                             Text(stringResource(R.string.update_later_btn))
                         }
                     }
-                    if (asset != null) {
+                    if (asset != null && !downloadingInProgress && !installing) {
                         TextButton(
-                            onClick = {
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(asset.downloadUrl)))
-                                }.onFailure { error ->
-                                    CoLinkLog.w("Update", "open update download failed", error)
-                                }
-                                if (!required) {
-                                    onDismiss()
-                                }
-                            },
+                            onClick = onUpdate,
                         ) {
                             Text(stringResource(R.string.update_download_btn))
                         }

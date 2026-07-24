@@ -121,7 +121,11 @@
     <!-- Updates -->
     <string name="update_available_title">新しいバージョンがあります</string>
     <string name="update_available_body">バージョン %1$s が利用できます。</string>
-    <string name="update_download_btn">ダウンロード</string>
+    <string name="update_download_btn">更新</string>
+    <string name="update_downloading_progress">更新をダウンロード中... %1$d%%</string>
+    <string name="update_downloading">更新をダウンロード中...</string>
+    <string name="update_installing">インストーラーを開いています...</string>
+    <string name="update_download_failed">更新をダウンロードできませんでした。もう一度お試しください。</string>
     <string name="update_later_btn">後で</string>
     <string name="update_check_btn">更新</string>
     <string name="update_checking_btn">確認中...</string>

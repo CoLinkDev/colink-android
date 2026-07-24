@@ -6,6 +6,7 @@ import com.colink.android.BuildConfig
 import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.LanPairingRequest
+import com.colink.android.domain.model.UpdateDownloadState
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.data.local.datastore.SettingsDataStore
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -36,6 +38,8 @@ class MainViewModel @Inject constructor(
     val bootstrapping: StateFlow<Boolean> = _bootstrapping.asStateFlow()
     private val _availableUpdate = MutableStateFlow<AppUpdate?>(null)
     val availableUpdate: StateFlow<AppUpdate?> = _availableUpdate.asStateFlow()
+    private val _updateDownloadState = MutableStateFlow<UpdateDownloadState>(UpdateDownloadState.Idle)
+    val updateDownloadState: StateFlow<UpdateDownloadState> = _updateDownloadState.asStateFlow()
 
     val authenticated: StateFlow<Boolean> =
         authRepository.session
@@ -101,13 +105,32 @@ class MainViewModel @Inject constructor(
         connectionManager.cancelLanPairing(request.deviceId)
     }
 
+    fun startUpdate() {
+        val update = _availableUpdate.value ?: return
+        if (_updateDownloadState.value is UpdateDownloadState.Downloading) {
+            return
+        }
+        viewModelScope.launch {
+            updateRepository.downloadAndInstall(update).collect { state ->
+                _updateDownloadState.value = state
+            }
+        }
+    }
+
     fun dismissUpdate() {
+        if (_updateDownloadState.value is UpdateDownloadState.Downloading) {
+            return
+        }
         _availableUpdate.value = null
+        _updateDownloadState.value = UpdateDownloadState.Idle
     }
 
     private suspend fun checkForUpdates() {
         updateRepository.checkForUpdate()
-            .onSuccess { update -> _availableUpdate.value = update }
+            .onSuccess { update ->
+                _availableUpdate.value = update
+                _updateDownloadState.value = UpdateDownloadState.Idle
+            }
             .onFailure { error -> CoLinkLog.w("Update", "update check failed", error) }
     }
 }

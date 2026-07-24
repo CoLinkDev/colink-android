@@ -7,6 +7,7 @@ import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.AppSettings
+import com.colink.android.domain.model.UpdateDownloadState
 import com.colink.android.domain.repository.UpdateRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.util.LocaleHelper
@@ -21,12 +22,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val saving: Boolean = false,
     val checkingUpdate: Boolean = false,
     val availableUpdate: AppUpdate? = null,
+    val updateDownloadState: UpdateDownloadState = UpdateDownloadState.Idle,
     val message: String? = null,
 )
 
@@ -118,6 +121,7 @@ class SettingsViewModel @Inject constructor(
                         it.copy(
                             checkingUpdate = false,
                             availableUpdate = update,
+                            updateDownloadState = UpdateDownloadState.Idle,
                             message = if (update == null) localizedContext.getString(R.string.update_up_to_date) else null,
                         )
                     }
@@ -133,7 +137,27 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun startUpdate() {
+        val update = _uiState.value.availableUpdate ?: return
+        if (_uiState.value.updateDownloadState is UpdateDownloadState.Downloading) {
+            return
+        }
+        viewModelScope.launch {
+            updateRepository.downloadAndInstall(update).collect { state ->
+                _uiState.update { it.copy(updateDownloadState = state) }
+            }
+        }
+    }
+
     fun dismissUpdate() {
-        _uiState.update { it.copy(availableUpdate = null) }
+        if (_uiState.value.updateDownloadState is UpdateDownloadState.Downloading) {
+            return
+        }
+        _uiState.update {
+            it.copy(
+                availableUpdate = null,
+                updateDownloadState = UpdateDownloadState.Idle,
+            )
+        }
     }
 }

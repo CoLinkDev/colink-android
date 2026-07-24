@@ -121,7 +121,11 @@
     <!-- Updates -->
     <string name="update_available_title">Доступно обновление</string>
     <string name="update_available_body">Доступна версия %1$s.</string>
-    <string name="update_download_btn">Скачать</string>
+    <string name="update_download_btn">Обновить</string>
+    <string name="update_downloading_progress">Загрузка обновления... %1$d%%</string>
+    <string name="update_downloading">Загрузка обновления...</string>
+    <string name="update_installing">Открывается установщик...</string>
+    <string name="update_download_failed">Не удалось скачать обновление. Повторите попытку.</string>
     <string name="update_later_btn">Позже</string>
     <string name="update_check_btn">Обновление</string>
     <string name="update_checking_btn">Проверка...</string>

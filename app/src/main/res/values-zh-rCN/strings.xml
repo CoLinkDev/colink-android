@@ -121,7 +121,11 @@
     <!-- Updates -->
     <string name="update_available_title">发现新版本</string>
     <string name="update_available_body">版本 %1$s 可用。</string>
-    <string name="update_download_btn">下载</string>
+    <string name="update_download_btn">更新</string>
+    <string name="update_downloading_progress">正在下载更新... %1$d%%</string>
+    <string name="update_downloading">正在下载更新...</string>
+    <string name="update_installing">正在打开安装程序...</string>
+    <string name="update_download_failed">更新下载失败，请重试。</string>
     <string name="update_later_btn">稍后</string>
     <string name="update_check_btn">更新</string>
     <string name="update_checking_btn">正在检查...</string>

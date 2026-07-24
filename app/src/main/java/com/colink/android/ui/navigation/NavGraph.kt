@@ -149,6 +149,7 @@ fun CoLinkNavGraph(
 ) {
     val bootstrapping by viewModel.bootstrapping.collectAsStateWithLifecycle()
     val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
+    val updateDownloadState by viewModel.updateDownloadState.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     LaunchedEffect(bootstrapping) {
@@ -187,7 +188,9 @@ fun CoLinkNavGraph(
             )
             UpdateDialogHost(
                 update = availableUpdate,
+                downloadState = updateDownloadState,
                 onDismiss = viewModel::dismissUpdate,
+                onUpdate = viewModel::startUpdate,
             )
         }
     }
@@ -196,9 +199,16 @@ fun CoLinkNavGraph(
 @Composable
 private fun UpdateDialogHost(
     update: AppUpdate?,
+    downloadState: com.colink.android.domain.model.UpdateDownloadState,
     onDismiss: () -> Unit,
+    onUpdate: () -> Unit,
 ) {
-    AppUpdateDialog(update = update, onDismiss = onDismiss)
+    AppUpdateDialog(
+        update = update,
+        downloadState = downloadState,
+        onDismiss = onDismiss,
+        onUpdate = onUpdate,
+    )
 }
 
 @Composable
