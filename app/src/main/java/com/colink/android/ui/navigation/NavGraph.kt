@@ -1,5 +1,6 @@
 package com.colink.android.ui.navigation
 
+import android.content.res.Configuration
 import android.net.Uri
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.EnterTransition
@@ -20,11 +21,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutoutPadding
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -44,12 +51,17 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,8 +71,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.launch
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +109,7 @@ import com.colink.android.ui.messages.MessageScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.components.AppUpdateDialog
+import com.colink.android.ui.components.LocalAccountAction
 import kotlinx.coroutines.flow.StateFlow
 
 private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
@@ -373,91 +389,76 @@ private fun MainScaffold(
                 nestedNavController.navigateTopLevel("messages")
             }
 
-            Box {
-                Scaffold(
-                    contentWindowInsets = WindowInsets(0.dp),
-                    topBar = {
-                        MainTopBar(
-                            cloudStatus = cloudStatus,
-                            authenticated = authenticated,
-                            onAccountClick = { showAccountDialog = true },
-                        )
-                    },
-                    bottomBar = {
-                        MainBottomBar(navController = nestedNavController)
-                    },
-                ) { innerPadding ->
-                    NavHost(
-                        navController = nestedNavController,
-                        startDestination = "devices",
-                        modifier = Modifier.padding(innerPadding),
-                        enterTransition = {
-                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val isLeftToRight = targetIndex >= initialIndex
-                            slideIntoContainer(
-                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(380, easing = PageTransitionEasing)
-                            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-                        },
-                        exitTransition = {
-                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val isLeftToRight = targetIndex >= initialIndex
-                            slideOutOfContainer(
-                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(380, easing = PageTransitionEasing)
-                            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-                        },
-                        popEnterTransition = {
-                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val isLeftToRight = targetIndex >= initialIndex
-                            slideIntoContainer(
-                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(380, easing = PageTransitionEasing)
-                            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
-                        },
-                        popExitTransition = {
-                            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
-                            val isLeftToRight = targetIndex >= initialIndex
-                            slideOutOfContainer(
-                                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
-                                animationSpec = tween(380, easing = PageTransitionEasing)
-                            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
-                        },
-                    ) {
-                        composable("devices") {
-                            DeviceListScreen(
-                                onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
-                            )
-                        }
-                        composable("messages") {
-                            MessageScreen(
-                                pendingShareStore = pendingShareStore,
-                                onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
-                            )
-                        }
-                        composable("device-control") {
-                            DeviceControlScreen(
-                                onStartCastBoard = { deviceId ->
-                                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
-                                },
-                                onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
-                                onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
-                            )
-                        }
-                        composable("settings") { SettingsScreen() }
-                    }
-                }
+            val configuration = LocalConfiguration.current
+            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .alpha(secondaryPageScrimAlpha)
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+            val accountAction: @Composable () -> Unit = {
+                AccountIconButton(
+                    cloudStatus = cloudStatus,
+                    authenticated = authenticated,
+                    onAccountClick = { showAccountDialog = true },
                 )
+            }
+
+            CompositionLocalProvider(LocalAccountAction provides accountAction) {
+                Box {
+                    if (isLandscape) {
+                        Row(modifier = Modifier.fillMaxSize()) {
+                            MainNavigationRail(
+                                navController = nestedNavController,
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .displayCutoutPadding()
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding(),
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding(),
+                            ) {
+                                MainTopLevelNavHost(
+                                    navController = nestedNavController,
+                                    pendingShareStore = pendingShareStore,
+                                    context = context,
+                                    requestSecondaryPage = ::requestSecondaryPage,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    } else {
+                        Scaffold(
+                            contentWindowInsets = WindowInsets(0.dp),
+                            topBar = {
+                                MainTopBar(
+                                    cloudStatus = cloudStatus,
+                                    authenticated = authenticated,
+                                    onAccountClick = { showAccountDialog = true },
+                                )
+                            },
+                            bottomBar = {
+                                MainBottomBar(navController = nestedNavController)
+                            },
+                        ) { innerPadding ->
+                            MainTopLevelNavHost(
+                                navController = nestedNavController,
+                                pendingShareStore = pendingShareStore,
+                                context = context,
+                                requestSecondaryPage = ::requestSecondaryPage,
+                                modifier = Modifier.padding(innerPadding),
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(secondaryPageScrimAlpha)
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                    )
+                }
             }
 
             if (showAccountDialog) {
@@ -803,6 +804,150 @@ private fun MainBottomBar(navController: NavHostController) {
                 label = { Text(stringResource(item.labelResId)) },
                 alwaysShowLabel = false,
             )
+        }
+    }
+}
+
+@Composable
+private fun MainTopLevelNavHost(
+    navController: NavHostController,
+    pendingShareStore: PendingShareStore?,
+    context: android.content.Context,
+    requestSecondaryPage: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NavHost(
+        navController = navController,
+        startDestination = "devices",
+        modifier = modifier,
+        enterTransition = {
+            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+            val isLeftToRight = targetIndex >= initialIndex
+            slideIntoContainer(
+                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(380, easing = PageTransitionEasing)
+            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
+        },
+        exitTransition = {
+            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+            val isLeftToRight = targetIndex >= initialIndex
+            slideOutOfContainer(
+                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(380, easing = PageTransitionEasing)
+            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
+        },
+        popEnterTransition = {
+            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+            val isLeftToRight = targetIndex >= initialIndex
+            slideIntoContainer(
+                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(380, easing = PageTransitionEasing)
+            ) + fadeIn(animationSpec = tween(380, easing = PageTransitionEasing))
+        },
+        popExitTransition = {
+            val initialIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }.takeIf { it >= 0 } ?: 0
+            val targetIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }.takeIf { it >= 0 } ?: 0
+            val isLeftToRight = targetIndex >= initialIndex
+            slideOutOfContainer(
+                towards = if (isLeftToRight) AnimatedContentTransitionScope.SlideDirection.Left else AnimatedContentTransitionScope.SlideDirection.Right,
+                animationSpec = tween(380, easing = PageTransitionEasing)
+            ) + fadeOut(animationSpec = tween(380, easing = PageTransitionEasing))
+        },
+    ) {
+        composable("devices") {
+            DeviceListScreen(
+                onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
+            )
+        }
+        composable("messages") {
+            MessageScreen(
+                pendingShareStore = pendingShareStore,
+                onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
+            )
+        }
+        composable("device-control") {
+            DeviceControlScreen(
+                onStartCastBoard = { deviceId ->
+                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                },
+                onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
+                onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
+            )
+        }
+        composable("settings") { SettingsScreen() }
+    }
+}
+
+@Composable
+private fun AccountIconButton(
+    cloudStatus: StateFlow<CloudStatus>,
+    authenticated: StateFlow<Boolean>,
+    onAccountClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val status by cloudStatus.collectAsStateWithLifecycle()
+    val isAuthenticated by authenticated.collectAsStateWithLifecycle()
+
+    val accountIcon = if (isAuthenticated) {
+        Icons.Default.AccountCircle
+    } else {
+        Icons.AutoMirrored.Filled.Login
+    }
+    val accountTint = when {
+        !isAuthenticated -> MaterialTheme.colorScheme.onSurfaceVariant
+        status == CloudStatus.Connected -> MaterialTheme.colorScheme.secondary
+        else -> MaterialTheme.colorScheme.error
+    }
+
+    IconButton(
+        onClick = onAccountClick,
+        modifier = modifier,
+    ) {
+        Icon(
+            imageVector = accountIcon,
+            contentDescription = stringResource(R.string.account_desc),
+            tint = accountTint,
+        )
+    }
+}
+
+@Composable
+private fun MainNavigationRail(
+    navController: NavHostController,
+    modifier: Modifier = Modifier,
+) {
+    val backStack by navController.currentBackStackEntryAsState()
+    val currentDestination = backStack?.destination
+
+    NavigationRail(
+        modifier = modifier,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        windowInsets = WindowInsets(0.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            topLevelRoutes.forEachIndexed { index, item ->
+                val selected = currentDestination?.isTopLevelSelected(item.route) == true
+                NavigationRailItem(
+                    selected = selected,
+                    onClick = {
+                        if (!selected && navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                            navController.navigateTopLevel(item.route)
+                        }
+                    },
+                    icon = { Icon(item.icon, contentDescription = null) },
+                    label = { Text(stringResource(item.labelResId)) },
+                    alwaysShowLabel = true,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
         }
     }
 }
