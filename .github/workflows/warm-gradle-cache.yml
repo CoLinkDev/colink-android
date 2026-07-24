@@ -1,0 +1,44 @@
+name: Warm Gradle cache
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday and Thursday at 00:00 UTC.
+    - cron: "0 0 * * 1"
+    - cron: "0 0 * * 4"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Android
+        uses: actions/checkout@v4
+        with:
+          path: colink-android
+
+      - name: Checkout CastBoard
+        uses: actions/checkout@v4
+        with:
+          repository: CoLinkDev/colink-castboard
+          path: colink-castboard
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        working-directory: colink-android
+        run: chmod +x gradlew
+
+      - name: Warm Gradle release dependencies
+        working-directory: colink-android
+        run: ./gradlew assembleRelease
