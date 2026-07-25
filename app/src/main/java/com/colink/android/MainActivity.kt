@@ -28,29 +28,17 @@ import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.theme.CoLinkTheme
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.LocaleHelper
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.res.stringResource
-import com.colink.android.network.ConnectionManager
-import com.colink.android.network.lan.LAN_PORT
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
     @Inject lateinit var settingsDataStore: SettingsDataStore
-    @Inject lateinit var connectionManager: ConnectionManager
     private var launchTarget by mutableStateOf<LaunchTarget?>(null)
-
-    private var checkComplete by mutableStateOf(false)
-    private var isPortOccupied by mutableStateOf(false)
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -70,57 +58,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        if (isPortCheckDone) {
-            isPortOccupied = isPortOccupiedCache
-            checkComplete = true
-            if (!isPortOccupied) {
-                initNormalFlow(savedInstanceState)
-            }
-        } else {
-            lifecycleScope.launch {
-                val occupied = withContext(Dispatchers.IO) {
-                    isLanPortOccupiedByAnotherProcess()
-                }
-                isPortOccupiedCache = occupied
-                isPortCheckDone = true
-                isPortOccupied = occupied
-                checkComplete = true
-                if (!occupied) {
-                    initNormalFlow(savedInstanceState)
-                }
-            }
-        }
+        initNormalFlow(savedInstanceState)
 
         enableEdgeToEdge()
 
         setContent {
             CoLinkTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    if (!checkComplete) {
-                        // Empty screen while checking port
-                    } else if (isPortOccupied) {
-                        AlertDialog(
-                            onDismissRequest = { },
-                            title = { Text(stringResource(R.string.port_occupied_title)) },
-                            text = { Text(stringResource(R.string.port_occupied_message)) },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    finishAndRemoveTask()
-                                    kotlin.system.exitProcess(0)
-                                }) {
-                                    Text(stringResource(R.string.exit_btn))
-                                }
-                            }
-                        )
-                    } else {
-                        CoLinkNavGraph(
-                            pendingShareStore = pendingShareStore,
-                            launchTarget = launchTarget,
-                            onLaunchTargetConsumed = { launchTarget = null },
-                            onRequestNotificationPermission = ::requestNotificationPermission,
-                        )
-                    }
+                    CoLinkNavGraph(
+                        pendingShareStore = pendingShareStore,
+                        launchTarget = launchTarget,
+                        onLaunchTargetConsumed = { launchTarget = null },
+                        onRequestNotificationPermission = ::requestNotificationPermission,
+                    )
                 }
             }
         }
@@ -150,10 +100,8 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (checkComplete && !isPortOccupied) {
-            handleShareIntent(intent)
-            handleLaunchIntent(intent)
-        }
+        handleShareIntent(intent)
+        handleLaunchIntent(intent)
     }
 
     private fun requestNotificationPermission() {
@@ -176,17 +124,6 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             CoLinkLog.i("Camera", "requesting CAMERA permission")
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
-    }
-
-    private fun isLanPortOccupiedByAnotherProcess(): Boolean {
-        if (connectionManager.isLanServerRunning()) {
-            return false
-        }
-        return try {
-            java.net.ServerSocket(LAN_PORT).use { false }
-        } catch (e: Exception) {
-            true
         }
     }
 
@@ -224,10 +161,5 @@ class MainActivity : ComponentActivity() {
         } else if (intent?.action != Intent.ACTION_SEND) {
             launchTarget = LaunchTarget()
         }
-    }
-
-    companion object {
-        private var isPortCheckDone = false
-        private var isPortOccupiedCache = false
     }
 }

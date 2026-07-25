@@ -54,6 +54,9 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import java.io.InterruptedIOException
+import java.net.BindException
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
@@ -73,6 +76,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 
 const val LAN_PORT = 27_777
+private const val MIN_LAN_PORT = 1_024
+private const val MAX_LAN_PORT = 65_535
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
 private const val PAIRING_TIMEOUT_MILLIS = 60_000L
 private const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
@@ -110,29 +115,49 @@ class LanWebSocketServer @Inject constructor(
     private val cameraConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
     private val cameraSenders = ConcurrentHashMap<String, Channel<CameraDataFrame>>()
     private var engine: ApplicationEngine? = null
+    private var port: Int? = null
     private var listener: Listener? = null
 
-    fun start(listener: Listener) {
+    @Synchronized
+    fun start(listener: Listener): Int? {
         if (engine != null) {
             this.listener = listener
-            return
+            return port
         }
         this.listener = listener
-        engine = embeddedServer(CIO, host = "0.0.0.0", port = LAN_PORT) {
-            install(WebSockets)
-            routing {
-                post("/peer/swim/v1") { call.handleSwimPing() }
-                webSocket("/peer") { handlePeer(this) }
-                webSocket("/transfer/{sessionId}") { handleTransfer(this) }
-                webSocket("/camera-stream/{sessionId}") { handleCamera(this) }
+        for (candidatePort in lanPortCandidates()) {
+            if (!isLanPortAvailable(candidatePort)) {
+                continue
             }
-        }.start(wait = false)
-        CoLinkLog.i("LAN", "LAN server started port=$LAN_PORT")
+            val candidate = createEngine(candidatePort)
+            val startResult = runCatching { candidate.start(wait = false) }
+            if (startResult.isSuccess) {
+                engine = candidate
+                port = candidatePort
+                CoLinkLog.i(
+                    "LAN",
+                    "LAN server started port=$candidatePort preferredPort=$LAN_PORT",
+                )
+                return candidatePort
+            }
+            runCatching { candidate.stop(gracePeriodMillis = 0, timeoutMillis = 0) }
+            val error = requireNotNull(startResult.exceptionOrNull())
+            if (!error.isLanPortInUse()) {
+                CoLinkLog.w("LAN", "LAN server failed to start port=$candidatePort", error)
+                this.listener = null
+                return null
+            }
+        }
+        CoLinkLog.w("LAN", "no available LAN port")
+        this.listener = null
+        return null
     }
 
+    @Synchronized
     fun stop() {
         engine?.stop(gracePeriodMillis = 500, timeoutMillis = 1_000)
         engine = null
+        port = null
         peers.clear()
         transferTokens.clear()
         transferConnections.clear()
@@ -142,6 +167,28 @@ class LanWebSocketServer @Inject constructor(
         cameraSenders.clear()
         CoLinkLog.i("LAN", "LAN server stopped")
     }
+
+    @Synchronized
+    fun isRunning(): Boolean = engine != null
+
+    private fun createEngine(port: Int): ApplicationEngine =
+        embeddedServer(CIO, host = "0.0.0.0", port = port) {
+            install(WebSockets)
+            routing {
+                post("/peer/swim/v1") { call.handleSwimPing() }
+                webSocket("/peer") { handlePeer(this) }
+                webSocket("/transfer/{sessionId}") { handleTransfer(this) }
+                webSocket("/camera-stream/{sessionId}") { handleCamera(this) }
+            }
+        }
+
+    private fun isLanPortAvailable(port: Int): Boolean =
+        runCatching {
+            ServerSocket().use { socket ->
+                socket.reuseAddress = false
+                socket.bind(InetSocketAddress("0.0.0.0", port))
+            }
+        }.isSuccess
 
     suspend fun send(
         deviceId: String,
@@ -181,8 +228,6 @@ class LanWebSocketServer @Inject constructor(
     }
 
     fun hasPeer(deviceId: String): Boolean = peers.containsKey(deviceId)
-
-    fun isRunning(): Boolean = engine != null
 
     fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
 
@@ -1177,6 +1222,24 @@ private fun SwimEnvelope.isTargetAck(target: String): Boolean =
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
     this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
+
+private fun Throwable.isLanPortInUse(): Boolean =
+    this is BindException || cause?.isLanPortInUse() == true
+
+internal fun lanPortCandidates(preferredPort: Int = LAN_PORT): Sequence<Int> = sequence {
+    require(preferredPort in MIN_LAN_PORT..MAX_LAN_PORT)
+    yield(preferredPort)
+    for (distance in 1..maxOf(preferredPort - MIN_LAN_PORT, MAX_LAN_PORT - preferredPort)) {
+        val higherPort = preferredPort + distance
+        if (higherPort <= MAX_LAN_PORT) {
+            yield(higherPort)
+        }
+        val lowerPort = preferredPort - distance
+        if (lowerPort >= MIN_LAN_PORT) {
+            yield(lowerPort)
+        }
+    }
+}
 
 private fun elapsedSince(startedAt: Long): Long =
     System.currentTimeMillis() - startedAt

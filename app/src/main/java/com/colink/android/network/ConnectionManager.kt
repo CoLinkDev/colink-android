@@ -471,8 +471,6 @@ class ConnectionManager @Inject constructor(
         _cloudState.value = CloudConnectionState()
     }
 
-    fun isLanServerRunning(): Boolean = lanWebSocketServer.isRunning()
-
     fun startCloud() {
         CoLinkLog.i("Cloud", "start cloud requested")
         scope.launch {
@@ -717,14 +715,14 @@ class ConnectionManager @Inject constructor(
     private fun startLan() {
         lanGeneration.incrementAndGet()
         CoLinkLog.i("LAN", "starting LAN services")
-        lanWebSocketServer.start(lanListener)
+        val port = lanWebSocketServer.start(lanListener) ?: return
         scope.launch {
             val identity = deviceRepository.localDeviceIdentity() ?: run {
                 CoLinkLog.w("LAN", "LAN discovery skipped because local identity is missing")
                 return@launch
             }
             swimMembership.ensureLocalStarted(identity.deviceId)
-            startLanDiscovery(identity)
+            startLanDiscovery(identity, port)
         }
         startSwimLoops()
     }
@@ -3019,14 +3017,14 @@ class ConnectionManager @Inject constructor(
                 swimMembership.localIncarnation(localDeviceId)
         }
 
-    private fun startLanDiscovery(identity: DeviceIdentity) {
+    private fun startLanDiscovery(identity: DeviceIdentity, port: Int) {
         CoLinkLog.i(
             "LAN",
             "starting discovery device=${CoLinkLog.shortId(identity.deviceId)} name=${identity.name}",
         )
         nsdDiscovery.start(
             serviceName = "colink-${identity.deviceId.take(8)}",
-            port = com.colink.android.network.lan.LAN_PORT,
+            port = port,
             deviceId = identity.deviceId,
             deviceName = identity.name,
             deviceType = identity.type,
