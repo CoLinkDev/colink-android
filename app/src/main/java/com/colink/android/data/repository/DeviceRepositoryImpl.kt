@@ -19,13 +19,14 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.DeviceRepository
+import com.colink.android.network.lan.LanRuntimePeer
+import com.colink.android.network.lan.LanRuntimeState
 import com.colink.android.util.CoLinkLog
-import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 @Singleton
 class DeviceRepositoryImpl @Inject constructor(
@@ -35,9 +36,12 @@ class DeviceRepositoryImpl @Inject constructor(
     private val trustedPeerKeyDao: TrustedPeerKeyDao,
     private val keyManager: KeyManager,
     private val deviceNameProvider: DeviceNameProvider,
+    private val lanRuntimeState: LanRuntimeState,
 ) : DeviceRepository {
     override val devices: Flow<List<Device>> =
-        deviceDao.observeDevices().map { entities -> sortDevices(entities.map { it.toDomain() }) }
+        combine(deviceDao.observeDevices(), lanRuntimeState.peers) { entities, peers ->
+            sortDevices(entities.map { entity -> projectRuntimeDevice(entity.toDomain(), peers[entity.deviceId]) })
+        }
 
     override suspend fun ensureLocalDeviceIdentity(): Result<DeviceIdentity> =
         runCatching {
@@ -66,25 +70,10 @@ class DeviceRepositoryImpl @Inject constructor(
             val cloudDevices = response.devices.map { dto ->
                 val incoming = dto.toDomain().copy(deviceSources = listOf("cloud"))
                 val cached = previous.firstOrNull { it.deviceId == incoming.deviceId }
-                val lanState = cached?.lanState
-                    ?.takeIf { it.isLiveLanState() }
-                    ?: "unavailable"
                 incoming.copy(
-                    lanAvailable = lanState.isLiveLanState(),
-                    lanState = lanState,
-                    localIp = incoming.localIp ?: cached?.localIp,
-                    localPort = incoming.localPort ?: cached?.localPort,
                     cloudAvailable = incoming.online,
-                    activeRoute = when {
-                        lanState.isLiveLanState() -> "lan"
-                        incoming.online -> "cloud"
-                        else -> null
-                    },
-                    securityState = if (lanState.isLiveLanState()) {
-                        "verified"
-                    } else {
-                        cached?.securityState?.takeIf { it != "unverified" } ?: "unverified"
-                    },
+                    activeRoute = if (incoming.online) "cloud" else null,
+                    securityState = cached?.securityState?.takeIf { it != "unverified" } ?: "unverified",
                 )
             }
 
@@ -110,7 +99,9 @@ class DeviceRepositoryImpl @Inject constructor(
         }
 
     override suspend fun getDevice(deviceId: String): Device? =
-        deviceDao.getDevice(deviceId)?.toDomain()
+        deviceDao.getDevice(deviceId)
+            ?.toDomain()
+            ?.let { device -> projectRuntimeDevice(device, lanRuntimeState.peer(deviceId)) }
 
     override suspend fun markCloudPresence(
         deviceId: String,
@@ -130,12 +121,8 @@ class DeviceRepositoryImpl @Inject constructor(
                             previous = current.type,
                         ),
                         cloudAvailable = cloudAvailable,
-                        online = cloudAvailable || current.lanAvailable,
-                        activeRoute = when {
-                            current.lanAvailable -> "lan"
-                            cloudAvailable -> "cloud"
-                            else -> null
-                        },
+                        online = cloudAvailable,
+                        activeRoute = if (cloudAvailable) "cloud" else null,
                     ),
                 ),
                 replaceAll = false,
@@ -151,81 +138,15 @@ class DeviceRepositoryImpl @Inject constructor(
             val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
             val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
                 val isLocal = device.deviceId == localDeviceId
-                val lanAvailable = device.lanAvailable || device.lanState.isLiveLanState()
                 device.copy(
                     cloudAvailable = false,
-                    online = isLocal || lanAvailable,
-                    activeRoute = if (lanAvailable) "lan" else null,
+                    online = isLocal,
+                    activeRoute = null,
                     deviceSources = if (isLocal) mergeSources(device.deviceSources, "local") else device.deviceSources,
                 )
             }
             saveDevices(devices)
             CoLinkLog.i("Device", "cleared cloud presence")
-        }
-
-    override suspend fun markLanEndpoint(
-        deviceId: String,
-        ip: String?,
-        port: Int?,
-        deviceType: String?,
-        lanState: String,
-    ): Result<Unit> =
-        runCatching {
-            val current = deviceDao.getDevice(deviceId)?.toDomain()
-                ?: trustedPeerDevice(deviceId)
-                ?: return@runCatching
-            val nextLanState = lanState.takeIf { it.isLiveLanState() } ?: "unavailable"
-            val lastAlive = if (nextLanState == "alive") {
-                Instant.now().toString()
-            } else {
-                current.lastSeen
-            }
-            saveDevices(
-                listOf(
-                    current.copy(
-                        type = reconcileDeviceType(current.type, lanType = deviceType),
-                        lastSeen = lastAlive,
-                        localIp = ip ?: current.localIp,
-                        localPort = port ?: current.localPort,
-                        lanAvailable = nextLanState.isLiveLanState(),
-                        lanState = nextLanState,
-                        activeRoute = if (nextLanState.isLiveLanState()) "lan" else current.activeRoute,
-                        online = true,
-                        securityState = "verified",
-                    ),
-                ),
-                replaceAll = false,
-            )
-            CoLinkLog.i(
-                "Device",
-                "marked LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=$ip port=$port",
-            )
-        }
-
-    override suspend fun clearLanEndpoint(deviceId: String): Result<Unit> =
-        runCatching {
-            val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
-            saveDevices(
-                listOf(
-                    current.copy(
-                        localIp = null,
-                        localPort = null,
-                        lanAvailable = false,
-                        lanState = "unavailable",
-                        online = current.cloudAvailable,
-                        activeRoute = if (current.cloudAvailable) "cloud" else null,
-                    ),
-                ),
-                replaceAll = false,
-            )
-            CoLinkLog.i("Device", "cleared LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
-        }
-
-    override suspend fun clearAllLanEndpoints(): Result<Unit> =
-        runCatching {
-            deviceDao.clearAllLanEndpoints()
-            listLocalDevices().getOrThrow()
-            CoLinkLog.i("Device", "cleared all LAN endpoints")
         }
 
     override suspend fun resetDevicePresence(): Result<Unit> =
@@ -236,10 +157,6 @@ class DeviceRepositoryImpl @Inject constructor(
                 device.copy(
                     online = isLocal,
                     cloudAvailable = false,
-                    localIp = null,
-                    localPort = null,
-                    lanAvailable = false,
-                    lanState = "unavailable",
                     activeRoute = null,
                     deviceSources = if (isLocal) mergeSources(device.deviceSources, "local") else device.deviceSources,
                 )
@@ -540,29 +457,14 @@ class DeviceRepositoryImpl @Inject constructor(
             val trust = trustedById[device.deviceId]
             val trustedByLan = trust?.trustedByLan == true
             val trustedByCloud = trust?.trustedByCloud == true
-            val lanState = when {
-                device.lanState.isLiveLanState() -> device.lanState
-                existing?.lanState?.isLiveLanState() == true -> existing.lanState
-                else -> "unavailable"
-            }
-            val lanAvailable = lanState.isLiveLanState()
             val cloudAvailable = device.cloudAvailable
             device.copy(
                 lastSeen = device.lastSeen ?: existing?.lastSeen,
-                localIp = device.localIp ?: existing?.localIp,
-                localPort = device.localPort ?: existing?.localPort,
-                lanAvailable = lanAvailable,
-                lanState = lanState,
                 cloudAvailable = cloudAvailable,
-                online = cloudAvailable || lanAvailable,
-                activeRoute = when {
-                    lanAvailable -> "lan"
-                    cloudAvailable -> "cloud"
-                    else -> null
-                },
+                online = cloudAvailable,
+                activeRoute = if (cloudAvailable) "cloud" else null,
                 securityState = when {
                     trust?.isTrusted == true -> "verified"
-                    lanAvailable -> "verified"
                     device.securityState != "unverified" -> device.securityState
                     else -> existing?.securityState ?: "unverified"
                 },
@@ -581,27 +483,18 @@ class DeviceRepositoryImpl @Inject constructor(
             .filter { it.deviceId != localIdentity?.deviceId && it.deviceId !in knownIds }
             .forEach { record ->
                 val existing = previousById[record.deviceId]
-                val lanState = when {
-                    existing?.lanState?.isLiveLanState() == true -> existing.lanState
-                    else -> "unavailable"
-                }
-                val lanAvailable = lanState.isLiveLanState()
                 val trustedByLan = record.trustedByLan
                 val trustedByCloud = record.trustedByCloud
                 devices += Device(
                     deviceId = record.deviceId,
                     name = record.name,
                     type = reconcileDeviceType(existing?.type ?: "unknown"),
-                    online = lanAvailable,
+                    online = false,
                     lastSeen = existing?.lastSeen,
                     publicKey = record.publicKey,
                     publicKeyUpdatedAt = record.keyUpdatedAt,
-                    localIp = existing?.localIp,
-                    localPort = existing?.localPort,
                     cloudAvailable = false,
-                    lanAvailable = lanAvailable,
-                    lanState = lanState,
-                    activeRoute = if (lanAvailable) "lan" else null,
+                    activeRoute = null,
                     deviceSources = trustedSources(record),
                     trustedByLan = trustedByLan,
                     trustedByCloud = trustedByCloud,
@@ -630,6 +523,26 @@ class DeviceRepositoryImpl @Inject constructor(
             device.lanAvailable || device.trustedByLan || device.deviceSources.contains("trusted_peer_key") -> 2
             else -> 3
         }
+
+    private fun projectRuntimeDevice(device: Device, runtime: LanRuntimePeer?): Device {
+        val endpoint = runtime?.endpoint
+        val lanState = runtime?.state ?: "unavailable"
+        val lanAvailable = runtime?.isReachable == true
+        val isLocal = device.deviceSources.contains("local")
+        return device.copy(
+            type = reconcileDeviceType(device.type, lanType = runtime?.type),
+            localIp = endpoint?.ip,
+            localPort = endpoint?.port,
+            lanAvailable = lanAvailable,
+            lanState = lanState,
+            online = isLocal || device.cloudAvailable || lanAvailable,
+            activeRoute = when {
+                lanAvailable -> "lan"
+                device.cloudAvailable -> "cloud"
+                else -> null
+            },
+        )
+    }
 
     private suspend fun trustedPeerDevice(deviceId: String): Device? {
         val record = trustedPeerKeyDao.get(deviceId)?.takeIf { it.isTrusted } ?: return null

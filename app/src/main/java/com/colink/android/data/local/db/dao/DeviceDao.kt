@@ -26,16 +26,4 @@ interface DeviceDao {
     @Query("DELETE FROM devices WHERE deviceId = :deviceId")
     suspend fun delete(deviceId: String)
 
-    @Query(
-        """
-        UPDATE devices
-        SET localIp = NULL,
-            localPort = NULL,
-            lanAvailable = 0,
-            lanState = 'unavailable',
-            online = cloudAvailable,
-            activeRoute = CASE WHEN cloudAvailable = 1 THEN 'cloud' ELSE NULL END
-        """,
-    )
-    suspend fun clearAllLanEndpoints()
 }

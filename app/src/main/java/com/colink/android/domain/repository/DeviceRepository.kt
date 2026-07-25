@@ -29,18 +29,6 @@ interface DeviceRepository {
 
     suspend fun clearCloudPresence(): Result<Unit>
 
-    suspend fun markLanEndpoint(
-        deviceId: String,
-        ip: String? = null,
-        port: Int? = null,
-        deviceType: String? = null,
-        lanState: String = "alive",
-    ): Result<Unit>
-
-    suspend fun clearLanEndpoint(deviceId: String): Result<Unit>
-
-    suspend fun clearAllLanEndpoints(): Result<Unit>
-
     suspend fun resetDevicePresence(): Result<Unit>
 
     suspend fun listLocalDevices(): Result<List<Device>>

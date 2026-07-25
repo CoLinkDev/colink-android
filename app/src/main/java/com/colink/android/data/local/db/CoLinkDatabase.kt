@@ -20,7 +20,7 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
@@ -157,6 +157,47 @@ abstract class CoLinkDatabase : RoomDatabase() {
                     db.execSQL("ALTER TABLE devices ADD COLUMN lanState TEXT NOT NULL DEFAULT 'unavailable'")
                     db.execSQL("ALTER TABLE devices ADD COLUMN trustedByLan INTEGER NOT NULL DEFAULT 0")
                     db.execSQL("ALTER TABLE devices ADD COLUMN trustedByCloud INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
+        val MIGRATION_7_8: Migration =
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE devices_new (
+                            deviceId TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            type TEXT NOT NULL,
+                            online INTEGER NOT NULL,
+                            lastSeen TEXT,
+                            publicKey TEXT NOT NULL,
+                            publicKeyUpdatedAt INTEGER,
+                            cloudAvailable INTEGER NOT NULL,
+                            activeRoute TEXT,
+                            deviceSources TEXT NOT NULL,
+                            trustedByLan INTEGER NOT NULL,
+                            trustedByCloud INTEGER NOT NULL,
+                            securityState TEXT NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        """
+                        INSERT INTO devices_new (
+                            deviceId, name, type, online, lastSeen, publicKey,
+                            publicKeyUpdatedAt, cloudAvailable, activeRoute, deviceSources,
+                            trustedByLan, trustedByCloud, securityState
+                        )
+                        SELECT
+                            deviceId, name, type, online, lastSeen, publicKey,
+                            publicKeyUpdatedAt, cloudAvailable, activeRoute, deviceSources,
+                            trustedByLan, trustedByCloud, securityState
+                        FROM devices
+                        """.trimIndent(),
+                    )
+                    db.execSQL("DROP TABLE devices")
+                    db.execSQL("ALTER TABLE devices_new RENAME TO devices")
                 }
             }
     }

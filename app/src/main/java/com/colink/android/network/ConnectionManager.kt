@@ -20,6 +20,8 @@ import com.colink.android.notification.CoLinkNotifier
 import com.colink.android.network.cloud.CloudWebSocketClient
 import com.colink.android.network.cloud.TicketProvider
 import com.colink.android.network.lan.LanWebSocketClient
+import com.colink.android.network.lan.LanEndpoint
+import com.colink.android.network.lan.LanRuntimeState
 import com.colink.android.network.lan.LanSwimClient
 import com.colink.android.network.lan.LanTrustStore
 import com.colink.android.network.lan.LanWebSocketServer
@@ -188,6 +190,7 @@ private const val FILE_ACK_INTERVAL_CHUNKS = 7L
 private const val LAN_SEND_WINDOW_CHUNKS = 8L
 private const val CAMERA_CLOUD_QUEUE_LIMIT_BYTES = 64L * 1024L
 private const val CAMERA_LAN_QUEUE_LIMIT_BYTES = 128L * 1024L
+private const val MDNS_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
 private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
 private const val SWIM_PERIOD_MILLIS = 5_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 3_000L
@@ -312,6 +315,7 @@ class ConnectionManager @Inject constructor(
     private val lanSwimClient: LanSwimClient,
     private val lanTrustStore: LanTrustStore,
     private val nsdDiscovery: NsdDiscovery,
+    private val lanRuntimeState: LanRuntimeState,
     private val musicSyncManager: MusicSyncManager,
     private val sysInfoSyncManager: SysInfoSyncManager,
     private val notifier: CoLinkNotifier,
@@ -357,9 +361,7 @@ class ConnectionManager @Inject constructor(
     private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
     private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
-    private val swimEndpoints = ConcurrentHashMap<String, LanEndpoint>()
-    private val swimNames = ConcurrentHashMap<String, String>()
-    private val swimTypes = ConcurrentHashMap<String, String>()
+    private val discoveryRefreshAt = ConcurrentHashMap<String, Long>()
     private val cloudBusinessVersions = ConcurrentHashMap<String, String>()
     private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
@@ -456,9 +458,8 @@ class ConnectionManager @Inject constructor(
         _remoteFilesystemDownloads.value = emptyMap()
         ackSignals.values.forEach { it.complete(Unit) }
         ackSignals.clear()
-        swimEndpoints.clear()
-        swimNames.clear()
-        swimTypes.clear()
+        lanRuntimeState.clear()
+        discoveryRefreshAt.clear()
         swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
         failPendingLanSends("LAN services stopped")
@@ -743,19 +744,13 @@ class ConnectionManager @Inject constructor(
         lanWebSocketClient.disconnectAll()
         lanWebSocketServer.stop()
         nsdDiscovery.stop()
-        swimEndpoints.clear()
-        swimNames.clear()
-        swimTypes.clear()
+        lanRuntimeState.clear()
+        discoveryRefreshAt.clear()
         swimMembership.clear()
         _lanPairingCandidates.value = emptyList()
         synchronized(swimLock) {
             probeQueue.clear()
             probeRoundCandidates = emptyList()
-        }
-        scope.launch {
-            if (lanGeneration.get() == generation) {
-                deviceRepository.clearAllLanEndpoints()
-            }
         }
     }
 
@@ -1013,9 +1008,9 @@ class ConnectionManager @Inject constructor(
             }
             val identity = deviceRepository.localDeviceIdentity()
                 ?: error("current device is not registered")
-            val device = deviceRepository.getDevice(deviceId)
-                ?: error("target device not found")
-            if (!device.lanAvailable || device.localIp == null || device.localPort == null) {
+            val endpoint = lanRuntimeState.endpoint(deviceId)
+                ?: error("LAN peer is not available")
+            if (swimMembership.memberState(deviceId) !in setOf(MemberState.Alive, MemberState.Suspect)) {
                 error("LAN peer is not available")
             }
             if (!lanTrustStore.isTrusted(deviceId)) {
@@ -1023,9 +1018,9 @@ class ConnectionManager @Inject constructor(
             }
             lanWebSocketClient.connect(
                 identity = identity,
-                deviceId = device.deviceId,
-                ip = device.localIp,
-                port = device.localPort,
+                deviceId = deviceId,
+                ip = endpoint.ip,
+                port = endpoint.port,
                 allowPairing = false,
                 listener = lanClientListener,
             )
@@ -1047,12 +1042,7 @@ class ConnectionManager @Inject constructor(
             }
         }
         flushPendingLanSends(deviceId)
-        val endpointSynced = syncKnownLanEndpoint(deviceId)
         removePairingCandidate(deviceId)
-        if (endpointSynced) {
-            return
-        }
-        deviceRepository.listLocalDevices()
     }
 
     private suspend fun handleLanPeerDisconnected(deviceId: String) {
@@ -1641,16 +1631,16 @@ class ConnectionManager @Inject constructor(
         )
         if (payload.accepted && codec in setOf("h264", "webp", "jpeg") && payload.width != null && payload.height != null) {
             activeCameraCodecs[payload.sessionId] = requireNotNull(codec)
-            val device = deviceRepository.getDevice(fromDeviceId)
+            val endpoint = lanRuntimeState.endpoint(fromDeviceId)
             val token = payload.streamToken
-            if (token != null && device?.localIp != null && device.localPort != null) {
+            if (token != null && endpoint != null) {
                 val activated = AtomicBoolean(false)
                 val opened = AtomicBoolean(false)
                 lanWebSocketClient.connectCamera(
                     payload.sessionId,
                     token,
-                    device.localIp,
-                    device.localPort,
+                    endpoint.ip,
+                    endpoint.port,
                     object : LanWebSocketClient.CameraListener {
                         override fun onOpen() {
                             if (!activated.compareAndSet(false, true)) return
@@ -2438,14 +2428,14 @@ class ConnectionManager @Inject constructor(
             ),
         )
         val outgoing = outgoingTransfers[payload.sessionId] ?: return
-        val device = deviceRepository.getDevice(fromDeviceId) ?: return
-        if (device.lanAvailable && device.localIp != null && device.localPort != null) {
+        val endpoint = lanRuntimeState.endpoint(fromDeviceId)
+        if (endpoint != null && swimMembership.memberState(fromDeviceId) in setOf(MemberState.Alive, MemberState.Suspect)) {
             var opened = false
             lanWebSocketClient.connectTransfer(
                 sessionId = payload.sessionId,
                 token = payload.transferToken,
-                ip = device.localIp,
-                port = device.localPort,
+                ip = endpoint.ip,
+                port = endpoint.port,
                 listener = object : LanWebSocketClient.TransferListener {
                     override fun onOpen(connection: TransferConnection) {
                         opened = true
@@ -2711,8 +2701,8 @@ class ConnectionManager @Inject constructor(
     )
 
     private suspend fun routeForDevice(deviceId: String): String {
-        val device = deviceRepository.getDevice(deviceId)
-        return if (device?.lanAvailable == true) "lan" else "cloud"
+        val reachable = lanRuntimeState.peer(deviceId)?.isReachable == true
+        return if (reachable) "lan" else "cloud"
     }
 
     private val lanClientListener =
@@ -3081,11 +3071,13 @@ class ConnectionManager @Inject constructor(
                     if (deviceId == identity.deviceId) {
                         return@launch
                     }
-                    swimEndpoints[deviceId] = LanEndpoint(ip, port)
-                    name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
                     val normalizedType = type.normalizedDeviceType()
-                    normalizedType?.let { swimTypes[deviceId] = it }
-                    syncKnownLanEndpoint(deviceId)
+                    lanRuntimeState.updateDiscovery(
+                        deviceId = deviceId,
+                        endpoint = LanEndpoint(ip, port),
+                        name = name,
+                        type = normalizedType ?: "unknown",
+                    )
                     val response = lanSwimClient.ping(
                         identity = identity,
                         ip = ip,
@@ -3108,6 +3100,8 @@ class ConnectionManager @Inject constructor(
 
             override fun onServiceLost(deviceId: String) {
                 CoLinkLog.w("LAN", "service lost device=${CoLinkLog.shortId(deviceId)}")
+                lanRuntimeState.removeDiscovery(deviceId)
+                scope.launch { refreshPairingCandidate(deviceId) }
             }
         }
 
@@ -3561,15 +3555,7 @@ class ConnectionManager @Inject constructor(
         val identity = deviceRepository.localDeviceIdentity() ?: return
         sourceIp?.let { ip ->
             if (message.payload.from != identity.deviceId) {
-                swimEndpoints[message.payload.from] = LanEndpoint(ip, com.colink.android.network.lan.LAN_PORT)
-                CoLinkLog.d(
-                    "SWIM",
-                    "remembered endpoint device=${CoLinkLog.shortId(message.payload.from)} ip=$ip",
-                )
-                if (!lanTrustStore.isTrusted(message.payload.from)) {
-                    deviceRepository.clearLanEndpoint(message.payload.from)
-                }
-                syncKnownLanEndpoint(message.payload.from)
+                requestMdnsRefresh(message.payload.from, ip)
             }
         }
         observeSwimAlive(identity.deviceId, message.payload.from, message.payload.incarnation)
@@ -3614,28 +3600,16 @@ class ConnectionManager @Inject constructor(
     private suspend fun applyMemberUpdate(update: MemberUpdate) {
         val deviceId = update.deviceId
         val state = update.state
+        lanRuntimeState.updateMemberState(deviceId, state.wireValue)
         CoLinkLog.i(
             "SWIM",
             "member update device=${CoLinkLog.shortId(deviceId)} state=${state.wireValue} incarnation=${update.incarnation}",
         )
         when (state) {
             MemberState.Alive -> {
-                val endpoint = swimEndpoints[deviceId]
+                val endpoint = lanRuntimeState.endpoint(deviceId)
                 val lanTrusted = lanTrustStore.isTrusted(deviceId)
                 if (endpoint != null) {
-                    if (lanTrusted) {
-                        CoLinkLog.d("LAN", "marking LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=${endpoint.ip} port=${endpoint.port}")
-                        deviceRepository.markLanEndpoint(
-                            deviceId,
-                            endpoint.ip,
-                            endpoint.port,
-                            swimTypes[deviceId],
-                            state.wireValue,
-                        )
-                    } else {
-                        CoLinkLog.d("LAN", "clearing untrusted LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
-                        deviceRepository.clearLanEndpoint(deviceId)
-                    }
                     updatePairingCandidate(deviceId, endpoint, state)
                 }
                 if (!lanTrusted) {
@@ -3646,33 +3620,15 @@ class ConnectionManager @Inject constructor(
             MemberState.Dead,
             MemberState.Left,
             -> {
-                CoLinkLog.w("SWIM", "clearing LAN endpoint because member is ${state.wireValue} device=${CoLinkLog.shortId(deviceId)}")
                 removePairingCandidate(deviceId)
-                deviceRepository.clearLanEndpoint(deviceId)
                 lanWebSocketClient.disconnect(deviceId)
                 lanWebSocketServer.disconnect(deviceId)
             }
 
             MemberState.Suspect -> {
-                val endpoint = swimEndpoints[deviceId]
+                val endpoint = lanRuntimeState.endpoint(deviceId)
                 val lanTrusted = lanTrustStore.isTrusted(deviceId)
                 if (endpoint != null) {
-                    if (lanTrusted) {
-                        CoLinkLog.d(
-                            "LAN",
-                            "marking suspect LAN endpoint device=${CoLinkLog.shortId(deviceId)} ip=${endpoint.ip} port=${endpoint.port}",
-                        )
-                        deviceRepository.markLanEndpoint(
-                            deviceId,
-                            endpoint.ip,
-                            endpoint.port,
-                            swimTypes[deviceId],
-                            state.wireValue,
-                        )
-                    } else {
-                        CoLinkLog.d("LAN", "clearing untrusted suspect LAN endpoint device=${CoLinkLog.shortId(deviceId)}")
-                        deviceRepository.clearLanEndpoint(deviceId)
-                    }
                     updatePairingCandidate(deviceId, endpoint, state)
                 }
                 if (!lanTrusted) {
@@ -3691,10 +3647,10 @@ class ConnectionManager @Inject constructor(
             removePairingCandidate(deviceId)
             return
         }
-        val name = swimNames[deviceId]
+        val name = lanRuntimeState.peer(deviceId)?.name
             ?.takeIf { it.isNotBlank() }
             ?: deviceId
-        val type = swimTypes[deviceId] ?: "unknown"
+        val type = lanRuntimeState.peer(deviceId)?.type ?: "unknown"
         val candidates = _lanPairingCandidates.value
             .filterNot { it.deviceId == deviceId }
             .plus(
@@ -3725,48 +3681,39 @@ class ConnectionManager @Inject constructor(
 
     private suspend fun refreshPairingCandidate(deviceId: String) {
         val state = swimMembership.memberState(deviceId) ?: return
-        val endpoint = swimEndpoints[deviceId] ?: return
-        updatePairingCandidate(deviceId, endpoint, state)
-    }
-
-    private suspend fun syncKnownLanEndpoint(deviceId: String): Boolean {
-        val state = swimMembership.memberState(deviceId) ?: return false
-        val endpoint = swimEndpoints[deviceId] ?: return false
-        when (state) {
-            MemberState.Alive,
-            MemberState.Suspect,
-            -> {
-                if (lanTrustStore.isTrusted(deviceId)) {
-                    deviceRepository.markLanEndpoint(
-                        deviceId,
-                        endpoint.ip,
-                        endpoint.port,
-                        swimTypes[deviceId],
-                        state.wireValue,
-                    )
-                    updatePairingCandidate(deviceId, endpoint, state)
-                    return true
-                }
-                updatePairingCandidate(deviceId, endpoint, state)
-            }
-
-            MemberState.Dead,
-            MemberState.Left,
-            -> removePairingCandidate(deviceId)
+        val endpoint = lanRuntimeState.endpoint(deviceId) ?: run {
+            removePairingCandidate(deviceId)
+            return
         }
-        return false
+        updatePairingCandidate(deviceId, endpoint, state)
     }
 
     private suspend fun handleLanKeyChanged(deviceId: String, name: String) {
         val localizedContext = LocaleHelper.localized(context)
-        deviceRepository.clearLanEndpoint(deviceId)
-        name.takeIf { it.isNotBlank() }?.let { swimNames[deviceId] = it }
         refreshPairingCandidate(deviceId)
         val peerName = name.ifBlank { deviceId }
         notifyEvent(
             title = localizedContext.getString(R.string.notification_lan_key_changed_title),
             text = localizedContext.getString(R.string.notification_lan_key_changed_body, peerName),
         )
+    }
+
+    private fun requestMdnsRefresh(deviceId: String, sourceIp: String) {
+        val endpoint = lanRuntimeState.endpoint(deviceId)
+        if (endpoint != null && endpoint.ip == sourceIp) {
+            return
+        }
+        val now = System.currentTimeMillis()
+        val previous = discoveryRefreshAt[deviceId]
+        if (previous != null && now - previous < MDNS_REFRESH_MIN_INTERVAL_MILLIS) {
+            return
+        }
+        discoveryRefreshAt[deviceId] = now
+        CoLinkLog.d(
+            "LAN",
+            "refreshing NSD after SWIM source change device=${CoLinkLog.shortId(deviceId)} ip=$sourceIp",
+        )
+        nsdDiscovery.refreshDiscovery()
     }
 
     private fun startSwimLoops() {
@@ -3796,7 +3743,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun probeMember(identity: DeviceIdentity, target: String) {
-        val endpoint = swimEndpoints[target] ?: return
+        val endpoint = lanRuntimeState.endpoint(target) ?: return
         CoLinkLog.d("SWIM", "probing target=${CoLinkLog.shortId(target)} ip=${endpoint.ip} port=${endpoint.port}")
         val ack = lanSwimClient.ping(
             identity = identity,
@@ -3846,7 +3793,7 @@ class ConnectionManager @Inject constructor(
     ): SwimEnvelope? = coroutineScope {
         val requests = indirectTargets(identity.deviceId, target)
             .mapNotNull { intermediary ->
-                swimEndpoints[intermediary]?.let { endpoint -> intermediary to endpoint }
+                lanRuntimeState.endpoint(intermediary)?.let { endpoint -> intermediary to endpoint }
             }
         if (requests.isEmpty()) {
             return@coroutineScope null
@@ -3900,7 +3847,7 @@ class ConnectionManager @Inject constructor(
             .filter { (deviceId, member) ->
                 deviceId != localDeviceId &&
                     member.state in setOf(MemberState.Alive, MemberState.Suspect) &&
-                    swimEndpoints.containsKey(deviceId)
+                    lanRuntimeState.endpoint(deviceId) != null
             }
             .keys
             .sorted()
@@ -3933,7 +3880,7 @@ class ConnectionManager @Inject constructor(
                 deviceId != localDeviceId &&
                     deviceId != targetDeviceId &&
                     member.state == MemberState.Alive &&
-                    swimEndpoints.containsKey(deviceId)
+                    lanRuntimeState.endpoint(deviceId) != null
             }
             .keys
             .sorted()
@@ -3960,7 +3907,7 @@ class ConnectionManager @Inject constructor(
         }
 
     private fun broadcastLeft() {
-        val targets = swimEndpoints.values.toList()
+        val targets = lanRuntimeState.peers.value.values.mapNotNull { it.endpoint }
         if (targets.isEmpty()) {
             return
         }
@@ -4089,11 +4036,6 @@ private data class PendingFilesystemRequest(
 private data class PendingSystemControlQuery(
     val deviceId: String,
     val result: CompletableDeferred<Result<BusinessEnvelope>>,
-)
-
-private data class LanEndpoint(
-    val ip: String,
-    val port: Int,
 )
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =

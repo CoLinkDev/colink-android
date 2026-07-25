@@ -4,7 +4,6 @@ import com.colink.android.crypto.Handshake
 import com.colink.android.crypto.LanSessionCrypto
 import com.colink.android.data.local.datastore.SettingsDataStore
 import com.colink.android.domain.model.DeviceIdentity
-import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.message.AuthChallengePayload
 import com.colink.android.network.message.AuthResponsePayload
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
@@ -97,7 +96,7 @@ private const val MESSAGE_KEY_EXCHANGE_GENERIC = "Ephemeral key exchange failed"
 @Singleton
 class LanWebSocketServer @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
-    private val deviceRepository: DeviceRepository,
+    private val lanRuntimeState: LanRuntimeState,
     private val json: Json,
     private val handshake: Handshake,
     private val lanSwimClient: LanSwimClient,
@@ -245,7 +244,6 @@ class LanWebSocketServer @Inject constructor(
             peers.remove(ready.peerId)?.let { runCatching { it.session.close() } }
             val connection = ServerPeerConnection(session, ready.crypto, identity, ready.businessVersion, state.sequence)
             peers[ready.peerId] = connection
-            markPeerEndpoint(ready.peerId, session)
             listener?.onConnected(ready.peerId)
             keepaliveJob = launchKeepaliveMonitor(ready.peerId, connection)
             while (true) {
@@ -752,15 +750,15 @@ class LanWebSocketServer @Inject constructor(
                 if (target == identity.deviceId) {
                     swimAck(identity, swimRequest.payload.seq)
                 } else {
-                    val device = deviceRepository.getDevice(target)
-                    if (device?.localIp == null || device.localPort == null) {
+                    val endpoint = lanRuntimeState.endpoint(target)
+                    if (endpoint == null) {
                         respond(HttpStatusCode.NotFound)
                         return
                     }
                     lanSwimClient.ping(
                         identity = identity,
-                        ip = device.localIp,
-                        port = device.localPort,
+                        ip = endpoint.ip,
+                        port = endpoint.port,
                         incarnation = currentSwimIncarnation(identity),
                         seq = swimRequest.payload.seq,
                         gossip = swimGossip(identity),
@@ -862,10 +860,6 @@ class LanWebSocketServer @Inject constructor(
             CoLinkLog.i("CameraLAN", "data stream detached session=${CoLinkLog.shortId(sessionId)}")
             listener?.onCameraClosed(sessionId)
         }
-    }
-
-    private suspend fun markPeerEndpoint(deviceId: String, session: DefaultWebSocketServerSession) {
-        deviceRepository.markLanEndpoint(deviceId, session.call.request.local.remoteHost, LAN_PORT)
     }
 
     private suspend fun sendHello(session: DefaultWebSocketServerSession, identity: DeviceIdentity) {

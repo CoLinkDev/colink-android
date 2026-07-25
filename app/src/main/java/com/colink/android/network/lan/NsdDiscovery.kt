@@ -19,6 +19,8 @@ class NsdDiscovery @Inject constructor(
     private val manager = context.getSystemService(NsdManager::class.java)
     private var registrationListener: NsdManager.RegistrationListener? = null
     private var discoveryListener: NsdManager.DiscoveryListener? = null
+    private var activeListener: Listener? = null
+    private var refreshRequested = false
 
     fun serviceInfo(
         serviceName: String,
@@ -50,6 +52,7 @@ class NsdDiscovery @Inject constructor(
         listener: Listener,
     ) {
         stop()
+        activeListener = listener
         CoLinkLog.i(
             "LAN",
             "starting NSD service=$serviceName device=${CoLinkLog.shortId(deviceId)} name=$deviceName type=$deviceType port=$port",
@@ -59,11 +62,31 @@ class NsdDiscovery @Inject constructor(
     }
 
     fun stop() {
+        activeListener = null
+        refreshRequested = false
         registrationListener?.let { runCatching { manager.unregisterService(it) } }
         discoveryListener?.let { runCatching { manager.stopServiceDiscovery(it) } }
         registrationListener = null
         discoveryListener = null
         CoLinkLog.d("LAN", "stopped NSD")
+    }
+
+    fun refreshDiscovery() {
+        val listener = activeListener ?: return
+        val discovery = discoveryListener
+        if (discovery == null) {
+            discover(listener)
+            return
+        }
+        if (refreshRequested) {
+            return
+        }
+        refreshRequested = true
+        runCatching { manager.stopServiceDiscovery(discovery) }
+            .onFailure { error ->
+                refreshRequested = false
+                CoLinkLog.w("LAN", "NSD refresh stop failed", error)
+            }
     }
 
     private fun registerService(info: NsdServiceInfo) {
@@ -92,13 +115,20 @@ class NsdDiscovery @Inject constructor(
     }
 
     private fun discover(listener: Listener) {
-        discoveryListener = object : NsdManager.DiscoveryListener {
+        lateinit var discovery: NsdManager.DiscoveryListener
+        discovery = object : NsdManager.DiscoveryListener {
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
                 CoLinkLog.w("LAN", "NSD discovery start failed type=$serviceType code=$errorCode")
+                if (discoveryListener === discovery) {
+                    discoveryListener = null
+                }
             }
 
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
                 CoLinkLog.w("LAN", "NSD discovery stop failed type=$serviceType code=$errorCode")
+                if (discoveryListener === discovery) {
+                    refreshRequested = false
+                }
             }
 
             override fun onDiscoveryStarted(serviceType: String) {
@@ -107,6 +137,7 @@ class NsdDiscovery @Inject constructor(
 
             override fun onDiscoveryStopped(serviceType: String) {
                 CoLinkLog.i("LAN", "NSD discovery stopped type=$serviceType")
+                finishDiscovery(discovery)
             }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
@@ -167,11 +198,26 @@ class NsdDiscovery @Inject constructor(
                 listener.onServiceLost(deviceId)
             }
         }
+        discoveryListener = discovery
         manager.discoverServices(
             SERVICE_TYPE,
             NsdManager.PROTOCOL_DNS_SD,
-            discoveryListener,
+            discovery,
         )
+    }
+
+    private fun finishDiscovery(discovery: NsdManager.DiscoveryListener) {
+        if (discoveryListener !== discovery) {
+            return
+        }
+        discoveryListener = null
+        restartDiscoveryIfRequested()
+    }
+
+    private fun restartDiscoveryIfRequested() {
+        if (!refreshRequested) return
+        refreshRequested = false
+        activeListener?.let(::discover)
     }
 
     @Suppress("DEPRECATION")
