@@ -134,12 +134,13 @@ class WakeOnLanViewModel @Inject constructor(
 fun WakeOnLanControlCard(
     selectedDevice: Device?,
     modifier: Modifier = Modifier,
+    support: SystemControlSupport? = null,
     viewModel: WakeOnLanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val recentMacs by viewModel.recentMacs.collectAsStateWithLifecycle()
-    val support = selectedDevice?.let { viewModel.wakeOnLanSupport(it.deviceId) }
-        ?: SystemControlSupport.UNKNOWN
+    val activeSupport = support ?: (selectedDevice?.let { viewModel.wakeOnLanSupport(it.deviceId) }
+        ?: SystemControlSupport.UNKNOWN)
     var targetMac by remember { mutableStateOf("") }
     var pendingMac by remember { mutableStateOf<String?>(null) }
     val normalizedMac = viewModel.normalizedMac(targetMac)
@@ -176,7 +177,7 @@ fun WakeOnLanControlCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                if (support == SystemControlSupport.TOO_OLD) {
+                if (activeSupport == SystemControlSupport.TOO_OLD) {
                     StateMessage(text = stringResource(R.string.device_control_unsupported))
                 }
                 StateMessage(text = state.error)
@@ -187,7 +188,7 @@ fun WakeOnLanControlCard(
                     label = { Text(stringResource(R.string.device_wake_on_lan_mac_label)) },
                     placeholder = { Text(stringResource(R.string.device_wake_on_lan_mac_placeholder)) },
                     singleLine = true,
-                    enabled = support != SystemControlSupport.TOO_OLD,
+                    enabled = activeSupport != SystemControlSupport.TOO_OLD,
                     shape = RoundedCornerShape(16.dp),
                     isError = targetMac.isNotBlank() && !validMac,
                 )
@@ -203,9 +204,9 @@ fun WakeOnLanControlCard(
                                 selected = false,
                                 onClick = { targetMac = mac },
                                 label = { Text(mac) },
-                                enabled = support != SystemControlSupport.TOO_OLD,
+                                enabled = activeSupport != SystemControlSupport.TOO_OLD,
                                 border = FilterChipDefaults.filterChipBorder(
-                                    enabled = support != SystemControlSupport.TOO_OLD,
+                                    enabled = activeSupport != SystemControlSupport.TOO_OLD,
                                     selected = false,
                                     borderColor = MaterialTheme.colorScheme.outlineVariant,
                                     selectedBorderColor = Color.Transparent,
@@ -220,7 +221,7 @@ fun WakeOnLanControlCard(
                 Button(
                     enabled = validMac &&
                         !state.submitting &&
-                        support != SystemControlSupport.TOO_OLD,
+                        activeSupport != SystemControlSupport.TOO_OLD,
                     onClick = { pendingMac = normalizedMac },
                 ) {
                     Text(stringResource(R.string.device_wake_on_lan_send))

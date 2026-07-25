@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
+import com.colink.android.network.RemoteCameraSupport
+import com.colink.android.network.SystemControlSupport
 import com.colink.android.ui.castboard.CastBoardControlCard
 import com.colink.android.ui.castboard.CastBoardViewModel
 import com.colink.android.ui.components.DevicePicker
@@ -28,6 +30,14 @@ import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.terminal.TerminalControlCard
 import com.colink.android.ui.camera.CameraControlCard
+
+private data class DeviceControlCapabilities(
+    val powerSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val mediaSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val cameraSupport: RemoteCameraSupport = RemoteCameraSupport.UNKNOWN,
+    val terminalSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val wakeOnLanSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+)
 
 @Composable
 fun DeviceControlScreen(
@@ -50,6 +60,18 @@ fun DeviceControlScreen(
         availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
     }
     val selectedComputer = selectedDevice?.let(::isComputerDevice) == true
+
+    val deviceCapabilities = remember(selectedDeviceId, devices) {
+        selectedDeviceId?.let { deviceId ->
+            DeviceControlCapabilities(
+                powerSupport = powerControlViewModel.systemControlSupport(deviceId),
+                mediaSupport = mediaControlViewModel.mediaControlSupport(deviceId),
+                cameraSupport = powerControlViewModel.remoteCameraSupport(deviceId),
+                terminalSupport = powerControlViewModel.terminalSupport(deviceId),
+                wakeOnLanSupport = powerControlViewModel.wakeOnLanSupport(deviceId),
+            )
+        } ?: DeviceControlCapabilities()
+    }
 
     LaunchedEffect(availableDevices, selectedDeviceId) {
         if (selectedDeviceId == null || availableDevices.none { it.deviceId == selectedDeviceId }) {
@@ -106,9 +128,11 @@ fun DeviceControlScreen(
                     )
                     DeviceMediaControlCard(
                         hasAvailableDevice = true,
+                        support = deviceCapabilities.mediaSupport,
                         viewModel = mediaControlViewModel,
                     )
                     DevicePowerControlCard(
+                        support = deviceCapabilities.powerSupport,
                         viewModel = powerControlViewModel,
                     )
                 }
@@ -116,7 +140,7 @@ fun DeviceControlScreen(
                     CameraControlCard(
                         deviceId = deviceId,
                         onOpen = onStartCamera,
-                        support = powerControlViewModel.remoteCameraSupport(deviceId),
+                        support = deviceCapabilities.cameraSupport,
                     )
                 }
                 if (selectedComputer) {
@@ -124,11 +148,14 @@ fun DeviceControlScreen(
                         TerminalControlCard(
                             deviceId = deviceId,
                             onOpen = onStartTerminal,
-                            support = powerControlViewModel.terminalSupport(deviceId),
+                            support = deviceCapabilities.terminalSupport,
                         )
                     }
                 }
-                WakeOnLanControlCard(selectedDevice = selectedDevice)
+                WakeOnLanControlCard(
+                    selectedDevice = selectedDevice,
+                    support = deviceCapabilities.wakeOnLanSupport,
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

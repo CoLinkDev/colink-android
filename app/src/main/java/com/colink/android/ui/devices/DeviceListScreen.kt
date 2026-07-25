@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.SyncAlt
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
@@ -138,7 +139,6 @@ fun DeviceListScreen(
                             online = device.online,
                             isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                 device.deviceSources.contains("local"),
-                            showTrustedTag = device.deviceSources.contains("trusted_peer_key"),
                             onClick = { onDeviceSelected(device.deviceId) },
                             modifier = Modifier.animateItem()
                         )
@@ -249,7 +249,6 @@ private fun DeviceCard(
     lanState: String,
     online: Boolean,
     isLocalDevice: Boolean,
-    showTrustedTag: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -316,42 +315,36 @@ private fun DeviceCard(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
-                    } else if (lanState == "suspect") {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_lan_suspect),
-                            icon = Icons.Default.Wifi,
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    } else if (lanAvailable) {
-                        BadgeChip(
-                            text = stringResource(R.string.route_lan),
-                            icon = Icons.Default.Wifi,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    } else if (online) {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_cloud),
-                            icon = Icons.Default.Cloud,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                    } else if (lanAvailable || lanState == "suspect" || online) {
+                        if (lanState == "suspect") {
+                            BadgeChip(
+                                text = stringResource(R.string.device_tag_lan_suspect),
+                                icon = Icons.Default.Wifi,
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        } else if (lanAvailable) {
+                            BadgeChip(
+                                text = stringResource(R.string.route_lan),
+                                icon = Icons.Default.Wifi,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                        if (online) {
+                            BadgeChip(
+                                text = stringResource(R.string.device_tag_cloud),
+                                icon = Icons.Default.Cloud,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     } else {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_offline),
                             icon = Icons.Default.CloudOff,
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    if (showTrustedTag) {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_trusted),
-                            icon = Icons.Default.Verified,
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         )
                     }
                 }
@@ -369,7 +362,7 @@ private fun deviceTypeIcon(type: String): ImageVector =
     when (type.lowercase()) {
         "windows" -> Icons.Default.DesktopWindows
         "macos" -> Icons.Default.LaptopMac
-        "linux" -> Icons.Default.Computer
+        "linux" -> Icons.Default.Terminal
         "android" -> Icons.Default.Android
         "ios" -> Icons.Default.PhoneIphone
         else -> Icons.Default.Devices

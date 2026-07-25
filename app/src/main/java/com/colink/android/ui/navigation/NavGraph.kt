@@ -37,9 +37,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Settings
+import com.colink.android.ui.components.BadgeChip
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -582,32 +586,37 @@ private fun AccountDialog(
                 .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.cloud_account_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                AccountStatusRow(
-                    label = stringResource(R.string.cloud_account_login_status),
-                    value = stringResource(
-                        if (authenticated) R.string.cloud_account_logged_in else R.string.cloud_account_not_logged_in,
-                    ),
+                Text(
+                    text = stringResource(R.string.cloud_account_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
                 )
-                AccountStatusRow(
-                    label = stringResource(R.string.cloud_account_connection_status),
-                    value = stringResource(
-                        if (cloudStatus == CloudStatus.Connected) {
-                            R.string.cloud_status_connected
-                        } else {
-                            R.string.cloud_status_disconnected
-                        },
-                    ),
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BadgeChip(
+                        text = stringResource(
+                            if (authenticated) R.string.cloud_account_logged_in else R.string.cloud_account_not_logged_in
+                        ),
+                        icon = if (authenticated) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.Login,
+                        containerColor = if (authenticated) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (authenticated) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    BadgeChip(
+                        text = stringResource(
+                            if (cloudStatus == CloudStatus.Connected) R.string.cloud_status_connected else R.string.cloud_status_disconnected
+                        ),
+                        icon = if (cloudStatus == CloudStatus.Connected) Icons.Default.Cloud else Icons.Default.CloudOff,
+                        containerColor = if (cloudStatus == CloudStatus.Connected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (cloudStatus == CloudStatus.Connected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             if (authenticated) {
@@ -652,25 +661,6 @@ private fun AccountDialog(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun AccountStatusRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-        )
     }
 }
 

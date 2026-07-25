@@ -37,11 +37,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.DesktopWindows
@@ -51,6 +53,7 @@ import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
@@ -276,24 +279,27 @@ fun MessageScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        if (device.lanAvailable) {
-                                            BadgeChip(
-                                                text = stringResource(R.string.route_lan),
-                                                icon = Icons.Default.Wifi,
-                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            )
-                                        } else if (device.online) {
-                                            BadgeChip(
-                                                text = stringResource(R.string.device_tag_cloud),
-                                                icon = Icons.Default.Cloud,
-                                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            )
+                                        if (device.lanAvailable || device.online) {
+                                            if (device.lanAvailable) {
+                                                BadgeChip(
+                                                    text = stringResource(R.string.route_lan),
+                                                    icon = Icons.Default.Wifi,
+                                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                )
+                                            }
+                                            if (device.online) {
+                                                BadgeChip(
+                                                    text = stringResource(R.string.device_tag_cloud),
+                                                    icon = Icons.Default.Cloud,
+                                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                )
+                                            }
                                         } else {
                                             BadgeChip(
                                                 text = stringResource(R.string.device_tag_offline),
-                                                icon = Icons.Default.Devices,
+                                                icon = Icons.Default.CloudOff,
                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
                                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
@@ -489,39 +495,39 @@ private fun ContactCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(top = 2.dp),
                 ) {
-                    if (device.lanAvailable) {
-                        BadgeChip(
-                            text = stringResource(R.string.route_lan),
-                            icon = Icons.Default.Wifi,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    } else if (device.online) {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_cloud),
-                            icon = Icons.Default.Cloud,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
+                    if (device.lanAvailable || device.online) {
+                        if (device.lanAvailable) {
+                            BadgeChip(
+                                text = stringResource(R.string.route_lan),
+                                icon = Icons.Default.Wifi,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
+                        if (device.online) {
+                            BadgeChip(
+                                text = stringResource(R.string.device_tag_cloud),
+                                icon = Icons.Default.Cloud,
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            )
+                        }
                     } else {
                         BadgeChip(
                             text = stringResource(R.string.device_tag_offline),
-                            icon = Icons.Default.Devices,
+                            icon = Icons.Default.CloudOff,
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-
-                    if (device.deviceSources.contains("trusted_peer_key")) {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_trusted),
-                            icon = Icons.Default.Verified,
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        )
-                    }
                 }
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp),
+            )
         }
     }
 }
@@ -1121,7 +1127,7 @@ private fun deviceTypeIcon(type: String) =
     when (type.lowercase()) {
         "windows" -> Icons.Default.DesktopWindows
         "macos" -> Icons.Default.LaptopMac
-        "linux" -> Icons.Default.Computer
+        "linux" -> Icons.Default.Terminal
         "android" -> Icons.Default.Android
         "ios" -> Icons.Default.PhoneIphone
         else -> Icons.Default.Devices

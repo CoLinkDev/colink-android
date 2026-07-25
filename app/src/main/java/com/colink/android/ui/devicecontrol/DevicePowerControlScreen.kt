@@ -44,6 +44,7 @@ import com.colink.android.ui.components.isComputerDevice
 @OptIn(ExperimentalLayoutApi::class)
 fun DevicePowerControlCard(
     modifier: Modifier = Modifier,
+    support: SystemControlSupport? = null,
     viewModel: DevicePowerControlViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
@@ -57,7 +58,7 @@ fun DevicePowerControlCard(
     val selectedDevice = remember(availableDevices, selectedDeviceId) {
         availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
     }
-    val support = viewModel.systemControlSupport(selectedDeviceId)
+    val activeSupport = support ?: viewModel.systemControlSupport(selectedDeviceId)
     var pendingAction by remember { mutableStateOf<SystemControlAction?>(null) }
 
 
@@ -91,7 +92,7 @@ fun DevicePowerControlCard(
                 )
             } else {
 
-                if (support == SystemControlSupport.TOO_OLD) {
+                if (activeSupport == SystemControlSupport.TOO_OLD) {
                     StateMessage(
                         text = stringResource(R.string.device_control_unsupported),
                     )
@@ -105,19 +106,19 @@ fun DevicePowerControlCard(
                     PowerActionButton(
                         label = stringResource(R.string.device_power_sleep),
                         icon = Icons.Default.Bedtime,
-                        enabled = selectedDevice != null && !state.submitting && support != SystemControlSupport.TOO_OLD,
+                        enabled = selectedDevice != null && !state.submitting && activeSupport != SystemControlSupport.TOO_OLD,
                         onClick = { pendingAction = SystemControlAction.Sleep },
                     )
                     PowerActionButton(
                         label = stringResource(R.string.device_power_lock),
                         icon = Icons.Default.Lock,
-                        enabled = selectedDevice != null && !state.submitting && support != SystemControlSupport.TOO_OLD,
+                        enabled = selectedDevice != null && !state.submitting && activeSupport != SystemControlSupport.TOO_OLD,
                         onClick = { pendingAction = SystemControlAction.Lock },
                     )
                     PowerActionButton(
                         label = stringResource(R.string.device_power_shutdown),
                         icon = Icons.Default.PowerSettingsNew,
-                        enabled = selectedDevice != null && !state.submitting && support != SystemControlSupport.TOO_OLD,
+                        enabled = selectedDevice != null && !state.submitting && activeSupport != SystemControlSupport.TOO_OLD,
                         destructive = true,
                         onClick = { pendingAction = SystemControlAction.Shutdown },
                     )

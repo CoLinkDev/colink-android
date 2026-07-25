@@ -39,15 +39,16 @@ import kotlin.math.roundToInt
 fun DeviceMediaControlCard(
     hasAvailableDevice: Boolean,
     modifier: Modifier = Modifier,
+    support: SystemControlSupport? = null,
     viewModel: DeviceMediaControlViewModel = hiltViewModel(),
 ) {
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val support = viewModel.mediaControlSupport(selectedDeviceId)
+    val activeSupport = support ?: viewModel.mediaControlSupport(selectedDeviceId)
     val enabled = hasAvailableDevice &&
         selectedDeviceId != null &&
         !state.submitting &&
-        support == SystemControlSupport.SUPPORTED
+        activeSupport == SystemControlSupport.SUPPORTED
     val playing = state.playback == "playing"
 
     Card(
