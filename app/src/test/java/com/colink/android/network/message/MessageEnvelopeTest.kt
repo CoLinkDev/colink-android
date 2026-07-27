@@ -272,6 +272,26 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesDelayedAndCancelledPowerCommands() {
+        val delayed = SystemControlCommandPayload(
+            action = SystemControlAction.Shutdown.wireValue,
+            delay = 30,
+        )
+        val cancelled = SystemControlCommandPayload(
+            action = SystemControlAction.CancelPower.wireValue,
+        )
+
+        assertEquals(
+            """{"action":"shutdown","delay":30}""",
+            json.encodeToString(delayed),
+        )
+        assertEquals(
+            """{"action":"cancel-power"}""",
+            json.encodeToString(cancelled),
+        )
+    }
+
+    @Test
     fun serializesVolumeSystemControlCommand() {
         val envelope = BusinessEnvelope(
             type = SYSTEM_CONTROL_COMMAND_TYPE,

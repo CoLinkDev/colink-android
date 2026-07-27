@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -18,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,8 +64,10 @@ fun DevicePowerControlCard(
     }
     val activeSupport = support ?: viewModel.systemControlSupport(selectedDeviceId)
     var pendingAction by remember { mutableStateOf<SystemControlAction?>(null) }
-
-
+    var delaySeconds by remember(pendingAction) { mutableStateOf("") }
+    val delayedPowerSupport = viewModel.delayedPowerControlSupport(selectedDeviceId)
+    val delay = delaySeconds.toIntOrNull()
+    val delayInputValid = delaySeconds.isBlank() || (delay != null && delay >= 0)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -122,6 +128,14 @@ fun DevicePowerControlCard(
                         destructive = true,
                         onClick = { pendingAction = SystemControlAction.Shutdown },
                     )
+                    if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
+                        PowerActionButton(
+                            label = stringResource(R.string.device_power_cancel_scheduled),
+                            icon = Icons.Default.PowerSettingsNew,
+                            enabled = selectedDevice != null && !state.submitting,
+                            onClick = { pendingAction = SystemControlAction.CancelPower },
+                        )
+                    }
                 }
             }
         }
@@ -129,25 +143,46 @@ fun DevicePowerControlCard(
 
     val action = pendingAction
     if (action != null && selectedDevice != null) {
+        val showDelayInput = action != SystemControlAction.CancelPower && delayedPowerSupport == SystemControlSupport.SUPPORTED
         AlertDialog(
             onDismissRequest = { pendingAction = null },
             title = {
                 Text(stringResource(R.string.device_power_confirm_title, action.label()))
             },
             text = {
-                Text(
-                    stringResource(
-                        R.string.device_power_confirm_body,
-                        action.label(),
-                        selectedDevice.name.ifBlank { selectedDevice.deviceId },
-                    ),
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        stringResource(
+                            R.string.device_power_confirm_body,
+                            action.label(),
+                            selectedDevice.name.ifBlank { selectedDevice.deviceId },
+                        ),
+                    )
+                    if (showDelayInput) {
+                        OutlinedTextField(
+                            value = delaySeconds,
+                            onValueChange = { delaySeconds = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text(stringResource(R.string.device_power_delay_seconds)) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(16.dp),
+                            isError = !delayInputValid,
+                            enabled = !state.submitting,
+                        )
+                    }
+                }
             },
             confirmButton = {
                 TextButton(
+                    enabled = !showDelayInput || delayInputValid,
                     onClick = {
+                        val currentAction = action
+                        val currentDelay = if (showDelayInput) delay else null
                         pendingAction = null
-                        viewModel.send(action)
+                        viewModel.send(currentAction, currentDelay)
                     },
                 ) {
                     Text(action.label())
@@ -199,6 +234,7 @@ private fun SystemControlAction.label(): String =
             SystemControlAction.Sleep -> R.string.device_power_sleep
             SystemControlAction.Shutdown -> R.string.device_power_shutdown
             SystemControlAction.Lock -> R.string.device_power_lock
+            SystemControlAction.CancelPower -> R.string.device_power_cancel_scheduled
             else -> error("Not a power control action")
         },
     )

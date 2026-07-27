@@ -60,6 +60,8 @@
     <string name="device_power_sleep">スリープ</string>
     <string name="device_power_lock">画面ロック</string>
     <string name="device_power_shutdown">シャットダウン</string>
+    <string name="device_power_delay_seconds">遅延（秒）</string>
+    <string name="device_power_cancel_scheduled">予約済みの操作を取り消す</string>
     <string name="device_power_confirm_title">%1$sを確認</string>
     <string name="device_power_confirm_body">%2$sを%1$sしますか？</string>
     <string name="device_power_command_sent">%1$s コマンドを送信しました</string>

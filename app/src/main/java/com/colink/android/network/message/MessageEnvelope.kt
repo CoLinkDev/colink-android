@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.10.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.11.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -380,6 +380,7 @@ enum class SystemControlAction(val wireValue: String) {
     Sleep("sleep"),
     Shutdown("shutdown"),
     Lock("lock"),
+    CancelPower("cancel-power"),
     Play("play"),
     Pause("pause"),
     Next("next"),
@@ -395,6 +396,8 @@ enum class SystemControlAction(val wireValue: String) {
             Shutdown,
             Lock,
             -> 5
+
+            CancelPower -> 11
 
             Play,
             Pause,
@@ -413,6 +416,12 @@ enum class SystemControlAction(val wireValue: String) {
     val requiresTargetMac: Boolean
         get() = this == WakeOnLan
 
+    val supportsDelay: Boolean
+        get() = this in setOf(Sleep, Shutdown, Lock)
+
+    fun minimumBusinessProtocolMinor(delay: Int?): Int =
+        maxOf(minimumBusinessProtocolMinor, if (delay != null) 11 else 0)
+
     companion object {
         fun fromWireValue(value: String): SystemControlAction? =
             entries.firstOrNull { it.wireValue == value }
@@ -422,6 +431,7 @@ enum class SystemControlAction(val wireValue: String) {
 @Serializable
 data class SystemControlCommandPayload(
     val action: String,
+    val delay: Int? = null,
     val volume: Int? = null,
     val targetMac: String? = null,
 )

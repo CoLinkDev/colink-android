@@ -60,6 +60,8 @@
     <string name="device_power_sleep">Ruhezustand</string>
     <string name="device_power_lock">Bildschirm sperren</string>
     <string name="device_power_shutdown">Herunterfahren</string>
+    <string name="device_power_delay_seconds">Verzögerung (Sekunden)</string>
+    <string name="device_power_cancel_scheduled">Geplante Aktion abbrechen</string>
     <string name="device_power_confirm_title">%1$s bestätigen</string>
     <string name="device_power_confirm_body">Befehl %1$s an %2$s senden?</string>
     <string name="device_power_command_sent">Befehl %1$s gesendet</string>

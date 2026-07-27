@@ -76,20 +76,25 @@ class DevicePowerControlViewModel @Inject constructor(
     fun systemControlSupport(deviceId: String?): SystemControlSupport =
         deviceId?.let(connectionManager::systemControlSupport) ?: SystemControlSupport.UNKNOWN
 
-    fun send(action: SystemControlAction) {
+    fun delayedPowerControlSupport(deviceId: String?): SystemControlSupport =
+        deviceId?.let(connectionManager::delayedPowerControlSupport)
+            ?: SystemControlSupport.UNKNOWN
+
+    fun send(action: SystemControlAction, delay: Int? = null) {
         val targetDeviceId = _selectedDeviceId.value ?: return
         if (_uiState.value.submitting) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(submitting = true, error = null, sentAction = null) }
-            connectionManager.sendSystemControl(targetDeviceId, action)
+            connectionManager.sendSystemControl(targetDeviceId, action, delay = delay)
                 .onSuccess {
                     viewModelScope.launch(Dispatchers.Main) {
                         val labelRes = when (action) {
                             SystemControlAction.Sleep -> R.string.device_power_sleep
                             SystemControlAction.Shutdown -> R.string.device_power_shutdown
                             SystemControlAction.Lock -> R.string.device_power_lock
+                            SystemControlAction.CancelPower -> R.string.device_power_cancel_scheduled
                             else -> error("Not a power control action")
                         }
                         val label = localizedContext().getString(labelRes)

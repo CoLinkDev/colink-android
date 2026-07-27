@@ -542,7 +542,11 @@ class ConnectionManager @Inject constructor(
         action: SystemControlAction,
         volume: Int? = null,
         targetMac: String? = null,
+        delay: Int? = null,
     ): Result<Unit> {
+        require(delay == null || (action.supportsDelay && delay >= 0)) {
+            "Delay must be a non-negative value only for sleep, shutdown, or lock"
+        }
         require(action.requiresVolume == (volume != null)) {
             "Volume must be present only for set-volume"
         }
@@ -555,7 +559,7 @@ class ConnectionManager @Inject constructor(
         require(targetMac == null || isValidWakeOnLanMac(targetMac)) {
             "Target MAC must use XX:XX:XX:XX:XX:XX format"
         }
-        if (systemControlSupport(targetDeviceId, action) == SystemControlSupport.TOO_OLD) {
+        if (systemControlSupport(targetDeviceId, action, delay) == SystemControlSupport.TOO_OLD) {
             return Result.failure(SystemControlUnsupportedException())
         }
         return sendBusinessMessage(
@@ -565,6 +569,7 @@ class ConnectionManager @Inject constructor(
                 payload = json.encodeToJsonElement(
                     SystemControlCommandPayload(
                         action = action.wireValue,
+                        delay = delay,
                         volume = volume,
                         targetMac = targetMac,
                     ),
@@ -917,6 +922,10 @@ class ConnectionManager @Inject constructor(
         return systemControlSupport(deviceId, SystemControlAction.WakeOnLan)
     }
 
+    fun delayedPowerControlSupport(deviceId: String): SystemControlSupport {
+        return systemControlSupport(deviceId, SystemControlAction.CancelPower)
+    }
+
     fun remoteCameraSupport(deviceId: String): RemoteCameraSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return RemoteCameraSupport.UNKNOWN
         return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 10)) {
@@ -947,13 +956,14 @@ class ConnectionManager @Inject constructor(
     private fun systemControlSupport(
         deviceId: String,
         action: SystemControlAction,
+        delay: Int? = null,
     ): SystemControlSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
         return if (
             supportsBusinessProtocolAtLeast(
                 peerVersion,
                 major = 1,
-                minor = action.minimumBusinessProtocolMinor,
+                minor = action.minimumBusinessProtocolMinor(delay),
             )
         ) {
             SystemControlSupport.SUPPORTED
@@ -966,8 +976,9 @@ class ConnectionManager @Inject constructor(
         deviceId: String,
         message: BusinessEnvelope,
     ) {
-        val action = systemControlAction(message) ?: return
-        if (systemControlSupport(deviceId, action) != SystemControlSupport.SUPPORTED) {
+        val payload = systemControlPayload(message) ?: return
+        val action = SystemControlAction.fromWireValue(payload.action) ?: return
+        if (systemControlSupport(deviceId, action, payload.delay) != SystemControlSupport.SUPPORTED) {
             throw SystemControlUnsupportedException()
         }
     }
@@ -1389,19 +1400,19 @@ class ConnectionManager @Inject constructor(
         deviceId: String,
         message: BusinessEnvelope,
     ): Boolean =
-        systemControlAction(message)?.let { action ->
-            systemControlSupport(deviceId, action) == SystemControlSupport.SUPPORTED
+        systemControlPayload(message)?.let { payload ->
+            SystemControlAction.fromWireValue(payload.action)?.let { action ->
+                systemControlSupport(deviceId, action, payload.delay) == SystemControlSupport.SUPPORTED
+            }
         } == true
 
     private fun supportsSystemControlQueryMessage(deviceId: String): Boolean =
         systemControlQuerySupport(deviceId) == SystemControlSupport.SUPPORTED
 
-    private fun systemControlAction(message: BusinessEnvelope): SystemControlAction? =
+    private fun systemControlPayload(message: BusinessEnvelope): SystemControlCommandPayload? =
         runCatching {
             json.decodeFromJsonElement(SystemControlCommandPayload.serializer(), message.payload)
-        }.getOrNull()?.let { payload ->
-            SystemControlAction.fromWireValue(payload.action)
-        }
+        }.getOrNull()
 
     private suspend fun requestSystemControlState(
         deviceId: String,

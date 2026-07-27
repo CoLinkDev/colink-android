@@ -60,6 +60,8 @@
     <string name="device_power_sleep">Suspender</string>
     <string name="device_power_lock">Bloquear pantalla</string>
     <string name="device_power_shutdown">Apagar</string>
+    <string name="device_power_delay_seconds">Retraso (segundos)</string>
+    <string name="device_power_cancel_scheduled">Cancelar acción programada</string>
     <string name="device_power_confirm_title">Confirmar %1$s</string>
     <string name="device_power_confirm_body">¿Enviar el comando %1$s a %2$s?</string>
     <string name="device_power_command_sent">Comando %1$s enviado</string>

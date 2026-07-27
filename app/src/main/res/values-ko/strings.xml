@@ -60,6 +60,8 @@
     <string name="device_power_sleep">절전</string>
     <string name="device_power_lock">화면 잠금</string>
     <string name="device_power_shutdown">종료</string>
+    <string name="device_power_delay_seconds">지연 시간(초)</string>
+    <string name="device_power_cancel_scheduled">예약된 작업 취소</string>
     <string name="device_power_confirm_title">%1$s 확인</string>
     <string name="device_power_confirm_body">%2$s을(를) %1$s하시겠습니까?</string>
     <string name="device_power_command_sent">%1$s 명령을 보냈습니다</string>
