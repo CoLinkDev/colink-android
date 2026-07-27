@@ -41,7 +41,7 @@ class CloudWebSocketClient @Inject constructor(
                     }.onFailure { error ->
                         CoLinkLog.w("Cloud", "failed to decode cloud websocket message", error)
                     }.getOrNull() ?: return
-                    listener.onMessage(message)
+                    listener.onMessage(webSocket, message)
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -58,8 +58,13 @@ class CloudWebSocketClient @Inject constructor(
     }
 
     fun send(envelope: CloudClientEnvelope): Boolean {
+        val socket = webSocket ?: return false
+        return send(socket, envelope)
+    }
+
+    fun send(webSocket: WebSocket, envelope: CloudClientEnvelope): Boolean {
         val payload = json.encodeToString(envelope)
-        val sent = webSocket?.send(payload) ?: false
+        val sent = webSocket.send(payload)
         if (!sent) {
             CoLinkLog.w("Cloud", "cloud websocket send failed type=${envelope.type}")
         }
@@ -77,7 +82,7 @@ class CloudWebSocketClient @Inject constructor(
     interface Listener {
         fun onOpen()
 
-        fun onMessage(message: CloudServerEnvelope)
+        fun onMessage(webSocket: WebSocket, message: CloudServerEnvelope)
 
         fun onClosed(reason: String?)
     }

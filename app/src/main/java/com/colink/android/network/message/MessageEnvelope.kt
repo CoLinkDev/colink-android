@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.2.0"
 const val BUSINESS_PROTOCOL_VERSION = "1.11.0"
+const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
@@ -213,6 +214,32 @@ data class DeviceOnlinePayload(
     val name: String,
     @SerialName("type") val type: String,
     val businessVersion: String,
+    val wsVersion: String? = null,
+)
+
+@Serializable
+data class PushNotificationPayload(
+    val title: String? = null,
+    val subtitle: String? = null,
+    val body: String? = null,
+    val markdown: String? = null,
+    val level: String? = null,
+    val volume: Int? = null,
+    val badge: Int? = null,
+    val sound: String? = null,
+    val icon: String? = null,
+    val image: String? = null,
+    val group: String? = null,
+    val url: String? = null,
+    val copy: String? = null,
+    val autoCopy: Boolean? = null,
+    val call: Boolean? = null,
+    val isArchive: Boolean? = null,
+    val ttl: Int? = null,
+    val id: String? = null,
+    val delete: Boolean? = null,
+    val action: String? = null,
+    val ciphertext: String? = null,
 )
 
 @Serializable

@@ -4,9 +4,12 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -14,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.colink.android.MainActivity
 import com.colink.android.R
 import com.colink.android.domain.model.LanPairingRequest
+import com.colink.android.network.message.PushNotificationPayload
 import com.colink.android.notification.ACTION_FILE_TRANSFER_ACCEPT
 import com.colink.android.notification.ACTION_FILE_TRANSFER_REJECT
 import com.colink.android.notification.ACTION_LAN_PAIRING_ACCEPT
@@ -69,6 +73,50 @@ class CoLinkNotifier @Inject constructor(
             .build()
         NotificationManagerCompat.from(context).notify(uniqueNotificationId(), notification)
         CoLinkLog.d("Notification", "posted event notification title=$title")
+    }
+
+    suspend fun notifyPush(payload: PushNotificationPayload) {
+        val requestedId = payload.id?.trim()?.takeIf { it.isNotEmpty() }
+        if (payload.delete == true) {
+            if (requestedId == null) {
+                CoLinkLog.w("Notification", "ignored push deletion without an id")
+                return
+            }
+            NotificationManagerCompat.from(context).cancel(pushNotificationId(requestedId))
+            CoLinkLog.d("Notification", "cancelled push notification id=$requestedId")
+            return
+        }
+
+        val title = payload.title?.trim()?.takeIf { it.isNotEmpty() } ?: "CoLink"
+        val body = payload.markdown ?: payload.body ?: payload.subtitle.orEmpty()
+        if (payload.autoCopy == true) {
+            val content = payload.copy ?: body
+            if (content.isNotEmpty()) {
+                context.getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText("CoLink push", content))
+            }
+        }
+
+        ensureEventChannel()
+        if (!canNotify("push")) {
+            return
+        }
+        val notificationId = requestedId?.let(::pushNotificationId) ?: uniqueNotificationId()
+        val builder = NotificationCompat.Builder(context, EVENT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_logo)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(pushContentIntent(payload.url, notificationId))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(pushPriority(payload.level))
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+        payload.group?.trim()?.takeIf { it.isNotEmpty() }?.let(builder::setGroup)
+        payload.badge?.takeIf { it >= 0 }?.let(builder::setNumber)
+        val notification = builder.build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+        CoLinkLog.d("Notification", "posted push notification id=${requestedId ?: notificationId}")
     }
 
     suspend fun notifyMessageReceived(deviceId: String, deviceName: String, text: String) {
@@ -257,13 +305,45 @@ class CoLinkNotifier @Inject constructor(
         )
     }
 
+    private fun pushContentIntent(url: String?, notificationId: Int): PendingIntent {
+        val target = url?.trim()?.takeIf { it.isNotEmpty() }?.let(Uri::parse)
+        val intent = if (target == null) {
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                action = ACTION_OPEN_MAIN
+            }
+        } else {
+            Intent(Intent.ACTION_VIEW, target).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+        }
+        return PendingIntent.getActivity(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun pushPriority(level: String?): Int = when (level?.lowercase()) {
+        "critical" -> NotificationCompat.PRIORITY_MAX
+        "timesensitive" -> NotificationCompat.PRIORITY_HIGH
+        "passive" -> NotificationCompat.PRIORITY_LOW
+        else -> NotificationCompat.PRIORITY_DEFAULT
+    }
+
     private fun fileOfferNotificationId(sessionId: String): Int =
         FILE_OFFER_NOTIFICATION_ID_BASE + (sessionId.hashCode() and 0x7fffffff)
+
+    private fun pushNotificationId(id: String): Int =
+        PUSH_NOTIFICATION_ID_BASE + (id.hashCode() and PUSH_NOTIFICATION_ID_MASK)
 
     private fun uniqueNotificationId(): Int =
         (System.currentTimeMillis() and 0x7fffffff).toInt()
 
     companion object {
         private const val FILE_OFFER_NOTIFICATION_ID_BASE = 3000
+        private const val PUSH_NOTIFICATION_ID_BASE = 500_000_000
+        private const val PUSH_NOTIFICATION_ID_MASK = 0x1fffffff
     }
 }

@@ -34,10 +34,12 @@ import com.colink.android.network.camera.EncodedCameraFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
+import com.colink.android.network.message.CLOUD_WEBSOCKET_PROTOCOL_VERSION
 import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
 import com.colink.android.network.message.CloudClientEnvelope
 import com.colink.android.network.message.CloudServerEnvelope
 import com.colink.android.network.message.DeviceOnlinePayload
+import com.colink.android.network.message.PushNotificationPayload
 import com.colink.android.network.message.FILE_ACCEPT_TYPE
 import com.colink.android.network.message.FILE_ACK_TYPE
 import com.colink.android.network.message.FILE_CANCEL_TYPE
@@ -184,6 +186,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToJsonElement
+import okhttp3.WebSocket
 
 private const val MAX_TEXT_LENGTH = 10_000
 private const val FILE_ACK_INTERVAL_CHUNKS = 7L
@@ -3155,9 +3158,9 @@ class ConnectionManager @Inject constructor(
                         }
                     }
 
-                    override fun onMessage(message: CloudServerEnvelope) {
+                    override fun onMessage(webSocket: WebSocket, message: CloudServerEnvelope) {
                         CoLinkLog.d("Cloud", "received cloud message type=${message.type} from=${CoLinkLog.shortId(message.from)}")
-                        scope.launch { handleCloudMessage(message) }
+                        scope.launch { handleCloudMessage(webSocket, message) }
                     }
 
                     override fun onClosed(reason: String?) {
@@ -3193,7 +3196,7 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private suspend fun handleCloudMessage(message: CloudServerEnvelope) {
+    private suspend fun handleCloudMessage(webSocket: WebSocket, message: CloudServerEnvelope) {
         when (message.type) {
             "device.online" -> {
                 val payload = rememberCloudBusinessVersion(message)
@@ -3224,7 +3227,27 @@ class ConnectionManager @Inject constructor(
                 }.getOrNull() ?: return
                 saveInboundBusinessMessage(from, message.id, message.correlationId, business, "cloud")
             }
+            "notification.push" -> handleCloudPush(webSocket, message)
         }
+    }
+
+    private suspend fun handleCloudPush(webSocket: WebSocket, message: CloudServerEnvelope) {
+        val pushId = message.id ?: return
+        val payload = message.payload ?: return
+        val notification = runCatching {
+            json.decodeFromJsonElement(PushNotificationPayload.serializer(), payload)
+        }.onFailure { error ->
+            CoLinkLog.w("Cloud", "failed to decode cloud push notification", error)
+        }.getOrNull() ?: return
+        notifier.notifyPush(notification)
+        cloudWebSocketClient.send(
+            webSocket,
+            CloudClientEnvelope(
+                id = UUID.randomUUID().toString(),
+                type = "notification.push-ack",
+                correlationId = pushId,
+            ),
+        )
     }
 
     private fun rememberCloudBusinessVersion(message: CloudServerEnvelope): DeviceOnlinePayload? {
@@ -3264,7 +3287,8 @@ class ConnectionManager @Inject constructor(
             ?: ""
         val encodedTicket = URLEncoder.encode(ticket, Charsets.UTF_8.name())
         val encodedBusinessVersion = URLEncoder.encode(BUSINESS_PROTOCOL_VERSION, Charsets.UTF_8.name())
-        return "$scheme://${uri.rawAuthority}$basePath/ws/v1?ticket=$encodedTicket&businessVersion=$encodedBusinessVersion"
+        val encodedWsVersion = URLEncoder.encode(CLOUD_WEBSOCKET_PROTOCOL_VERSION, Charsets.UTF_8.name())
+        return "$scheme://${uri.rawAuthority}$basePath/ws/v1?ticket=$encodedTicket&businessVersion=$encodedBusinessVersion&wsVersion=$encodedWsVersion"
     }
 
     private fun backoffDelay(attempt: Int): Long =
