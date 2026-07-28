@@ -14,14 +14,17 @@ import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import retrofit2.HttpException
 
 private const val LEGACY_ACCESS_TOKEN_TTL_MILLIS = 15 * 60 * 1000L
 private const val LONG_ACCESS_TOKEN_REFRESH_BUFFER_MILLIS = 60 * 60 * 1000L
 private const val SHORT_ACCESS_TOKEN_REFRESH_PERCENT = 90L
+private const val REMOTE_LOGOUT_TIMEOUT_MILLIS = 3_000L
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -30,6 +33,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val deviceRepository: DeviceRepository,
 ) : AuthRepository {
     private val refreshMutex = Mutex()
+    private val sessionMutex = Mutex()
 
     override val session: Flow<Session?> = settingsDataStore.session
 
@@ -47,8 +51,9 @@ class AuthRepositoryImpl @Inject constructor(
                 url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/me"),
                 authorization = bearer(session.accessToken),
             ).requireData()
-            settingsDataStore.saveSession(
-                session.copy(
+            saveSessionIfCurrent(
+                expected = session,
+                updated = session.copy(
                     username = profile.username,
                     email = profile.email,
                 ),
@@ -79,18 +84,13 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout(): Result<Unit> =
         runCatching {
-            val session = settingsDataStore.currentSession()
-            if (session != null) {
-                runCatching {
-                    authApi.logout(
-                        url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/auth/logout"),
-                        authorization = bearer(session.accessToken),
-                        request = LogoutRequestDto(session.refreshToken),
-                    )
-                }
+            val session = sessionMutex.withLock {
+                settingsDataStore.currentSession().also { settingsDataStore.clearSession() }
             }
-            settingsDataStore.clearSession()
             deviceRepository.clearCloudTrust().getOrThrow()
+            if (session != null) {
+                revokeSessionBestEffort(session)
+            }
         }
 
     override suspend fun currentSession(): Result<Session> =
@@ -117,14 +117,19 @@ class AuthRepositoryImpl @Inject constructor(
                     )
                     .requireData()
                 val timing = sessionTiming(response.expiresIn)
-                Session(
+                val refreshedSession = Session(
                     userId = latest.userId,
                     accessToken = response.token,
                     refreshToken = response.refreshToken,
                     accessTokenExpiresAt = timing.expiresAt,
                     accessTokenRefreshAt = timing.refreshAt,
                     email = latest.email,
-                ).also { settingsDataStore.saveSession(it) }
+                )
+                sessionMutex.withLock {
+                    check(isCurrentSession(latest)) { "not logged in" }
+                    settingsDataStore.saveSession(refreshedSession)
+                }
+                refreshedSession
             }
         }
 
@@ -153,8 +158,37 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     private suspend fun clearCloudSession() {
-        settingsDataStore.clearSession()
+        sessionMutex.withLock {
+            settingsDataStore.clearSession()
+        }
         deviceRepository.clearCloudTrust().getOrThrow()
+    }
+
+    private suspend fun saveSessionIfCurrent(expected: Session, updated: Session) {
+        sessionMutex.withLock {
+            if (isCurrentSession(expected)) {
+                settingsDataStore.saveSession(updated)
+            }
+        }
+    }
+
+    private suspend fun isCurrentSession(expected: Session): Boolean =
+        settingsDataStore.currentSession()?.let { current ->
+            current.userId == expected.userId && current.refreshToken == expected.refreshToken
+        } == true
+
+    private suspend fun revokeSessionBestEffort(session: Session) {
+        withTimeoutOrNull(REMOTE_LOGOUT_TIMEOUT_MILLIS) {
+            try {
+                authApi.logout(
+                    url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/auth/logout"),
+                    authorization = bearer(session.accessToken),
+                    request = LogoutRequestDto(session.refreshToken),
+                )
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+            }
+        }
     }
 
     private fun isAuthError(error: Throwable): Boolean =

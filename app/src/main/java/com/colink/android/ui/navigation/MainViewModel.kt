@@ -87,8 +87,8 @@ class MainViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch(Dispatchers.IO) {
-            authRepository.logout()
             connectionManager.stopCloud()
+            authRepository.logout()
         }
     }
 
