@@ -306,4 +306,9 @@
     <string name="status_failed">失敗</string>
     <string name="status_rejected">已拒絕</string>
     <string name="status_cancelled">已取消</string>
+    <string name="pair_qr_scan">掃描配對 QR Code</string>
+    <string name="pair_qr_show">顯示配對 QR Code</string>
+    <string name="pair_qr_title">配對 QR Code</string>
+    <string name="pair_qr_description">使用另一台裝置掃描此 QR Code 以配對。</string>
+    <string name="pair_qr_scanner_unavailable">無法啟動 QR Code 掃描器。</string>
 </resources>

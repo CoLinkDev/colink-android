@@ -28,6 +28,7 @@ import com.colink.android.network.message.checkLanProtocolVersion
 import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
+import com.colink.android.network.message.supportsLanPairString
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
@@ -69,6 +70,7 @@ class LanWebSocketClient @Inject constructor(
         const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
         const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
         const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
+        const val REASON_PAIRING_IDENTITY_MISMATCH = "colink:pairing.identity_mismatch.v1"
         const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
         const val REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "colink:key_exchange.timestamp_expired.v1"
         const val REASON_KEY_EXCHANGE_GENERIC = "colink:key_exchange.generic.v1"
@@ -91,6 +93,7 @@ class LanWebSocketClient @Inject constructor(
         ip: String,
         port: Int,
         allowPairing: Boolean,
+        pairString: ParsedPairString? = null,
         listener: Listener,
     ) {
         if (peers.containsKey(deviceId) || !connectingPeers.add(deviceId)) {
@@ -101,7 +104,13 @@ class LanWebSocketClient @Inject constructor(
             request,
             object : WebSocketListener() {
                 private val messages = Channel<Pair<WebSocket, String>>(Channel.UNLIMITED)
-                private val state = ClientPeerState(identity, expectedDeviceId = deviceId, allowPairing = allowPairing, initiator = true)
+                private val state = ClientPeerState(
+                    identity,
+                    expectedDeviceId = deviceId,
+                    allowPairing = allowPairing,
+                    initiator = true,
+                    pairString = pairString,
+                )
                 private var connected = false
                 private var failureReported = false
                 private var timeoutJob: Job? = null
@@ -380,7 +389,12 @@ class LanWebSocketClient @Inject constructor(
                         state.identity,
                         state.expectedDeviceId,
                         "pairing.v1.request",
-                        PairingIdentityPayload(state.identity.publicKey, state.identity.name, state.localNonce!!),
+                        PairingIdentityPayload(
+                            state.identity.publicKey,
+                            state.identity.name,
+                            state.localNonce!!,
+                            pairString = state.pairString?.raw?.takeIf { state.supportsPairString },
+                        ),
                         sequence = state.sequence,
                     )
                 }
@@ -390,6 +404,24 @@ class LanWebSocketClient @Inject constructor(
                         json.decodeFromJsonElement(PairingIdentityPayload.serializer(), envelope.payload)
                     }.getOrNull() ?: return
                     state.receivePairingPeer(payload.publicKey, payload.name, payload.nonce)
+                    val pairString = state.pairString
+                    if (pairString != null && state.supportsPairString) {
+                        if (state.peerId != pairString.deviceId || !samePublicKey(payload.publicKey, pairString.publicKey)) {
+                            state.rejectPairing()
+                            sendLanMessage(
+                                webSocket,
+                                state.identity,
+                                state.expectedDeviceId,
+                                "pairing.v1.reject",
+                                LanRejectPayload(REASON_PAIRING_IDENTITY_MISMATCH, "Receiver identity does not match the pair string"),
+                                envelope.id,
+                                sequence = state.sequence,
+                            )
+                            return
+                        }
+                        state.validatePairString()
+                        return
+                    }
                     val decision = pairingCoordinator.request(
                         deviceId = state.expectedDeviceId,
                         name = payload.name,
@@ -405,6 +437,12 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 private suspend fun handlePairingConfirm(webSocket: WebSocket, state: ClientPeerState, envelope: LanEnvelope) {
+                    if (state.pairString != null && state.supportsPairString && !state.pairStringValidated) {
+                        return
+                    }
+                    if (state.pairingRejected) {
+                        return
+                    }
                     val publicKey = state.peerPublicKey ?: return
                     val name = state.peerName ?: state.expectedDeviceId
                     lanTrustStore.trust(state.expectedDeviceId, name, publicKey)
@@ -961,6 +999,7 @@ private class ClientPeerState(
     val expectedDeviceId: String,
     val allowPairing: Boolean,
     val initiator: Boolean,
+    val pairString: ParsedPairString? = null,
     val sequence: LanSequence = LanSequence(),
 ) {
     var helloReceived = false
@@ -1021,6 +1060,10 @@ private class ClientPeerState(
         private set
     var pairingComplete = false
         private set
+    var pairStringValidated = false
+        private set
+    var pairingRejected = false
+        private set
 
     fun receiveHello(deviceId: String, protocolVersion: String) {
         peerId = deviceId
@@ -1046,6 +1089,8 @@ private class ClientPeerState(
         peerNonce = nonce
     }
     fun setPairingRequest(requestId: String?) { pairingRequestId = requestId }
+    fun validatePairString() { pairStringValidated = true }
+    fun rejectPairing() { pairingRejected = true }
     fun completePairing() {
         pairingRequestId = null
         pairingComplete = true
@@ -1075,6 +1120,9 @@ private class ClientPeerState(
     val requiresKeyExchangeNonce: Boolean
         get() = peerProtocolVersion?.let(::supportsLanKeyExchangeNonce) == true
 
+    val supportsPairString: Boolean
+        get() = peerProtocolVersion?.let(::supportsLanPairString) == true
+
     val keyExchangeNonceReady: Boolean
         get() = !requiresKeyExchangeNonce || (sentKeyExchangeNonce && peerKeyExchangeNonce != null)
 
@@ -1093,6 +1141,10 @@ private fun randomKeyExchangeNonce(): String {
     SecureRandom().nextBytes(bytes)
     return Base64.getEncoder().encodeToString(bytes)
 }
+
+private fun samePublicKey(left: String, right: String): Boolean = runCatching {
+    java.security.MessageDigest.isEqual(Base64.getDecoder().decode(left), Base64.getDecoder().decode(right))
+}.getOrDefault(false)
 
 private data class ClientPeerConnection(
     val webSocket: WebSocket,

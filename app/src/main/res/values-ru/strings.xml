@@ -306,4 +306,9 @@
     <string name="status_failed">Ошибка</string>
     <string name="status_rejected">Отклонено</string>
     <string name="status_cancelled">Отменено</string>
+    <string name="pair_qr_scan">Сканировать QR-код сопряжения</string>
+    <string name="pair_qr_show">Показать QR-код сопряжения</string>
+    <string name="pair_qr_title">QR-код сопряжения</string>
+    <string name="pair_qr_description">Используйте другое устройство, чтобы отсканировать этот QR-код и выполнить сопряжение.</string>
+    <string name="pair_qr_scanner_unavailable">Не удалось запустить сканер QR-кодов.</string>
 </resources>

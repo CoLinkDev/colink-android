@@ -18,4 +18,5 @@
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowIsFloating">false</item>
     </style>
+
 </resources>

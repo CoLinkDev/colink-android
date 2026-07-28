@@ -26,6 +26,7 @@ import com.colink.android.network.lan.LanSwimClient
 import com.colink.android.network.lan.LanTrustStore
 import com.colink.android.network.lan.LanWebSocketServer
 import com.colink.android.network.lan.NsdDiscovery
+import com.colink.android.network.lan.PairStringStore
 import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.filesystem.LocalFilesystem
 import com.colink.android.network.filesystem.LocalFilesystemException
@@ -320,6 +321,7 @@ class ConnectionManager @Inject constructor(
     private val settingsDataStore: SettingsDataStore,
     private val lanWebSocketClient: LanWebSocketClient,
     private val lanWebSocketServer: LanWebSocketServer,
+    private val pairStringStore: PairStringStore,
     private val lanSwimClient: LanSwimClient,
     private val lanTrustStore: LanTrustStore,
     private val nsdDiscovery: NsdDiscovery,
@@ -2454,6 +2456,33 @@ class ConnectionManager @Inject constructor(
                 listener = lanClientListener,
             )
         }
+    }
+
+    suspend fun createPairString(): Result<String> = runCatching {
+        val identity = deviceRepository.localDeviceIdentity()
+            ?: error("Local device identity is unavailable")
+        lanWebSocketServer.createPairString(identity)
+    }
+
+    suspend fun startPairStringPairing(value: String): Result<Unit> = runCatching {
+        val pairString = pairStringStore.parse(value)
+        val identity = deviceRepository.localDeviceIdentity()
+            ?: error("Local device identity is unavailable")
+        val candidate = _lanPairingCandidates.value
+            .firstOrNull { it.deviceId == pairString.deviceId }
+            ?: error("The device for this pair string is not available on the local network")
+        synchronized(lanPeerLock) {
+            devicePageLanConnections.add(candidate.deviceId)
+        }
+        lanWebSocketClient.connect(
+            identity = identity,
+            deviceId = candidate.deviceId,
+            ip = candidate.ip,
+            port = candidate.port,
+            allowPairing = true,
+            pairString = pairString,
+            listener = lanClientListener,
+        )
     }
 
     fun cancelLanPairing(deviceId: String) {

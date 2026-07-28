@@ -306,4 +306,9 @@
     <string name="status_failed">Fallido</string>
     <string name="status_rejected">Rechazado</string>
     <string name="status_cancelled">Cancelado</string>
+    <string name="pair_qr_scan">Escanear código QR de emparejamiento</string>
+    <string name="pair_qr_show">Mostrar código QR de emparejamiento</string>
+    <string name="pair_qr_title">Código QR de emparejamiento</string>
+    <string name="pair_qr_description">Usa otro dispositivo para escanear este código QR y emparejarlo.</string>
+    <string name="pair_qr_scanner_unavailable">No se puede iniciar el escáner de códigos QR.</string>
 </resources>

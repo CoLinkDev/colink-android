@@ -31,6 +31,7 @@ import com.colink.android.network.message.checkLanProtocolVersion
 import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
+import com.colink.android.network.message.supportsLanPairString
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
@@ -107,6 +108,7 @@ class LanWebSocketServer @Inject constructor(
     private val lanSwimClient: LanSwimClient,
     private val lanTrustStore: LanTrustStore,
     private val pairingCoordinator: LanPairingCoordinator,
+    private val pairStringStore: PairStringStore,
 ) {
     private val peers = ConcurrentHashMap<String, ServerPeerConnection>()
     private val transferTokens = ConcurrentHashMap<String, String>()
@@ -165,11 +167,14 @@ class LanWebSocketServer @Inject constructor(
         cameraConnections.clear()
         cameraSenders.values.forEach { it.close() }
         cameraSenders.clear()
+        pairStringStore.clear()
         CoLinkLog.i("LAN", "LAN server stopped")
     }
 
     @Synchronized
     fun isRunning(): Boolean = engine != null
+
+    fun createPairString(identity: DeviceIdentity): String = pairStringStore.issue(identity)
 
     private fun createEngine(port: Int): ApplicationEngine =
         embeddedServer(CIO, host = "0.0.0.0", port = port) {
@@ -328,6 +333,7 @@ class LanWebSocketServer @Inject constructor(
                 listener?.onMessage(ready.peerId, envelope.id, envelope.correlationId, message)
             }
         } finally {
+            state.pairStringToken?.let(pairStringStore::cancel)
             keepaliveJob?.cancel()
             connectedPeerId?.let {
                 peers.remove(it)
@@ -403,6 +409,7 @@ class LanWebSocketServer @Inject constructor(
                         json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
                     }.getOrNull() ?: continue
                     state.pairingRequestId?.let { pairingCoordinator.fail(it, rejection.message.ifBlank { rejection.reason }) }
+                    state.pairStringToken?.let(pairStringStore::cancel)
                     continue
                 }
                 "business.v1.version" -> handleBusinessVersion(session, state, envelope)
@@ -498,6 +505,42 @@ class LanWebSocketServer @Inject constructor(
             request.nonce,
             UUID.randomUUID().toString().replace("-", ""),
         )
+        if (request.pairString != null && state.supportsPairString) {
+            val pairString = runCatching { pairStringStore.reserve(request.pairString, state.identity) }
+                .getOrElse { error ->
+                    val failure = error as? PairStringException
+                    session.sendLanMessage(
+                        state.identity,
+                        peerId,
+                        "pairing.v1.reject",
+                        LanRejectPayload(
+                            failure?.reason ?: REASON_PAIR_STRING_INVALID,
+                            failure?.message ?: "Pair string is invalid",
+                        ),
+                        envelope.id,
+                        state.sequence,
+                    )
+                    return
+                }
+            state.setPairStringToken(pairString.token)
+            session.sendLanMessage(
+                state.identity,
+                peerId,
+                "pairing.v1.exchange",
+                PairingIdentityPayload(state.identity.publicKey, state.identity.name, state.localNonce!!),
+                envelope.id,
+                state.sequence,
+            )
+            session.sendLanMessage(
+                state.identity,
+                peerId,
+                "pairing.v1.confirm",
+                EmptyPayload,
+                envelope.id,
+                state.sequence,
+            )
+            return
+        }
         session.sendLanMessage(
             state.identity,
             peerId,
@@ -528,6 +571,7 @@ class LanWebSocketServer @Inject constructor(
         val name = state.peerName ?: peerId
         lanTrustStore.trust(peerId, name, publicKey)
         state.pairingRequestId?.let { pairingCoordinator.complete(it) }
+        state.pairStringToken?.let(pairStringStore::consume)
         state.completePairing()
     }
 
@@ -1113,6 +1157,8 @@ private class ServerPeerState(
         private set
     var pairingRequestId: String? = null
         private set
+    var pairStringToken: String? = null
+        private set
     var pairingComplete = false
         private set
 
@@ -1145,6 +1191,7 @@ private class ServerPeerState(
         this.localNonce = localNonce
     }
     fun setPairingRequest(requestId: String?) { pairingRequestId = requestId }
+    fun setPairStringToken(token: String?) { pairStringToken = token }
     fun completePairing() {
         pairingRequestId = null
         pairingComplete = true
@@ -1172,6 +1219,9 @@ private class ServerPeerState(
 
     val requiresKeyExchangeNonce: Boolean
         get() = peerProtocolVersion?.let(::supportsLanKeyExchangeNonce) == true
+
+    val supportsPairString: Boolean
+        get() = peerProtocolVersion?.let(::supportsLanPairString) == true
 
     val keyExchangeNonceReady: Boolean
         get() = !requiresKeyExchangeNonce || (sentKeyExchangeNonce && peerKeyExchangeNonce != null)

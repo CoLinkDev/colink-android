@@ -151,6 +151,8 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.retrofit)
     implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.google.code.scanner)
+    implementation(libs.zxing.core)
 
     ksp(libs.androidx.room.compiler)
     ksp(libs.hilt.compiler)

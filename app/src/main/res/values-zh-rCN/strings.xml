@@ -306,4 +306,9 @@
     <string name="status_failed">失败</string>
     <string name="status_rejected">已拒绝</string>
     <string name="status_cancelled">已取消</string>
+    <string name="pair_qr_scan">扫描配对二维码</string>
+    <string name="pair_qr_show">显示配对二维码</string>
+    <string name="pair_qr_title">配对二维码</string>
+    <string name="pair_qr_description">使用另一台设备扫描此二维码以配对。</string>
+    <string name="pair_qr_scanner_unavailable">无法启动二维码扫描器。</string>
 </resources>

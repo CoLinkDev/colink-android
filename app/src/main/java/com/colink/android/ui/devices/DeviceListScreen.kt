@@ -1,7 +1,9 @@
 package com.colink.android.ui.devices
 
+import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,6 +32,8 @@ import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
@@ -40,6 +44,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,7 +55,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +71,12 @@ import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
+import com.google.android.gms.tasks.OnFailureListener
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +92,15 @@ fun DeviceListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val pairStringScanner = remember(context) {
+        GmsBarcodeScanning.getClient(
+            context,
+            GmsBarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                .enableAutoZoom()
+                .build(),
+        )
+    }
     val sortedDevices = remember(devices, uiState.localDeviceId) {
         devices.sortedWith(
             compareBy<Device> {
@@ -124,6 +146,38 @@ fun DeviceListScreen(
             devices.size
         ),
         modifier = modifier,
+        action = {
+            Row {
+                IconButton(
+                    onClick = {
+                        pairStringScanner.startScan()
+                            .addOnSuccessListener { barcode ->
+                                barcode.rawValue?.let(viewModel::startPairStringPairing)
+                            }
+                            .addOnFailureListener(
+                                OnFailureListener {
+                                    Toast.makeText(
+                                        context,
+                                        R.string.pair_qr_scanner_unavailable,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                },
+                            )
+                    },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = stringResource(R.string.pair_qr_scan),
+                    )
+                }
+                IconButton(onClick = viewModel::createPairString) {
+                    Icon(
+                        imageVector = Icons.Default.QrCode,
+                        contentDescription = stringResource(R.string.pair_qr_show),
+                    )
+                }
+            }
+        },
     ) {
         PullToRefreshBox(
             isRefreshing = uiState.loading,
@@ -227,6 +281,44 @@ fun DeviceListScreen(
             }
         }
     }
+
+    uiState.pairString?.let { pairString ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissPairString,
+            title = { Text(stringResource(R.string.pair_qr_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(stringResource(R.string.pair_qr_description))
+                    PairStringQrCode(pairString)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissPairString) {
+                    Text(stringResource(R.string.lan_pairing_close))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun PairStringQrCode(value: String) {
+    val image = remember(value) {
+        val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 512, 512)
+        Bitmap.createBitmap(matrix.width, matrix.height, Bitmap.Config.ARGB_8888).apply {
+            for (x in 0 until matrix.width) {
+                for (y in 0 until matrix.height) {
+                    setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                }
+            }
+        }.asImageBitmap()
+    }
+    Image(
+        bitmap = image,
+        contentDescription = stringResource(R.string.pair_qr_title),
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.fillMaxWidth().size(256.dp),
+    )
 }
 
 @Composable

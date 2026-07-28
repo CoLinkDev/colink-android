@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-const val LAN_PROTOCOL_VERSION = "1.2.0"
+const val LAN_PROTOCOL_VERSION = "1.3.0"
 const val BUSINESS_PROTOCOL_VERSION = "1.11.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
@@ -295,6 +295,7 @@ data class PairingIdentityPayload(
     val publicKey: String,
     val name: String,
     val nonce: String,
+    val pairString: String? = null,
 )
 
 @Serializable
