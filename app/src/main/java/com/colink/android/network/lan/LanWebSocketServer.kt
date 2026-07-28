@@ -73,8 +73,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 const val LAN_PORT = 27_777
 private const val MIN_LAN_PORT = 1_024
@@ -372,8 +375,11 @@ class LanWebSocketServer @Inject constructor(
                     state.rejectProtocol()
                     continue
                 }
+                val forcePairing = hello.payload.extensions.jsonObject["forcePairing"]
+                    ?.jsonPrimitive
+                    ?.booleanOrNull == true
                 val record = lanTrustStore.get(hello.payload.deviceId)
-                if (record?.let { it.trustedByLan || it.trustedByCloud } == true) {
+                if (!forcePairing && record?.let { it.trustedByLan || it.trustedByCloud } == true) {
                     state.prepareAuthentication(record.publicKey, record.name)
                 }
                 continue

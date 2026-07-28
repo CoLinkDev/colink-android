@@ -88,6 +88,7 @@ class LanPairingCoordinator @Inject constructor(
 
     fun fail(requestId: String, reason: String) {
         CoLinkLog.w("Pairing", "LAN pairing failed request=${CoLinkLog.shortId(requestId)} reason=$reason")
+        pendingDecisions.remove(requestId)?.complete(false)
         val current = _pendingRequest.value
         if (current?.requestId == requestId) {
             _pendingRequest.value = current.copy(waiting = false, error = reason)

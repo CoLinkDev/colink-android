@@ -224,6 +224,7 @@ fun DeviceListScreen(
                                     lanAvailable = device.lanAvailable,
                                     lanState = device.lanState,
                                     online = device.online,
+                                    cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
                                     onClick = { onDeviceSelected(device.deviceId) },
@@ -269,6 +270,7 @@ fun DeviceListScreen(
                                     lanAvailable = device.lanAvailable,
                                     lanState = device.lanState,
                                     online = device.online,
+                                    cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
                                     onClick = { onDeviceSelected(device.deviceId) },
@@ -409,6 +411,7 @@ private fun DeviceCard(
     lanAvailable: Boolean,
     lanState: String,
     online: Boolean,
+    cloudAvailable: Boolean,
     isLocalDevice: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -492,7 +495,7 @@ private fun DeviceCard(
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             )
                         }
-                        if (online) {
+                        if (cloudAvailable) {
                             BadgeChip(
                                 text = stringResource(R.string.device_tag_cloud),
                                 icon = Icons.Default.Cloud,

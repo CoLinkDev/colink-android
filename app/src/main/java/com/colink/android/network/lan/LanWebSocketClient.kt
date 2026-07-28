@@ -46,6 +46,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import okhttp3.OkHttpClient
@@ -128,13 +129,13 @@ class LanWebSocketClient @Inject constructor(
                 override fun onOpen(webSocket: WebSocket, response: Response) {
                     connectingWebSockets[deviceId] = webSocket
                     timeoutJob = scope.launch {
-                        delay(HANDSHAKE_TIMEOUT_MILLIS)
+                        delay(if (allowPairing) PAIRING_TIMEOUT_MILLIS else HANDSHAKE_TIMEOUT_MILLIS)
                         if (connectingPeers.contains(deviceId)) {
                             reportConnectionFailed(deviceId, "LAN handshake timed out", listener)
                             webSocket.close(1000, "LAN handshake timed out")
                         }
                     }
-                    sendHello(webSocket, identity)
+                    sendHello(webSocket, identity, allowPairing)
                 }
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
@@ -290,15 +291,15 @@ class LanWebSocketClient @Inject constructor(
 
                 private suspend fun startAuthOrPairing(webSocket: WebSocket, state: ClientPeerState, listener: Listener) {
                     val record = lanTrustStore.get(state.expectedDeviceId)
-                    if (record?.let { it.trustedByLan || it.trustedByCloud } == true) {
+                    if (state.allowPairing) {
+                        startPairing(webSocket, state)
+                    } else if (record?.let { it.trustedByLan || it.trustedByCloud } == true) {
                         state.prepareAuthentication(
                             record.publicKey,
                             record.name,
                             UUID.randomUUID().toString().replace("-", ""),
                         )
                         sendLanMessage(webSocket, state.identity, state.expectedDeviceId, "auth.v1.challenge", AuthChallengePayload(state.localNonce!!), sequence = state.sequence)
-                    } else if (state.allowPairing) {
-                        startPairing(webSocket, state)
                     } else {
                         reportConnectionFailed(state.expectedDeviceId, "LAN device key is not trusted", listener)
                     }
@@ -431,6 +432,7 @@ class LanWebSocketClient @Inject constructor(
                     )
                     state.setPairingRequest(decision.requestId)
                     if (!decision.accepted) {
+                        state.rejectPairing()
                         state.setPairingRequest(null)
                         sendLanMessage(webSocket, state.identity, state.expectedDeviceId, "pairing.v1.reject", LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED), envelope.id, sequence = state.sequence)
                     }
@@ -853,7 +855,11 @@ class LanWebSocketClient @Inject constructor(
         cameraConnections.remove(sessionId)?.close(1000, "camera session closed")
     }
 
-    private fun sendHello(webSocket: WebSocket, identity: DeviceIdentity): Boolean =
+    private fun sendHello(
+        webSocket: WebSocket,
+        identity: DeviceIdentity,
+        forcePairing: Boolean,
+    ): Boolean =
         webSocket.send(
             json.encodeToString(
                 ProtocolHelloEnvelope(
@@ -861,7 +867,9 @@ class LanWebSocketClient @Inject constructor(
                     payload = ProtocolHelloPayload(
                         deviceId = identity.deviceId,
                         protocolVersion = LAN_PROTOCOL_VERSION,
-                        extensions = buildJsonObject {},
+                        extensions = buildJsonObject {
+                            put("forcePairing", JsonPrimitive(forcePairing))
+                        },
                     ),
                 ),
             ),

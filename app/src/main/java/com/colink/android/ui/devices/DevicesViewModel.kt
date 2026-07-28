@@ -137,6 +137,7 @@ class DevicesViewModel @Inject constructor(
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.forgetLanTrust(deviceId)
             if (result.isSuccess) {
+                connectionManager.disconnectLanPeer(deviceId)
                 connectionManager.refreshLanPairingCandidate(deviceId)
             }
             val identity = deviceRepository.localDeviceIdentity()

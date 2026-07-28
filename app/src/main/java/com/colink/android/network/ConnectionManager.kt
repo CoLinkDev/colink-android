@@ -1109,6 +1109,7 @@ class ConnectionManager @Inject constructor(
         }
         flushPendingLanSends(deviceId)
         removePairingCandidate(deviceId)
+        deviceRepository.listLocalDevices()
     }
 
     private suspend fun handleLanPeerDisconnected(deviceId: String) {
@@ -2487,12 +2488,16 @@ class ConnectionManager @Inject constructor(
 
     fun cancelLanPairing(deviceId: String) {
         scope.launch {
-            lanWebSocketClient.disconnect(deviceId)
-            lanWebSocketServer.disconnect(deviceId)
-            synchronized(lanPeerLock) {
-                lanConnectingPeers.remove(deviceId)
-                devicePageLanConnections.remove(deviceId)
-            }
+            disconnectLanPeer(deviceId)
+        }
+    }
+
+    suspend fun disconnectLanPeer(deviceId: String) {
+        lanWebSocketClient.disconnect(deviceId)
+        lanWebSocketServer.disconnect(deviceId)
+        synchronized(lanPeerLock) {
+            lanConnectingPeers.remove(deviceId)
+            devicePageLanConnections.remove(deviceId)
         }
     }
 
@@ -3774,7 +3779,7 @@ class ConnectionManager @Inject constructor(
         endpoint: LanEndpoint,
         state: MemberState,
     ) {
-        if (state != MemberState.Alive || lanTrustStore.isTrusted(deviceId)) {
+        if (state != MemberState.Alive || lanTrustStore.isLanTrusted(deviceId)) {
             removePairingCandidate(deviceId)
             return
         }
