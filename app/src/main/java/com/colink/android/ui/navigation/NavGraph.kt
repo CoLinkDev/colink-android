@@ -105,6 +105,7 @@ import com.colink.android.ui.terminal.TerminalScreen
 import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.camera.CameraScreen
 import com.colink.android.ui.devices.DeviceScreen
+import com.colink.android.ui.devices.DevicesViewModel
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
@@ -247,6 +248,7 @@ private fun MainScaffold(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val rootNavController = rememberNavController()
+    val nestedNavController = rememberNavController()
     var handledLaunchTargetToken by remember { mutableStateOf<Long?>(null) }
     var previousRootEntryId by remember { mutableStateOf<String?>(null) }
     var previousRootRoute by remember { mutableStateOf<String?>(null) }
@@ -403,7 +405,7 @@ private fun MainScaffold(
             exitTransition = { ExitTransition.None },
             popEnterTransition = { EnterTransition.None }
         ) {
-            val nestedNavController = rememberNavController()
+            val devicesViewModel: DevicesViewModel = hiltViewModel()
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             val accountName by accountName.collectAsStateWithLifecycle()
             val accountEmail by accountEmail.collectAsStateWithLifecycle()
@@ -453,6 +455,7 @@ private fun MainScaffold(
                             ) {
                                 MainTopLevelNavHost(
                                     navController = nestedNavController,
+                                    devicesViewModel = devicesViewModel,
                                     requestSecondaryPage = ::requestSecondaryPage,
                                     modifier = Modifier.fillMaxSize(),
                                 )
@@ -474,6 +477,7 @@ private fun MainScaffold(
                         ) { innerPadding ->
                             MainTopLevelNavHost(
                                 navController = nestedNavController,
+                                devicesViewModel = devicesViewModel,
                                 requestSecondaryPage = ::requestSecondaryPage,
                                 modifier = Modifier.padding(innerPadding),
                             )
@@ -840,6 +844,7 @@ private fun MainBottomBar(navController: NavHostController) {
 @Composable
 private fun MainTopLevelNavHost(
     navController: NavHostController,
+    devicesViewModel: DevicesViewModel,
     requestSecondaryPage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -858,6 +863,7 @@ private fun MainTopLevelNavHost(
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 DeviceListScreen(
                     onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
+                    viewModel = devicesViewModel,
                 )
             }
         }

@@ -16,12 +16,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -39,26 +35,12 @@ class DevicesViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val connectionManager: ConnectionManager,
 ) : ViewModel() {
-    val devices: StateFlow<List<Device>> =
-        deviceRepository.devices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
-    val availableDeviceCount: StateFlow<Int> = devices
-        .map { list -> list.count { it.online || it.lanAvailable } }
-        .distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val devices: StateFlow<List<Device>> = deviceRepository.devices
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
-        connectionManager.lanPairingCandidates.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            emptyList(),
-        )
+        connectionManager.lanPairingCandidates
     val lanConnectionError: StateFlow<String?> =
-        connectionManager.lanConnectionError.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000),
-            null,
-        )
+        connectionManager.lanConnectionError
     val peerProtocolVersions: StateFlow<Map<String, PeerProtocolVersions>> =
         connectionManager.peerProtocolVersions
 

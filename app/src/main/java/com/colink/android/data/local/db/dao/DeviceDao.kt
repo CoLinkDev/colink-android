@@ -2,6 +2,7 @@ package com.colink.android.data.local.db.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.colink.android.data.local.db.entity.DeviceEntity
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,14 @@ interface DeviceDao {
 
     @Upsert
     suspend fun upsertAll(devices: List<DeviceEntity>)
+
+    @Transaction
+    suspend fun replaceAll(devices: List<DeviceEntity>) {
+        clear()
+        if (devices.isNotEmpty()) {
+            upsertAll(devices)
+        }
+    }
 
     @Query("DELETE FROM devices")
     suspend fun clear()

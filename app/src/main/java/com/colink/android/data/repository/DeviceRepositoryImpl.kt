@@ -19,14 +19,22 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.DeviceRepository
+import com.colink.android.network.cloud.CloudRuntimePeer
+import com.colink.android.network.cloud.CloudRuntimeSnapshot
+import com.colink.android.network.cloud.CloudRuntimeState
 import com.colink.android.network.lan.LanRuntimePeer
 import com.colink.android.network.lan.LanRuntimeState
 import com.colink.android.util.CoLinkLog
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 
 @Singleton
 class DeviceRepositoryImpl @Inject constructor(
@@ -37,11 +45,26 @@ class DeviceRepositoryImpl @Inject constructor(
     private val keyManager: KeyManager,
     private val deviceNameProvider: DeviceNameProvider,
     private val lanRuntimeState: LanRuntimeState,
+    private val cloudRuntimeState: CloudRuntimeState,
 ) : DeviceRepository {
-    override val devices: Flow<List<Device>> =
-        combine(deviceDao.observeDevices(), lanRuntimeState.peers) { entities, peers ->
-            sortDevices(entities.map { entity -> projectRuntimeDevice(entity.toDomain(), peers[entity.deviceId]) })
-        }
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    override val devices: StateFlow<List<Device>> =
+        combine(
+            deviceDao.observeDevices(),
+            lanRuntimeState.peers,
+            cloudRuntimeState.snapshot,
+        ) { entities, lanPeers, cloudSnapshot ->
+            sortDevices(
+                entities.map { entity ->
+                    projectRuntimeDevice(
+                        device = entity.toDomain(),
+                        lanRuntime = lanPeers[entity.deviceId],
+                        cloudRuntime = cloudSnapshot,
+                    )
+                },
+            )
+        }.stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
 
     override suspend fun ensureLocalDeviceIdentity(): Result<DeviceIdentity> =
         runCatching {
@@ -59,6 +82,7 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun syncDevices(session: Session): Result<List<Device>> =
         runCatching {
+            val requestStartedAtNanos = System.nanoTime()
             val response = deviceApi
                 .listDevices(
                     url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/devices"),
@@ -77,6 +101,16 @@ class DeviceRepositoryImpl @Inject constructor(
                 )
             }
 
+            cloudRuntimeState.replaceSnapshot(
+                peers = cloudDevices.associate { device ->
+                    device.deviceId to CloudRuntimePeer(
+                        online = device.cloudAvailable,
+                        name = device.name,
+                        type = device.type,
+                    )
+                },
+                requestStartedAtNanos = requestStartedAtNanos,
+            )
             ensureTrustedPeerKeysForDevices(cloudDevices, localIdentity?.deviceId)
             val reconciled = reconcileDevices(
                 incoming = cloudDevices,
@@ -110,6 +144,12 @@ class DeviceRepositoryImpl @Inject constructor(
         deviceType: String?,
     ): Result<Unit> =
         runCatching {
+            cloudRuntimeState.updatePresence(
+                deviceId = deviceId,
+                online = online,
+                name = name,
+                type = deviceType,
+            )
             val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
             val cloudAvailable = online
             saveDevices(
@@ -135,6 +175,7 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun clearCloudPresence(): Result<Unit> =
         runCatching {
+            cloudRuntimeState.clear()
             val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
             val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
                 val isLocal = device.deviceId == localDeviceId
@@ -151,6 +192,7 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun resetDevicePresence(): Result<Unit> =
         runCatching {
+            cloudRuntimeState.clear()
             val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
             val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
                 val isLocal = device.deviceId == localDeviceId
@@ -168,11 +210,14 @@ class DeviceRepositoryImpl @Inject constructor(
         runCatching {
             val previous = deviceDao.getDevices().map { it.toDomain() }
             val localIdentity = settingsDataStore.currentDeviceIdentity()
+            val keepCloudCatalog = settingsDataStore.currentSession() != null
             val reconciled = reconcileDevices(
-                incoming = emptyList(),
+                incoming = previous.filter { device ->
+                    keepCloudCatalog && device.deviceSources.contains("cloud")
+                },
                 previous = previous,
                 localIdentity = localIdentity,
-                keepCloudState = settingsDataStore.currentSession() != null,
+                keepCloudState = keepCloudCatalog,
             )
             saveDevices(reconciled)
             reconciled
@@ -524,21 +569,27 @@ class DeviceRepositoryImpl @Inject constructor(
             else -> 3
         }
 
-    private fun projectRuntimeDevice(device: Device, runtime: LanRuntimePeer?): Device {
-        val endpoint = runtime?.endpoint
-        val lanState = runtime?.state ?: "unavailable"
-        val lanAvailable = runtime?.isReachable == true
+    private fun projectRuntimeDevice(
+        device: Device,
+        lanRuntime: LanRuntimePeer?,
+        cloudRuntime: CloudRuntimeSnapshot = cloudRuntimeState.snapshot.value,
+    ): Device {
+        val endpoint = lanRuntime?.endpoint
+        val lanState = lanRuntime?.state ?: "unavailable"
+        val lanAvailable = lanRuntime?.isReachable == true
+        val cloudAvailable = cloudRuntime.peers[device.deviceId]?.online ?: false
         val isLocal = device.deviceSources.contains("local")
         return device.copy(
-            type = reconcileDeviceType(device.type, lanType = runtime?.type),
+            type = reconcileDeviceType(device.type, lanType = lanRuntime?.type),
             localIp = endpoint?.ip,
             localPort = endpoint?.port,
+            cloudAvailable = cloudAvailable,
             lanAvailable = lanAvailable,
             lanState = lanState,
-            online = isLocal || device.cloudAvailable || lanAvailable,
+            online = isLocal || cloudAvailable || lanAvailable,
             activeRoute = when {
                 lanAvailable -> "lan"
-                device.cloudAvailable -> "cloud"
+                cloudAvailable -> "cloud"
                 else -> null
             },
         )
@@ -603,11 +654,11 @@ class DeviceRepositoryImpl @Inject constructor(
         devices: List<Device>,
         replaceAll: Boolean = true,
     ) {
+        val entities = devices.map { it.toEntity() }
         if (replaceAll) {
-            deviceDao.clear()
-        }
-        if (devices.isNotEmpty()) {
-            deviceDao.upsertAll(devices.map { it.toEntity() })
+            deviceDao.replaceAll(entities)
+        } else if (entities.isNotEmpty()) {
+            deviceDao.upsertAll(entities)
         }
     }
 

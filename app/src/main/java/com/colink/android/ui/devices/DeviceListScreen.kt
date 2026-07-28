@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -86,12 +88,16 @@ fun DeviceListScreen(
     viewModel: DevicesViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val availableDeviceCount by viewModel.availableDeviceCount.collectAsStateWithLifecycle()
     val lanPairingCandidates by viewModel.lanPairingCandidates.collectAsStateWithLifecycle()
     val lanConnectionError by viewModel.lanConnectionError.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+    val availableDeviceCount = remember(devices) {
+        devices.count { device -> device.online || device.lanAvailable }
+    }
     val pairStringScanner = remember(context) {
         GmsBarcodeScanning.getClient(
             context,
@@ -188,6 +194,7 @@ fun DeviceListScreen(
                 if (maxWidth >= 600.dp) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 320.dp),
+                        state = gridState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -235,6 +242,7 @@ fun DeviceListScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),

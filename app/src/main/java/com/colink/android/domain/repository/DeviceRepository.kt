@@ -3,10 +3,10 @@ package com.colink.android.domain.repository
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.model.Session
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 interface DeviceRepository {
-    val devices: Flow<List<Device>>
+    val devices: StateFlow<List<Device>>
 
     suspend fun ensureLocalDeviceIdentity(): Result<DeviceIdentity>
 

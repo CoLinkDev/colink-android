@@ -169,6 +169,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -179,6 +180,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.update
@@ -482,6 +484,7 @@ class ConnectionManager @Inject constructor(
         }
         cloudWebSocketClient.close()
         _cloudState.value = CloudConnectionState()
+        scope.launch { deviceRepository.clearCloudPresence() }
     }
 
     fun startCloud() {
@@ -499,7 +502,10 @@ class ConnectionManager @Inject constructor(
         connectionJob = null
         cloudWebSocketClient.close()
         _cloudState.value = CloudConnectionState()
-        scope.launch { deviceRepository.listLocalDevices() }
+        scope.launch {
+            deviceRepository.clearCloudPresence()
+            deviceRepository.listLocalDevices()
+        }
     }
 
     fun applySettings(settings: AppSettings) {
@@ -1079,8 +1085,8 @@ class ConnectionManager @Inject constructor(
             if (swimMembership.memberState(deviceId) !in setOf(MemberState.Alive, MemberState.Suspect)) {
                 error("LAN peer is not available")
             }
-            if (!lanTrustStore.isTrusted(deviceId)) {
-                error("LAN peer is not trusted")
+            if (!lanTrustStore.isLanTrusted(deviceId)) {
+                error("LAN peer is not paired")
             }
             lanWebSocketClient.connect(
                 identity = identity,
@@ -1108,7 +1114,11 @@ class ConnectionManager @Inject constructor(
             }
         }
         flushPendingLanSends(deviceId)
-        removePairingCandidate(deviceId)
+        if (lanTrustStore.isLanTrusted(deviceId)) {
+            removePairingCandidate(deviceId)
+        } else {
+            refreshPairingCandidate(deviceId)
+        }
         deviceRepository.listLocalDevices()
     }
 
@@ -3229,6 +3239,9 @@ class ConnectionManager @Inject constructor(
                 return
             }
             val closed = CompletableDeferred<String?>()
+            val connectionScope = CoroutineScope(
+                SupervisorJob(currentCoroutineContext()[Job]) + Dispatchers.IO,
+            )
             _cloudState.value =
                 CloudConnectionState(
                     status = if (attempt == 0) CloudStatus.Connecting else CloudStatus.Reconnecting,
@@ -3252,7 +3265,7 @@ class ConnectionManager @Inject constructor(
                     override fun onOpen() {
                         _cloudState.value = CloudConnectionState(CloudStatus.Connected)
                         CoLinkLog.i("Cloud", "cloud websocket connected")
-                        scope.launch {
+                        connectionScope.launch {
                             val session = authRepository.currentSession().getOrNull() ?: return@launch
                             deviceRepository.ensureDeviceIdentity(session).getOrThrow()
                             deviceRepository.syncPendingDeviceKey(session)
@@ -3262,7 +3275,7 @@ class ConnectionManager @Inject constructor(
 
                     override fun onMessage(webSocket: WebSocket, message: CloudServerEnvelope) {
                         CoLinkLog.d("Cloud", "received cloud message type=${message.type} from=${CoLinkLog.shortId(message.from)}")
-                        scope.launch { handleCloudMessage(webSocket, message) }
+                        connectionScope.launch { handleCloudMessage(webSocket, message) }
                     }
 
                     override fun onClosed(reason: String?) {
@@ -3274,7 +3287,7 @@ class ConnectionManager @Inject constructor(
                 },
             )
 
-            val pingJob = scope.launch {
+            val pingJob = connectionScope.launch {
                 while (isActive) {
                     delay(30_000)
                     cloudWebSocketClient.send(
@@ -3288,6 +3301,7 @@ class ConnectionManager @Inject constructor(
 
             val reason = closed.await()
             pingJob.cancel()
+            connectionScope.cancel()
             cloudBusinessVersions.clear()
             deviceRepository.clearCloudPresence()
             attempt += 1
@@ -3744,7 +3758,7 @@ class ConnectionManager @Inject constructor(
         when (state) {
             MemberState.Alive -> {
                 val endpoint = lanRuntimeState.endpoint(deviceId)
-                val lanTrusted = lanTrustStore.isTrusted(deviceId)
+                val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
                 if (endpoint != null) {
                     updatePairingCandidate(deviceId, endpoint, state)
                 }
@@ -3763,7 +3777,7 @@ class ConnectionManager @Inject constructor(
 
             MemberState.Suspect -> {
                 val endpoint = lanRuntimeState.endpoint(deviceId)
-                val lanTrusted = lanTrustStore.isTrusted(deviceId)
+                val lanTrusted = lanTrustStore.isLanTrusted(deviceId)
                 if (endpoint != null) {
                     updatePairingCandidate(deviceId, endpoint, state)
                 }
