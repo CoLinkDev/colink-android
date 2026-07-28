@@ -196,6 +196,7 @@ class LanWebSocketClient @Inject constructor(
                             reportConnectionFailed(state.expectedDeviceId, "LAN hello device mismatch", listener)
                             return
                         }
+                        listener.onPeerP2pVersion(hello.payload.deviceId, hello.payload.protocolVersion)
                         val compatibility = checkLanProtocolVersion(hello.payload.protocolVersion)
                         sendHelloAck(webSocket, compatibility)
                         state.markHelloAckSent()
@@ -255,7 +256,7 @@ class LanWebSocketClient @Inject constructor(
                             state.pairingRequestId?.let { pairingCoordinator.fail(it, message) }
                             reportConnectionFailed(state.expectedDeviceId, message, listener)
                         }
-                        "business.v1.version" -> handleBusinessVersion(webSocket, state, envelope)
+                        "business.v1.version" -> handleBusinessVersion(webSocket, state, envelope, listener)
                         "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope, listener)
                         "business.v1.key-exchange-nonce" -> handleBusinessKeyExchangeNonce(webSocket, state, envelope)
                         "business.v1.key-exchange" -> handleBusinessKeyExchange(webSocket, state, envelope, listener)
@@ -483,10 +484,18 @@ class LanWebSocketClient @Inject constructor(
                     )
                 }
 
-                private fun handleBusinessVersion(webSocket: WebSocket, state: ClientPeerState, envelope: LanEnvelope) {
+                private fun handleBusinessVersion(
+                    webSocket: WebSocket,
+                    state: ClientPeerState,
+                    envelope: LanEnvelope,
+                    listener: Listener,
+                ) {
                     val payload = runCatching {
                         json.decodeFromJsonElement(BusinessVersionPayload.serializer(), envelope.payload)
                     }.getOrNull()
+                    payload?.businessVersion?.let { version ->
+                        listener.onPeerBusinessVersion(state.expectedDeviceId, version)
+                    }
                     val compatibility = payload
                         ?.let { checkBusinessProtocolVersion(it.businessVersion) }
                         ?: checkBusinessProtocolVersion("")
@@ -912,6 +921,8 @@ class LanWebSocketClient @Inject constructor(
 
     interface Listener {
         fun onConnected(deviceId: String)
+        fun onPeerP2pVersion(deviceId: String, version: String)
+        fun onPeerBusinessVersion(deviceId: String, version: String)
         fun onMessage(
             fromDeviceId: String,
             envelopeId: String,

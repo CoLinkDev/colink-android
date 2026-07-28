@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.Button
@@ -45,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,6 +61,9 @@ import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.castboard.bridge.MusicBridge
 import kotlinx.coroutines.delay
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+
 @Composable
 fun CastBoardControlCard(
     onStartFullscreen: (String) -> Unit,
@@ -74,48 +77,57 @@ fun CastBoardControlCard(
         devicesWithoutLocalDevice(devices, localDeviceId)
             .filter { (it.online || it.lanAvailable) && isComputerDevice(it) }
     }
+    val canStart = selectedDeviceId != null &&
+        availableDevices.any { it.deviceId == selectedDeviceId }
 
     Card(
+        onClick = { selectedDeviceId?.let(onStartFullscreen) },
+        enabled = canStart,
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = if (canStart) {
+                MaterialTheme.colorScheme.surfaceContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         shape = MaterialTheme.shapes.large,
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.nav_castboard),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+            Icon(
+                painter = painterResource(R.drawable.ic_cast_connected),
+                contentDescription = null,
+                tint = if (canStart) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                modifier = Modifier.size(24.dp),
             )
-            Text(
-                text = stringResource(R.string.castboard_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (availableDevices.isEmpty()) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.device_control_no_devices_message),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.nav_castboard),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (availableDevices.isEmpty()) {
+                        stringResource(R.string.device_control_no_devices_message)
+                    } else {
+                        stringResource(R.string.castboard_subtitle)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else {
-                val canStart = selectedDeviceId != null &&
-                    availableDevices.any { it.deviceId == selectedDeviceId }
-                Button(
-                    enabled = canStart,
-                    onClick = { selectedDeviceId?.let(onStartFullscreen) },
-                ) {
-                    Icon(Icons.Default.Cast, contentDescription = null)
-                    Text(
-                        modifier = Modifier.padding(start = 8.dp),
-                        text = stringResource(R.string.castboard_start),
-                    )
-                }
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

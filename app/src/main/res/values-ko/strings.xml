@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">디바이스</string>
-    <string name="nav_messages">전송</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">기기 제어</string>
-    <string name="device_control_subtitle">원격 기기 기능에 접근합니다</string>
     <string name="device_control_terminal">터미널</string>
     <string name="terminal_subtitle">선택한 컴퓨터에서 대화형 터미널을 엽니다</string>
     <string name="terminal_open">터미널 열기</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">디바이스 상세 정보</string>
+    <string name="enter_chat_btn">전송</string>
+    <string name="chat_card_subtitle">이 기기에 메시지와 파일 전송</string>
     <string name="back_desc">뒤로</string>
     <string name="device_not_found">디바이스를 찾을 수 없습니다</string>
     <string name="refresh_body">디바이스 목록을 새로 고치고 다시 시도하세요.</string>
@@ -175,20 +174,28 @@
     <string name="label_name">이름</string>
     <string name="label_device_id">디바이스 ID</string>
     <string name="label_platform">플랫폼</string>
+    <string name="label_protocol_versions">프로토콜 버전</string>
     <string name="label_fetch_source">가져온 출처</string>
     <string name="label_local_device">로컬</string>
     <string name="label_cloud_available">클라우드 도달 가능</string>
     <string name="label_lan_available">LAN 도달 가능</string>
-    <string name="label_lan_endpoint">LAN 엔드포인트</string>
+    <string name="label_reachability">연결 가능 상태</string>
+    <string name="reachability_lan_with_endpoint">%1$s (%2$s)</string>
     <string name="label_active_route">활성 경로</string>
     <string name="label_last_alive">마지막 생존 시각</string>
     <string name="label_trusted_by_lan">LAN 신뢰</string>
     <string name="label_trusted_by_cloud">클라우드 신뢰</string>
+    <string name="label_trust_source">신뢰 출처</string>
     <string name="label_public_key_fingerprint">공개 키 지문</string>
     <string name="label_public_key">공개 키</string>
     <string name="value_yes">예</string>
     <string name="value_no">아니요</string>
     <string name="value_none">없음</string>
+    <string name="value_cloud">클라우드</string>
+    <string name="value_lan">LAN</string>
+    <string name="value_unreachable">연결할 수 없음</string>
+    <string name="value_untrusted">신뢰되지 않음</string>
+    <string name="detail_list_separator">", "</string>
     <string name="source_local_identity">로컬 ID</string>
     <string name="source_server_device_list">서버 디바이스 목록</string>
     <string name="source_trusted_peer_key">신뢰된 디바이스 키</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">디바이스 이름을 입력하세요</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">메시지와 파일 보내기</string>
-    <string name="messages_contacts_empty_title">아직 연락처가 없습니다</string>
-    <string name="messages_contacts_empty_body">메시지와 파일을 보내려면 LAN 또는 Cloud로 디바이스를 연결하세요</string>
     <string name="message_select_target_device">대상 기기를 선택하세요</string>
     <string name="message_route_unavailable">메시지를 전달할 수 없습니다</string>
     <string name="no_messages_title">메시지가 없습니다</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">저장</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">디바이스 동기화를 위해 계정에 로그인하세요</string>
     <string name="cloud_account_title">클라우드 계정</string>
     <string name="cloud_account_login_status">로그인 상태</string>
     <string name="cloud_account_logged_in">로그인됨</string>

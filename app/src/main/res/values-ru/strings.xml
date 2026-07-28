@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Устройства</string>
-    <string name="nav_messages">Передачи</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">Управление устройствами</string>
-    <string name="device_control_subtitle">Доступ к удалённым функциям устройства</string>
     <string name="device_control_terminal">Терминал</string>
     <string name="terminal_subtitle">Открыть интерактивный терминал на выбранном компьютере</string>
     <string name="terminal_open">Открыть терминал</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">Сведения об устройстве</string>
+    <string name="enter_chat_btn">Передача</string>
+    <string name="chat_card_subtitle">Отправить сообщения и файлы на это устройство</string>
     <string name="back_desc">Назад</string>
     <string name="device_not_found">Устройство не найдено</string>
     <string name="refresh_body">Обновите список устройств и попробуйте снова.</string>
@@ -175,20 +174,28 @@
     <string name="label_name">Имя</string>
     <string name="label_device_id">ID устройства</string>
     <string name="label_platform">Платформа</string>
+    <string name="label_protocol_versions">Версии протоколов</string>
     <string name="label_fetch_source">Источник</string>
     <string name="label_local_device">Локально</string>
     <string name="label_cloud_available">Облако доступно</string>
     <string name="label_lan_available">LAN доступна</string>
-    <string name="label_lan_endpoint">Точка доступа LAN</string>
+    <string name="label_reachability">Доступность</string>
+    <string name="reachability_lan_with_endpoint">%1$s (%2$s)</string>
     <string name="label_active_route">Активный маршрут</string>
     <string name="label_last_alive">Последняя активность</string>
     <string name="label_trusted_by_lan">Доверено LAN</string>
     <string name="label_trusted_by_cloud">Доверено облаком</string>
+    <string name="label_trust_source">Источник доверия</string>
     <string name="label_public_key_fingerprint">Отпечаток публичного ключа</string>
     <string name="label_public_key">Публичный ключ</string>
     <string name="value_yes">Да</string>
     <string name="value_no">Нет</string>
     <string name="value_none">Нет</string>
+    <string name="value_cloud">Облако</string>
+    <string name="value_lan">LAN</string>
+    <string name="value_unreachable">Недоступно</string>
+    <string name="value_untrusted">Не доверено</string>
+    <string name="detail_list_separator">", "</string>
     <string name="source_local_identity">Локальная идентичность</string>
     <string name="source_server_device_list">Список устройств сервера</string>
     <string name="source_trusted_peer_key">Доверенный ключ устройства</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">Введите имя устройства</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Отправить сообщения и файлы</string>
-    <string name="messages_contacts_empty_title">Контактов пока нет</string>
-    <string name="messages_contacts_empty_body">Подключите устройства по LAN или Cloud, чтобы отправлять сообщения и файлы</string>
     <string name="message_select_target_device">Выберите устройство назначения</string>
     <string name="message_route_unavailable">Сообщение не может быть доставлено</string>
     <string name="no_messages_title">Сообщений нет</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">Сохранить</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">Войдите в аккаунт для синхронизации</string>
     <string name="cloud_account_title">Облачный аккаунт</string>
     <string name="cloud_account_login_status">Статус входа</string>
     <string name="cloud_account_logged_in">Выполнен вход</string>

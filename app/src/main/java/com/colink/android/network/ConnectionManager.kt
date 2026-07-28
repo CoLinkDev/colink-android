@@ -234,6 +234,11 @@ enum class SystemControlSupport {
     UNKNOWN,
 }
 
+data class PeerProtocolVersions(
+    val p2pVersion: String? = null,
+    val businessVersion: String? = null,
+)
+
 class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
 )
@@ -366,6 +371,7 @@ class ConnectionManager @Inject constructor(
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val discoveryRefreshAt = ConcurrentHashMap<String, Long>()
     private val cloudBusinessVersions = ConcurrentHashMap<String, String>()
+    private val _peerProtocolVersions = MutableStateFlow<Map<String, PeerProtocolVersions>>(emptyMap())
     private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
     private val lanPeerLock = Any()
@@ -388,6 +394,8 @@ class ConnectionManager @Inject constructor(
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
         _lanPairingCandidates.asStateFlow()
     val lanConnectionError: StateFlow<String?> = _lanConnectionError.asStateFlow()
+    val peerProtocolVersions: StateFlow<Map<String, PeerProtocolVersions>> =
+        _peerProtocolVersions.asStateFlow()
 
     fun start() {
         if (!started.compareAndSet(false, true)) {
@@ -1008,6 +1016,50 @@ class ConnectionManager @Inject constructor(
         lanWebSocketServer.peerBusinessVersion(deviceId)
             ?: lanWebSocketClient.peerBusinessVersion(deviceId)
             ?: cloudBusinessVersions[deviceId]
+            ?: peerProtocolVersions.value[deviceId]?.businessVersion
+
+    fun requestPeerProtocolVersions(deviceId: String) {
+        rememberPeerProtocolVersions(
+            deviceId = deviceId,
+            businessVersion = cloudBusinessVersions[deviceId],
+        )
+        val versions = peerProtocolVersions.value[deviceId]
+        if (versions?.p2pVersion != null && versions.businessVersion != null) {
+            return
+        }
+        scope.launch {
+            if (hasLanPeer(deviceId)) {
+                return@launch
+            }
+            startOnDemandLanPeerConnection(deviceId)
+                .onFailure { error ->
+                    CoLinkLog.d(
+                        "LAN",
+                        "protocol version handshake was not started device=${CoLinkLog.shortId(deviceId)} reason=${error.message}",
+                    )
+                }
+        }
+    }
+
+    private fun rememberPeerProtocolVersions(
+        deviceId: String,
+        p2pVersion: String? = null,
+        businessVersion: String? = null,
+    ) {
+        val normalizedP2pVersion = p2pVersion?.trim()?.takeIf(String::isNotEmpty)
+        val normalizedBusinessVersion = businessVersion?.trim()?.takeIf(String::isNotEmpty)
+        if (deviceId.isBlank() || (normalizedP2pVersion == null && normalizedBusinessVersion == null)) {
+            return
+        }
+        _peerProtocolVersions.update { versions ->
+            val current = versions[deviceId] ?: PeerProtocolVersions()
+            val updated = current.copy(
+                p2pVersion = current.p2pVersion ?: normalizedP2pVersion,
+                businessVersion = current.businessVersion ?: normalizedBusinessVersion,
+            )
+            if (updated == current) versions else versions + (deviceId to updated)
+        }
+    }
 
     private suspend fun startOnDemandLanPeerConnection(deviceId: String): Result<Unit> =
         runCatching {
@@ -2726,6 +2778,14 @@ class ConnectionManager @Inject constructor(
                 }
             }
 
+            override fun onPeerP2pVersion(deviceId: String, version: String) {
+                rememberPeerProtocolVersions(deviceId = deviceId, p2pVersion = version)
+            }
+
+            override fun onPeerBusinessVersion(deviceId: String, version: String) {
+                rememberPeerProtocolVersions(deviceId = deviceId, businessVersion = version)
+            }
+
             override fun onMessage(
                 fromDeviceId: String,
                 envelopeId: String,
@@ -2931,6 +2991,14 @@ class ConnectionManager @Inject constructor(
                 scope.launch {
                     handleLanPeerConnected(deviceId)
                 }
+            }
+
+            override fun onPeerP2pVersion(deviceId: String, version: String) {
+                rememberPeerProtocolVersions(deviceId = deviceId, p2pVersion = version)
+            }
+
+            override fun onPeerBusinessVersion(deviceId: String, version: String) {
+                rememberPeerProtocolVersions(deviceId = deviceId, businessVersion = version)
             }
 
             override fun onMessage(
@@ -3257,6 +3325,7 @@ class ConnectionManager @Inject constructor(
             json.decodeFromJsonElement(DeviceOnlinePayload.serializer(), payload)
         }.getOrNull() ?: return null
         cloudBusinessVersions[from] = online.businessVersion
+        rememberPeerProtocolVersions(deviceId = from, businessVersion = online.businessVersion)
         return online
     }
 

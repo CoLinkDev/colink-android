@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -37,11 +36,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Close
@@ -59,8 +56,6 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -68,12 +63,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -106,8 +98,6 @@ import com.colink.android.share.PendingShare
 import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.ScreenColumn
-import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.transfers.TransfersViewModel
 import com.colink.android.ui.transfers.openTransferFile
 import android.widget.Toast
@@ -121,11 +111,10 @@ private val openDocumentMimeTypes = arrayOf("*/*")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageScreen(
+fun ConversationScreen(
+    deviceId: String,
     modifier: Modifier = Modifier,
     pendingShareStore: PendingShareStore? = null,
-    fixedDeviceId: String? = null,
-    onConversationSelected: (String) -> Unit = {},
     onBrowseDeviceFiles: (String) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: MessagesViewModel = hiltViewModel(),
@@ -139,28 +128,14 @@ fun MessageScreen(
     val messageUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val transferUiState by transferViewModel.uiState.collectAsStateWithLifecycle()
 
-    val isConversationRoute = !fixedDeviceId.isNullOrBlank()
     var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
     var pendingFileUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var pendingFileTargetDeviceId by remember { mutableStateOf<String?>(null) }
 
 
 
-    LaunchedEffect(fixedDeviceId) {
-        if (!fixedDeviceId.isNullOrBlank()) {
-            viewModel.selectDevice(fixedDeviceId)
-        }
-    }
-
-    LaunchedEffect(targetDevices, selectedDeviceId, isConversationRoute) {
-        if (!isConversationRoute) {
-            viewModel.selectDevice(null)
-            return@LaunchedEffect
-        }
-        val current = selectedDeviceId
-        if (current != null && targetDevices.any { it.deviceId == current }) {
-            return@LaunchedEffect
-        }
+    LaunchedEffect(deviceId) {
+        viewModel.selectDevice(deviceId)
     }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -217,22 +192,7 @@ fun MessageScreen(
         }
     }
 
-    if (!isConversationRoute) {
-        ScreenColumn(
-            title = stringResource(R.string.nav_messages),
-            subtitle = stringResource(R.string.messages_choose_device),
-            modifier = modifier,
-        ) {
-            ContactList(
-                devices = targetDevices,
-                onSelect = {
-                    viewModel.selectDevice(it)
-                    onConversationSelected(it)
-                },
-            )
-        }
-    } else {
-        Scaffold(
+    Scaffold(
             modifier = modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
@@ -308,7 +268,7 @@ fun MessageScreen(
                                 }
                             }
                         } else {
-                            Text(stringResource(R.string.messages_choose_device))
+                            Text(stringResource(R.string.device_not_found))
                         }
                     },
                     navigationIcon = {
@@ -342,7 +302,7 @@ fun MessageScreen(
         ) { innerPadding ->
             val device = selectedDevice
             if (device != null) {
-                ConversationScreen(
+                ConversationContent(
                     device = device,
                     timelineItems = timelineItems,
                     isSendingMessage = messageUiState.sending,
@@ -351,13 +311,13 @@ fun MessageScreen(
                     onDraftChange = { draft = it },
                     onSendText = {
                         val text = draft
-                        viewModel.send(selectedDeviceId, text)
+                        viewModel.send(deviceId, text)
                         if (text.isNotBlank()) {
                             draft = ""
                         }
                     },
                     onPickFile = {
-                        pendingFileTargetDeviceId = selectedDeviceId
+                        pendingFileTargetDeviceId = deviceId
                         filePicker.launch(openDocumentMimeTypes)
                     },
                     onAcceptTransfer = transferViewModel::accept,
@@ -381,14 +341,13 @@ fun MessageScreen(
                     )
                 }
             }
-        }
     }
 
     val pendingUris = pendingFileUris
     if (pendingUris.isNotEmpty()) {
         SelectDeviceDialog(
             devices = targetDevices,
-            initialDeviceId = selectedDeviceId,
+            initialDeviceId = deviceId,
             onDismiss = {
                 pendingFileUris = emptyList()
                 pendingFileTargetDeviceId = null
@@ -405,135 +364,7 @@ fun MessageScreen(
 }
 
 @Composable
-private fun ContactList(
-    devices: List<Device>,
-    onSelect: (String) -> Unit,
-) {
-    if (devices.isEmpty()) {
-        EmptyState(
-            icon = Icons.AutoMirrored.Filled.Chat,
-            title = stringResource(R.string.messages_contacts_empty_title),
-            body = stringResource(R.string.messages_contacts_empty_body),
-        )
-        return
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        items(
-            items = devices,
-            key = { it.deviceId },
-        ) { device ->
-            ContactCard(
-                device = device,
-                onClick = { onSelect(device.deviceId) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ContactCard(
-    device: Device,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (device.lanAvailable || device.online) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = deviceTypeIcon(device.type),
-                    contentDescription = null,
-                    tint = if (device.lanAvailable || device.online) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 2.dp),
-                ) {
-                    if (device.lanAvailable || device.online) {
-                        if (device.lanAvailable) {
-                            BadgeChip(
-                                text = stringResource(R.string.route_lan),
-                                icon = Icons.Default.Wifi,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                        if (device.online) {
-                            BadgeChip(
-                                text = stringResource(R.string.device_tag_cloud),
-                                icon = Icons.Default.Cloud,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                    } else {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_offline),
-                            icon = Icons.Default.CloudOff,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ConversationScreen(
+private fun ConversationContent(
     device: Device,
     timelineItems: List<TimelineItem>,
     isSendingMessage: Boolean,

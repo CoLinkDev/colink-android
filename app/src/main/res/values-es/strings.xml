@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Dispositivos</string>
-    <string name="nav_messages">Transferencias</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">Control de dispositivos</string>
-    <string name="device_control_subtitle">Accede a las funciones remotas del dispositivo</string>
     <string name="device_control_terminal">Terminal</string>
     <string name="terminal_subtitle">Abrir una terminal interactiva en el equipo seleccionado</string>
     <string name="terminal_open">Abrir terminal</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">Detalles del dispositivo</string>
+    <string name="enter_chat_btn">Transferir</string>
+    <string name="chat_card_subtitle">Enviar mensajes y archivos a este dispositivo</string>
     <string name="back_desc">Atrás</string>
     <string name="device_not_found">Dispositivo no encontrado</string>
     <string name="refresh_body">Actualice la lista de dispositivos e intente de nuevo.</string>
@@ -175,20 +174,28 @@
     <string name="label_name">Nombre</string>
     <string name="label_device_id">ID de dispositivo</string>
     <string name="label_platform">Plataforma</string>
+    <string name="label_protocol_versions">Versiones de protocolo</string>
     <string name="label_fetch_source">Origen</string>
     <string name="label_local_device">Local</string>
     <string name="label_cloud_available">Nube accesible</string>
     <string name="label_lan_available">LAN accesible</string>
-    <string name="label_lan_endpoint">Punto final LAN</string>
+    <string name="label_reachability">Accesibilidad</string>
+    <string name="reachability_lan_with_endpoint">%1$s (%2$s)</string>
     <string name="label_active_route">Ruta activa</string>
     <string name="label_last_alive">Última actividad</string>
     <string name="label_trusted_by_lan">Confiado por LAN</string>
     <string name="label_trusted_by_cloud">Confiado por nube</string>
+    <string name="label_trust_source">Origen de confianza</string>
     <string name="label_public_key_fingerprint">Huella de clave pública</string>
     <string name="label_public_key">Clave pública</string>
     <string name="value_yes">Sí</string>
     <string name="value_no">No</string>
     <string name="value_none">Ninguno</string>
+    <string name="value_cloud">Nube</string>
+    <string name="value_lan">LAN</string>
+    <string name="value_unreachable">No accesible</string>
+    <string name="value_untrusted">No confiable</string>
+    <string name="detail_list_separator">", "</string>
     <string name="source_local_identity">Identidad local</string>
     <string name="source_server_device_list">Lista de dispositivos del servidor</string>
     <string name="source_trusted_peer_key">Clave de par confiable</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">El nombre del dispositivo es obligatorio</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Enviar mensajes y archivos</string>
-    <string name="messages_contacts_empty_title">Todavía no hay contactos</string>
-    <string name="messages_contacts_empty_body">Conecte dispositivos por LAN o Cloud para enviar mensajes y archivos</string>
     <string name="message_select_target_device">Seleccione un dispositivo de destino</string>
     <string name="message_route_unavailable">No se puede entregar el mensaje</string>
     <string name="no_messages_title">No hay mensajes</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">Guardar</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">Conecte su cuenta para sincronizar dispositivos</string>
     <string name="cloud_account_title">Cuenta en la nube</string>
     <string name="cloud_account_login_status">Estado de inicio de sesión</string>
     <string name="cloud_account_logged_in">Sesión iniciada</string>

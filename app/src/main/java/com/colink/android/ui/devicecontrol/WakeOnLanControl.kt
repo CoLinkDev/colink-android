@@ -6,16 +6,21 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -153,7 +158,11 @@ fun WakeOnLanControlCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = if (activeSupport == SystemControlSupport.TOO_OLD) {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
         ),
         shape = MaterialTheme.shapes.large,
     ) {
@@ -224,6 +233,8 @@ fun WakeOnLanControlCard(
                         activeSupport != SystemControlSupport.TOO_OLD,
                     onClick = { pendingMac = normalizedMac },
                 ) {
+                    Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.device_wake_on_lan_send))
                 }
             }

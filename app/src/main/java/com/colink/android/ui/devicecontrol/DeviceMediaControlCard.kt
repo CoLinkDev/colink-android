@@ -48,13 +48,18 @@ fun DeviceMediaControlCard(
     val enabled = hasAvailableDevice &&
         selectedDeviceId != null &&
         !state.submitting &&
+        !state.querying &&
         activeSupport == SystemControlSupport.SUPPORTED
     val playing = state.playback == "playing"
 
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = if (activeSupport == SystemControlSupport.TOO_OLD) {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
         ),
         shape = MaterialTheme.shapes.large,
     ) {

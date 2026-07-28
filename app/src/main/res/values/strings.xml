@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">Devices</string>
-    <string name="nav_messages">Transfers</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">Device control</string>
-    <string name="device_control_subtitle">Access remote device features</string>
     <string name="device_control_terminal">Terminal</string>
     <string name="terminal_subtitle">Open an interactive terminal on the selected computer</string>
     <string name="terminal_open">Open terminal</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">Device details</string>
+    <string name="enter_chat_btn">Transfer</string>
+    <string name="chat_card_subtitle">Send messages and files to this device</string>
     <string name="back_desc">Back</string>
     <string name="device_not_found">Device not found</string>
     <string name="refresh_body">Refresh the device list and try again.</string>
@@ -175,20 +174,28 @@
     <string name="label_name">Name</string>
     <string name="label_device_id">Device ID</string>
     <string name="label_platform">Platform</string>
+    <string name="label_protocol_versions">Protocol versions</string>
     <string name="label_fetch_source">Fetch source</string>
     <string name="label_local_device">Local</string>
     <string name="label_cloud_available">Cloud reachable</string>
     <string name="label_lan_available">LAN reachable</string>
-    <string name="label_lan_endpoint">LAN endpoint</string>
+    <string name="label_reachability">Reachability</string>
+    <string name="reachability_lan_with_endpoint">%1$s (%2$s)</string>
     <string name="label_active_route">Active route</string>
     <string name="label_last_alive">Last alive</string>
     <string name="label_trusted_by_lan">Trusted by LAN</string>
     <string name="label_trusted_by_cloud">Trusted by Cloud</string>
+    <string name="label_trust_source">Trust source</string>
     <string name="label_public_key_fingerprint">Public key fingerprint</string>
     <string name="label_public_key">Public key</string>
     <string name="value_yes">Yes</string>
     <string name="value_no">No</string>
     <string name="value_none">None</string>
+    <string name="value_cloud">Cloud</string>
+    <string name="value_lan">LAN</string>
+    <string name="value_unreachable">Unreachable</string>
+    <string name="value_untrusted">Untrusted</string>
+    <string name="detail_list_separator">", "</string>
     <string name="source_local_identity">Local identity</string>
     <string name="source_server_device_list">Server device list</string>
     <string name="source_trusted_peer_key">Trusted peer key</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">Device name is required</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">Send messages and files</string>
-    <string name="messages_contacts_empty_title">No contacts yet</string>
-    <string name="messages_contacts_empty_body">Connect devices over LAN or Cloud to send messages and files</string>
     <string name="message_select_target_device">Select a target device</string>
     <string name="message_route_unavailable">Message cannot be delivered</string>
     <string name="no_messages_title">No messages</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">Save</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">Connect this device to your account</string>
     <string name="cloud_account_title">Cloud account</string>
     <string name="cloud_account_login_status">Login status</string>
     <string name="cloud_account_logged_in">Signed in</string>

@@ -1,24 +1,11 @@
 package com.colink.android.ui.auth
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
@@ -43,8 +30,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,27 +43,6 @@ import com.colink.android.util.normalizeServerUrl
 import com.colink.android.ui.components.StateMessage
 
 @Composable
-fun AuthScreen(
-    modifier: Modifier = Modifier,
-    onAuthenticated: () -> Unit = {},
-    viewModel: AuthViewModel = hiltViewModel(),
-) {
-    AuthContent(
-        modifier = modifier
-            .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-        showHeader = true,
-        onAuthenticated = onAuthenticated,
-        viewModel = viewModel,
-        onDismiss = null,
-    )
-}
-
-@Composable
 fun AuthDialogContent(
     onAuthenticated: () -> Unit,
     onDismiss: () -> Unit,
@@ -89,7 +53,6 @@ fun AuthDialogContent(
         modifier = modifier
             .fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        showHeader = false,
         onAuthenticated = onAuthenticated,
         viewModel = viewModel,
         onDismiss = onDismiss,
@@ -100,7 +63,6 @@ fun AuthDialogContent(
 private fun AuthContent(
     modifier: Modifier,
     verticalArrangement: Arrangement.Vertical,
-    showHeader: Boolean,
     onAuthenticated: () -> Unit,
     viewModel: AuthViewModel,
     onDismiss: (() -> Unit)?,
@@ -131,27 +93,6 @@ private fun AuthContent(
         verticalArrangement = verticalArrangement,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (showHeader) {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        if (showHeader) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = "CoLink",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = stringResource(R.string.auth_subtitle),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -297,9 +238,6 @@ private fun AuthContent(
                     }
                 }
             }
-        }
-        if (showHeader) {
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

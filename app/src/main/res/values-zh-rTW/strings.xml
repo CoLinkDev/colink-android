@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">裝置</string>
-    <string name="nav_messages">傳輸</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">裝置控制</string>
-    <string name="device_control_subtitle">存取遠端裝置功能</string>
     <string name="device_control_terminal">終端</string>
     <string name="terminal_subtitle">在所選電腦上開啟互動式終端機</string>
     <string name="terminal_open">開啟終端</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">裝置詳細資訊</string>
+    <string name="enter_chat_btn">傳輸</string>
+    <string name="chat_card_subtitle">向此裝置傳送訊息和檔案</string>
     <string name="back_desc">返回</string>
     <string name="device_not_found">未找到裝置</string>
     <string name="refresh_body">重新整理裝置列表並重試。</string>
@@ -175,20 +174,28 @@
     <string name="label_name">名稱</string>
     <string name="label_device_id">裝置 ID</string>
     <string name="label_platform">平台</string>
+    <string name="label_protocol_versions">協議版本</string>
     <string name="label_fetch_source">獲取來源</string>
     <string name="label_local_device">本機</string>
     <string name="label_cloud_available">雲端可達</string>
     <string name="label_lan_available">區域網路可達</string>
-    <string name="label_lan_endpoint">區域網路端點</string>
+    <string name="label_reachability">可達性</string>
+    <string name="reachability_lan_with_endpoint">%1$s（%2$s）</string>
     <string name="label_active_route">當前路由</string>
     <string name="label_last_alive">上次存活時間</string>
     <string name="label_trusted_by_lan">由區域網路信任</string>
     <string name="label_trusted_by_cloud">由雲端信任</string>
+    <string name="label_trust_source">信任來源</string>
     <string name="label_public_key_fingerprint">公鑰指紋</string>
     <string name="label_public_key">公鑰</string>
     <string name="value_yes">是</string>
     <string name="value_no">否</string>
     <string name="value_none">無</string>
+    <string name="value_cloud">雲端</string>
+    <string name="value_lan">區域網路</string>
+    <string name="value_unreachable">不可達</string>
+    <string name="value_untrusted">不受信任</string>
+    <string name="detail_list_separator">、</string>
     <string name="source_local_identity">本機身份</string>
     <string name="source_server_device_list">伺服器裝置列表</string>
     <string name="source_trusted_peer_key">可信裝置金鑰</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">請輸入裝置名稱</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">傳送訊息和檔案</string>
-    <string name="messages_contacts_empty_title">還沒有聯絡人</string>
-    <string name="messages_contacts_empty_body">透過區域網路或雲端連線裝置來傳送訊息和檔案</string>
     <string name="message_select_target_device">選擇目標裝置</string>
     <string name="message_route_unavailable">訊息無法送達</string>
     <string name="no_messages_title">暫無訊息</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">儲存</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">連接此裝置到您的帳戶</string>
     <string name="cloud_account_title">雲端帳戶</string>
     <string name="cloud_account_login_status">登入狀態</string>
     <string name="cloud_account_logged_in">已登入</string>

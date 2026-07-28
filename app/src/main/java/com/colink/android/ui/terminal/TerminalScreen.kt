@@ -33,8 +33,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.colink.android.network.ConnectionManager
+import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.TerminalEvent
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +44,10 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private sealed interface TerminalCommand {
@@ -52,13 +58,25 @@ private sealed interface TerminalCommand {
     data class Ended(val sessionId: String) : TerminalCommand
 }
 
+enum class TerminalConnectionError {
+    Unsupported,
+    Unavailable,
+}
+
+data class TerminalUiState(
+    val connectionError: TerminalConnectionError? = null,
+)
+
 @HiltViewModel
 class TerminalViewModel @Inject constructor(private val connectionManager: ConnectionManager) : ViewModel() {
     private val commands = Channel<TerminalCommand>(Channel.UNLIMITED)
+    private val _uiState = MutableStateFlow(TerminalUiState())
 
     @Volatile
     var sessionId: String? = null
     private var connecting = false
+
+    val uiState: StateFlow<TerminalUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -152,11 +170,23 @@ class TerminalViewModel @Inject constructor(private val connectionManager: Conne
     fun connect(deviceId: String, cols: Int, rows: Int) = viewModelScope.launch(Dispatchers.IO) {
         if (connecting || sessionId != null) return@launch
         connecting = true
+        _uiState.update { it.copy(connectionError = null) }
         try {
-            connectionManager.openTerminal(deviceId, cols, rows).onSuccess {
-                sessionId = it
-                commands.trySend(TerminalCommand.Opened(deviceId, it))
-            }
+            connectionManager.openTerminal(deviceId, cols, rows)
+                .onSuccess {
+                    sessionId = it
+                    commands.trySend(TerminalCommand.Opened(deviceId, it))
+                }
+                .onFailure {
+                    val error = if (
+                        connectionManager.terminalSupport(deviceId) == SystemControlSupport.TOO_OLD
+                    ) {
+                        TerminalConnectionError.Unsupported
+                    } else {
+                        TerminalConnectionError.Unavailable
+                    }
+                    _uiState.update { it.copy(connectionError = error) }
+                }
         } finally {
             connecting = false
         }
@@ -175,6 +205,10 @@ class TerminalViewModel @Inject constructor(private val connectionManager: Conne
         commands.trySend(TerminalCommand.Close(deviceId))
     }
 
+    fun clearConnectionError() {
+        _uiState.update { it.copy(connectionError = null) }
+    }
+
     fun handleEvent(event: TerminalEvent) {
         val endedSessionId = when (event) {
             is TerminalEvent.Closed -> event.sessionId
@@ -183,6 +217,9 @@ class TerminalViewModel @Inject constructor(private val connectionManager: Conne
         }
         if (sessionId == endedSessionId) {
             sessionId = null
+        }
+        if (event is TerminalEvent.Failed) {
+            _uiState.update { it.copy(connectionError = TerminalConnectionError.Unavailable) }
         }
         commands.trySend(TerminalCommand.Ended(endedSessionId))
     }
@@ -196,6 +233,7 @@ fun TerminalScreen(deviceId: String, onBack: () -> Unit, viewModel: TerminalView
     val context = LocalContext.current
     val webView = remember { WebView(context) }
     var showExitDialog by remember { mutableStateOf(false) }
+    val terminalState by viewModel.uiState.collectAsStateWithLifecycle()
 
     BackHandler(enabled = true) {
         showExitDialog = true
@@ -282,6 +320,37 @@ fun TerminalScreen(deviceId: String, onBack: () -> Unit, viewModel: TerminalView
             dismissButton = {
                 TextButton(onClick = { showExitDialog = false }) {
                     Text(stringResource(com.colink.android.R.string.cancel_btn))
+                }
+            },
+        )
+    }
+
+    terminalState.connectionError?.let { error ->
+        AlertDialog(
+            onDismissRequest = {
+                viewModel.clearConnectionError()
+                onBack()
+            },
+            title = { Text(stringResource(com.colink.android.R.string.device_control_terminal)) },
+            text = {
+                Text(
+                    stringResource(
+                        if (error == TerminalConnectionError.Unsupported) {
+                            com.colink.android.R.string.device_control_unsupported
+                        } else {
+                            com.colink.android.R.string.message_route_unavailable
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearConnectionError()
+                        onBack()
+                    },
+                ) {
+                    Text(stringResource(android.R.string.ok))
                 }
             },
         )

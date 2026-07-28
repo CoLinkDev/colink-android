@@ -9,6 +9,7 @@ import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.network.PeerProtocolVersions
 import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,6 +58,8 @@ class DevicesViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             null,
         )
+    val peerProtocolVersions: StateFlow<Map<String, PeerProtocolVersions>> =
+        connectionManager.peerProtocolVersions
 
     private val _uiState = MutableStateFlow(DevicesUiState())
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
@@ -146,6 +149,10 @@ class DevicesViewModel @Inject constructor(
 
     fun startLanPairing(deviceId: String) {
         connectionManager.startLanPairing(deviceId)
+    }
+
+    fun requestPeerProtocolVersions(deviceId: String) {
+        connectionManager.requestPeerProtocolVersions(deviceId)
     }
 
     fun clearMessage() {

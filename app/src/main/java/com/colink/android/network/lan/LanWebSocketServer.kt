@@ -358,6 +358,7 @@ class LanWebSocketServer @Inject constructor(
                     continue
                 }
                 state.receiveHello(hello.payload.deviceId, hello.payload.protocolVersion)
+                listener?.onPeerP2pVersion(hello.payload.deviceId, hello.payload.protocolVersion)
                 val compatibility = checkLanProtocolVersion(hello.payload.protocolVersion)
                 sendHelloAck(session, VersionAckPayload(compatibility.compatible, compatibility.reason, compatibility.message))
                 state.markHelloAckSent()
@@ -604,6 +605,9 @@ class LanWebSocketServer @Inject constructor(
         val payload = runCatching {
             json.decodeFromJsonElement(BusinessVersionPayload.serializer(), envelope.payload)
         }.getOrNull()
+        payload?.businessVersion?.let { version ->
+            listener?.onPeerBusinessVersion(peerId, version)
+        }
         val compatibility = payload
             ?.let { checkBusinessProtocolVersion(it.businessVersion) }
             ?: checkBusinessProtocolVersion("")
@@ -1024,6 +1028,8 @@ class LanWebSocketServer @Inject constructor(
 
     interface Listener {
         fun onConnected(deviceId: String)
+        fun onPeerP2pVersion(deviceId: String, version: String)
+        fun onPeerBusinessVersion(deviceId: String, version: String)
         fun onMessage(
             fromDeviceId: String,
             envelopeId: String,

@@ -39,7 +39,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.message.SystemControlAction
-import com.colink.android.ui.components.DevicePicker
 import com.colink.android.ui.components.StateMessage
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
@@ -72,7 +71,11 @@ fun DevicePowerControlCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = if (activeSupport == SystemControlSupport.TOO_OLD) {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            },
         ),
         shape = MaterialTheme.shapes.large,
     ) {
@@ -128,14 +131,14 @@ fun DevicePowerControlCard(
                         destructive = true,
                         onClick = { pendingAction = SystemControlAction.Shutdown },
                     )
-                    if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
-                        PowerActionButton(
-                            label = stringResource(R.string.device_power_cancel_scheduled),
-                            icon = Icons.Default.PowerSettingsNew,
-                            enabled = selectedDevice != null && !state.submitting,
-                            onClick = { pendingAction = SystemControlAction.CancelPower },
-                        )
-                    }
+                    PowerActionButton(
+                        label = stringResource(R.string.device_power_cancel_scheduled),
+                        icon = Icons.Default.PowerSettingsNew,
+                        enabled = selectedDevice != null &&
+                            !state.submitting &&
+                            delayedPowerSupport == SystemControlSupport.SUPPORTED,
+                        onClick = { pendingAction = SystemControlAction.CancelPower },
+                    )
                 }
             }
         }

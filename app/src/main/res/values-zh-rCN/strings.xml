@@ -11,10 +11,7 @@
     
     <!-- Navigation -->
     <string name="nav_devices">设备</string>
-    <string name="nav_messages">传输</string>
     <string name="nav_castboard">CastBoard</string>
-    <string name="nav_device_control">设备控制</string>
-    <string name="device_control_subtitle">访问远程设备功能</string>
     <string name="device_control_terminal">终端</string>
     <string name="terminal_subtitle">在所选电脑上打开交互式终端</string>
     <string name="terminal_open">打开终端</string>
@@ -152,6 +149,8 @@
     
     <!-- Device Details -->
     <string name="device_details_title">设备详细信息</string>
+    <string name="enter_chat_btn">传输</string>
+    <string name="chat_card_subtitle">向此设备发送消息和文件</string>
     <string name="back_desc">返回</string>
     <string name="device_not_found">未找到设备</string>
     <string name="refresh_body">刷新设备列表并重试。</string>
@@ -175,20 +174,28 @@
     <string name="label_name">名称</string>
     <string name="label_device_id">设备 ID</string>
     <string name="label_platform">平台</string>
+    <string name="label_protocol_versions">协议版本</string>
     <string name="label_fetch_source">获取来源</string>
     <string name="label_local_device">本机</string>
     <string name="label_cloud_available">云端可达</string>
     <string name="label_lan_available">局域网可达</string>
-    <string name="label_lan_endpoint">局域网端点</string>
+    <string name="label_reachability">可达性</string>
+    <string name="reachability_lan_with_endpoint">%1$s（%2$s）</string>
     <string name="label_active_route">当前路由</string>
     <string name="label_last_alive">上次存活时间</string>
     <string name="label_trusted_by_lan">由局域网信任</string>
     <string name="label_trusted_by_cloud">由云端信任</string>
+    <string name="label_trust_source">信任来源</string>
     <string name="label_public_key_fingerprint">公钥指纹</string>
     <string name="label_public_key">公钥</string>
     <string name="value_yes">是</string>
     <string name="value_no">否</string>
     <string name="value_none">无</string>
+    <string name="value_cloud">云端</string>
+    <string name="value_lan">局域网</string>
+    <string name="value_unreachable">不可达</string>
+    <string name="value_untrusted">不信任</string>
+    <string name="detail_list_separator">、</string>
     <string name="source_local_identity">本机身份</string>
     <string name="source_server_device_list">服务端设备列表</string>
     <string name="source_trusted_peer_key">可信设备密钥</string>
@@ -200,9 +207,6 @@
     <string name="err_device_name_required">请输入设备名称</string>
     
     <!-- Messages -->
-    <string name="messages_choose_device">发送消息和文件</string>
-    <string name="messages_contacts_empty_title">还没有联系人</string>
-    <string name="messages_contacts_empty_body">通过局域网或云端连接设备来发送消息和文件</string>
     <string name="message_select_target_device">选择目标设备</string>
     <string name="message_route_unavailable">消息无法送达</string>
     <string name="no_messages_title">暂无消息</string>
@@ -267,7 +271,6 @@
     <string name="save_btn">保存</string>
     
     <!-- Authentication -->
-    <string name="auth_subtitle">连接此设备到您的账户</string>
     <string name="cloud_account_title">云端账户</string>
     <string name="cloud_account_login_status">登录状态</string>
     <string name="cloud_account_logged_in">已登录</string>

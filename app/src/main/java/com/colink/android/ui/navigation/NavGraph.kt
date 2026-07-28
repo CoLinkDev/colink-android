@@ -35,13 +35,13 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
-import androidx.compose.material.icons.automirrored.filled.Chat
+
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
-import androidx.compose.material.icons.filled.Tune
+
 import androidx.compose.material.icons.filled.Settings
 import com.colink.android.ui.components.BadgeChip
 import androidx.compose.material3.AlertDialog
@@ -102,14 +102,15 @@ import com.colink.android.share.PendingShareStore
 import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.terminal.TerminalScreen
+import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.camera.CameraScreen
-import com.colink.android.ui.devices.DeviceDetailsScreen
+import com.colink.android.ui.devices.DeviceScreen
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
-import com.colink.android.ui.castboard.CastBoardActivity
-import com.colink.android.ui.devicecontrol.DeviceControlScreen
-import com.colink.android.ui.messages.MessageScreen
+
+
+import com.colink.android.ui.messages.ConversationScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.components.AppUpdateDialog
@@ -127,6 +128,13 @@ private val secondaryPageRoutes =
         "terminal/{deviceId}",
         "camera/{deviceId}",
     )
+private val deviceChildPageRoutes =
+    setOf(
+        "conversation/{deviceId}",
+        "filesystem/{deviceId}",
+        "terminal/{deviceId}",
+        "camera/{deviceId}",
+    )
 
 private data class TopLevelRoute(
     val route: String,
@@ -137,8 +145,6 @@ private data class TopLevelRoute(
 private val topLevelRoutes =
     listOf(
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
-        TopLevelRoute("messages", R.string.nav_messages, Icons.AutoMirrored.Filled.Chat),
-        TopLevelRoute("device-control", R.string.nav_device_control, Icons.Default.Tune),
         TopLevelRoute("settings", R.string.settings_title, Icons.Default.Settings),
     )
 
@@ -265,6 +271,14 @@ private fun MainScaffold(
         ),
         label = "conversation scrim",
     )
+    val deviceScrimAlpha by animateFloatAsState(
+        targetValue = if (rootBackStackEntry?.destination?.route in deviceChildPageRoutes) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = SecondaryPageTransitionDurationMillis,
+            easing = SecondaryPageTransitionEasing,
+        ),
+        label = "device scrim",
+    )
     val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
         ?: remember {
             androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
@@ -299,7 +313,7 @@ private fun MainScaffold(
                 launchSingleTop = true
             }
         } else if (
-            currentEntry?.destination?.route in setOf("main", "conversation/{deviceId}") &&
+            currentEntry?.destination?.route in setOf("main", "device/{deviceId}", "conversation/{deviceId}") &&
                 exitingSecondaryPageEntryId != null
         ) {
             interruptedSecondaryPageEntryId = exitingSecondaryPageEntryId
@@ -340,8 +354,10 @@ private fun MainScaffold(
         },
         exitTransition = {
             if (
-                initialState.destination.route == "conversation/{deviceId}" &&
-                    targetState.destination.route == "filesystem/{deviceId}"
+                (initialState.destination.route == "device/{deviceId}" &&
+                    targetState.destination.route in secondaryPageRoutes) ||
+                    (initialState.destination.route == "conversation/{deviceId}" &&
+                        targetState.destination.route == "filesystem/{deviceId}")
             ) {
                 ExitTransition.None
             } else {
@@ -356,8 +372,10 @@ private fun MainScaffold(
         },
         popEnterTransition = {
             if (
-                initialState.destination.route == "filesystem/{deviceId}" &&
-                    targetState.destination.route == "conversation/{deviceId}"
+                (initialState.destination.route in secondaryPageRoutes &&
+                    targetState.destination.route == "device/{deviceId}") ||
+                    (initialState.destination.route == "filesystem/{deviceId}" &&
+                        targetState.destination.route == "conversation/{deviceId}")
             ) {
                 EnterTransition.None
             } else {
@@ -400,7 +418,7 @@ private fun MainScaffold(
                 if (rootNavController.currentBackStackEntry?.destination?.route != "main") {
                     rootNavController.popBackStack("main", inclusive = false)
                 }
-                nestedNavController.navigateTopLevel("messages")
+                nestedNavController.navigateTopLevel("devices")
             }
 
             val configuration = LocalConfiguration.current
@@ -435,8 +453,6 @@ private fun MainScaffold(
                             ) {
                                 MainTopLevelNavHost(
                                     navController = nestedNavController,
-                                    pendingShareStore = pendingShareStore,
-                                    context = context,
                                     requestSecondaryPage = ::requestSecondaryPage,
                                     modifier = Modifier.fillMaxSize(),
                                 )
@@ -458,8 +474,6 @@ private fun MainScaffold(
                         ) { innerPadding ->
                             MainTopLevelNavHost(
                                 navController = nestedNavController,
-                                pendingShareStore = pendingShareStore,
-                                context = context,
                                 requestSecondaryPage = ::requestSecondaryPage,
                                 modifier = Modifier.padding(innerPadding),
                             )
@@ -494,19 +508,34 @@ private fun MainScaffold(
 
         composable(route = "device/{deviceId}") { entry ->
             InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                DeviceDetailsScreen(
-                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                    onBack = { rootNavController.popBackStack() },
-                )
+                Box {
+                    DeviceScreen(
+                        deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                        onBack = { rootNavController.popBackStack() },
+                        onOpenChat = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
+                        onStartCastBoard = { deviceId ->
+                            context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                        },
+                        onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
+                        onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .alpha(deviceScrimAlpha)
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
+                    )
+                }
             }
         }
 
         composable(route = "conversation/{deviceId}") { entry ->
             InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
                 Box {
-                    MessageScreen(
+                    ConversationScreen(
                         pendingShareStore = pendingShareStore,
-                        fixedDeviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                        deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                         onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
                         onBack = { rootNavController.popBackStack() },
                         modifier = Modifier,
@@ -811,8 +840,6 @@ private fun MainBottomBar(navController: NavHostController) {
 @Composable
 private fun MainTopLevelNavHost(
     navController: NavHostController,
-    pendingShareStore: PendingShareStore?,
-    context: android.content.Context,
     requestSecondaryPage: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -831,25 +858,6 @@ private fun MainTopLevelNavHost(
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 DeviceListScreen(
                     onDeviceSelected = { deviceId -> requestSecondaryPage("device/${Uri.encode(deviceId)}") },
-                )
-            }
-        }
-        composable("messages") {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                MessageScreen(
-                    pendingShareStore = pendingShareStore,
-                    onConversationSelected = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
-                )
-            }
-        }
-        composable("device-control") {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                DeviceControlScreen(
-                    onStartCastBoard = { deviceId ->
-                        context.startActivity(CastBoardActivity.createIntent(context, deviceId))
-                    },
-                    onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
-                    onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
                 )
             }
         }
