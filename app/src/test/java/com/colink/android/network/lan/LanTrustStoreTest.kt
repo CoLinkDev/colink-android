@@ -34,11 +34,12 @@ class LanTrustStoreTest {
     }
 
     @Test
-    fun cloudTrustedKeyIsNotTrustedForLan() = runBlocking {
+    fun cloudTrustedKeyIsTrustedButNotLanTrusted() = runBlocking {
         dao.upsert(record(deviceId = "device", publicKey = "key", trustedByCloud = true))
 
         assertEquals(LanTrustState.Unknown, store.trustState("device", "key"))
         assertFalse(store.isLanTrusted("device"))
+        assertTrue(store.isTrusted("device"))
     }
 
     @Test

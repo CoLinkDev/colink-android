@@ -72,6 +72,7 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
+import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.components.ScreenColumn
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -190,7 +191,9 @@ fun DeviceListScreen(
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            if (uiState.loading && devices.isEmpty() && lanPairingCandidates.isEmpty()) {
+                LoadingScreen(modifier = Modifier.fillMaxSize())
+            } else BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 if (maxWidth >= 600.dp) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 320.dp),
@@ -234,6 +237,8 @@ fun DeviceListScreen(
                                     cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
+                                    canPairOnLan = device.lanAvailable && !device.trustedByLan,
+                                    onPair = { viewModel.startLanPairing(device.deviceId) },
                                     onClick = { onDeviceSelected(device.deviceId) },
                                     modifier = Modifier.animateItem(),
                                 )
@@ -281,6 +286,8 @@ fun DeviceListScreen(
                                     cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
+                                    canPairOnLan = device.lanAvailable && !device.trustedByLan,
+                                    onPair = { viewModel.startLanPairing(device.deviceId) },
                                     onClick = { onDeviceSelected(device.deviceId) },
                                     modifier = Modifier.animateItem(),
                                 )
@@ -421,6 +428,8 @@ private fun DeviceCard(
     online: Boolean,
     cloudAvailable: Boolean,
     isLocalDevice: Boolean,
+    canPairOnLan: Boolean,
+    onPair: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -518,6 +527,11 @@ private fun DeviceCard(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+                if (canPairOnLan && !isLocalDevice) {
+                    TextButton(onClick = onPair) {
+                        Text(stringResource(R.string.pair_btn))
                     }
                 }
             }

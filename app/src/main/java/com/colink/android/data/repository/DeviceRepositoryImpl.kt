@@ -113,7 +113,13 @@ class DeviceRepositoryImpl @Inject constructor(
             )
             ensureTrustedPeerKeysForDevices(cloudDevices, localIdentity?.deviceId)
             val reconciled = reconcileDevices(
-                incoming = cloudDevices,
+                incoming = cloudDevices.map { device ->
+                    device.copy(
+                        online = false,
+                        cloudAvailable = false,
+                        activeRoute = null,
+                    )
+                },
                 previous = previous,
                 localIdentity = localIdentity,
             )
@@ -150,23 +156,6 @@ class DeviceRepositoryImpl @Inject constructor(
                 name = name,
                 type = deviceType,
             )
-            val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
-            val cloudAvailable = online
-            saveDevices(
-                listOf(
-                    current.copy(
-                        name = name?.takeIf { it.isNotBlank() } ?: current.name,
-                        type = reconcileDeviceType(
-                            incoming = deviceType ?: current.type,
-                            previous = current.type,
-                        ),
-                        cloudAvailable = cloudAvailable,
-                        online = cloudAvailable,
-                        activeRoute = if (cloudAvailable) "cloud" else null,
-                    ),
-                ),
-                replaceAll = false,
-            )
             CoLinkLog.i(
                 "Device",
                 "marked cloud presence device=${CoLinkLog.shortId(deviceId)} online=$online",
@@ -176,34 +165,12 @@ class DeviceRepositoryImpl @Inject constructor(
     override suspend fun clearCloudPresence(): Result<Unit> =
         runCatching {
             cloudRuntimeState.clear()
-            val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
-            val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
-                val isLocal = device.deviceId == localDeviceId
-                device.copy(
-                    cloudAvailable = false,
-                    online = isLocal,
-                    activeRoute = null,
-                    deviceSources = if (isLocal) mergeSources(device.deviceSources, "local") else device.deviceSources,
-                )
-            }
-            saveDevices(devices)
             CoLinkLog.i("Device", "cleared cloud presence")
         }
 
     override suspend fun resetDevicePresence(): Result<Unit> =
         runCatching {
             cloudRuntimeState.clear()
-            val localDeviceId = settingsDataStore.currentDeviceIdentity()?.deviceId
-            val devices = deviceDao.getDevices().map { it.toDomain() }.map { device ->
-                val isLocal = device.deviceId == localDeviceId
-                device.copy(
-                    online = isLocal,
-                    cloudAvailable = false,
-                    activeRoute = null,
-                    deviceSources = if (isLocal) mergeSources(device.deviceSources, "local") else device.deviceSources,
-                )
-            }
-            saveDevices(devices)
         }
 
     override suspend fun listLocalDevices(): Result<List<Device>> =
