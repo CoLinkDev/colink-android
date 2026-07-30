@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -211,6 +212,13 @@ fun DeviceListScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        item(
+                            key = "device_list_header_anchor",
+                            span = { GridItemSpan(maxLineSpan) },
+                            contentType = "anchor",
+                        ) {
+                            Spacer(modifier = Modifier.size(0.dp))
+                        }
                         if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                             item(contentType = "empty") {
                                 EmptyState(
@@ -260,6 +268,12 @@ fun DeviceListScreen(
                         contentPadding = PaddingValues(bottom = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        item(
+                            key = "device_list_header_anchor",
+                            contentType = "anchor",
+                        ) {
+                            Spacer(modifier = Modifier.size(0.dp))
+                        }
                         if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                             item(contentType = "empty") {
                                 EmptyState(
