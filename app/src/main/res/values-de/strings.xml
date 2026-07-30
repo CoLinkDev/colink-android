@@ -319,6 +319,8 @@
     <string name="pair_qr_show">Kopplungs-QR-Code anzeigen</string>
     <string name="pair_qr_title">Kopplungs-QR-Code</string>
     <string name="pair_qr_description">Scanne diesen QR-Code mit einem anderen Gerät, um es zu koppeln.</string>
+    <string name="pair_qr_switch_to_legacy">Zum alten QR-Code wechseln</string>
+    <string name="pair_qr_switch_to_new">Zum neuen QR-Code wechseln</string>
     <string name="pair_qr_scanner_unavailable">Der QR-Code-Scanner kann nicht gestartet werden.</string>
     <string name="err_pair_qr_invalid">Dies ist kein gültiger CoLink-Kopplungs-QR-Code.</string>
     <string name="err_pair_qr_expired">Dieser Kopplungs-QR-Code ist abgelaufen. Zeige auf dem anderen Gerät einen neuen QR-Code an.</string>

@@ -29,6 +29,7 @@ import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
 import com.colink.android.network.message.supportsLanPairString
+import com.colink.android.network.message.supportsLanPairStringV2
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
@@ -445,6 +446,18 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 private fun startPairing(webSocket: WebSocket, state: ClientPeerState) {
+                    if (state.pairString != null && !state.supportsPairString) {
+                        state.rejectPairing()
+                        sendLanMessage(
+                            webSocket,
+                            state.identity,
+                            state.expectedDeviceId,
+                            "pairing.v1.reject",
+                            LanRejectPayload(REASON_PAIR_STRING_INVALID, "Pair string is invalid"),
+                            sequence = state.sequence,
+                        )
+                        return
+                    }
                     state.startPairing(UUID.randomUUID().toString().replace("-", ""))
                     sendLanMessage(
                         webSocket,
@@ -1226,7 +1239,11 @@ private class ClientPeerState(
         get() = peerProtocolVersion?.let(::supportsLanKeyExchangeNonce) == true
 
     val supportsPairString: Boolean
-        get() = peerProtocolVersion?.let(::supportsLanPairString) == true
+        get() = when (pairString?.version) {
+            PairStringVersion.V1 -> peerProtocolVersion?.let(::supportsLanPairString) == true
+            PairStringVersion.V2 -> peerProtocolVersion?.let(::supportsLanPairStringV2) == true
+            null -> false
+        }
 
     val keyExchangeNonceReady: Boolean
         get() = !requiresKeyExchangeNonce || (sentKeyExchangeNonce && peerKeyExchangeNonce != null)

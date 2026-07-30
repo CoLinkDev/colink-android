@@ -319,6 +319,8 @@
     <string name="pair_qr_show">Show pairing QR code</string>
     <string name="pair_qr_title">Pairing QR code</string>
     <string name="pair_qr_description">Use another device to scan this QR code to pair.</string>
+    <string name="pair_qr_switch_to_legacy">Switch to legacy QR code</string>
+    <string name="pair_qr_switch_to_new">Switch to new QR code</string>
     <string name="pair_qr_scanner_unavailable">Unable to start the QR code scanner.</string>
     <string name="err_pair_qr_invalid">This is not a valid CoLink pairing QR code.</string>
     <string name="err_pair_qr_expired">This pairing QR code has expired. Show a new QR code on the other device.</string>

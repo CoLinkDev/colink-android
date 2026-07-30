@@ -32,6 +32,7 @@ import com.colink.android.network.message.negotiatedLanProtocolVersion
 import com.colink.android.network.message.supportsLanKeyExchange
 import com.colink.android.network.message.supportsLanKeyExchangeNonce
 import com.colink.android.network.message.supportsLanPairString
+import com.colink.android.network.message.supportsLanPairStringV2
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
@@ -177,7 +178,8 @@ class LanWebSocketServer @Inject constructor(
     @Synchronized
     fun isRunning(): Boolean = engine != null
 
-    fun createPairString(identity: DeviceIdentity): String = pairStringStore.issue(identity)
+    fun createPairString(identity: DeviceIdentity, legacy: Boolean = false): String =
+        pairStringStore.issue(identity, legacy)
 
     private fun createEngine(port: Int): ApplicationEngine =
         embeddedServer(CIO, host = "0.0.0.0", port = port) {
@@ -535,8 +537,8 @@ class LanWebSocketServer @Inject constructor(
             request.nonce,
             UUID.randomUUID().toString().replace("-", ""),
         )
-        if (request.pairString != null && state.supportsPairString) {
-            val pairString = runCatching { pairStringStore.reserve(request.pairString, state.identity) }
+        if (request.pairString != null) {
+            val pairString = runCatching { pairStringStore.parse(request.pairString) }
                 .getOrElse { error ->
                     val failure = error as? PairStringException
                     session.sendLanMessage(
@@ -552,7 +554,34 @@ class LanWebSocketServer @Inject constructor(
                     )
                     return
                 }
-            state.setPairStringToken(pairString.token)
+            if (!state.supportsPairString(pairString.version)) {
+                session.sendLanMessage(
+                    state.identity,
+                    peerId,
+                    "pairing.v1.reject",
+                    LanRejectPayload(REASON_PAIR_STRING_INVALID, "Pair string is invalid"),
+                    envelope.id,
+                    state.sequence,
+                )
+                return
+            }
+            val reservedPairString = runCatching { pairStringStore.reserve(pairString, state.identity) }
+                .getOrElse { error ->
+                    val failure = error as? PairStringException
+                    session.sendLanMessage(
+                        state.identity,
+                        peerId,
+                        "pairing.v1.reject",
+                        LanRejectPayload(
+                            failure?.reason ?: REASON_PAIR_STRING_INVALID,
+                            failure?.message ?: "Pair string is invalid",
+                        ),
+                        envelope.id,
+                        state.sequence,
+                    )
+                    return
+                }
+            state.setPairStringToken(reservedPairString.token)
             session.sendLanMessage(
                 state.identity,
                 peerId,
@@ -1267,8 +1296,10 @@ private class ServerPeerState(
     val requiresKeyExchangeNonce: Boolean
         get() = peerProtocolVersion?.let(::supportsLanKeyExchangeNonce) == true
 
-    val supportsPairString: Boolean
-        get() = peerProtocolVersion?.let(::supportsLanPairString) == true
+    fun supportsPairString(version: PairStringVersion): Boolean = when (version) {
+        PairStringVersion.V1 -> peerProtocolVersion?.let(::supportsLanPairString) == true
+        PairStringVersion.V2 -> peerProtocolVersion?.let(::supportsLanPairStringV2) == true
+    }
 
     val keyExchangeNonceReady: Boolean
         get() = !requiresKeyExchangeNonce || (sentKeyExchangeNonce && peerKeyExchangeNonce != null)

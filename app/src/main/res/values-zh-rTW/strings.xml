@@ -319,6 +319,8 @@
     <string name="pair_qr_show">顯示配對 QR Code</string>
     <string name="pair_qr_title">配對 QR Code</string>
     <string name="pair_qr_description">使用另一台裝置掃描此 QR Code 以配對。</string>
+    <string name="pair_qr_switch_to_legacy">切換到舊版 QR Code</string>
+    <string name="pair_qr_switch_to_new">切換到新版 QR Code</string>
     <string name="pair_qr_scanner_unavailable">無法啟動 QR Code 掃描器。</string>
     <string name="err_pair_qr_invalid">這不是有效的 CoLink 配對 QR Code。</string>
     <string name="err_pair_qr_expired">此配對 QR Code 已過期。請在另一台裝置上重新顯示 QR Code。</string>

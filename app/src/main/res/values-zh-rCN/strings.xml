@@ -319,6 +319,8 @@
     <string name="pair_qr_show">显示配对二维码</string>
     <string name="pair_qr_title">配对二维码</string>
     <string name="pair_qr_description">使用另一台设备扫描此二维码以配对。</string>
+    <string name="pair_qr_switch_to_legacy">切换到旧版二维码</string>
+    <string name="pair_qr_switch_to_new">切换到新版二维码</string>
     <string name="pair_qr_scanner_unavailable">无法启动二维码扫描器。</string>
     <string name="err_pair_qr_invalid">这不是有效的 CoLink 配对二维码。</string>
     <string name="err_pair_qr_expired">此配对二维码已过期。请在另一台设备上重新显示二维码。</string>

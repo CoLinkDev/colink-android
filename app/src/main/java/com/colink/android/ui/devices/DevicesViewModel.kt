@@ -34,6 +34,7 @@ data class DevicesUiState(
     val message: String? = null,
     val localDeviceId: String? = null,
     val pairString: String? = null,
+    val legacyPairString: Boolean = false,
 )
 
 @HiltViewModel
@@ -176,11 +177,13 @@ class DevicesViewModel @Inject constructor(
         connectionManager.startLanPairing(deviceId)
     }
 
-    fun createPairString() {
+    fun createPairString(legacy: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) {
-            connectionManager.createPairString().fold(
+            connectionManager.createPairString(legacy).fold(
                 onSuccess = { pairString ->
-                    _uiState.update { it.copy(pairString = pairString, message = null) }
+                    _uiState.update {
+                        it.copy(pairString = pairString, legacyPairString = legacy, message = null)
+                    }
                 },
                 onFailure = { error ->
                     _uiState.update {
@@ -210,7 +213,7 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun dismissPairString() {
-        _uiState.update { it.copy(pairString = null) }
+        _uiState.update { it.copy(pairString = null, legacyPairString = false) }
     }
 
     fun requestPeerProtocolVersions(deviceId: String) {

@@ -319,6 +319,8 @@
     <string name="pair_qr_show">페어링 QR 코드 표시</string>
     <string name="pair_qr_title">페어링 QR 코드</string>
     <string name="pair_qr_description">다른 기기로 이 QR 코드를 스캔하여 페어링합니다.</string>
+    <string name="pair_qr_switch_to_legacy">이전 QR 코드로 전환</string>
+    <string name="pair_qr_switch_to_new">새 QR 코드로 전환</string>
     <string name="pair_qr_scanner_unavailable">QR 코드 스캐너를 시작할 수 없습니다.</string>
     <string name="err_pair_qr_invalid">유효한 CoLink 페어링 QR 코드가 아닙니다.</string>
     <string name="err_pair_qr_expired">이 페어링 QR 코드는 만료되었습니다. 다른 기기에서 새 QR 코드를 표시하세요.</string>

@@ -319,6 +319,8 @@
     <string name="pair_qr_show">Mostrar código QR de emparejamiento</string>
     <string name="pair_qr_title">Código QR de emparejamiento</string>
     <string name="pair_qr_description">Usa otro dispositivo para escanear este código QR y emparejarlo.</string>
+    <string name="pair_qr_switch_to_legacy">Cambiar al código QR antiguo</string>
+    <string name="pair_qr_switch_to_new">Cambiar al código QR nuevo</string>
     <string name="pair_qr_scanner_unavailable">No se puede iniciar el escáner de códigos QR.</string>
     <string name="err_pair_qr_invalid">Este no es un código QR de emparejamiento válido de CoLink.</string>
     <string name="err_pair_qr_expired">Este código QR de emparejamiento ha caducado. Muestra un código QR nuevo en el otro dispositivo.</string>

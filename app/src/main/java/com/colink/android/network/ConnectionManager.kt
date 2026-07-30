@@ -2482,10 +2482,10 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    suspend fun createPairString(): Result<String> = runCatching {
+    suspend fun createPairString(legacy: Boolean = false): Result<String> = runCatching {
         val identity = deviceRepository.localDeviceIdentity()
             ?: error(REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE)
-        lanWebSocketServer.createPairString(identity)
+        lanWebSocketServer.createPairString(identity, legacy)
     }
 
     suspend fun startPairStringPairing(value: String): Result<Unit> = runCatching {

@@ -302,8 +302,21 @@ fun DeviceListScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = viewModel::dismissPairString) {
-                    Text(stringResource(R.string.lan_pairing_close))
+                Row {
+                    TextButton(onClick = { viewModel.createPairString(!uiState.legacyPairString) }) {
+                        Text(
+                            stringResource(
+                                if (uiState.legacyPairString) {
+                                    R.string.pair_qr_switch_to_new
+                                } else {
+                                    R.string.pair_qr_switch_to_legacy
+                                },
+                            ),
+                        )
+                    }
+                    TextButton(onClick = viewModel::dismissPairString) {
+                        Text(stringResource(R.string.lan_pairing_close))
+                    }
                 }
             },
         )

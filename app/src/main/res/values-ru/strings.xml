@@ -319,6 +319,8 @@
     <string name="pair_qr_show">Показать QR-код сопряжения</string>
     <string name="pair_qr_title">QR-код сопряжения</string>
     <string name="pair_qr_description">Используйте другое устройство, чтобы отсканировать этот QR-код и выполнить сопряжение.</string>
+    <string name="pair_qr_switch_to_legacy">Переключиться на старый QR-код</string>
+    <string name="pair_qr_switch_to_new">Переключиться на новый QR-код</string>
     <string name="pair_qr_scanner_unavailable">Не удалось запустить сканер QR-кодов.</string>
     <string name="err_pair_qr_invalid">Это недействительный QR-код сопряжения CoLink.</string>
     <string name="err_pair_qr_expired">Срок действия этого QR-кода сопряжения истёк. Покажите новый QR-код на другом устройстве.</string>
