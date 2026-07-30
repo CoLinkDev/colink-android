@@ -26,8 +26,10 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Computer
@@ -37,6 +39,7 @@ import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
@@ -44,20 +47,30 @@ import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -97,6 +110,10 @@ fun DeviceListScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
+
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
+
     val availableDeviceCount = remember(devices) {
         devices.count { device -> device.online || device.lanAvailable }
     }
@@ -125,6 +142,30 @@ fun DeviceListScreen(
         )
     }
 
+    val filteredDevices = remember(sortedDevices, searchQuery) {
+        if (searchQuery.isBlank()) {
+            sortedDevices
+        } else {
+            val q = searchQuery.trim()
+            sortedDevices.filter { device ->
+                device.name.contains(q, ignoreCase = true) ||
+                    device.deviceId.contains(q, ignoreCase = true)
+            }
+        }
+    }
+    val filteredLanPairingCandidates = remember(sortedLanPairingCandidates, searchQuery) {
+        if (searchQuery.isBlank()) {
+            sortedLanPairingCandidates
+        } else {
+            val q = searchQuery.trim()
+            sortedLanPairingCandidates.filter { candidate ->
+                candidate.name.contains(q, ignoreCase = true) ||
+                    candidate.deviceId.contains(q, ignoreCase = true) ||
+                    candidate.ip.contains(q, ignoreCase = true)
+            }
+        }
+    }
+
     LaunchedEffect(uiState.message) {
         val msg = uiState.message
         if (!msg.isNullOrBlank()) {
@@ -146,6 +187,11 @@ fun DeviceListScreen(
         )
     }
 
+    BackHandler(enabled = isSearchActive) {
+        isSearchActive = false
+        searchQuery = ""
+    }
+
     ScreenColumn(
         title = stringResource(R.string.nav_devices),
         subtitle = stringResource(
@@ -154,8 +200,26 @@ fun DeviceListScreen(
             devices.size
         ),
         modifier = modifier,
+        headerOverride = if (isSearchActive) {
+            {
+                DeviceSearchHeader(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onClose = {
+                        isSearchActive = false
+                        searchQuery = ""
+                    },
+                )
+            }
+        } else null,
         action = {
             Row {
+                IconButton(onClick = { isSearchActive = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = stringResource(R.string.search_devices_action),
+                    )
+                }
                 IconButton(
                     onClick = {
                         pairStringScanner.startScan()
@@ -202,118 +266,28 @@ fun DeviceListScreen(
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                if (maxWidth >= 600.dp) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 320.dp),
-                        state = gridState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        item(
-                            key = "device_list_header_anchor",
-                            span = { GridItemSpan(maxLineSpan) },
-                            contentType = "anchor",
-                        ) {
-                            Spacer(modifier = Modifier.size(0.dp))
-                        }
-                        if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                            item(contentType = "empty") {
-                                EmptyState(
-                                    icon = Icons.Default.Devices,
-                                    title = stringResource(R.string.no_devices_title),
-                                    body = stringResource(R.string.no_devices_body),
-                                )
-                            }
-                        } else {
-                            gridItems(
-                                items = sortedLanPairingCandidates,
-                                key = { "lan-pairing-${it.deviceId}" },
-                                contentType = { "lanPairingCandidate" },
-                            ) { candidate ->
-                                LanPairingCandidateCard(
-                                    candidate = candidate,
-                                    onPair = { viewModel.startLanPairing(candidate.deviceId) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-                            gridItems(
-                                items = sortedDevices,
-                                key = { it.deviceId },
-                                contentType = { "device" },
-                            ) { device ->
-                                DeviceCard(
-                                    name = device.name,
-                                    type = device.type,
-                                    lanAvailable = device.lanAvailable,
-                                    lanState = device.lanState,
-                                    online = device.online,
-                                    cloudAvailable = device.cloudAvailable,
-                                    isLocalDevice = device.deviceId == uiState.localDeviceId ||
-                                        device.deviceSources.contains("local"),
-                                    onClick = { onDeviceSelected(device.deviceId) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-                        }
-                    }
+            DeviceListContent(
+                devices = filteredDevices,
+                lanPairingCandidates = filteredLanPairingCandidates,
+                localDeviceId = uiState.localDeviceId,
+                emptyTitle = if (searchQuery.isBlank()) {
+                    stringResource(R.string.no_devices_title)
                 } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        item(
-                            key = "device_list_header_anchor",
-                            contentType = "anchor",
-                        ) {
-                            Spacer(modifier = Modifier.size(0.dp))
-                        }
-                        if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                            item(contentType = "empty") {
-                                EmptyState(
-                                    icon = Icons.Default.Devices,
-                                    title = stringResource(R.string.no_devices_title),
-                                    body = stringResource(R.string.no_devices_body),
-                                )
-                            }
-                        } else {
-                            items(
-                                items = sortedLanPairingCandidates,
-                                key = { "lan-pairing-${it.deviceId}" },
-                                contentType = { "lanPairingCandidate" },
-                            ) { candidate ->
-                                LanPairingCandidateCard(
-                                    candidate = candidate,
-                                    onPair = { viewModel.startLanPairing(candidate.deviceId) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-                            items(
-                                items = sortedDevices,
-                                key = { it.deviceId },
-                                contentType = { "device" },
-                            ) { device ->
-                                DeviceCard(
-                                    name = device.name,
-                                    type = device.type,
-                                    lanAvailable = device.lanAvailable,
-                                    lanState = device.lanState,
-                                    online = device.online,
-                                    cloudAvailable = device.cloudAvailable,
-                                    isLocalDevice = device.deviceId == uiState.localDeviceId ||
-                                        device.deviceSources.contains("local"),
-                                    onClick = { onDeviceSelected(device.deviceId) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-                        }
+                    stringResource(R.string.search_no_results)
+                },
+                emptyBody = if (searchQuery.isBlank()) {
+                    stringResource(R.string.no_devices_body)
+                } else {
+                    ""
+                },
+                onPairCandidate = { viewModel.startLanPairing(it) },
+                onDeviceSelected = { deviceId ->
+                    if (isSearchActive) {
+                        isSearchActive = false
                     }
-                }
-            }
+                    onDeviceSelected(deviceId)
+                },
+            )
         }
     }
 
@@ -333,6 +307,207 @@ fun DeviceListScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun DeviceSearchHeader(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back_desc),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.search_devices_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+            )
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeviceListContent(
+    devices: List<Device>,
+    lanPairingCandidates: List<LanPairingCandidate>,
+    localDeviceId: String?,
+    emptyTitle: String,
+    emptyBody: String = "",
+    onPairCandidate: (String) -> Unit,
+    onDeviceSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        if (maxWidth >= 600.dp) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 320.dp),
+                state = gridState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item(
+                    key = "device_list_header_anchor",
+                    span = { GridItemSpan(maxLineSpan) },
+                    contentType = "anchor",
+                ) {
+                    Spacer(modifier = Modifier.size(0.dp))
+                }
+                if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
+                    item(
+                        span = { GridItemSpan(maxLineSpan) },
+                        contentType = "empty",
+                    ) {
+                        EmptyState(
+                            icon = Icons.Default.Devices,
+                            title = emptyTitle,
+                            body = emptyBody,
+                        )
+                    }
+                } else {
+                    gridItems(
+                        items = lanPairingCandidates,
+                        key = { "lan-pairing-${it.deviceId}" },
+                        contentType = { "lanPairingCandidate" },
+                    ) { candidate ->
+                        LanPairingCandidateCard(
+                            candidate = candidate,
+                            onPair = { onPairCandidate(candidate.deviceId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                    gridItems(
+                        items = devices,
+                        key = { it.deviceId },
+                        contentType = { "device" },
+                    ) { device ->
+                        DeviceCard(
+                            name = device.name,
+                            type = device.type,
+                            lanAvailable = device.lanAvailable,
+                            lanState = device.lanState,
+                            online = device.online,
+                            cloudAvailable = device.cloudAvailable,
+                            isLocalDevice = device.deviceId == localDeviceId ||
+                                device.deviceSources.contains("local"),
+                            onClick = { onDeviceSelected(device.deviceId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item(
+                    key = "device_list_header_anchor",
+                    contentType = "anchor",
+                ) {
+                    Spacer(modifier = Modifier.size(0.dp))
+                }
+                if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
+                    item(contentType = "empty") {
+                        EmptyState(
+                            icon = Icons.Default.Devices,
+                            title = emptyTitle,
+                            body = emptyBody,
+                        )
+                    }
+                } else {
+                    items(
+                        items = lanPairingCandidates,
+                        key = { "lan-pairing-${it.deviceId}" },
+                        contentType = { "lanPairingCandidate" },
+                    ) { candidate ->
+                        LanPairingCandidateCard(
+                            candidate = candidate,
+                            onPair = { onPairCandidate(candidate.deviceId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                    items(
+                        items = devices,
+                        key = { it.deviceId },
+                        contentType = { "device" },
+                    ) { device ->
+                        DeviceCard(
+                            name = device.name,
+                            type = device.type,
+                            lanAvailable = device.lanAvailable,
+                            lanState = device.lanState,
+                            online = device.online,
+                            cloudAvailable = device.cloudAvailable,
+                            isLocalDevice = device.deviceId == localDeviceId ||
+                                device.deviceSources.contains("local"),
+                            onClick = { onDeviceSelected(device.deviceId) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -140,6 +140,9 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d 台可用 · 共 %2$d 台</string>
+    <string name="search_devices_action">搜索设备</string>
+    <string name="search_devices_hint">搜索设备名称、ID 或 IP</string>
+    <string name="search_no_results">未找到匹配的设备</string>
     <string name="no_devices_title">还没有设备记录</string>
     <string name="no_devices_body">在另一台设备上登录，然后刷新此列表。</string>
     <string name="pair_btn">配对</string>

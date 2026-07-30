@@ -140,6 +140,9 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">%1$d verfügbar · %2$d insgesamt</string>
+    <string name="search_devices_action">Geräte suchen</string>
+    <string name="search_devices_hint">Name, ID oder IP suchen</string>
+    <string name="search_no_results">Keine passenden Geräte gefunden</string>
     <string name="no_devices_title">Noch keine Geräte</string>
     <string name="no_devices_body">Melden Sie sich auf einem anderen Gerät an und aktualisieren Sie dann diese Liste.</string>
     <string name="pair_btn">Koppeln</string>

@@ -42,6 +42,7 @@ fun ScreenColumn(
     subtitle: String? = null,
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
+    headerOverride: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val configuration = LocalConfiguration.current
@@ -57,7 +58,11 @@ fun ScreenColumn(
             ),
         verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 16.dp),
     ) {
-        ScreenHeader(title = title, subtitle = subtitle, action = action)
+        if (headerOverride != null) {
+            headerOverride()
+        } else {
+            ScreenHeader(title = title, subtitle = subtitle, action = action)
+        }
         content()
     }
 }
@@ -177,7 +182,7 @@ fun StateMessage(
 fun EmptyState(
     icon: ImageVector,
     title: String,
-    body: String,
+    body: String = "",
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
@@ -194,11 +199,13 @@ fun EmptyState(
             tint = MaterialTheme.colorScheme.primary,
         )
         Text(text = title, style = MaterialTheme.typography.titleMedium)
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (body.isNotBlank()) {
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (action != null) {
             action()
         }

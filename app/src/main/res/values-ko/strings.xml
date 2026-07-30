@@ -140,6 +140,9 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">사용 가능 %1$d · 총 %2$d</string>
+    <string name="search_devices_action">기기 검색</string>
+    <string name="search_devices_hint">이름, ID 또는 IP 검색</string>
+    <string name="search_no_results">일치하는 기기를 찾을 수 없습니다</string>
     <string name="no_devices_title">연결된 디바이스가 없습니다</string>
     <string name="no_devices_body">다른 디바이스에서 로그인한 다음 이 목록을 새로 고침하세요.</string>
     <string name="pair_btn">페어링</string>

@@ -140,6 +140,9 @@
     
     <!-- Devices List -->
     <string name="devices_subtitle">利用可能 %1$d · 合計 %2$d</string>
+    <string name="search_devices_action">デバイスを検索</string>
+    <string name="search_devices_hint">名前、ID、またはIPを検索</string>
+    <string name="search_no_results">一致するデバイスが見つかりません</string>
     <string name="no_devices_title">デバイスが見つかりません</string>
     <string name="no_devices_body">他のデバイスでログインしてから、この一覧を更新してください。</string>
     <string name="pair_btn">ペアリング</string>
