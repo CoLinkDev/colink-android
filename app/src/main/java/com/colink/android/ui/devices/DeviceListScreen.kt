@@ -365,7 +365,7 @@ private fun LanPairingCandidateCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         shape = MaterialTheme.shapes.large,
     ) {
@@ -415,12 +415,21 @@ private fun LanPairingCandidateCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(top = 2.dp)
                 ) {
-                    BadgeChip(
-                        text = stringResource(R.string.lan_pairing_title),
-                        icon = Icons.Default.SyncAlt,
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
+                    if (candidate.state == "suspect") {
+                        BadgeChip(
+                            text = stringResource(R.string.device_tag_lan_suspect),
+                            icon = Icons.Default.Wifi,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    } else {
+                        BadgeChip(
+                            text = stringResource(R.string.lan_pairing_title),
+                            icon = Icons.Default.SyncAlt,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
                 }
             }
             TextButton(

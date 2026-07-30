@@ -64,7 +64,7 @@ class DevicesViewModel @Inject constructor(
         }.map { (peers, knownDevicesById, lanTrustedDeviceIds) ->
             peers.mapNotNull { (deviceId, peer) ->
                 val endpoint = peer.endpoint ?: return@mapNotNull null
-                if (peer.state != "alive" || deviceId in lanTrustedDeviceIds) {
+                if (peer.state !in setOf("alive", "suspect") || deviceId in lanTrustedDeviceIds) {
                     return@mapNotNull null
                 }
                 val knownDevice = knownDevicesById[deviceId]
