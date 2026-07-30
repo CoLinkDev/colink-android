@@ -35,6 +35,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 @Singleton
 class DeviceRepositoryImpl @Inject constructor(
@@ -48,6 +50,7 @@ class DeviceRepositoryImpl @Inject constructor(
     private val cloudRuntimeState: CloudRuntimeState,
 ) : DeviceRepository {
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val deviceSyncMutex = Mutex()
 
     override val devices: StateFlow<List<Device>> =
         combine(
@@ -82,50 +85,44 @@ class DeviceRepositoryImpl @Inject constructor(
 
     override suspend fun syncDevices(session: Session): Result<List<Device>> =
         runCatching {
-            val requestStartedAtNanos = System.nanoTime()
-            val response = deviceApi
-                .listDevices(
-                    url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/devices"),
-                    authorization = bearer(session.accessToken),
-                )
-                .requireData()
-            val previous = deviceDao.getDevices().map { it.toDomain() }
-            val localIdentity = settingsDataStore.currentDeviceIdentity()
-            val cloudDevices = response.devices.map { dto ->
-                val incoming = dto.toDomain().copy(deviceSources = listOf("cloud"))
-                val cached = previous.firstOrNull { it.deviceId == incoming.deviceId }
-                incoming.copy(
-                    cloudAvailable = incoming.online,
-                    activeRoute = if (incoming.online) "cloud" else null,
-                    securityState = cached?.securityState?.takeIf { it != "unverified" } ?: "unverified",
-                )
-            }
+            deviceSyncMutex.withLock {
+                val requestStartedAtNanos = System.nanoTime()
+                val response = deviceApi
+                    .listDevices(
+                        url = apiEndpoint(settingsDataStore.currentSettings().serverUrl, "/api/v1/devices"),
+                        authorization = bearer(session.accessToken),
+                    )
+                    .requireData()
+                val previous = deviceDao.getDevices().map { it.toDomain() }
+                val localIdentity = settingsDataStore.currentDeviceIdentity()
+                val cloudDevices = response.devices.map { dto ->
+                    val incoming = dto.toDomain().copy(deviceSources = listOf("cloud"))
+                    val cached = previous.firstOrNull { it.deviceId == incoming.deviceId }
+                    incoming.copy(
+                        securityState = cached?.securityState?.takeIf { it != "unverified" } ?: "unverified",
+                    )
+                }
 
-            cloudRuntimeState.replaceSnapshot(
-                peers = cloudDevices.associate { device ->
-                    device.deviceId to CloudRuntimePeer(
-                        online = device.cloudAvailable,
-                        name = device.name,
-                        type = device.type,
-                    )
-                },
-                requestStartedAtNanos = requestStartedAtNanos,
-            )
-            ensureTrustedPeerKeysForDevices(cloudDevices, localIdentity?.deviceId)
-            val reconciled = reconcileDevices(
-                incoming = cloudDevices.map { device ->
-                    device.copy(
-                        online = false,
-                        cloudAvailable = false,
-                        activeRoute = null,
-                    )
-                },
-                previous = previous,
-                localIdentity = localIdentity,
-            )
-            saveDevices(reconciled)
-            CoLinkLog.i("Device", "synced devices count=${reconciled.size}")
-            reconciled
+                cloudRuntimeState.replaceSnapshot(
+                    peers = cloudDevices.associate { device ->
+                        device.deviceId to CloudRuntimePeer(
+                            online = device.online,
+                            name = device.name,
+                            type = device.type,
+                        )
+                    },
+                    requestStartedAtNanos = requestStartedAtNanos,
+                )
+                ensureTrustedPeerKeysForDevices(cloudDevices, localIdentity?.deviceId)
+                val reconciled = reconcileDevices(
+                    incoming = cloudDevices,
+                    previous = previous,
+                    localIdentity = localIdentity,
+                )
+                saveDevices(reconciled)
+                CoLinkLog.i("Device", "synced devices count=${reconciled.size}")
+                reconciled
+            }
         }
 
     override suspend fun syncPendingDeviceKey(session: Session): Result<Unit> =
@@ -156,9 +153,36 @@ class DeviceRepositoryImpl @Inject constructor(
                 name = name,
                 type = deviceType,
             )
+            val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
+            val updated = current.copy(
+                name = name?.takeIf { it.isNotBlank() } ?: current.name,
+                type = reconcileDeviceType(
+                    incoming = deviceType ?: current.type,
+                    previous = current.type,
+                ),
+            )
+            if (updated.name != current.name || updated.type != current.type) {
+                saveDevices(listOf(updated), replaceAll = false)
+            }
             CoLinkLog.i(
                 "Device",
                 "marked cloud presence device=${CoLinkLog.shortId(deviceId)} online=$online",
+            )
+        }
+
+    override suspend fun recordLanDeviceType(
+        deviceId: String,
+        deviceType: String,
+    ): Result<Unit> =
+        runCatching {
+            val normalizedType = deviceType.normalizedDeviceType() ?: return@runCatching
+            val current = deviceDao.getDevice(deviceId)?.toDomain() ?: return@runCatching
+            if (!current.type.isUnknownDeviceType()) {
+                return@runCatching
+            }
+            saveDevices(
+                listOf(current.copy(type = normalizedType)),
+                replaceAll = false,
             )
         }
 
@@ -469,12 +493,11 @@ class DeviceRepositoryImpl @Inject constructor(
             val trust = trustedById[device.deviceId]
             val trustedByLan = trust?.trustedByLan == true
             val trustedByCloud = trust?.trustedByCloud == true
-            val cloudAvailable = device.cloudAvailable
             device.copy(
                 lastSeen = device.lastSeen ?: existing?.lastSeen,
-                cloudAvailable = cloudAvailable,
-                online = cloudAvailable,
-                activeRoute = if (cloudAvailable) "cloud" else null,
+                cloudAvailable = false,
+                online = false,
+                activeRoute = null,
                 securityState = when {
                     trust?.isTrusted == true -> "verified"
                     device.securityState != "unverified" -> device.securityState
@@ -592,21 +615,17 @@ class DeviceRepositoryImpl @Inject constructor(
         } else {
             listOf("local")
         }
-        val cloudAvailable = keepCloudState &&
-            sources.contains("cloud") &&
-            current?.cloudAvailable == true
-
         return Device(
             deviceId = identity.deviceId,
             name = identity.name,
             type = identity.type,
-            online = true,
+            online = false,
             lastSeen = current?.lastSeen,
             publicKey = identity.publicKey,
             publicKeyUpdatedAt = current?.publicKeyUpdatedAt,
             localIp = null,
             localPort = null,
-            cloudAvailable = cloudAvailable,
+            cloudAvailable = false,
             lanAvailable = false,
             lanState = "unavailable",
             activeRoute = null,

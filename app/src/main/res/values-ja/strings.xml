@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN ペアリング</string>
     <string name="lan_pairing_wants_to_pair">%1$s がこのデバイスとのペアリングを求めています。\nコード: %2$s</string>
+    <string name="lan_pairing_verify_code">%1$s に同じペアリングコードが表示されていることを確認してください。\nコード: %2$s</string>
     <string name="lan_pairing_waiting">相手の確認を待っています...</string>
     <string name="lan_pairing_accept">承認</string>
     <string name="lan_pairing_close">閉じる</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">ハンドシェイク署名が無効です</string>
     <string name="err_handshake_key_changed">識別キーが変更されました</string>
     <string name="err_handshake_user_rejected">ペアリング要求が拒否されました</string>
+    <string name="err_pairing_cancelled">LAN ペアリングはキャンセルされました</string>
+    <string name="err_pairing_timeout">LAN ペアリングがタイムアウトしました</string>
+    <string name="err_pairing_connection_closed">LAN ペアリング接続が切断されました</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">デバイスのファイルを閲覧</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">ペアリング QR コード</string>
     <string name="pair_qr_description">別のデバイスでこの QR コードを読み取ってペアリングします。</string>
     <string name="pair_qr_scanner_unavailable">QR コードスキャナーを起動できません。</string>
+    <string name="err_pair_qr_invalid">これは有効な CoLink ペアリング QR コードではありません。</string>
+    <string name="err_pair_qr_expired">このペアリング QR コードの有効期限が切れています。もう一方のデバイスで新しい QR コードを表示してください。</string>
+    <string name="err_pair_qr_unavailable">このペアリング QR コードはすでに使用されたか、利用できなくなっています。</string>
+    <string name="err_pair_qr_device_unavailable">この QR コードのデバイスはローカルネットワークで利用できません。</string>
+    <string name="err_pair_qr_already_paired">このデバイスはローカルネットワークですでにペアリングされています。</string>
+    <string name="err_pair_qr_not_ready">ペアリングはまだ利用できません。もう一度お試しください。</string>
 </resources>

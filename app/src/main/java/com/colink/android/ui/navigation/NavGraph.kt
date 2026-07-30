@@ -749,18 +749,16 @@ private fun PairingRequestDialogHost(
     val request by pairingRequest.collectAsStateWithLifecycle()
     val current = request ?: return
     AlertDialog(
-        onDismissRequest = {
-            if (current.error != null) {
-                onClear(current.requestId)
-            } else if (!current.waiting) {
-                onReject(current.requestId)
-            }
-        },
+        onDismissRequest = {},
         icon = { Icon(Icons.Default.Devices, contentDescription = null) },
         title = { Text(stringResource(R.string.lan_pairing_title)) },
         text = {
             val deviceName = current.name.ifBlank { current.deviceId }
-            val mainText = stringResource(R.string.lan_pairing_wants_to_pair, deviceName, current.code)
+            val mainText = if (current.initiatedLocally) {
+                stringResource(R.string.lan_pairing_verify_code, deviceName, current.code)
+            } else {
+                stringResource(R.string.lan_pairing_wants_to_pair, deviceName, current.code)
+            }
             val body = when {
                 current.error != null -> {
                     val errMsg = com.colink.android.util.ProtocolReasonFormatter.format(
@@ -775,45 +773,52 @@ private fun PairingRequestDialogHost(
             Text(body)
         },
         confirmButton = {
-            TextButton(
-                enabled = !current.waiting,
-                onClick = {
-                    if (current.error != null) {
-                        onClear(current.requestId)
+            if (current.initiatedLocally && current.error == null) {
+                null
+            } else {
+                TextButton(
+                    enabled = !current.waiting,
+                    onClick = {
+                        if (current.error != null) {
+                            onClear(current.requestId)
+                        } else {
+                            onAccept(current.requestId)
+                        }
+                    },
+                ) {
+                    val btnText = if (current.error != null) {
+                        stringResource(R.string.lan_pairing_close)
+                    } else if (current.waiting) {
+                        stringResource(R.string.lan_pairing_waiting_btn)
                     } else {
-                        onAccept(current.requestId)
+                        stringResource(R.string.lan_pairing_accept)
                     }
-                },
-            ) {
-                val btnText = if (current.error != null) {
-                    stringResource(R.string.lan_pairing_close)
-                } else if (current.waiting) {
-                    stringResource(R.string.lan_pairing_waiting_btn)
-                } else {
-                    stringResource(R.string.lan_pairing_accept)
+                    Text(btnText)
                 }
-                Text(btnText)
             }
         },
-        dismissButton = {
-            TextButton(
-                enabled = current.error == null,
-                onClick = {
-                    if (current.waiting) {
-                        onCancel(current)
-                    } else {
-                        onReject(current.requestId)
-                    }
-                },
-            ) {
-                Text(
-                    if (current.waiting) {
-                        stringResource(R.string.cancel_btn)
-                    } else {
-                        stringResource(R.string.reject_btn)
+        dismissButton = if (current.error == null) {
+            {
+                TextButton(
+                    onClick = {
+                        if (current.waiting) {
+                            onCancel(current)
+                        } else {
+                            onReject(current.requestId)
+                        }
                     },
-                )
+                ) {
+                    Text(
+                        if (current.waiting) {
+                            stringResource(R.string.cancel_btn)
+                        } else {
+                            stringResource(R.string.reject_btn)
+                        },
+                    )
+                }
             }
+        } else {
+            null
         },
     )
 }

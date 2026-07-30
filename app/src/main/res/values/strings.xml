@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN pairing</string>
     <string name="lan_pairing_wants_to_pair">%1$s wants to pair with this device.\nCode: %2$s</string>
+    <string name="lan_pairing_verify_code">Confirm that %1$s shows the same pairing code.\nCode: %2$s</string>
     <string name="lan_pairing_waiting">Waiting for the other device...</string>
     <string name="lan_pairing_accept">Accept</string>
     <string name="lan_pairing_close">Close</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">Handshake signature invalid</string>
     <string name="err_handshake_key_changed">Identity key changed</string>
     <string name="err_handshake_user_rejected">Pairing request rejected</string>
+    <string name="err_pairing_cancelled">LAN pairing was cancelled</string>
+    <string name="err_pairing_timeout">LAN pairing timed out</string>
+    <string name="err_pairing_connection_closed">LAN pairing connection closed</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">Browse device files</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">Pairing QR code</string>
     <string name="pair_qr_description">Use another device to scan this QR code to pair.</string>
     <string name="pair_qr_scanner_unavailable">Unable to start the QR code scanner.</string>
+    <string name="err_pair_qr_invalid">This is not a valid CoLink pairing QR code.</string>
+    <string name="err_pair_qr_expired">This pairing QR code has expired. Show a new QR code on the other device.</string>
+    <string name="err_pair_qr_unavailable">This pairing QR code has already been used or is no longer available.</string>
+    <string name="err_pair_qr_device_unavailable">The device for this QR code is not available on the local network.</string>
+    <string name="err_pair_qr_already_paired">This device is already paired on the local network.</string>
+    <string name="err_pair_qr_not_ready">Pairing is not ready yet. Try again.</string>
 </resources>

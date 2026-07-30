@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">Emparejamiento LAN</string>
     <string name="lan_pairing_wants_to_pair">%1$s quiere emparejarse con este dispositivo.\nCódigo: %2$s</string>
+    <string name="lan_pairing_verify_code">Confirma que %1$s muestra el mismo código de emparejamiento.\nCódigo: %2$s</string>
     <string name="lan_pairing_waiting">Esperando al otro dispositivo...</string>
     <string name="lan_pairing_accept">Aceptar</string>
     <string name="lan_pairing_close">Cerrar</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">Firma de saludo no válida</string>
     <string name="err_handshake_key_changed">Clave de identidad cambiada</string>
     <string name="err_handshake_user_rejected">Solicitud de emparejamiento rechazada</string>
+    <string name="err_pairing_cancelled">Se canceló el emparejamiento LAN</string>
+    <string name="err_pairing_timeout">Se agotó el tiempo de espera del emparejamiento LAN</string>
+    <string name="err_pairing_connection_closed">Se cerró la conexión de emparejamiento LAN</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">Explorar archivos del dispositivo</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">Código QR de emparejamiento</string>
     <string name="pair_qr_description">Usa otro dispositivo para escanear este código QR y emparejarlo.</string>
     <string name="pair_qr_scanner_unavailable">No se puede iniciar el escáner de códigos QR.</string>
+    <string name="err_pair_qr_invalid">Este no es un código QR de emparejamiento válido de CoLink.</string>
+    <string name="err_pair_qr_expired">Este código QR de emparejamiento ha caducado. Muestra un código QR nuevo en el otro dispositivo.</string>
+    <string name="err_pair_qr_unavailable">Este código QR de emparejamiento ya se usó o ya no está disponible.</string>
+    <string name="err_pair_qr_device_unavailable">El dispositivo de este código QR no está disponible en la red local.</string>
+    <string name="err_pair_qr_already_paired">Este dispositivo ya está emparejado en la red local.</string>
+    <string name="err_pair_qr_not_ready">El emparejamiento aún no está disponible. Inténtalo de nuevo.</string>
 </resources>

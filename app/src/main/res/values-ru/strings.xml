@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN-сопряжение</string>
     <string name="lan_pairing_wants_to_pair">%1$s хочет выполнить сопряжение с этим устройством.\nКод: %2$s</string>
+    <string name="lan_pairing_verify_code">Подтвердите, что на %1$s отображается тот же код сопряжения.\nКод: %2$s</string>
     <string name="lan_pairing_waiting">Ожидание подтверждения на другом устройстве...</string>
     <string name="lan_pairing_accept">Принять</string>
     <string name="lan_pairing_close">Закрыть</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">Недействительная подпись рукопожатия</string>
     <string name="err_handshake_key_changed">Ключ идентификации изменен</string>
     <string name="err_handshake_user_rejected">Запрос на сопряжение отклонен</string>
+    <string name="err_pairing_cancelled">LAN-сопряжение отменено</string>
+    <string name="err_pairing_timeout">Время ожидания LAN-сопряжения истекло</string>
+    <string name="err_pairing_connection_closed">Соединение LAN-сопряжения закрыто</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">Просмотреть файлы устройства</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">QR-код сопряжения</string>
     <string name="pair_qr_description">Используйте другое устройство, чтобы отсканировать этот QR-код и выполнить сопряжение.</string>
     <string name="pair_qr_scanner_unavailable">Не удалось запустить сканер QR-кодов.</string>
+    <string name="err_pair_qr_invalid">Это недействительный QR-код сопряжения CoLink.</string>
+    <string name="err_pair_qr_expired">Срок действия этого QR-кода сопряжения истёк. Покажите новый QR-код на другом устройстве.</string>
+    <string name="err_pair_qr_unavailable">Этот QR-код сопряжения уже использован или больше недоступен.</string>
+    <string name="err_pair_qr_device_unavailable">Устройство для этого QR-кода недоступно в локальной сети.</string>
+    <string name="err_pair_qr_already_paired">Это устройство уже сопряжено в локальной сети.</string>
+    <string name="err_pair_qr_not_ready">Сопряжение пока недоступно. Повторите попытку.</string>
 </resources>

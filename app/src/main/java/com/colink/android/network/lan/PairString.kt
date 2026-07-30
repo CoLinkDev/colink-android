@@ -173,3 +173,6 @@ private enum class PairStringState {
 internal const val REASON_PAIR_STRING_INVALID = "colink:pairing.pair_string_invalid.v1"
 internal const val REASON_PAIR_STRING_EXPIRED = "colink:pairing.pair_string_expired.v1"
 internal const val REASON_PAIR_STRING_UNAVAILABLE = "colink:pairing.pair_string_unavailable.v1"
+internal const val REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE = "colink:pairing.local_identity_unavailable.v1"
+internal const val REASON_PAIR_STRING_DEVICE_UNAVAILABLE = "colink:pairing.device_unavailable.v1"
+internal const val REASON_PAIR_STRING_ALREADY_TRUSTED = "colink:pairing.already_trusted.v1"

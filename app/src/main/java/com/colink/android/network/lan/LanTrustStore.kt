@@ -5,11 +5,14 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
 import com.colink.android.data.local.db.entity.isTrusted
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
 
 @Singleton
 class LanTrustStore @Inject constructor(
     private val trustedPeerKeyDao: TrustedPeerKeyDao,
 ) {
+    val trustedPeers: Flow<List<TrustedPeerKeyEntity>> = trustedPeerKeyDao.observeAll()
+
     suspend fun get(deviceId: String): TrustedPeerKeyEntity? =
         trustedPeerKeyDao.get(deviceId)
 

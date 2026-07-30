@@ -27,6 +27,8 @@ interface DeviceRepository {
         deviceType: String? = null,
     ): Result<Unit>
 
+    suspend fun recordLanDeviceType(deviceId: String, deviceType: String): Result<Unit>
+
     suspend fun clearCloudPresence(): Result<Unit>
 
     suspend fun resetDevicePresence(): Result<Unit>

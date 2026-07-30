@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">區域網路配對</string>
     <string name="lan_pairing_wants_to_pair">%1$s 想要與此裝置配對。\n配對碼：%2$s</string>
+    <string name="lan_pairing_verify_code">請確認 %1$s 顯示相同的配對碼。\n配對碼：%2$s</string>
     <string name="lan_pairing_waiting">等待另一台裝置確認...</string>
     <string name="lan_pairing_accept">接受</string>
     <string name="lan_pairing_close">關閉</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">配對簽章無效</string>
     <string name="err_handshake_key_changed">裝置識別金鑰已變更</string>
     <string name="err_handshake_user_rejected">配對請求已被拒絕</string>
+    <string name="err_pairing_cancelled">區域網路配對已取消</string>
+    <string name="err_pairing_timeout">區域網路配對已逾時</string>
+    <string name="err_pairing_connection_closed">區域網路配對連線已關閉</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">瀏覽裝置檔案</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">配對 QR Code</string>
     <string name="pair_qr_description">使用另一台裝置掃描此 QR Code 以配對。</string>
     <string name="pair_qr_scanner_unavailable">無法啟動 QR Code 掃描器。</string>
+    <string name="err_pair_qr_invalid">這不是有效的 CoLink 配對 QR Code。</string>
+    <string name="err_pair_qr_expired">此配對 QR Code 已過期。請在另一台裝置上重新顯示 QR Code。</string>
+    <string name="err_pair_qr_unavailable">此配對 QR Code 已被使用或不再可用。</string>
+    <string name="err_pair_qr_device_unavailable">此 QR Code 對應的裝置不在目前區域網路內。</string>
+    <string name="err_pair_qr_already_paired">此裝置已在目前區域網路內完成配對。</string>
+    <string name="err_pair_qr_not_ready">配對尚未就緒，請重試。</string>
 </resources>

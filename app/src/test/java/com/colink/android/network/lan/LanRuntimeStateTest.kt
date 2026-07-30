@@ -24,7 +24,7 @@ class LanRuntimeStateTest {
 
         state.updateMemberState("device-a", "suspect")
         assertEquals(LanEndpoint("192.168.1.8", 27_778), state.endpoint("device-a"))
-        assertFalse(requireNotNull(state.peer("device-a")).isReachable)
+        assertTrue(requireNotNull(state.peer("device-a")).isReachable)
 
         state.updateMemberState("device-a", "dead")
         assertEquals(LanEndpoint("192.168.1.8", 27_778), state.endpoint("device-a"))

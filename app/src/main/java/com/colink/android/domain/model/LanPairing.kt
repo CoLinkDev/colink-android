@@ -7,6 +7,7 @@ data class LanPairingRequest(
     val code: String,
     val reason: String,
     val publicKey: String,
+    val initiatedLocally: Boolean,
     val waiting: Boolean = false,
     val error: String? = null,
 )

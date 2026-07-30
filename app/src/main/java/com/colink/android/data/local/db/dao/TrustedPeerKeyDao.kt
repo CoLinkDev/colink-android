@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TrustedPeerKeyDao {
@@ -12,6 +13,9 @@ interface TrustedPeerKeyDao {
 
     @Query("SELECT * FROM trusted_peer_keys ORDER BY name COLLATE NOCASE ASC, device_id ASC")
     suspend fun getAll(): List<TrustedPeerKeyEntity>
+
+    @Query("SELECT * FROM trusted_peer_keys ORDER BY name COLLATE NOCASE ASC, device_id ASC")
+    fun observeAll(): Flow<List<TrustedPeerKeyEntity>>
 
     @Upsert
     suspend fun upsert(record: TrustedPeerKeyEntity)

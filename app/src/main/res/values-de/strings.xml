@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">LAN-Kopplung</string>
     <string name="lan_pairing_wants_to_pair">%1$s möchte mit diesem Gerät gekoppelt werden.\nCode: %2$s</string>
+    <string name="lan_pairing_verify_code">Bestätige, dass %1$s denselben Kopplungscode anzeigt.\nCode: %2$s</string>
     <string name="lan_pairing_waiting">Warten auf das andere Gerät...</string>
     <string name="lan_pairing_accept">Akzeptieren</string>
     <string name="lan_pairing_close">Schließen</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">Handshake-Signatur ungültig</string>
     <string name="err_handshake_key_changed">Identitätsschlüssel geändert</string>
     <string name="err_handshake_user_rejected">Kopplungsanfrage abgelehnt</string>
+    <string name="err_pairing_cancelled">LAN-Kopplung wurde abgebrochen</string>
+    <string name="err_pairing_timeout">Zeitüberschreitung bei der LAN-Kopplung</string>
+    <string name="err_pairing_connection_closed">LAN-Kopplungsverbindung wurde geschlossen</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">Dateien des Geräts durchsuchen</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">Kopplungs-QR-Code</string>
     <string name="pair_qr_description">Scanne diesen QR-Code mit einem anderen Gerät, um es zu koppeln.</string>
     <string name="pair_qr_scanner_unavailable">Der QR-Code-Scanner kann nicht gestartet werden.</string>
+    <string name="err_pair_qr_invalid">Dies ist kein gültiger CoLink-Kopplungs-QR-Code.</string>
+    <string name="err_pair_qr_expired">Dieser Kopplungs-QR-Code ist abgelaufen. Zeige auf dem anderen Gerät einen neuen QR-Code an.</string>
+    <string name="err_pair_qr_unavailable">Dieser Kopplungs-QR-Code wurde bereits verwendet oder ist nicht mehr verfügbar.</string>
+    <string name="err_pair_qr_device_unavailable">Das Gerät für diesen QR-Code ist im lokalen Netzwerk nicht verfügbar.</string>
+    <string name="err_pair_qr_already_paired">Dieses Gerät ist im lokalen Netzwerk bereits gekoppelt.</string>
+    <string name="err_pair_qr_not_ready">Die Kopplung ist noch nicht verfügbar. Versuche es erneut.</string>
 </resources>

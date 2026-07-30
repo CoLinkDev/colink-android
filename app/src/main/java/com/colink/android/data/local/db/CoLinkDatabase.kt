@@ -20,7 +20,7 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
@@ -193,6 +193,44 @@ abstract class CoLinkDatabase : RoomDatabase() {
                             deviceId, name, type, online, lastSeen, publicKey,
                             publicKeyUpdatedAt, cloudAvailable, activeRoute, deviceSources,
                             trustedByLan, trustedByCloud, securityState
+                        FROM devices
+                        """.trimIndent(),
+                    )
+                    db.execSQL("DROP TABLE devices")
+                    db.execSQL("ALTER TABLE devices_new RENAME TO devices")
+                }
+            }
+
+        val MIGRATION_8_9: Migration =
+            object : Migration(8, 9) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE devices_new (
+                            deviceId TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            type TEXT NOT NULL,
+                            lastSeen TEXT,
+                            publicKey TEXT NOT NULL,
+                            publicKeyUpdatedAt INTEGER,
+                            deviceSources TEXT NOT NULL,
+                            trustedByLan INTEGER NOT NULL,
+                            trustedByCloud INTEGER NOT NULL,
+                            securityState TEXT NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        """
+                        INSERT INTO devices_new (
+                            deviceId, name, type, lastSeen, publicKey,
+                            publicKeyUpdatedAt, deviceSources, trustedByLan,
+                            trustedByCloud, securityState
+                        )
+                        SELECT
+                            deviceId, name, type, lastSeen, publicKey,
+                            publicKeyUpdatedAt, deviceSources, trustedByLan,
+                            trustedByCloud, securityState
                         FROM devices
                         """.trimIndent(),
                     )

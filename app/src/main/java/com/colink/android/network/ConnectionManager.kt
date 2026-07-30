@@ -25,6 +25,12 @@ import com.colink.android.network.lan.LanSwimClient
 import com.colink.android.network.lan.LanTrustStore
 import com.colink.android.network.lan.LanWebSocketServer
 import com.colink.android.network.lan.NsdDiscovery
+import com.colink.android.network.lan.REASON_PAIR_STRING_ALREADY_TRUSTED
+import com.colink.android.network.lan.REASON_PAIR_STRING_DEVICE_UNAVAILABLE
+import com.colink.android.network.lan.REASON_PAIR_STRING_EXPIRED
+import com.colink.android.network.lan.REASON_PAIR_STRING_INVALID
+import com.colink.android.network.lan.REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE
+import com.colink.android.network.lan.REASON_PAIR_STRING_UNAVAILABLE
 import com.colink.android.network.lan.PairStringStore
 import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.filesystem.LocalFilesystem
@@ -208,6 +214,7 @@ private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
 private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
 private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
 private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 5 * 60 * 1_000L
+internal const val MDNS_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
 private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
@@ -240,6 +247,15 @@ data class PeerProtocolVersions(
     val p2pVersion: String? = null,
     val businessVersion: String? = null,
 )
+
+internal fun shouldRefreshMdnsDiscovery(
+    endpointIp: String?,
+    sourceIp: String,
+    previousRefreshAt: Long?,
+    now: Long,
+): Boolean =
+    endpointIp != sourceIp &&
+        (previousRefreshAt == null || now - previousRefreshAt >= MDNS_REFRESH_MIN_INTERVAL_MILLIS)
 
 class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
@@ -379,6 +395,7 @@ class ConnectionManager @Inject constructor(
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
     private val devicePageLanConnections = mutableSetOf<String>()
+    private val discoveryRefreshAt = ConcurrentHashMap<String, Long>()
     private val started = AtomicBoolean(false)
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
@@ -747,6 +764,10 @@ class ConnectionManager @Inject constructor(
         startLan()
     }
 
+    fun restartLanAfterKeyRotation() {
+        restartLan()
+    }
+
     private fun stopLan() {
         CoLinkLog.i("LAN", "stopping LAN services")
         swimJob?.cancel()
@@ -757,6 +778,7 @@ class ConnectionManager @Inject constructor(
         lanWebSocketServer.stop()
         nsdDiscovery.stop()
         lanRuntimeState.clear()
+        discoveryRefreshAt.clear()
         swimMembership.clear()
         synchronized(swimLock) {
             probeQueue.clear()
@@ -2440,9 +2462,7 @@ class ConnectionManager @Inject constructor(
             if (swimMembership.memberState(deviceId) != MemberState.Alive || lanTrustStore.isLanTrusted(deviceId)) {
                 return@launch
             }
-            synchronized(lanPeerLock) {
-                devicePageLanConnections.add(deviceId)
-            }
+            prepareLanPairing(deviceId)
             lanWebSocketClient.connect(
                 identity = identity,
                 deviceId = deviceId,
@@ -2456,25 +2476,23 @@ class ConnectionManager @Inject constructor(
 
     suspend fun createPairString(): Result<String> = runCatching {
         val identity = deviceRepository.localDeviceIdentity()
-            ?: error("Local device identity is unavailable")
+            ?: error(REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE)
         lanWebSocketServer.createPairString(identity)
     }
 
     suspend fun startPairStringPairing(value: String): Result<Unit> = runCatching {
         val pairString = pairStringStore.parse(value)
         val identity = deviceRepository.localDeviceIdentity()
-            ?: error("Local device identity is unavailable")
+            ?: error(REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE)
         val endpoint = lanRuntimeState.endpoint(pairString.deviceId)
-            ?: error("The device for this pair string is not available on the local network")
+            ?: error(REASON_PAIR_STRING_DEVICE_UNAVAILABLE)
         check(swimMembership.memberState(pairString.deviceId) == MemberState.Alive) {
-            "The device for this pair string is not available on the local network"
+            REASON_PAIR_STRING_DEVICE_UNAVAILABLE
         }
         check(!lanTrustStore.isLanTrusted(pairString.deviceId)) {
-            "The device is already trusted on the local network"
+            REASON_PAIR_STRING_ALREADY_TRUSTED
         }
-        synchronized(lanPeerLock) {
-            devicePageLanConnections.add(pairString.deviceId)
-        }
+        prepareLanPairing(pairString.deviceId)
         lanWebSocketClient.connect(
             identity = identity,
             deviceId = pairString.deviceId,
@@ -2495,9 +2513,13 @@ class ConnectionManager @Inject constructor(
     suspend fun disconnectLanPeer(deviceId: String) {
         lanWebSocketClient.disconnect(deviceId)
         lanWebSocketServer.disconnect(deviceId)
+        handleLanPeerDisconnected(deviceId)
+    }
+
+    private suspend fun prepareLanPairing(deviceId: String) {
+        disconnectLanPeer(deviceId)
         synchronized(lanPeerLock) {
-            lanConnectingPeers.remove(deviceId)
-            devicePageLanConnections.remove(deviceId)
+            devicePageLanConnections.add(deviceId)
         }
     }
 
@@ -3117,7 +3139,7 @@ class ConnectionManager @Inject constructor(
                     "SWIM",
                     "received ${message.type} from=${CoLinkLog.shortId(message.payload.from)} sourceIp=$sourceIp gossip=${message.payload.gossip.size}",
                 )
-                scope.launch { processSwimMessage(message) }
+                scope.launch { processSwimMessage(message, sourceIp) }
             }
 
             override fun currentSwimGossip(localDeviceId: String): List<SwimGossip> =
@@ -3157,8 +3179,33 @@ class ConnectionManager @Inject constructor(
             REASON_PAIRING_USER_REJECTED,
             -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_user_rejected)
 
+            REASON_PAIR_STRING_INVALID,
+            "colink:pairing.identity_mismatch.v1",
+            "Pair string is invalid",
+            "Receiver identity does not match the pair string",
+            -> LocaleHelper.localized(context).getString(R.string.err_pair_qr_invalid)
+
+            REASON_PAIR_STRING_EXPIRED,
+            "Pair string has expired",
+            -> LocaleHelper.localized(context).getString(R.string.err_pair_qr_expired)
+
+            REASON_PAIR_STRING_UNAVAILABLE,
+            "Pair string is unavailable",
+            -> LocaleHelper.localized(context).getString(R.string.err_pair_qr_unavailable)
+
+            REASON_PAIR_STRING_DEVICE_UNAVAILABLE ->
+                LocaleHelper.localized(context).getString(R.string.err_pair_qr_device_unavailable)
+
+            REASON_PAIR_STRING_ALREADY_TRUSTED ->
+                LocaleHelper.localized(context).getString(R.string.err_pair_qr_already_paired)
+
+            REASON_PAIR_STRING_LOCAL_IDENTITY_UNAVAILABLE ->
+                LocaleHelper.localized(context).getString(R.string.err_pair_qr_not_ready)
+
             "LAN device key is not trusted" -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_untrusted)
-            else -> reason.ifBlank { LocaleHelper.localized(context).getString(R.string.lan_connection_failed_unknown) }
+            "LAN handshake timed out" -> LocaleHelper.localized(context).getString(R.string.err_pairing_timeout)
+            "LAN connection closed" -> LocaleHelper.localized(context).getString(R.string.err_pairing_connection_closed)
+            else -> LocaleHelper.localized(context).getString(R.string.lan_connection_failed_unknown)
         }
 
     private val nsdListener =
@@ -3201,6 +3248,9 @@ class ConnectionManager @Inject constructor(
                         )
                     }.getOrNull() ?: return@launch
                     if (response.type == "swim.ack" && response.payload.from == deviceId) {
+                        normalizedType?.let { deviceType ->
+                            deviceRepository.recordLanDeviceType(deviceId, deviceType)
+                        }
                         processSwimMessage(response)
                     }
                 }
@@ -3698,8 +3748,14 @@ class ConnectionManager @Inject constructor(
             .coerceAtMost(fileSize)
     }
 
-    private suspend fun processSwimMessage(message: SwimEnvelope) {
+    private suspend fun processSwimMessage(
+        message: SwimEnvelope,
+        sourceIp: String? = null,
+    ) {
         val identity = deviceRepository.localDeviceIdentity() ?: return
+        sourceIp?.takeIf { message.payload.from != identity.deviceId }?.let { ip ->
+            requestMdnsRefresh(message.payload.from, ip)
+        }
         observeSwimAlive(identity.deviceId, message.payload.from, message.payload.incarnation)
         message.payload.gossip.forEach { entry ->
             if (entry.deviceId == identity.deviceId && entry.state == MemberState.Suspect.wireValue) {
@@ -3709,6 +3765,33 @@ class ConnectionManager @Inject constructor(
                 mergeSwimMember(identity.deviceId, message.payload.from, entry)
             }
         }
+    }
+
+    private fun requestMdnsRefresh(deviceId: String, sourceIp: String) {
+        val now = System.currentTimeMillis()
+        val shouldRefresh = synchronized(discoveryRefreshAt) {
+            val previous = discoveryRefreshAt[deviceId]
+            if (!shouldRefreshMdnsDiscovery(
+                    endpointIp = lanRuntimeState.endpoint(deviceId)?.ip,
+                    sourceIp = sourceIp,
+                    previousRefreshAt = previous,
+                    now = now,
+                )
+            ) {
+                false
+            } else {
+                discoveryRefreshAt[deviceId] = now
+                true
+            }
+        }
+        if (!shouldRefresh) {
+            return
+        }
+        CoLinkLog.i(
+            "LAN",
+            "refreshing discovery after SWIM source address changed device=${CoLinkLog.shortId(deviceId)} ip=$sourceIp",
+        )
+        nsdDiscovery.refreshDiscovery()
     }
 
     private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String, incarnation: Long?) {
@@ -3755,8 +3838,7 @@ class ConnectionManager @Inject constructor(
             MemberState.Dead,
             MemberState.Left,
             -> {
-                lanWebSocketClient.disconnect(deviceId)
-                lanWebSocketServer.disconnect(deviceId)
+                disconnectLanPeer(deviceId)
             }
 
             MemberState.Suspect -> {

@@ -19,7 +19,7 @@ data class LanRuntimePeer(
     val state: String = "unavailable",
 ) {
     val isReachable: Boolean
-        get() = endpoint != null && state == "alive"
+        get() = endpoint != null && state in setOf("alive", "suspect")
 }
 
 @Singleton

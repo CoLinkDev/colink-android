@@ -100,6 +100,7 @@
     <!-- LAN Pairing -->
     <string name="lan_pairing_title">局域网配对</string>
     <string name="lan_pairing_wants_to_pair">%1$s 想要与此设备配对。\n配对码：%2$s</string>
+    <string name="lan_pairing_verify_code">请确认 %1$s 显示相同的配对码。\n配对码：%2$s</string>
     <string name="lan_pairing_waiting">等待另一台设备确认...</string>
     <string name="lan_pairing_accept">接受</string>
     <string name="lan_pairing_close">关闭</string>
@@ -237,6 +238,9 @@
     <string name="err_handshake_signature_invalid">配对签名无效</string>
     <string name="err_handshake_key_changed">设备身份密钥已更改</string>
     <string name="err_handshake_user_rejected">配对请求已被拒绝</string>
+    <string name="err_pairing_cancelled">局域网配对已取消</string>
+    <string name="err_pairing_timeout">局域网配对已超时</string>
+    <string name="err_pairing_connection_closed">局域网配对连接已关闭</string>
 
     <!-- Remote files -->
     <string name="browse_device_files_desc">浏览设备文件</string>
@@ -311,4 +315,10 @@
     <string name="pair_qr_title">配对二维码</string>
     <string name="pair_qr_description">使用另一台设备扫描此二维码以配对。</string>
     <string name="pair_qr_scanner_unavailable">无法启动二维码扫描器。</string>
+    <string name="err_pair_qr_invalid">这不是有效的 CoLink 配对二维码。</string>
+    <string name="err_pair_qr_expired">此配对二维码已过期。请在另一台设备上重新显示二维码。</string>
+    <string name="err_pair_qr_unavailable">此配对二维码已被使用或不再可用。</string>
+    <string name="err_pair_qr_device_unavailable">此二维码对应的设备不在当前局域网内。</string>
+    <string name="err_pair_qr_already_paired">此设备已在当前局域网内完成配对。</string>
+    <string name="err_pair_qr_not_ready">配对尚未就绪，请重试。</string>
 </resources>

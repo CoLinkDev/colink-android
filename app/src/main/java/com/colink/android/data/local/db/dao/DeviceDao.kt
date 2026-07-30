@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DeviceDao {
-    @Query("SELECT * FROM devices ORDER BY online DESC, name COLLATE NOCASE ASC")
+    @Query("SELECT * FROM devices ORDER BY name COLLATE NOCASE ASC, deviceId ASC")
     fun observeDevices(): Flow<List<DeviceEntity>>
 
     @Query("SELECT * FROM devices")

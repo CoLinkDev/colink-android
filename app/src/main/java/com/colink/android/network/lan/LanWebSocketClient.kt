@@ -65,18 +65,16 @@ class LanWebSocketClient @Inject constructor(
 ) {
     private companion object {
         const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
-        const val PAIRING_TIMEOUT_MILLIS = 60_000L
+        const val PAIRING_TIMEOUT_MILLIS = 240_000L
         const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
         const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
         const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
         const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
-        const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
         const val REASON_PAIRING_IDENTITY_MISMATCH = "colink:pairing.identity_mismatch.v1"
         const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
         const val REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "colink:key_exchange.timestamp_expired.v1"
         const val REASON_KEY_EXCHANGE_GENERIC = "colink:key_exchange.generic.v1"
         const val MESSAGE_AUTH_KEY_CHANGED = "Peer public key differs from stored trust record"
-        const val MESSAGE_PAIRING_USER_REJECTED = "User declined the pairing request"
         const val MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID = "Ephemeral key signature verification failed"
         const val MESSAGE_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "Ephemeral key timestamp expired"
         const val MESSAGE_KEY_EXCHANGE_GENERIC = "Ephemeral key exchange failed"
@@ -85,8 +83,10 @@ class LanWebSocketClient @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
     private val peers = ConcurrentHashMap<String, ClientPeerConnection>()
     private val connectingPeers = ConcurrentHashMap.newKeySet<String>()
+    private val connectionAttempts = ConcurrentHashMap<String, String>()
     private val connectingWebSockets = ConcurrentHashMap<String, WebSocket>()
     private val cameraConnections = ConcurrentHashMap<String, WebSocket>()
+    private val peerConnectionLock = Any()
 
     fun connect(
         identity: DeviceIdentity,
@@ -97,11 +97,14 @@ class LanWebSocketClient @Inject constructor(
         pairString: ParsedPairString? = null,
         listener: Listener,
     ) {
-        if (peers.containsKey(deviceId) || !connectingPeers.add(deviceId)) {
-            return
+        val attemptId = synchronized(peerConnectionLock) {
+            if (peers.containsKey(deviceId) || !connectingPeers.add(deviceId)) {
+                return
+            }
+            UUID.randomUUID().toString().also { connectionAttempts[deviceId] = it }
         }
         val request = Request.Builder().url("ws://$ip:$port/peer").build()
-        okHttpClient.newWebSocket(
+        val webSocket = okHttpClient.newWebSocket(
             request,
             object : WebSocketListener() {
                 private val messages = Channel<Pair<WebSocket, String>>(Channel.UNLIMITED)
@@ -127,12 +130,37 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 override fun onOpen(webSocket: WebSocket, response: Response) {
-                    connectingWebSockets[deviceId] = webSocket
+                    val isCurrentAttempt = synchronized(peerConnectionLock) {
+                        if (connectionAttempts[deviceId] != attemptId) {
+                            false
+                        } else {
+                            connectingWebSockets[deviceId] = webSocket
+                            true
+                        }
+                    }
+                    if (!isCurrentAttempt) {
+                        webSocket.close(1000, "LAN connection superseded")
+                        return
+                    }
                     timeoutJob = scope.launch {
                         delay(if (allowPairing) PAIRING_TIMEOUT_MILLIS else HANDSHAKE_TIMEOUT_MILLIS)
-                        if (connectingPeers.contains(deviceId)) {
-                            reportConnectionFailed(deviceId, "LAN handshake timed out", listener)
-                            webSocket.close(1000, "LAN handshake timed out")
+                        if (connectionAttempts[deviceId] == attemptId) {
+                            val pairingRequestId = state.pairingRequestId
+                            if (allowPairing && pairingRequestId != null) {
+                                pairingCoordinator.fail(pairingRequestId, REASON_PAIRING_TIMEOUT)
+                                state.rejectPairing()
+                                sendLanMessage(
+                                    webSocket,
+                                    state.identity,
+                                    state.expectedDeviceId,
+                                    "pairing.v1.reject",
+                                    LanRejectPayload(REASON_PAIRING_TIMEOUT, MESSAGE_PAIRING_TIMEOUT),
+                                    sequence = state.sequence,
+                                )
+                            } else {
+                                reportConnectionFailed(deviceId, "LAN handshake timed out", listener)
+                                webSocket.close(1000, "LAN handshake timed out")
+                            }
                         }
                     }
                     sendHello(webSocket, identity, allowPairing)
@@ -143,29 +171,55 @@ class LanWebSocketClient @Inject constructor(
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    cleanup(reason.ifBlank { "LAN connection closed" }, listener)
+                    cleanup(webSocket, reason.ifBlank { "LAN connection closed" }, listener)
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    cleanup(t.message ?: "LAN connection failed", listener)
+                    cleanup(webSocket, t.message ?: "LAN connection failed", listener)
                 }
 
-                private fun cleanup(reason: String, listener: Listener) {
-                    state.pairingRequestId?.let { pairingCoordinator.fail(it, reason) }
+                private fun cleanup(webSocket: WebSocket, reason: String, listener: Listener) {
+                    val pairingInProgress = state.pairingRequestId != null || pairingCoordinator.hasPendingRequest(deviceId)
                     messages.close()
-                    processor.cancel()
                     timeoutJob?.cancel()
-                    connectingPeers.remove(deviceId)
-                    connectingWebSockets.remove(deviceId)
-                    state.peerId?.let { peers.remove(it)?.keepaliveJob?.cancel() }
-                    if (!connected) {
-                        reportConnectionFailed(deviceId, reason, listener)
+                    val (wasCurrentAttempt, disconnectedPeer) = synchronized(peerConnectionLock) {
+                        val wasCurrentAttempt = connectionAttempts.remove(deviceId, attemptId)
+                        if (wasCurrentAttempt) {
+                            connectingPeers.remove(deviceId)
+                            connectingWebSockets.remove(deviceId, webSocket)
+                        }
+                        val peerId = state.peerId ?: deviceId
+                        val connection = peers[peerId]
+                        val disconnectedPeer = if (connection?.webSocket === webSocket && peers.remove(peerId, connection)) {
+                            connection.keepaliveJob?.cancel()
+                            peerId
+                        } else {
+                            null
+                        }
+                        wasCurrentAttempt to disconnectedPeer
                     }
-                    listener.onDisconnected(state.peerId ?: deviceId)
+                    scope.launch {
+                        processor.join()
+                        state.pairingRequestId?.let { pairingCoordinator.fail(it, REASON_PAIRING_CONNECTION_CLOSED) }
+                        pairingCoordinator.failPendingRequest(deviceId, REASON_PAIRING_CONNECTION_CLOSED)
+                        if (!connected && wasCurrentAttempt && !pairingInProgress) {
+                            reportConnectionFailed(deviceId, reason, listener, requireCurrentAttempt = false)
+                        }
+                    }
+                    disconnectedPeer?.let(listener::onDisconnected)
                 }
 
-                private fun reportConnectionFailed(deviceId: String, reason: String, listener: Listener) {
-                    if (connected || failureReported) {
+                private fun reportConnectionFailed(
+                    deviceId: String,
+                    reason: String,
+                    listener: Listener,
+                    requireCurrentAttempt: Boolean = true,
+                ) {
+                    if (pairingCoordinator.hasPendingRequest(deviceId)) {
+                        pairingCoordinator.failPendingRequest(deviceId, REASON_PAIRING_CONNECTION_CLOSED)
+                        return
+                    }
+                    if (connected || failureReported || (requireCurrentAttempt && connectionAttempts[deviceId] != attemptId)) {
                         return
                     }
                     failureReported = true
@@ -262,9 +316,16 @@ class LanWebSocketClient @Inject constructor(
                             val rejection = runCatching {
                                 json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
                             }.getOrNull() ?: return
-                            val message = rejection.message.ifBlank { rejection.reason }
-                            state.pairingRequestId?.let { pairingCoordinator.fail(it, message) }
-                            reportConnectionFailed(state.expectedDeviceId, message, listener)
+                            val reason = rejection.reason.ifBlank { rejection.message }
+                            state.pairingRequestId?.let { pairingCoordinator.fail(it, reason) }
+                                ?: reportConnectionFailed(
+                                    state.expectedDeviceId,
+                                    reason,
+                                    listener,
+                                    requireCurrentAttempt = false,
+                                )
+                            state.rejectPairing()
+                            webSocket.close(1000, "LAN pairing rejected")
                         }
                         "business.v1.version" -> handleBusinessVersion(webSocket, state, envelope, listener)
                         "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope, listener)
@@ -400,7 +461,7 @@ class LanWebSocketClient @Inject constructor(
                     )
                 }
 
-                private suspend fun handlePairingExchange(webSocket: WebSocket, state: ClientPeerState, envelope: LanEnvelope) {
+                private fun handlePairingExchange(webSocket: WebSocket, state: ClientPeerState, envelope: LanEnvelope) {
                     val payload = runCatching {
                         json.decodeFromJsonElement(PairingIdentityPayload.serializer(), envelope.payload)
                     }.getOrNull() ?: return
@@ -423,18 +484,25 @@ class LanWebSocketClient @Inject constructor(
                         state.validatePairString()
                         return
                     }
-                    val decision = pairingCoordinator.request(
+                    val requestId = pairingCoordinator.showVerification(
                         deviceId = state.expectedDeviceId,
                         name = payload.name,
                         publicKey = payload.publicKey,
                         code = handshake.pairingCode(state.identity.publicKey, payload.publicKey, state.localNonce.orEmpty(), payload.nonce),
                         reason = "unknown_device",
                     )
-                    state.setPairingRequest(decision.requestId)
-                    if (!decision.accepted) {
+                    state.setPairingRequest(requestId)
+                    pairingCoordinator.registerCancellation(requestId) {
                         state.rejectPairing()
-                        state.setPairingRequest(null)
-                        sendLanMessage(webSocket, state.identity, state.expectedDeviceId, "pairing.v1.reject", LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED), envelope.id, sequence = state.sequence)
+                        sendLanMessage(
+                            webSocket,
+                            state.identity,
+                            state.expectedDeviceId,
+                            "pairing.v1.reject",
+                            LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED),
+                            envelope.id,
+                            sequence = state.sequence,
+                        )
                     }
                 }
 
@@ -704,10 +772,21 @@ class LanWebSocketClient @Inject constructor(
                     }
                     state.establishCrypto(crypto)
                     val peerId = state.expectedDeviceId
-                    connectingPeers.remove(peerId)
-                    connectingWebSockets.remove(peerId)
                     val connection = ClientPeerConnection(webSocket, state.crypto, state.identity, state.peerBusinessVersion, state.sequence)
-                    peers[peerId] = connection
+                    val established = synchronized(peerConnectionLock) {
+                        if (!connectionAttempts.remove(peerId, attemptId)) {
+                            false
+                        } else {
+                            connectingPeers.remove(peerId)
+                            connectingWebSockets.remove(peerId, webSocket)
+                            peers[peerId] = connection
+                            true
+                        }
+                    }
+                    if (!established) {
+                        webSocket.close(1000, "LAN connection superseded")
+                        return
+                    }
                     connection.keepaliveJob = launchKeepaliveMonitor(peerId, webSocket)
                     connected = true
                     timeoutJob?.cancel()
@@ -725,6 +804,17 @@ class LanWebSocketClient @Inject constructor(
                 }
             },
         )
+        val isCurrentAttempt = synchronized(peerConnectionLock) {
+            if (connectionAttempts[deviceId] != attemptId) {
+                false
+            } else {
+                connectingWebSockets[deviceId] = webSocket
+                true
+            }
+        }
+        if (!isCurrentAttempt) {
+            webSocket.close(1000, "LAN connection superseded")
+        }
     }
 
     fun send(
@@ -772,16 +862,23 @@ class LanWebSocketClient @Inject constructor(
     fun peerBusinessVersion(deviceId: String): String? = peers[deviceId]?.businessVersion
 
     fun disconnect(deviceId: String) {
-        connectingPeers.remove(deviceId)
-        connectingWebSockets.remove(deviceId)?.close(1000, "client closing")
-        peers.remove(deviceId)?.let { connection ->
-            connection.keepaliveJob?.cancel()
-            connection.webSocket.close(1000, "client closing")
+        val (connectingWebSocket, connection) = synchronized(peerConnectionLock) {
+            connectionAttempts.remove(deviceId)
+            connectingPeers.remove(deviceId)
+            connectingWebSockets.remove(deviceId) to peers.remove(deviceId)
+        }
+        connectingWebSocket?.close(1000, "client closing")
+        connection?.let {
+            it.keepaliveJob?.cancel()
+            it.webSocket.close(1000, "client closing")
         }
     }
 
     fun disconnectAll() {
-        connectingPeers.clear()
+        synchronized(peerConnectionLock) {
+            connectionAttempts.clear()
+            connectingPeers.clear()
+        }
         connectingWebSockets.keys.toList().forEach { connectingWebSockets.remove(it)?.close(1000, "client closing") }
         peers.keys.toList().forEach(::disconnect)
         cameraConnections.keys.toList().forEach(::disconnectCamera)

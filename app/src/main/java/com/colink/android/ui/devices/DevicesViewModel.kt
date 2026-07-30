@@ -12,7 +12,9 @@ import com.colink.android.network.ConnectionManager
 import com.colink.android.network.PeerProtocolVersions
 import com.colink.android.network.lan.LanRuntimeState
 import com.colink.android.network.lan.LanTrustStore
+import com.colink.android.network.lan.PairStringException
 import com.colink.android.util.LocaleHelper
+import com.colink.android.util.ProtocolReasonFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -21,7 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,23 +45,26 @@ class DevicesViewModel @Inject constructor(
     private val lanRuntimeState: LanRuntimeState,
     private val lanTrustStore: LanTrustStore,
 ) : ViewModel() {
-    private val snapshotReady = MutableStateFlow(false)
-
-    val devices: StateFlow<List<Device>> =
-        combine(deviceRepository.devices, snapshotReady) { devices, ready ->
-            if (ready) devices else emptyList()
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val devices: StateFlow<List<Device>> = deviceRepository.devices
 
     val lanPairingCandidates: StateFlow<List<LanPairingCandidate>> =
-        combine(lanRuntimeState.peers, deviceRepository.devices, snapshotReady) { peers, devices, ready ->
-            Triple(peers, devices.mapTo(mutableSetOf()) { it.deviceId }, ready)
-        }.mapLatest { (peers, knownDeviceIds, ready) ->
-            if (!ready) {
-                return@mapLatest emptyList()
-            }
+        combine(
+            lanRuntimeState.peers,
+            deviceRepository.devices,
+            lanTrustStore.trustedPeers,
+        ) { peers, devices, trustedPeers ->
+            Triple(
+                peers,
+                devices.mapTo(mutableSetOf()) { it.deviceId },
+                trustedPeers
+                    .asSequence()
+                    .filter { it.trustedByLan }
+                    .mapTo(mutableSetOf()) { it.deviceId },
+            )
+        }.map { (peers, knownDeviceIds, lanTrustedDeviceIds) ->
             peers.mapNotNull { (deviceId, peer) ->
                 val endpoint = peer.endpoint ?: return@mapNotNull null
-                if (deviceId in knownDeviceIds || peer.state != "alive" || lanTrustStore.isLanTrusted(deviceId)) {
+                if (deviceId in knownDeviceIds || peer.state != "alive" || deviceId in lanTrustedDeviceIds) {
                     return@mapNotNull null
                 }
                 LanPairingCandidate(
@@ -103,6 +108,9 @@ class DevicesViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(message = null) }
             val result = deviceRepository.rotateDeviceKey(deviceId)
+            if (result.isSuccess) {
+                connectionManager.restartLanAfterKeyRotation()
+            }
             val identity = deviceRepository.localDeviceIdentity()
             _uiState.value = DevicesUiState(
                 message = result.exceptionOrNull()?.message
@@ -168,7 +176,14 @@ class DevicesViewModel @Inject constructor(
                     _uiState.update { it.copy(pairString = pairString, message = null) }
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(message = error.message) }
+                    _uiState.update {
+                        it.copy(
+                            message = ProtocolReasonFormatter.format(
+                                LocaleHelper.localized(context),
+                                error.message,
+                            ),
+                        )
+                    }
                 },
             )
         }
@@ -177,7 +192,12 @@ class DevicesViewModel @Inject constructor(
     fun startPairStringPairing(pairString: String) {
         viewModelScope.launch(Dispatchers.IO) {
             connectionManager.startPairStringPairing(pairString).onFailure { error ->
-                _uiState.update { it.copy(message = error.message) }
+                val reason = (error as? PairStringException)?.reason ?: error.message
+                _uiState.update {
+                    it.copy(
+                        message = ProtocolReasonFormatter.format(LocaleHelper.localized(context), reason),
+                    )
+                }
             }
         }
     }
@@ -206,7 +226,6 @@ class DevicesViewModel @Inject constructor(
                 onFailure = { deviceRepository.listLocalDevices() },
             )
         val identity = deviceRepository.localDeviceIdentity()
-        snapshotReady.value = true
         _uiState.update {
             it.copy(
                 loading = false,

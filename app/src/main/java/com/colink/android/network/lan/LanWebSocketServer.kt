@@ -65,6 +65,8 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -83,7 +85,7 @@ const val LAN_PORT = 27_777
 private const val MIN_LAN_PORT = 1_024
 private const val MAX_LAN_PORT = 65_535
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
-private const val PAIRING_TIMEOUT_MILLIS = 60_000L
+private const val PAIRING_TIMEOUT_MILLIS = 240_000L
 private const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
 private const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
 private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
@@ -91,13 +93,11 @@ private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 private const val CAMERA_SEND_BUFFER_CAPACITY = 3
 private const val REASON_AUTH_UNKNOWN_DEVICE = "colink:auth.unknown_device.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
-private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
 private const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
 private const val REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "colink:key_exchange.timestamp_expired.v1"
 private const val REASON_KEY_EXCHANGE_GENERIC = "colink:key_exchange.generic.v1"
 private const val MESSAGE_AUTH_UNKNOWN_DEVICE = "No trust record for this device"
 private const val MESSAGE_AUTH_KEY_CHANGED = "Peer public key differs from stored trust record"
-private const val MESSAGE_PAIRING_USER_REJECTED = "User declined the pairing request"
 private const val MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID = "Ephemeral key signature verification failed"
 private const val MESSAGE_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "Ephemeral key timestamp expired"
 private const val MESSAGE_KEY_EXCHANGE_GENERIC = "Ephemeral key exchange failed"
@@ -285,6 +285,7 @@ class LanWebSocketServer @Inject constructor(
         val identity = settingsDataStore.currentDeviceIdentity() ?: return session.close()
         val state = ServerPeerState(identity = identity, expectedDeviceId = null, allowPairing = true, initiator = false)
         var connectedPeerId: String? = null
+        var connection: ServerPeerConnection? = null
         var keepaliveJob: Job? = null
         try {
             sendHello(session, identity)
@@ -295,12 +296,13 @@ class LanWebSocketServer @Inject constructor(
             }
             connectedPeerId = ready.peerId
             peers.remove(ready.peerId)?.let { runCatching { it.session.close() } }
-            val connection = ServerPeerConnection(session, ready.crypto, identity, ready.businessVersion, state.sequence)
-            peers[ready.peerId] = connection
+            val establishedConnection = ServerPeerConnection(session, ready.crypto, identity, ready.businessVersion, state.sequence)
+            connection = establishedConnection
+            peers[ready.peerId] = establishedConnection
             listener?.onConnected(ready.peerId)
-            keepaliveJob = launchKeepaliveMonitor(ready.peerId, connection)
+            keepaliveJob = launchKeepaliveMonitor(ready.peerId, establishedConnection)
             while (true) {
-                val remainingMillis = KEEPALIVE_TIMEOUT_MILLIS - (System.currentTimeMillis() - connection.lastApplicationActivityMillis)
+                val remainingMillis = KEEPALIVE_TIMEOUT_MILLIS - (System.currentTimeMillis() - establishedConnection.lastApplicationActivityMillis)
                 if (remainingMillis <= 0) {
                     session.close()
                     break
@@ -314,21 +316,21 @@ class LanWebSocketServer @Inject constructor(
                     continue
                 }
                 if (envelope.type == "heartbeat.v1.ping") {
-                    connection.touchApplicationActivity()
-                    session.sendLanMessage(identity, ready.peerId, "heartbeat.v1.pong", EmptyPayload, envelope.id, connection.sequence)
+                    establishedConnection.touchApplicationActivity()
+                    session.sendLanMessage(identity, ready.peerId, "heartbeat.v1.pong", EmptyPayload, envelope.id, establishedConnection.sequence)
                     continue
                 }
                 if (envelope.type == "heartbeat.v1.pong") {
-                    if (connection.consumeHeartbeat(envelope.correlationId)) {
-                        connection.touchApplicationActivity()
+                    if (establishedConnection.consumeHeartbeat(envelope.correlationId)) {
+                        establishedConnection.touchApplicationActivity()
                     }
                     continue
                 }
                 if (envelope.type != "business.v1.message") {
-                    connection.touchApplicationActivity()
+                    establishedConnection.touchApplicationActivity()
                     continue
                 }
-                connection.touchApplicationActivity()
+                establishedConnection.touchApplicationActivity()
                 val payload = runCatching {
                     json.decodeFromJsonElement(EncryptedBusinessPayload.serializer(), envelope.payload)
                 }.getOrNull() ?: continue
@@ -338,9 +340,10 @@ class LanWebSocketServer @Inject constructor(
         } finally {
             state.pairStringToken?.let(pairStringStore::cancel)
             keepaliveJob?.cancel()
-            connectedPeerId?.let {
-                peers.remove(it)
-                listener?.onDisconnected(it)
+            val peerId = connectedPeerId
+            val disconnectedConnection = connection
+            if (peerId != null && disconnectedConnection != null && peers.remove(peerId, disconnectedConnection)) {
+                listener?.onDisconnected(peerId)
             }
         }
     }
@@ -348,7 +351,25 @@ class LanWebSocketServer @Inject constructor(
     private suspend fun runPeerHandshake(session: DefaultWebSocketServerSession, state: ServerPeerState): ReadyPeer? {
         val startedAt = System.currentTimeMillis()
         while (System.currentTimeMillis() - startedAt < PAIRING_TIMEOUT_MILLIS) {
-            val text = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MILLIS) { session.readTextMessage() } ?: return null
+            val pairingRequestId = state.pairingRequestId
+            val remainingMillis = PAIRING_TIMEOUT_MILLIS - (System.currentTimeMillis() - startedAt)
+            val readTimeoutMillis = if (pairingRequestId == null) {
+                minOf(HANDSHAKE_TIMEOUT_MILLIS, remainingMillis)
+            } else {
+                remainingMillis + HANDSHAKE_TIMEOUT_MILLIS
+            }
+            val text = try {
+                withTimeout(readTimeoutMillis) { session.readTextMessage() }
+            } catch (_: TimeoutCancellationException) {
+                pairingRequestId?.let { pairingCoordinator.fail(it, REASON_PAIRING_TIMEOUT) }
+                state.setPairingRequest(null)
+                return null
+            }
+            if (text == null) {
+                pairingRequestId?.let { pairingCoordinator.fail(it, REASON_PAIRING_CONNECTION_CLOSED) }
+                state.setPairingRequest(null)
+                return null
+            }
             if (!state.helloAckReceived) {
                 val ack = runCatching { json.decodeFromString(ProtocolHelloAckEnvelope.serializer(), text) }.getOrNull()
                 if (ack?.type == "protocol.hello-ack") {
@@ -414,9 +435,10 @@ class LanWebSocketServer @Inject constructor(
                     val rejection = runCatching {
                         json.decodeFromJsonElement(LanRejectPayload.serializer(), envelope.payload)
                     }.getOrNull() ?: continue
-                    state.pairingRequestId?.let { pairingCoordinator.fail(it, rejection.message.ifBlank { rejection.reason }) }
+                    state.pairingRequestId?.let { pairingCoordinator.fail(it, rejection.reason.ifBlank { rejection.message }) }
+                    state.setPairingRequest(null)
                     state.pairStringToken?.let(pairStringStore::cancel)
-                    continue
+                    return null
                 }
                 "business.v1.version" -> handleBusinessVersion(session, state, envelope)
                 "business.v1.version-ack" -> handleBusinessVersionAck(state, envelope)
@@ -450,6 +472,8 @@ class LanWebSocketServer @Inject constructor(
                 }
             }
         }
+        state.pairingRequestId?.let { pairingCoordinator.fail(it, REASON_PAIRING_TIMEOUT) }
+        state.setPairingRequest(null)
         return null
     }
 
@@ -555,20 +579,37 @@ class LanWebSocketServer @Inject constructor(
             envelope.id,
             state.sequence,
         )
-        val decision = pairingCoordinator.request(
+        val requestId = pairingCoordinator.request(
             deviceId = peerId,
             name = request.name,
             publicKey = request.publicKey,
             code = handshake.pairingCode(request.publicKey, state.identity.publicKey, request.nonce, state.localNonce!!),
             reason = "unknown_device",
-        )
-        state.setPairingRequest(decision.requestId)
-        if (decision.accepted) {
-            session.sendLanMessage(state.identity, peerId, "pairing.v1.confirm", EmptyPayload, envelope.id, state.sequence)
-        } else {
-            state.setPairingRequest(null)
-            session.sendLanMessage(state.identity, peerId, "pairing.v1.reject", LanRejectPayload(REASON_PAIRING_USER_REJECTED, MESSAGE_PAIRING_USER_REJECTED), envelope.id, state.sequence)
+            initiatedLocally = false,
+        ) { decision ->
+            CoroutineScope(Dispatchers.IO).launch {
+                if (state.pairingRequestId != decision.requestId) {
+                    return@launch
+                }
+                if (decision.accepted) {
+                    session.sendLanMessage(state.identity, peerId, "pairing.v1.confirm", EmptyPayload, envelope.id, state.sequence)
+                } else {
+                    session.sendLanMessage(
+                        state.identity,
+                        peerId,
+                        "pairing.v1.reject",
+                        LanRejectPayload(
+                            decision.reason ?: REASON_PAIRING_USER_REJECTED,
+                            decision.message ?: MESSAGE_PAIRING_USER_REJECTED,
+                        ),
+                        envelope.id,
+                        state.sequence,
+                    )
+                    state.setPairingRequest(null)
+                }
+            }
         }
+        state.setPairingRequest(requestId)
     }
 
     private suspend fun handlePairingComplete(state: ServerPeerState) {

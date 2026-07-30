@@ -586,7 +586,7 @@ private fun DeviceActionButtons(
     onDelete: () -> Unit,
     onForgetTrust: () -> Unit,
 ) {
-    val canDelete = !isLocalDevice && device.deviceSources.contains("cloud")
+    val canDelete = !isLocalDevice && !device.online && device.deviceSources.contains("cloud")
     val canForgetTrust = !isLocalDevice &&
         device.deviceSources.contains("trusted_peer_key")
 

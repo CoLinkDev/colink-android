@@ -72,9 +72,9 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
-import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.components.ScreenColumn
 import com.google.android.gms.tasks.OnFailureListener
+import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
@@ -160,14 +160,24 @@ fun DeviceListScreen(
                         pairStringScanner.startScan()
                             .addOnSuccessListener { barcode ->
                                 barcode.rawValue?.let(viewModel::startPairStringPairing)
-                            }
-                            .addOnFailureListener(
-                                OnFailureListener {
-                                    Toast.makeText(
+                                    ?: Toast.makeText(
                                         context,
-                                        R.string.pair_qr_scanner_unavailable,
+                                        R.string.err_pair_qr_invalid,
                                         Toast.LENGTH_SHORT,
                                     ).show()
+                            }
+                            .addOnCanceledListener {
+                                // Returning from the scanner is a normal user cancellation.
+                            }
+                            .addOnFailureListener(
+                                OnFailureListener { error ->
+                                    if (!isCodeScannerCancellation(error)) {
+                                        Toast.makeText(
+                                            context,
+                                            R.string.pair_qr_scanner_unavailable,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
                                 },
                             )
                     },
@@ -191,9 +201,7 @@ fun DeviceListScreen(
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (uiState.loading && devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                LoadingScreen(modifier = Modifier.fillMaxSize())
-            } else BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 if (maxWidth >= 600.dp) {
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 320.dp),
@@ -553,3 +561,14 @@ private fun deviceTypeIcon(type: String): ImageVector =
         "ios" -> Icons.Default.PhoneIphone
         else -> Icons.Default.Devices
     }
+
+internal fun isCodeScannerCancellation(error: Exception): Boolean =
+    error is java.util.concurrent.CancellationException ||
+        (error is MlKitException &&
+            error.errorCode in setOf(
+                MlKitException.CANCELLED,
+                MlKitException.CODE_SCANNER_CANCELLED,
+                // play-services-code-scanner maps an empty Activity result to INTERNAL.
+                // This is how its scanner Activity reports that the user returned without a code.
+                MlKitException.INTERNAL,
+            ))
