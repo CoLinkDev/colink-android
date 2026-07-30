@@ -55,22 +55,29 @@ class DevicesViewModel @Inject constructor(
         ) { peers, devices, trustedPeers ->
             Triple(
                 peers,
-                devices.mapTo(mutableSetOf()) { it.deviceId },
+                devices.associateBy { it.deviceId },
                 trustedPeers
                     .asSequence()
                     .filter { it.trustedByLan }
                     .mapTo(mutableSetOf()) { it.deviceId },
             )
-        }.map { (peers, knownDeviceIds, lanTrustedDeviceIds) ->
+        }.map { (peers, knownDevicesById, lanTrustedDeviceIds) ->
             peers.mapNotNull { (deviceId, peer) ->
                 val endpoint = peer.endpoint ?: return@mapNotNull null
-                if (deviceId in knownDeviceIds || peer.state != "alive" || deviceId in lanTrustedDeviceIds) {
+                if (peer.state != "alive" || deviceId in lanTrustedDeviceIds) {
                     return@mapNotNull null
                 }
+                val knownDevice = knownDevicesById[deviceId]
+                val name = knownDevice?.name?.takeIf { it.isNotBlank() }
+                    ?: peer.name?.takeIf { it.isNotBlank() }
+                    ?: deviceId
+                val type = knownDevice?.type?.takeIf { it.isNotBlank() && it != "unknown" }
+                    ?: peer.type
+                    ?: "unknown"
                 LanPairingCandidate(
                     deviceId = deviceId,
-                    name = peer.name?.takeIf { it.isNotBlank() } ?: deviceId,
-                    type = peer.type ?: "unknown",
+                    name = name,
+                    type = type,
                     ip = endpoint.ip,
                     port = endpoint.port,
                     state = peer.state,

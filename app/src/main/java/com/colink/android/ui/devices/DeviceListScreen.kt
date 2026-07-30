@@ -253,8 +253,6 @@ fun DeviceListScreen(
                                     cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
-                                    canPairOnLan = device.lanAvailable && !device.trustedByLan,
-                                    onPair = { viewModel.startLanPairing(device.deviceId) },
                                     onClick = { onDeviceSelected(device.deviceId) },
                                     modifier = Modifier.animateItem(),
                                 )
@@ -308,8 +306,6 @@ fun DeviceListScreen(
                                     cloudAvailable = device.cloudAvailable,
                                     isLocalDevice = device.deviceId == uiState.localDeviceId ||
                                         device.deviceSources.contains("local"),
-                                    canPairOnLan = device.lanAvailable && !device.trustedByLan,
-                                    onPair = { viewModel.startLanPairing(device.deviceId) },
                                     onClick = { onDeviceSelected(device.deviceId) },
                                     modifier = Modifier.animateItem(),
                                 )
@@ -450,8 +446,6 @@ private fun DeviceCard(
     online: Boolean,
     cloudAvailable: Boolean,
     isLocalDevice: Boolean,
-    canPairOnLan: Boolean,
-    onPair: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -549,11 +543,6 @@ private fun DeviceCard(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                }
-                if (canPairOnLan && !isLocalDevice) {
-                    TextButton(onClick = onPair) {
-                        Text(stringResource(R.string.pair_btn))
                     }
                 }
             }
