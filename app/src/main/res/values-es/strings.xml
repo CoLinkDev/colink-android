@@ -65,6 +65,7 @@
     <string name="device_control_unsupported">El dispositivo remoto no admite esta función. Actualice CoLink en ese dispositivo.</string>
     <string name="device_wake_on_lan_title">Activar dispositivo</string>
     <string name="device_wake_on_lan_subtitle">Envía un paquete Wake-on-LAN mediante un dispositivo CoLink en línea de la red de destino</string>
+    <string name="device_wake_on_lan_local_subtitle">Envía un paquete Wake-on-LAN mediante este dispositivo en la red local</string>
     <string name="device_wake_on_lan_no_proxies">Conecta primero un dispositivo CoLink en línea en la red de destino.</string>
     <string name="device_wake_on_lan_mac_label">Dirección MAC de destino</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
@@ -72,6 +73,7 @@
     <string name="device_wake_on_lan_send">Enviar paquete de activación</string>
     <string name="device_wake_on_lan_confirm_title">¿Enviar paquete de activación?</string>
     <string name="device_wake_on_lan_confirm_body">¿Enviar un paquete de activación para %1$s mediante %2$s?</string>
+    <string name="device_wake_on_lan_local_confirm_body">¿Enviar un paquete de activación para %1$s mediante este dispositivo?</string>
     <string name="device_wake_on_lan_packet_sent">Paquete de activación enviado</string>
     <string name="device_media_control_title">Multimedia y sonido</string>
     <string name="device_media_control_subtitle">Controla la sesión multimedia actual y el volumen del sistema</string>

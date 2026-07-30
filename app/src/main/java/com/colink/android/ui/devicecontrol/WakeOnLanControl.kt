@@ -92,18 +92,22 @@ class WakeOnLanViewModel @Inject constructor(
 
     fun normalizedMac(value: String): String = value.trim().replace('-', ':').uppercase(Locale.ROOT)
 
-    fun send(targetDeviceId: String, targetMac: String) {
+    fun send(targetDeviceId: String, targetMac: String, sendFromLocal: Boolean) {
         val normalizedMac = normalizedMac(targetMac)
         if (_uiState.value.submitting || !isValidWakeOnLanMac(normalizedMac)) {
             return
         }
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(submitting = true, error = null) }
-            val result = connectionManager.sendSystemControl(
-                targetDeviceId = targetDeviceId,
-                action = SystemControlAction.WakeOnLan,
-                targetMac = normalizedMac,
-            )
+            val result = if (sendFromLocal) {
+                connectionManager.sendWakeOnLanFromLocal(normalizedMac)
+            } else {
+                connectionManager.sendSystemControl(
+                    targetDeviceId = targetDeviceId,
+                    action = SystemControlAction.WakeOnLan,
+                    targetMac = normalizedMac,
+                )
+            }
             if (result.isSuccess) {
                 runCatching { settingsDataStore.rememberWakeOnLanMac(normalizedMac) }
                 viewModelScope.launch(Dispatchers.Main) {
@@ -140,6 +144,7 @@ fun WakeOnLanControlCard(
     selectedDevice: Device?,
     modifier: Modifier = Modifier,
     support: SystemControlSupport? = null,
+    sendFromLocal: Boolean = false,
     viewModel: WakeOnLanViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -151,7 +156,7 @@ fun WakeOnLanControlCard(
     val normalizedMac = viewModel.normalizedMac(targetMac)
     val validMac = isValidWakeOnLanMac(normalizedMac)
 
-    LaunchedEffect(selectedDevice?.deviceId) {
+    LaunchedEffect(selectedDevice?.deviceId, sendFromLocal) {
         viewModel.resetState()
     }
 
@@ -175,7 +180,13 @@ fun WakeOnLanControlCard(
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = stringResource(R.string.device_wake_on_lan_subtitle),
+                text = stringResource(
+                    if (sendFromLocal) {
+                        R.string.device_wake_on_lan_local_subtitle
+                    } else {
+                        R.string.device_wake_on_lan_subtitle
+                    },
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -248,18 +259,22 @@ fun WakeOnLanControlCard(
             title = { Text(stringResource(R.string.device_wake_on_lan_confirm_title)) },
             text = {
                 Text(
-                    stringResource(
-                        R.string.device_wake_on_lan_confirm_body,
-                        mac,
-                        selectedDevice.name.ifBlank { selectedDevice.deviceId },
-                    ),
+                    if (sendFromLocal) {
+                        stringResource(R.string.device_wake_on_lan_local_confirm_body, mac)
+                    } else {
+                        stringResource(
+                            R.string.device_wake_on_lan_confirm_body,
+                            mac,
+                            selectedDevice.name.ifBlank { selectedDevice.deviceId },
+                        )
+                    },
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
                         pendingMac = null
-                        viewModel.send(selectedDevice.deviceId, mac)
+                        viewModel.send(selectedDevice.deviceId, mac, sendFromLocal)
                     },
                 ) {
                     Text(stringResource(R.string.device_wake_on_lan_send))

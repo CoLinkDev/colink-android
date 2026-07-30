@@ -65,6 +65,7 @@
     <string name="device_control_unsupported">상대 기기가 이 기능을 지원하지 않습니다. 해당 기기의 CoLink를 업데이트하세요.</string>
     <string name="device_wake_on_lan_title">기기 깨우기</string>
     <string name="device_wake_on_lan_subtitle">대상 네트워크의 온라인 CoLink 기기를 통해 Wake-on-LAN 패킷을 보냅니다</string>
+    <string name="device_wake_on_lan_local_subtitle">이 기기에서 로컬 네트워크로 Wake-on-LAN 패킷을 보냅니다</string>
     <string name="device_wake_on_lan_no_proxies">대상 네트워크의 온라인 CoLink 기기를 먼저 연결하세요.</string>
     <string name="device_wake_on_lan_mac_label">대상 MAC 주소</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
@@ -72,6 +73,7 @@
     <string name="device_wake_on_lan_send">깨우기 패킷 보내기</string>
     <string name="device_wake_on_lan_confirm_title">깨우기 패킷을 보낼까요?</string>
     <string name="device_wake_on_lan_confirm_body">%2$s을(를) 통해 %1$s에 깨우기 패킷을 보낼까요?</string>
+    <string name="device_wake_on_lan_local_confirm_body">이 기기에서 %1$s에 깨우기 패킷을 보낼까요?</string>
     <string name="device_wake_on_lan_packet_sent">깨우기 패킷을 보냈습니다</string>
     <string name="device_media_control_title">미디어 및 소리</string>
     <string name="device_media_control_subtitle">현재 미디어 세션과 시스템 볼륨을 제어합니다</string>

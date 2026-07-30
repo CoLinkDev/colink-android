@@ -65,6 +65,7 @@
     <string name="device_control_unsupported">Das entfernte Gerät unterstützt diese Funktion nicht. Aktualisieren Sie CoLink auf diesem Gerät.</string>
     <string name="device_wake_on_lan_title">Gerät aufwecken</string>
     <string name="device_wake_on_lan_subtitle">Ein Wake-on-LAN-Paket über ein verbundenes CoLink-Gerät im Zielnetz senden</string>
+    <string name="device_wake_on_lan_local_subtitle">Ein Wake-on-LAN-Paket über dieses Gerät im lokalen Netzwerk senden</string>
     <string name="device_wake_on_lan_no_proxies">Verbinden Sie zuerst ein Online-CoLink-Gerät im Zielnetz.</string>
     <string name="device_wake_on_lan_mac_label">MAC-Adresse des Ziels</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
@@ -72,6 +73,7 @@
     <string name="device_wake_on_lan_send">Wake-Paket senden</string>
     <string name="device_wake_on_lan_confirm_title">Wake-Paket senden?</string>
     <string name="device_wake_on_lan_confirm_body">Ein Wake-Paket für %1$s über %2$s senden?</string>
+    <string name="device_wake_on_lan_local_confirm_body">Ein Wake-Paket für %1$s über dieses Gerät senden?</string>
     <string name="device_wake_on_lan_packet_sent">Wake-Paket gesendet</string>
     <string name="device_media_control_title">Medien und Ton</string>
     <string name="device_media_control_subtitle">Aktuelle Medienwiedergabe und Systemlautstärke steuern</string>

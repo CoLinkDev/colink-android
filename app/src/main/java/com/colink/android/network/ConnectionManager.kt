@@ -606,6 +606,14 @@ class ConnectionManager @Inject constructor(
         ).map { Unit }
     }
 
+    suspend fun sendWakeOnLanFromLocal(targetMac: String): Result<Unit> = runCatching {
+        require(isValidWakeOnLanMac(targetMac)) {
+            "Target MAC must use XX:XX:XX:XX:XX:XX format"
+        }
+        WakeOnLan.send(targetMac)
+        Unit
+    }
+
     suspend fun querySystemControlState(deviceId: String): Result<SystemControlResultPayload> =
         runCatching {
             requireSystemControlQuerySupport(deviceId)

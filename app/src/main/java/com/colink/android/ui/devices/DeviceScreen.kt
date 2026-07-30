@@ -506,11 +506,12 @@ private fun LazyListScope.deviceManagementItems(
     onDelete: () -> Unit,
     onForgetTrust: () -> Unit,
 ) {
-    if (isRemoteDevice && isReachable) {
+    if ((isRemoteDevice && isReachable) || isLocalDevice) {
         item(contentType = "wol") {
             WakeOnLanControlCard(
                 selectedDevice = device,
-                support = wakeOnLanSupport,
+                support = if (isLocalDevice) SystemControlSupport.SUPPORTED else wakeOnLanSupport,
+                sendFromLocal = isLocalDevice,
             )
         }
     }

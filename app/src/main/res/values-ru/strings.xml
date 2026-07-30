@@ -65,6 +65,7 @@
     <string name="device_control_unsupported">Удалённое устройство не поддерживает эту функцию. Обновите CoLink на этом устройстве.</string>
     <string name="device_wake_on_lan_title">Включить устройство</string>
     <string name="device_wake_on_lan_subtitle">Отправьте пакет Wake-on-LAN через онлайн-устройство CoLink в целевой сети</string>
+    <string name="device_wake_on_lan_local_subtitle">Отправьте пакет Wake-on-LAN через это устройство в локальной сети</string>
     <string name="device_wake_on_lan_no_proxies">Сначала подключите онлайн-устройство CoLink в целевой сети.</string>
     <string name="device_wake_on_lan_mac_label">MAC-адрес цели</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
@@ -72,6 +73,7 @@
     <string name="device_wake_on_lan_send">Отправить пакет пробуждения</string>
     <string name="device_wake_on_lan_confirm_title">Отправить пакет пробуждения?</string>
     <string name="device_wake_on_lan_confirm_body">Отправить пакет пробуждения для %1$s через %2$s?</string>
+    <string name="device_wake_on_lan_local_confirm_body">Отправить пакет пробуждения для %1$s через это устройство?</string>
     <string name="device_wake_on_lan_packet_sent">Пакет пробуждения отправлен</string>
     <string name="device_media_control_title">Медиа и звук</string>
     <string name="device_media_control_subtitle">Управляйте текущим медиасеансом и системной громкостью</string>

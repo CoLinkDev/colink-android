@@ -65,6 +65,7 @@
     <string name="device_control_unsupported">对端设备不支持此功能，请更新该设备上的 CoLink。</string>
     <string name="device_wake_on_lan_title">唤醒设备</string>
     <string name="device_wake_on_lan_subtitle">通过目标网络中在线的 CoLink 设备发送局域网唤醒包</string>
+    <string name="device_wake_on_lan_local_subtitle">通过本机在局域网内发送唤醒包</string>
     <string name="device_wake_on_lan_no_proxies">请先连接目标网络中在线的 CoLink 设备</string>
     <string name="device_wake_on_lan_mac_label">目标 MAC 地址</string>
     <string name="device_wake_on_lan_mac_placeholder">00:11:22:33:44:55</string>
@@ -72,6 +73,7 @@
     <string name="device_wake_on_lan_send">发送唤醒包</string>
     <string name="device_wake_on_lan_confirm_title">发送唤醒包？</string>
     <string name="device_wake_on_lan_confirm_body">确认通过 %2$s 为 %1$s 发送唤醒包吗？</string>
+    <string name="device_wake_on_lan_local_confirm_body">确认通过本机为 %1$s 发送唤醒包吗？</string>
     <string name="device_wake_on_lan_packet_sent">已发送唤醒包</string>
     <string name="device_media_control_title">媒体与声音</string>
     <string name="device_media_control_subtitle">控制当前媒体会话和系统音量</string>
