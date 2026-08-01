@@ -11,6 +11,7 @@ data class AppUpdateAsset(
     val name: String,
     val size: Long,
     val downloadUrl: String,
+    val sha256: String? = null,
 )
 
 sealed interface UpdateDownloadState {

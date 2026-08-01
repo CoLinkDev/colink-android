@@ -23,6 +23,7 @@ data class UpdateAssetDto(
     val name: String,
     val size: Long,
     val downloadUrl: String,
+    val sha256: String? = null,
 )
 
 fun UpdateReleaseDto.toDomain(baseUrl: String): AppUpdate =
@@ -35,6 +36,7 @@ fun UpdateReleaseDto.toDomain(baseUrl: String): AppUpdate =
                 name = asset.name,
                 size = asset.size,
                 downloadUrl = resolveDownloadUrl(baseUrl, asset.downloadUrl),
+                sha256 = asset.sha256,
             )
         },
     )

@@ -17,6 +17,7 @@ import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -120,6 +121,7 @@ class UpdateRepositoryImpl @Inject constructor(
 
         apkFile.delete()
         check(partialFile.renameTo(apkFile)) { "could not finalize update download" }
+        check(hasValidSha256(apkFile, asset.sha256)) { "update SHA-256 mismatch" }
         runCatching { metadataFile.writeText(cacheMetadata(asset)) }
         return apkFile
     }
@@ -134,7 +136,8 @@ class UpdateRepositoryImpl @Inject constructor(
             apkFile.length() > 0 &&
             (asset.size <= 0 || apkFile.length() == asset.size) &&
             metadataFile.isFile &&
-            metadata == cacheMetadata(asset)
+            metadata == cacheMetadata(asset) &&
+            runCatching { hasValidSha256(apkFile, asset.sha256) }.getOrDefault(false)
         if (valid) {
             return apkFile
         }
@@ -145,7 +148,26 @@ class UpdateRepositoryImpl @Inject constructor(
     }
 
     private fun cacheMetadata(asset: AppUpdateAsset): String =
-        "${asset.downloadUrl}\n${asset.size}"
+        "${asset.downloadUrl}\n${asset.size}\n${asset.sha256.orEmpty()}"
+
+    private fun hasValidSha256(file: java.io.File, expected: String?): Boolean {
+        val normalizedExpected = expected?.trim()?.takeIf { it.isNotEmpty() } ?: return true
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) {
+                    break
+                }
+                digest.update(buffer, 0, read)
+            }
+        }
+        val actual = digest.digest().joinToString("") { byte ->
+            "%02x".format(byte.toInt() and 0xff)
+        }
+        return actual.equals(normalizedExpected, ignoreCase = true)
+    }
 
     private fun startInstaller(apkFile: java.io.File) {
         val apkUri = FileProvider.getUriForFile(
