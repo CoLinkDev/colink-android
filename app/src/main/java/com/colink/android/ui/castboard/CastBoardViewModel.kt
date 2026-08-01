@@ -41,6 +41,7 @@ class CastBoardViewModel @Inject constructor(
     private val connectionManager: ConnectionManager,
     private val musicSyncManager: MusicSyncManager,
     private val sysInfoSyncManager: SysInfoSyncManager,
+    private val screenWaker: CastBoardScreenWaker,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private var sourceDeviceId: String? = null
@@ -112,9 +113,18 @@ class CastBoardViewModel @Inject constructor(
         musicSyncManager.beginSession(normalized)
         sysInfoSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
+            var wasWaitingForDevice = false
             connectionStatus.collectLatest { status ->
+                if (status == CastBoardConnectionStatus.WaitingForDevice) {
+                    wasWaitingForDevice = true
+                    return@collectLatest
+                }
                 if (status != CastBoardConnectionStatus.Connected) {
                     return@collectLatest
+                }
+                if (wasWaitingForDevice) {
+                    screenWaker.wakeForReconnect()
+                    wasWaitingForDevice = false
                 }
                 connectionManager.sendMusicAlive(normalized)
                 connectionManager.sendSysInfoAlive(normalized)
