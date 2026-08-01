@@ -84,7 +84,14 @@ class UpdateRepositoryImpl @Inject constructor(
         check(updateDirectory.isDirectory) { "could not create update cache directory" }
 
         val apkFile = java.io.File(updateDirectory, "${safeApkName(asset.name)}.apk")
+        val metadataFile = java.io.File(updateDirectory, "${apkFile.name}.meta")
         val partialFile = java.io.File(updateDirectory, "${apkFile.name}.part")
+
+        cachedApk(apkFile, metadataFile, asset)?.let {
+            partialFile.delete()
+            return it
+        }
+
         partialFile.delete()
 
         val request = Request.Builder().url(asset.downloadUrl).build()
@@ -113,8 +120,32 @@ class UpdateRepositoryImpl @Inject constructor(
 
         apkFile.delete()
         check(partialFile.renameTo(apkFile)) { "could not finalize update download" }
+        runCatching { metadataFile.writeText(cacheMetadata(asset)) }
         return apkFile
     }
+
+    private fun cachedApk(
+        apkFile: java.io.File,
+        metadataFile: java.io.File,
+        asset: AppUpdateAsset,
+    ): java.io.File? {
+        val metadata = runCatching { metadataFile.readText() }.getOrNull()
+        val valid = apkFile.isFile &&
+            apkFile.length() > 0 &&
+            (asset.size <= 0 || apkFile.length() == asset.size) &&
+            metadataFile.isFile &&
+            metadata == cacheMetadata(asset)
+        if (valid) {
+            return apkFile
+        }
+
+        apkFile.delete()
+        metadataFile.delete()
+        return null
+    }
+
+    private fun cacheMetadata(asset: AppUpdateAsset): String =
+        "${asset.downloadUrl}\n${asset.size}"
 
     private fun startInstaller(apkFile: java.io.File) {
         val apkUri = FileProvider.getUriForFile(

@@ -202,6 +202,7 @@ fun CoLinkNavGraph(
                 downloadState = updateDownloadState,
                 onDismiss = viewModel::dismissUpdate,
                 onUpdate = viewModel::startUpdate,
+                onInstallerReturned = viewModel::onInstallerReturned,
             )
         }
     }
@@ -213,12 +214,14 @@ private fun UpdateDialogHost(
     downloadState: com.colink.android.domain.model.UpdateDownloadState,
     onDismiss: () -> Unit,
     onUpdate: () -> Unit,
+    onInstallerReturned: () -> Unit,
 ) {
     AppUpdateDialog(
         update = update,
         downloadState = downloadState,
         onDismiss = onDismiss,
         onUpdate = onUpdate,
+        onInstallerReturned = onInstallerReturned,
     )
 }
 

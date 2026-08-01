@@ -92,6 +92,7 @@ fun SettingsScreen(
         downloadState = uiState.updateDownloadState,
         onDismiss = viewModel::dismissUpdate,
         onUpdate = viewModel::startUpdate,
+        onInstallerReturned = viewModel::onInstallerReturned,
     )
     if (showServerUrlDialog) {
         ServerUrlDialog(

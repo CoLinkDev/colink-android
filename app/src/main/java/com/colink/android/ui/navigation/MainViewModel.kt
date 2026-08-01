@@ -116,6 +116,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun onInstallerReturned() {
+        if (_updateDownloadState.value is UpdateDownloadState.Installing) {
+            _updateDownloadState.value = UpdateDownloadState.Idle
+        }
+    }
+
     fun dismissUpdate() {
         if (_updateDownloadState.value is UpdateDownloadState.Downloading) {
             return

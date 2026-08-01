@@ -149,6 +149,16 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onInstallerReturned() {
+        _uiState.update {
+            if (it.updateDownloadState is UpdateDownloadState.Installing) {
+                it.copy(updateDownloadState = UpdateDownloadState.Idle)
+            } else {
+                it
+            }
+        }
+    }
+
     fun dismissUpdate() {
         if (_uiState.value.updateDownloadState is UpdateDownloadState.Downloading) {
             return

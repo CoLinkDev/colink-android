@@ -20,7 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -30,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.domain.model.AppUpdate
@@ -43,6 +48,7 @@ fun AppUpdateDialog(
     downloadState: UpdateDownloadState,
     onDismiss: () -> Unit,
     onUpdate: () -> Unit,
+    onInstallerReturned: () -> Unit,
 ) {
     val current = update ?: return
     val asset = current.assets.singleOrNull()
@@ -50,8 +56,28 @@ fun AppUpdateDialog(
     val downloading = downloadState as? UpdateDownloadState.Downloading
     val downloadingInProgress = downloading != null
     val installing = downloadState is UpdateDownloadState.Installing
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val currentOnInstallerReturned = rememberUpdatedState(onInstallerReturned)
     val releaseNotes = current.releaseNotes.trim().ifBlank {
         stringResource(R.string.update_available_body, current.version)
+    }
+
+    DisposableEffect(lifecycleOwner, installing) {
+        var appWasPaused = !lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> appWasPaused = true
+                Lifecycle.Event.ON_RESUME -> {
+                    if (appWasPaused) {
+                        appWasPaused = false
+                        currentOnInstallerReturned.value()
+                    }
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Dialog(
