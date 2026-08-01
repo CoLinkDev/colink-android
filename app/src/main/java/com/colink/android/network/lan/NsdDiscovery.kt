@@ -9,6 +9,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.Inet4Address
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 
 private const val SERVICE_TYPE = "_colink._tcp."
 
@@ -21,6 +23,7 @@ class NsdDiscovery @Inject constructor(
     private var discoveryListener: NsdManager.DiscoveryListener? = null
     private var activeListener: Listener? = null
     private var refreshRequested = false
+    private var refreshCompletion: CompletableDeferred<Unit>? = null
 
     fun serviceInfo(
         serviceName: String,
@@ -64,6 +67,8 @@ class NsdDiscovery @Inject constructor(
     fun stop() {
         activeListener = null
         refreshRequested = false
+        refreshCompletion?.complete(Unit)
+        refreshCompletion = null
         registrationListener?.let { runCatching { manager.unregisterService(it) } }
         discoveryListener?.let { runCatching { manager.stopServiceDiscovery(it) } }
         registrationListener = null
@@ -71,22 +76,27 @@ class NsdDiscovery @Inject constructor(
         CoLinkLog.d("LAN", "stopped NSD")
     }
 
-    fun refreshDiscovery() {
-        val listener = activeListener ?: return
+    fun refreshDiscovery(): Deferred<Unit>? {
+        val listener = activeListener ?: return null
         val discovery = discoveryListener
         if (discovery == null) {
             discover(listener)
-            return
+            return CompletableDeferred<Unit>().also { it.complete(Unit) }
         }
         if (refreshRequested) {
-            return
+            return refreshCompletion
         }
+        val completion = CompletableDeferred<Unit>()
+        refreshCompletion = completion
         refreshRequested = true
         runCatching { manager.stopServiceDiscovery(discovery) }
             .onFailure { error ->
                 refreshRequested = false
+                refreshCompletion?.complete(Unit)
+                refreshCompletion = null
                 CoLinkLog.w("LAN", "NSD refresh stop failed", error)
             }
+        return completion
     }
 
     private fun registerService(info: NsdServiceInfo) {
@@ -122,12 +132,16 @@ class NsdDiscovery @Inject constructor(
                 if (discoveryListener === discovery) {
                     discoveryListener = null
                 }
+                refreshCompletion?.complete(Unit)
+                refreshCompletion = null
             }
 
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
                 CoLinkLog.w("LAN", "NSD discovery stop failed type=$serviceType code=$errorCode")
                 if (discoveryListener === discovery) {
                     refreshRequested = false
+                    refreshCompletion?.complete(Unit)
+                    refreshCompletion = null
                 }
             }
 
@@ -218,6 +232,8 @@ class NsdDiscovery @Inject constructor(
         if (!refreshRequested) return
         refreshRequested = false
         activeListener?.let(::discover)
+        refreshCompletion?.complete(Unit)
+        refreshCompletion = null
     }
 
     @Suppress("DEPRECATION")

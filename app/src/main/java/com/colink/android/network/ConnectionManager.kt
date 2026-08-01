@@ -176,6 +176,8 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.Flow
@@ -391,6 +393,8 @@ class ConnectionManager @Inject constructor(
     private val _peerProtocolVersions = MutableStateFlow<Map<String, PeerProtocolVersions>>(emptyMap())
     private val swimMembership = SwimMembership(maxGossip = SWIM_MAX_GOSSIP)
     private val swimLock = Any()
+    private val swimProbeMutex = Mutex()
+    private val highPrioritySwimRefresh = AtomicBoolean(false)
     private val lanPeerLock = Any()
     private val pendingLanSends = mutableMapOf<String, ArrayDeque<PendingLanSend>>()
     private val lanConnectingPeers = mutableSetOf<String>()
@@ -778,6 +782,7 @@ class ConnectionManager @Inject constructor(
 
     private fun stopLan() {
         CoLinkLog.i("LAN", "stopping LAN services")
+        highPrioritySwimRefresh.set(false)
         swimJob?.cancel()
         swimJob = null
         suspectJob?.cancel()
@@ -791,6 +796,37 @@ class ConnectionManager @Inject constructor(
         synchronized(swimLock) {
             probeQueue.clear()
             probeRoundCandidates = emptyList()
+        }
+    }
+
+    suspend fun refreshLanForDeviceList() {
+        val mdnsRefresh = nsdDiscovery.refreshDiscovery()
+        coroutineScope {
+            val mdnsTask = async { mdnsRefresh?.await() }
+            val swimTask = async { refreshSwimForDeviceList() }
+            mdnsTask.await()
+            swimTask.await()
+        }
+    }
+
+    private suspend fun refreshSwimForDeviceList() {
+        swimProbeMutex.withLock {
+            highPrioritySwimRefresh.set(true)
+            try {
+                val identity = deviceRepository.localDeviceIdentity() ?: return
+                val targets = lanRuntimeState.peers.value
+                    .asSequence()
+                    .filter { (_, peer) -> peer.isReachable }
+                    .map { (deviceId, _) -> deviceId }
+                    .toList()
+                coroutineScope {
+                    targets.map { target ->
+                        async { probeMember(identity, target) }
+                    }.awaitAll()
+                }
+            } finally {
+                highPrioritySwimRefresh.set(false)
+            }
         }
     }
 
@@ -3234,13 +3270,19 @@ class ConnectionManager @Inject constructor(
                     if (deviceId == identity.deviceId) {
                         return@launch
                     }
+                    val endpoint = LanEndpoint(ip, port)
+                    val currentPeer = lanRuntimeState.peer(deviceId)
+                    val shouldProbe = currentPeer?.endpoint != endpoint || currentPeer?.isReachable != true
                     val normalizedType = type.normalizedDeviceType()
                     lanRuntimeState.updateDiscovery(
                         deviceId = deviceId,
-                        endpoint = LanEndpoint(ip, port),
+                        endpoint = endpoint,
                         name = name,
                         type = normalizedType ?: "unknown",
                     )
+                    if (!shouldProbe) {
+                        return@launch
+                    }
                     val response = lanSwimClient.ping(
                         identity = identity,
                         ip = ip,
@@ -3883,10 +3925,15 @@ class ConnectionManager @Inject constructor(
     }
 
     private suspend fun probeNextMembers() {
-        val identity = deviceRepository.localDeviceIdentity() ?: return
-        val targets = nextProbeTargets(identity.deviceId)
-        for (target in targets) {
-            probeMember(identity, target)
+        swimProbeMutex.withLock {
+            if (highPrioritySwimRefresh.get()) {
+                return@withLock
+            }
+            val identity = deviceRepository.localDeviceIdentity() ?: return@withLock
+            val targets = nextProbeTargets(identity.deviceId)
+            for (target in targets) {
+                probeMember(identity, target)
+            }
         }
     }
 
@@ -3991,6 +4038,9 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun nextProbeTargets(localDeviceId: String): List<String> {
+        if (highPrioritySwimRefresh.get()) {
+            return emptyList()
+        }
         val candidates = swimMembership.membersSnapshot()
             .filter { (deviceId, member) ->
                 deviceId != localDeviceId &&

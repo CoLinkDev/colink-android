@@ -19,6 +19,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -230,16 +232,29 @@ class DevicesViewModel @Inject constructor(
 
     private suspend fun refreshDevices() {
         _uiState.update { it.copy(loading = true, message = null) }
-        val result = authRepository.currentSession()
-            .fold(
-                onSuccess = { session -> deviceRepository.syncDevices(session) },
-                onFailure = { deviceRepository.listLocalDevices() },
-            )
+        val (lanResult, deviceResult) = coroutineScope {
+            val lanRefresh = async {
+                runCatching { connectionManager.refreshLanForDeviceList() }
+            }
+            val deviceRefresh = async {
+                if (connectionManager.cloudState.value.connected) {
+                    authRepository.currentSession()
+                        .fold(
+                            onSuccess = { session -> deviceRepository.syncDevices(session) },
+                            onFailure = { deviceRepository.listLocalDevices() },
+                        )
+                } else {
+                    deviceRepository.listLocalDevices()
+                }
+            }
+            lanRefresh.await() to deviceRefresh.await()
+        }
         val identity = deviceRepository.localDeviceIdentity()
         _uiState.update {
             it.copy(
                 loading = false,
-                message = result.exceptionOrNull()?.message,
+                message = deviceResult.exceptionOrNull()?.message
+                    ?: lanResult.exceptionOrNull()?.message,
                 localDeviceId = identity?.deviceId,
             )
         }
