@@ -59,6 +59,8 @@
     <string name="device_power_shutdown">關機</string>
     <string name="device_power_delay_seconds">延遲（秒）</string>
     <string name="device_power_cancel_scheduled">取消排程操作</string>
+    <string name="device_power_scheduled_action">已排程操作：%1$s</string>
+    <string name="device_power_scheduled_remaining">剩餘時間：%1$d 秒</string>
     <string name="device_power_confirm_title">確認%1$s</string>
     <string name="device_power_confirm_body">確認令 %2$s %1$s嗎？</string>
     <string name="device_power_command_sent">已傳送%1$s命令</string>

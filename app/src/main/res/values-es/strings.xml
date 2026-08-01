@@ -59,6 +59,8 @@
     <string name="device_power_shutdown">Apagar</string>
     <string name="device_power_delay_seconds">Retraso (segundos)</string>
     <string name="device_power_cancel_scheduled">Cancelar acción programada</string>
+    <string name="device_power_scheduled_action">Acción programada: %1$s</string>
+    <string name="device_power_scheduled_remaining">Tiempo restante: %1$d segundos</string>
     <string name="device_power_confirm_title">Confirmar %1$s</string>
     <string name="device_power_confirm_body">¿Enviar el comando %1$s a %2$s?</string>
     <string name="device_power_command_sent">Comando %1$s enviado</string>

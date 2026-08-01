@@ -59,6 +59,8 @@
     <string name="device_power_shutdown">Выключить</string>
     <string name="device_power_delay_seconds">Задержка (секунды)</string>
     <string name="device_power_cancel_scheduled">Отменить запланированное действие</string>
+    <string name="device_power_scheduled_action">Запланированное действие: %1$s</string>
+    <string name="device_power_scheduled_remaining">Оставшееся время: %1$d с</string>
     <string name="device_power_confirm_title">Подтвердить: %1$s</string>
     <string name="device_power_confirm_body">Отправить команду «%1$s» устройству %2$s?</string>
     <string name="device_power_command_sent">Команда «%1$s» отправлена</string>

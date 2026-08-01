@@ -218,6 +218,7 @@ private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
 private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 5 * 60 * 1_000L
 internal const val MDNS_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
 private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
+private const val PENDING_POWER_QUERY_FIELD = "pending-power"
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_PAIRING_USER_REJECTED = "colink:pairing.user_rejected.v1"
@@ -626,7 +627,7 @@ class ConnectionManager @Inject constructor(
                 request = BusinessEnvelope(
                     type = SYSTEM_CONTROL_QUERY_TYPE,
                     payload = json.encodeToJsonElement(
-                        SystemControlQueryPayload(fields = SYSTEM_CONTROL_QUERY_FIELDS),
+                        SystemControlQueryPayload(fields = systemControlQueryFields(deviceId)),
                     ),
                 ),
             ).getOrThrow()
@@ -1025,6 +1026,22 @@ class ConnectionManager @Inject constructor(
             SystemControlSupport.TOO_OLD
         }
     }
+
+    fun pendingPowerQuerySupport(deviceId: String): SystemControlSupport {
+        val peerVersion = peerBusinessVersion(deviceId) ?: return SystemControlSupport.UNKNOWN
+        return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 12)) {
+            SystemControlSupport.SUPPORTED
+        } else {
+            SystemControlSupport.TOO_OLD
+        }
+    }
+
+    private fun systemControlQueryFields(deviceId: String): List<String> =
+        if (pendingPowerQuerySupport(deviceId) == SystemControlSupport.SUPPORTED) {
+            SYSTEM_CONTROL_QUERY_FIELDS + PENDING_POWER_QUERY_FIELD
+        } else {
+            SYSTEM_CONTROL_QUERY_FIELDS
+        }
 
     private fun systemControlSupport(
         deviceId: String,

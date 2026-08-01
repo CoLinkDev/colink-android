@@ -365,6 +365,10 @@ class MessageEnvelopeTest {
                     volume = 72,
                     muted = false,
                     playback = "playing",
+                    pendingPower = PendingPowerAction(
+                        action = "shutdown",
+                        remainingMs = 42_000,
+                    ),
                 ),
             ),
         )
@@ -372,7 +376,7 @@ class MessageEnvelopeTest {
         val encoded = json.encodeToString(envelope)
 
         assertEquals(
-            """{"type":"system-control.v1.result","payload":{"volume":72,"muted":false,"playback":"playing"}}""",
+            """{"type":"system-control.v1.result","payload":{"volume":72,"muted":false,"playback":"playing","pending-power":{"action":"shutdown","remainingMs":42000}}}""",
             encoded,
         )
     }

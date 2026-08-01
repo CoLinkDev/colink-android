@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.11.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.12.1"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
@@ -481,6 +481,13 @@ data class SystemControlResultPayload(
     val volume: Int? = null,
     val muted: Boolean? = null,
     val playback: String? = null,
+    @SerialName("pending-power") val pendingPower: PendingPowerAction? = null,
+)
+
+@Serializable
+data class PendingPowerAction(
+    val action: String,
+    val remainingMs: Long,
 )
 
 @Serializable

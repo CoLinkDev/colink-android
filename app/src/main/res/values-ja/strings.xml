@@ -59,6 +59,8 @@
     <string name="device_power_shutdown">シャットダウン</string>
     <string name="device_power_delay_seconds">遅延（秒）</string>
     <string name="device_power_cancel_scheduled">予約済みの操作を取り消す</string>
+    <string name="device_power_scheduled_action">予定された操作：%1$s</string>
+    <string name="device_power_scheduled_remaining">残り時間：%1$d秒</string>
     <string name="device_power_confirm_title">%1$sを確認</string>
     <string name="device_power_confirm_body">%2$sを%1$sしますか？</string>
     <string name="device_power_command_sent">%1$s コマンドを送信しました</string>

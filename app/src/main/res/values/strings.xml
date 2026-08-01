@@ -59,6 +59,8 @@
     <string name="device_power_shutdown">Shutdown</string>
     <string name="device_power_delay_seconds">Delay (seconds)</string>
     <string name="device_power_cancel_scheduled">Cancel scheduled action</string>
+    <string name="device_power_scheduled_action">Scheduled action: %1$s</string>
+    <string name="device_power_scheduled_remaining">Remaining time: %1$d seconds</string>
     <string name="device_power_confirm_title">Confirm %1$s</string>
     <string name="device_power_confirm_body">Send the %1$s command to %2$s?</string>
     <string name="device_power_command_sent">%1$s command sent</string>
