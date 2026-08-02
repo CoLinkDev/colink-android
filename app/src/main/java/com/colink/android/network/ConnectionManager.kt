@@ -217,6 +217,7 @@ private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
 private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
 private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 5 * 60 * 1_000L
 internal const val MDNS_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
+private const val MDNS_REFRESH_ENDPOINT_CHECK_DELAY_MILLIS = 2_000L
 private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
 private const val PENDING_POWER_QUERY_FIELD = "pending-power"
 private const val REASON_AUTH_SIGNATURE_INVALID = "colink:auth.signature_invalid.v1"
@@ -401,6 +402,7 @@ class ConnectionManager @Inject constructor(
     private val lanConnectingPeers = mutableSetOf<String>()
     private val devicePageLanConnections = mutableSetOf<String>()
     private val discoveryRefreshAt = ConcurrentHashMap<String, Long>()
+    private val peersMissingMdnsEndpoint = ConcurrentHashMap.newKeySet<String>()
     private val started = AtomicBoolean(false)
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
@@ -793,6 +795,7 @@ class ConnectionManager @Inject constructor(
         nsdDiscovery.stop()
         lanRuntimeState.clear()
         discoveryRefreshAt.clear()
+        peersMissingMdnsEndpoint.clear()
         swimMembership.clear()
         synchronized(swimLock) {
             probeQueue.clear()
@@ -3297,6 +3300,12 @@ class ConnectionManager @Inject constructor(
                         name = name,
                         type = normalizedType ?: "unknown",
                     )
+                    if (peersMissingMdnsEndpoint.remove(deviceId)) {
+                        CoLinkLog.i(
+                            "LAN",
+                            "mDNS endpoint recovered device=${CoLinkLog.shortId(deviceId)} ip=$ip port=$port",
+                        )
+                    }
                     if (!shouldProbe) {
                         return@launch
                     }
@@ -3854,11 +3863,24 @@ class ConnectionManager @Inject constructor(
         if (!shouldRefresh) {
             return
         }
-        CoLinkLog.i(
+        CoLinkLog.d(
             "LAN",
             "refreshing discovery after SWIM source address changed device=${CoLinkLog.shortId(deviceId)} ip=$sourceIp",
         )
         nsdDiscovery.refreshDiscovery()
+        scope.launch {
+            delay(MDNS_REFRESH_ENDPOINT_CHECK_DELAY_MILLIS)
+            val peer = lanRuntimeState.peer(deviceId)
+            val endpoint = peer?.endpoint
+            if (endpoint == null) {
+                if (peersMissingMdnsEndpoint.add(deviceId)) {
+                    CoLinkLog.w(
+                        "LAN",
+                        "mDNS endpoint missing after refresh device=${CoLinkLog.shortId(deviceId)} sourceIp=$sourceIp state=${peer?.state ?: "unavailable"}",
+                    )
+                }
+            }
+        }
     }
 
     private suspend fun observeSwimAlive(localDeviceId: String, deviceId: String, incarnation: Long?) {
