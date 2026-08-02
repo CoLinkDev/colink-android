@@ -10,6 +10,7 @@ import com.colink.android.network.music.MusicSyncManager
 import com.colink.android.network.music.MusicSyncState
 import com.colink.android.network.sysinfo.SysInfoSyncManager
 import com.colink.android.network.sysinfo.SysInfoSyncState
+import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -110,11 +111,16 @@ class CastBoardViewModel @Inject constructor(
         }
         sourceDeviceId = normalized
         _selectedDeviceId.value = normalized
+        CoLinkLog.i("CastBoard", "source selected device=${CoLinkLog.shortId(normalized)}")
         musicSyncManager.beginSession(normalized)
         sysInfoSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
             var wasWaitingForDevice = false
             connectionStatus.collectLatest { status ->
+                CoLinkLog.i(
+                    "CastBoard",
+                    "source status device=${CoLinkLog.shortId(normalized)} status=$status",
+                )
                 if (status == CastBoardConnectionStatus.WaitingForDevice) {
                     wasWaitingForDevice = true
                     return@collectLatest
@@ -154,6 +160,7 @@ class CastBoardViewModel @Inject constructor(
     override fun onCleared() {
         heartbeatJob?.cancel()
         if (sourceDeviceId != null) {
+            CoLinkLog.i("CastBoard", "source session ended")
             musicSyncManager.endSession()
             sysInfoSyncManager.endSession()
         }

@@ -301,6 +301,14 @@
     <string name="send_btn">傳送</string>
     <string name="message_sent">訊息已傳送</string>
     <string name="settings_saved">設定已儲存</string>
+    <string name="diagnostics_export_title">匯出診斷日誌</string>
+    <string name="diagnostics_export_description">儲存應用程式診斷日誌以排查問題</string>
+    <string name="diagnostics_export_range_prompt">選擇要包含的時間範圍</string>
+    <string name="diagnostics_export_last_day">最近 24 小時</string>
+    <string name="diagnostics_export_last_week">最近 7 天</string>
+    <string name="diagnostics_export_all">所有保留日誌</string>
+    <string name="diagnostics_exported">診斷日誌已匯出</string>
+    <string name="diagnostics_export_failed">無法匯出診斷日誌</string>
     <string name="settings_about_title">關於</string>
     <string name="settings_project_url">專案地址</string>
     <string name="settings_version">版本</string>

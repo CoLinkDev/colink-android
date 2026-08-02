@@ -301,6 +301,14 @@
     <string name="send_btn">Senden</string>
     <string name="message_sent">Nachricht gesendet</string>
     <string name="settings_saved">Einstellungen gespeichert</string>
+    <string name="diagnostics_export_title">Diagnose exportieren</string>
+    <string name="diagnostics_export_description">App-Diagnoseprotokolle zur Fehlerbehebung speichern</string>
+    <string name="diagnostics_export_range_prompt">Zeitraum zum Einschließen auswählen</string>
+    <string name="diagnostics_export_last_day">Letzte 24 Stunden</string>
+    <string name="diagnostics_export_last_week">Letzte 7 Tage</string>
+    <string name="diagnostics_export_all">Alle gespeicherten Protokolle</string>
+    <string name="diagnostics_exported">Diagnose exportiert</string>
+    <string name="diagnostics_export_failed">Diagnose konnte nicht exportiert werden</string>
     <string name="settings_about_title">Über</string>
     <string name="settings_project_url">Projekt-URL</string>
     <string name="settings_version">Version</string>

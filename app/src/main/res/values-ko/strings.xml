@@ -301,6 +301,14 @@
     <string name="send_btn">보내기</string>
     <string name="message_sent">메시지를 보냈습니다</string>
     <string name="settings_saved">설정을 저장했습니다</string>
+    <string name="diagnostics_export_title">진단 로그 내보내기</string>
+    <string name="diagnostics_export_description">문제 해결을 위해 앱 진단 로그를 저장합니다</string>
+    <string name="diagnostics_export_range_prompt">포함할 기간을 선택하세요</string>
+    <string name="diagnostics_export_last_day">최근 24시간</string>
+    <string name="diagnostics_export_last_week">최근 7일</string>
+    <string name="diagnostics_export_all">보관된 모든 로그</string>
+    <string name="diagnostics_exported">진단 로그를 내보냈습니다</string>
+    <string name="diagnostics_export_failed">진단 로그를 내보낼 수 없습니다</string>
     <string name="settings_about_title">정보</string>
     <string name="settings_project_url">프로젝트 URL</string>
     <string name="settings_version">버전</string>

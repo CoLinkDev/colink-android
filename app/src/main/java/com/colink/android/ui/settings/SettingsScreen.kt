@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -76,6 +78,17 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var language by rememberSaveable { mutableStateOf("system") }
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
+    var showDiagnosticExportDialog by rememberSaveable { mutableStateOf(false) }
+    var diagnosticExportFromMillis by remember { mutableStateOf<Long?>(null) }
+    val diagnosticExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        val fromMillis = diagnosticExportFromMillis
+        diagnosticExportFromMillis = null
+        if (uri != null && fromMillis != null) {
+            viewModel.exportDiagnostics(uri, fromMillis)
+        }
+    }
 
     LaunchedEffect(settings.language) {
         language = settings.language
@@ -101,6 +114,16 @@ fun SettingsScreen(
             onSave = {
                 viewModel.saveServerUrl(it)
                 showServerUrlDialog = false
+            },
+        )
+    }
+    if (showDiagnosticExportDialog) {
+        DiagnosticExportDialog(
+            onDismiss = { showDiagnosticExportDialog = false },
+            onExport = { fromMillis ->
+                showDiagnosticExportDialog = false
+                diagnosticExportFromMillis = fromMillis
+                diagnosticExportLauncher.launch("colink-diagnostics-${System.currentTimeMillis()}.log")
             },
         )
     }
@@ -258,6 +281,35 @@ fun SettingsScreen(
                 )
             }
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { showDiagnosticExportDialog = true },
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.diagnostics_export_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.diagnostics_export_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             AboutCard(
                 checkingUpdate = uiState.checkingUpdate,
                 onCheckForUpdate = viewModel::checkForUpdate,
@@ -272,6 +324,46 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+@Composable
+private fun DiagnosticExportDialog(
+    onDismiss: () -> Unit,
+    onExport: (Long) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.diagnostics_export_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.diagnostics_export_range_prompt))
+                TextButton(
+                    onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.diagnostics_export_last_day))
+                }
+                TextButton(
+                    onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.diagnostics_export_last_week))
+                }
+                TextButton(
+                    onClick = { onExport(0L) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.diagnostics_export_all))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
 }
 private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
 

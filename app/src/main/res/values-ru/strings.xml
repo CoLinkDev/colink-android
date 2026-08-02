@@ -301,6 +301,14 @@
     <string name="send_btn">Отправить</string>
     <string name="message_sent">Сообщение отправлено</string>
     <string name="settings_saved">Настройки сохранены</string>
+    <string name="diagnostics_export_title">Экспорт диагностики</string>
+    <string name="diagnostics_export_description">Сохранить журналы диагностики приложения для устранения проблем</string>
+    <string name="diagnostics_export_range_prompt">Выберите период для включения</string>
+    <string name="diagnostics_export_last_day">Последние 24 часа</string>
+    <string name="diagnostics_export_last_week">Последние 7 дней</string>
+    <string name="diagnostics_export_all">Все сохраненные журналы</string>
+    <string name="diagnostics_exported">Диагностика экспортирована</string>
+    <string name="diagnostics_export_failed">Не удалось экспортировать диагностику</string>
     <string name="settings_about_title">О программе</string>
     <string name="settings_project_url">Ссылка на проект</string>
     <string name="settings_version">Версия</string>

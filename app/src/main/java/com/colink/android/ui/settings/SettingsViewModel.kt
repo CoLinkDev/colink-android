@@ -1,10 +1,12 @@
 package com.colink.android.ui.settings
 
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.R
 import com.colink.android.data.local.datastore.SettingsDataStore
+import com.colink.android.data.local.diagnostics.DiagnosticLogStore
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.model.UpdateDownloadState
@@ -38,6 +40,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val connectionManager: ConnectionManager,
+    private val diagnosticLogStore: DiagnosticLogStore,
     private val updateRepository: UpdateRepository,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> =
@@ -134,6 +137,25 @@ class SettingsViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    fun exportDiagnostics(uri: Uri, fromMillis: Long) {
+        val localizedContext = LocaleHelper.localized(context)
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                val outputStream = checkNotNull(context.contentResolver.openOutputStream(uri)) {
+                    "Unable to open diagnostic export destination"
+                }
+                outputStream.use { diagnosticLogStore.export(fromMillis, System.currentTimeMillis(), it) }
+            }
+            _uiState.update {
+                it.copy(
+                    message = localizedContext.getString(
+                        if (result.isSuccess) R.string.diagnostics_exported else R.string.diagnostics_export_failed,
+                    ),
+                )
+            }
         }
     }
 

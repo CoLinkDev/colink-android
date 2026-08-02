@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.colink.android.data.local.db.CoLinkDatabase
 import com.colink.android.data.local.db.dao.DeviceDao
+import com.colink.android.data.local.db.dao.DiagnosticLogDao
 import com.colink.android.data.local.db.dao.FileTransferDao
 import com.colink.android.data.local.db.dao.MessageDao
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
@@ -30,12 +31,17 @@ object DatabaseModule {
                 CoLinkDatabase.MIGRATION_6_7,
                 CoLinkDatabase.MIGRATION_7_8,
                 CoLinkDatabase.MIGRATION_8_9,
+                CoLinkDatabase.MIGRATION_9_10,
             )
             .build()
 
     @Provides
     fun provideDeviceDao(database: CoLinkDatabase): DeviceDao =
         database.deviceDao()
+
+    @Provides
+    fun provideDiagnosticLogDao(database: CoLinkDatabase): DiagnosticLogDao =
+        database.diagnosticLogDao()
 
     @Provides
     fun provideMessageDao(database: CoLinkDatabase): MessageDao =

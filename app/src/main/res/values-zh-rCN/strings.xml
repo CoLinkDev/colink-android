@@ -301,6 +301,14 @@
     <string name="send_btn">发送</string>
     <string name="message_sent">消息已发送</string>
     <string name="settings_saved">设置已保存</string>
+    <string name="diagnostics_export_title">导出诊断日志</string>
+    <string name="diagnostics_export_description">保存应用诊断日志，用于排查问题</string>
+    <string name="diagnostics_export_range_prompt">选择要包含的时间范围</string>
+    <string name="diagnostics_export_last_day">最近 24 小时</string>
+    <string name="diagnostics_export_last_week">最近 7 天</string>
+    <string name="diagnostics_export_all">所有保留日志</string>
+    <string name="diagnostics_exported">诊断日志已导出</string>
+    <string name="diagnostics_export_failed">无法导出诊断日志</string>
     <string name="settings_about_title">关于</string>
     <string name="settings_project_url">项目地址</string>
     <string name="settings_version">版本</string>

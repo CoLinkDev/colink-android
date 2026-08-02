@@ -301,6 +301,14 @@
     <string name="send_btn">Enviar</string>
     <string name="message_sent">Mensaje enviado</string>
     <string name="settings_saved">Ajustes guardados</string>
+    <string name="diagnostics_export_title">Exportar diagnóstico</string>
+    <string name="diagnostics_export_description">Guardar registros de diagnóstico para solucionar problemas</string>
+    <string name="diagnostics_export_range_prompt">Elige el período que deseas incluir</string>
+    <string name="diagnostics_export_last_day">Últimas 24 horas</string>
+    <string name="diagnostics_export_last_week">Últimos 7 días</string>
+    <string name="diagnostics_export_all">Todos los registros conservados</string>
+    <string name="diagnostics_exported">Diagnóstico exportado</string>
+    <string name="diagnostics_export_failed">No se pudo exportar el diagnóstico</string>
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_project_url">URL del proyecto</string>
     <string name="settings_version">Versión</string>

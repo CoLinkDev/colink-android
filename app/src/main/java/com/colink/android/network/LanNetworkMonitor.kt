@@ -34,6 +34,7 @@ class LanNetworkMonitor @Inject constructor(
 
             override fun onLost(network: Network) {
                 if (lanNetworks.remove(network) && suspended.compareAndSet(false, true)) {
+                    CoLinkLog.i("Network", "LAN transport lost")
                     onLanLost()
                 }
             }
@@ -60,7 +61,10 @@ class LanNetworkMonitor @Inject constructor(
         val capabilities = connectivityManager?.getNetworkCapabilities(network) ?: return
         if (!capabilities.isLanNetwork()) return
         lanNetworks.add(network)
-        if (suspended.compareAndSet(true, false)) onLanAvailable()
+        if (suspended.compareAndSet(true, false)) {
+            CoLinkLog.i("Network", "LAN transport available")
+            onLanAvailable()
+        }
     }
 
     private fun reset() {

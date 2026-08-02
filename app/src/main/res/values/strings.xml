@@ -301,6 +301,14 @@
     <string name="send_btn">Send</string>
     <string name="message_sent">Message sent</string>
     <string name="settings_saved">Settings saved</string>
+    <string name="diagnostics_export_title">Export diagnostics</string>
+    <string name="diagnostics_export_description">Save app diagnostic logs for troubleshooting</string>
+    <string name="diagnostics_export_range_prompt">Choose the time range to include</string>
+    <string name="diagnostics_export_last_day">Last 24 hours</string>
+    <string name="diagnostics_export_last_week">Last 7 days</string>
+    <string name="diagnostics_export_all">All retained logs</string>
+    <string name="diagnostics_exported">Diagnostics exported</string>
+    <string name="diagnostics_export_failed">Unable to export diagnostics</string>
     <string name="settings_about_title">About</string>
     <string name="settings_project_url">Project URL</string>
     <string name="settings_version">Version</string>

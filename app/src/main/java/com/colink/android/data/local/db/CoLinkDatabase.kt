@@ -5,10 +5,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.colink.android.data.local.db.dao.DeviceDao
+import com.colink.android.data.local.db.dao.DiagnosticLogDao
 import com.colink.android.data.local.db.dao.FileTransferDao
 import com.colink.android.data.local.db.dao.MessageDao
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
 import com.colink.android.data.local.db.entity.DeviceEntity
+import com.colink.android.data.local.db.entity.DiagnosticLogEntity
 import com.colink.android.data.local.db.entity.FileTransferEntity
 import com.colink.android.data.local.db.entity.MessageEntity
 import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
@@ -16,15 +18,18 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
 @Database(
     entities = [
         DeviceEntity::class,
+        DiagnosticLogEntity::class,
         MessageEntity::class,
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
+
+    abstract fun diagnosticLogDao(): DiagnosticLogDao
 
     abstract fun messageDao(): MessageDao
 
@@ -236,6 +241,26 @@ abstract class CoLinkDatabase : RoomDatabase() {
                     )
                     db.execSQL("DROP TABLE devices")
                     db.execSQL("ALTER TABLE devices_new RENAME TO devices")
+                }
+            }
+
+        val MIGRATION_9_10: Migration =
+            object : Migration(9, 10) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS diagnostic_logs (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            createdAt INTEGER NOT NULL,
+                            level TEXT NOT NULL,
+                            component TEXT NOT NULL,
+                            message TEXT NOT NULL
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_diagnostic_logs_createdAt ON diagnostic_logs (createdAt)",
+                    )
                 }
             }
     }

@@ -301,6 +301,14 @@
     <string name="send_btn">送信</string>
     <string name="message_sent">メッセージを送信しました</string>
     <string name="settings_saved">設定を保存しました</string>
+    <string name="diagnostics_export_title">診断ログをエクスポート</string>
+    <string name="diagnostics_export_description">問題の調査用にアプリの診断ログを保存します</string>
+    <string name="diagnostics_export_range_prompt">含める期間を選択してください</string>
+    <string name="diagnostics_export_last_day">過去 24 時間</string>
+    <string name="diagnostics_export_last_week">過去 7 日間</string>
+    <string name="diagnostics_export_all">保存されているすべてのログ</string>
+    <string name="diagnostics_exported">診断ログをエクスポートしました</string>
+    <string name="diagnostics_export_failed">診断ログをエクスポートできませんでした</string>
     <string name="settings_about_title">情報</string>
     <string name="settings_project_url">プロジェクト URL</string>
     <string name="settings_version">バージョン</string>

@@ -8,6 +8,7 @@ import android.view.View
 import android.view.WindowManager
 import android.webkit.WebSettings
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceError
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -59,6 +60,7 @@ import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.castboard.bridge.MusicBridge
+import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.delay
 
 import androidx.compose.foundation.layout.size
@@ -282,7 +284,22 @@ fun CastBoardFullScreen(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
+                            CoLinkLog.i("CastBoard", "web content loaded")
                             bridge.markPageReady()
+                        }
+
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?,
+                        ) {
+                            super.onReceivedError(view, request, error)
+                            if (request?.isForMainFrame == true) {
+                                CoLinkLog.w(
+                                    "CastBoard",
+                                    "web content load failed code=${error?.errorCode}",
+                                )
+                            }
                         }
                     }
                     bridge.bind(this)
