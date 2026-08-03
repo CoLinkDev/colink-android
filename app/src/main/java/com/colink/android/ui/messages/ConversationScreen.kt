@@ -54,7 +54,6 @@ import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -63,7 +62,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -94,9 +92,8 @@ import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.TextMessage
-import com.colink.android.share.PendingShare
-import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.components.BadgeChip
+import com.colink.android.ui.components.DestinationDeviceDialog
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.transfers.TransfersViewModel
 import com.colink.android.ui.transfers.openTransferFile
@@ -114,7 +111,6 @@ private val openDocumentMimeTypes = arrayOf("*/*")
 fun ConversationScreen(
     deviceId: String,
     modifier: Modifier = Modifier,
-    pendingShareStore: PendingShareStore? = null,
     onBrowseDeviceFiles: (String) -> Unit = {},
     onBack: () -> Unit = {},
     viewModel: MessagesViewModel = hiltViewModel(),
@@ -159,21 +155,6 @@ fun ConversationScreen(
             }
         } else {
             pendingFileUris = uris
-        }
-    }
-
-    val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf<PendingShare?>(null) }
-
-    LaunchedEffect(pendingShare) {
-        val share = pendingShareStore?.consume()
-        when (share) {
-            is PendingShare.Text -> draft = share.text
-            is PendingShare.File -> {
-                pendingFileTargetDeviceId = null
-                pendingFileUris = listOf(share.uri)
-            }
-            null -> Unit
         }
     }
 
@@ -345,7 +326,7 @@ fun ConversationScreen(
 
     val pendingUris = pendingFileUris
     if (pendingUris.isNotEmpty()) {
-        SelectDeviceDialog(
+        DestinationDeviceDialog(
             devices = targetDevices,
             initialDeviceId = deviceId,
             onDismiss = {
@@ -848,88 +829,6 @@ private fun TransferBubble(
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
         )
     }
-}
-
-@Composable
-private fun SelectDeviceDialog(
-    devices: List<Device>,
-    initialDeviceId: String? = null,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
-) {
-    var selectedId by rememberSaveable { mutableStateOf(initialDeviceId) }
-
-    LaunchedEffect(devices, initialDeviceId) {
-        val availableDevices = devices.filter { it.online || it.lanAvailable }
-        if (selectedId == null || availableDevices.none { it.deviceId == selectedId }) {
-            selectedId = availableDevices.firstOrNull { it.deviceId == initialDeviceId }?.deviceId
-                ?: availableDevices.firstOrNull()?.deviceId
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.select_destination_title)) },
-        text = {
-            if (devices.isEmpty()) {
-                Text(stringResource(R.string.no_devices_available))
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(
-                        items = devices,
-                        key = { it.deviceId },
-                    ) { device ->
-                        val available = device.online || device.lanAvailable
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(enabled = available) { selectedId = device.deviceId }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            RadioButton(
-                                selected = selectedId == device.deviceId,
-                                onClick = { selectedId = device.deviceId },
-                                enabled = available,
-                            )
-                            Column {
-                                Text(
-                                    device.name.ifBlank { stringResource(R.string.unnamed_device) },
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Text(
-                                    when {
-                                        device.lanAvailable -> stringResource(R.string.lan_available_tag)
-                                        device.online -> stringResource(R.string.cloud_available_tag)
-                                        else -> stringResource(R.string.device_tag_offline)
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { selectedId?.let(onSelect) },
-                enabled = devices.any { it.deviceId == selectedId && (it.online || it.lanAvailable) },
-            ) {
-                Text(stringResource(R.string.send_btn))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel_btn))
-            }
-        },
-    )
 }
 
 @Composable

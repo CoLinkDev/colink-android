@@ -106,16 +106,16 @@ import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.camera.CameraScreen
 import com.colink.android.ui.devices.DeviceScreen
 import com.colink.android.ui.devices.DevicesViewModel
+import com.colink.android.ui.components.DestinationDeviceDialog
 import com.colink.android.ui.components.LoadingScreen
 import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
-
-
 import com.colink.android.ui.messages.ConversationScreen
+import com.colink.android.ui.messages.MessagesViewModel
 import com.colink.android.ui.settings.SettingsScreen
-import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.components.AppUpdateDialog
 import com.colink.android.ui.components.LocalAccountAction
+import com.colink.android.ui.transfers.TransfersViewModel
 import kotlinx.coroutines.flow.StateFlow
 
 private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
@@ -185,11 +185,11 @@ fun CoLinkNavGraph(
                 accountEmail = viewModel.accountEmail,
                 serverUrl = viewModel.serverUrl,
                 onLogout = viewModel::logout,
-                pendingShareStore = pendingShareStore,
                 launchTarget = launchTarget,
                 onLaunchTargetConsumed = onLaunchTargetConsumed,
                 modifier = modifier,
             )
+            SystemShareDialogHost(pendingShareStore)
             PairingRequestDialogHost(
                 pairingRequest = viewModel.pairingRequest,
                 onAccept = { requestId -> viewModel.respondPairing(requestId, true) },
@@ -226,6 +226,31 @@ private fun UpdateDialogHost(
 }
 
 @Composable
+private fun SystemShareDialogHost(
+    pendingShareStore: PendingShareStore?,
+    messagesViewModel: MessagesViewModel = hiltViewModel(),
+    transfersViewModel: TransfersViewModel = hiltViewModel(),
+) {
+    val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf<PendingShare?>(null) }
+    val targetDevices by messagesViewModel.targetDevices.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val share = pendingShare ?: return
+
+    DestinationDeviceDialog(
+        devices = targetDevices,
+        onDismiss = { pendingShareStore?.consume() },
+        onSelect = { deviceId ->
+            when (share) {
+                is PendingShare.Text -> messagesViewModel.send(deviceId, share.text)
+                is PendingShare.File -> transfersViewModel.send(context.contentResolver, deviceId, share.uri)
+            }
+            pendingShareStore?.consume()
+        },
+    )
+}
+
+@Composable
 private fun InterruptibleSecondaryPage(
     interrupted: Boolean,
     content: @Composable () -> Unit,
@@ -244,7 +269,6 @@ private fun MainScaffold(
     accountEmail: StateFlow<String>,
     serverUrl: StateFlow<String>,
     onLogout: () -> Unit,
-    pendingShareStore: PendingShareStore?,
     launchTarget: LaunchTarget?,
     onLaunchTargetConsumed: () -> Unit,
     modifier: Modifier = Modifier,
@@ -284,11 +308,6 @@ private fun MainScaffold(
         ),
         label = "device scrim",
     )
-    val pendingShare by pendingShareStore?.share?.collectAsStateWithLifecycle()
-        ?: remember {
-            androidx.compose.runtime.mutableStateOf<PendingShare?>(null)
-        }
-
     LaunchedEffect(rootBackStackEntry?.id) {
         val currentEntry = rootBackStackEntry ?: return@LaunchedEffect
         if (
@@ -416,16 +435,6 @@ private fun MainScaffold(
             val currentCloudStatus by cloudStatus.collectAsStateWithLifecycle()
             var showAccountDialog by rememberSaveable { mutableStateOf(false) }
 
-            LaunchedEffect(pendingShare) {
-                if (pendingShare == null) {
-                    return@LaunchedEffect
-                }
-                if (rootNavController.currentBackStackEntry?.destination?.route != "main") {
-                    rootNavController.popBackStack("main", inclusive = false)
-                }
-                nestedNavController.navigateTopLevel("devices")
-            }
-
             val configuration = LocalConfiguration.current
             val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
@@ -541,7 +550,6 @@ private fun MainScaffold(
             InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
                 Box {
                     ConversationScreen(
-                        pendingShareStore = pendingShareStore,
                         deviceId = entry.arguments?.getString("deviceId").orEmpty(),
                         onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
                         onBack = { rootNavController.popBackStack() },
