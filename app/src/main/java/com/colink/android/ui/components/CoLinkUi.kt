@@ -125,9 +125,11 @@ fun ScreenHeader(
                 }
             }
         }
-        val effectiveAction = action ?: if (isLandscape) localAccountAction else null
-        if (effectiveAction != null) {
-            effectiveAction()
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            action?.invoke()
+            if (isLandscape) {
+                localAccountAction?.invoke()
+            }
         }
     }
 }

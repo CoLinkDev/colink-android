@@ -2,14 +2,15 @@ package com.colink.android.ui.settings
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,16 +19,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -38,9 +43,9 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,12 +56,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -232,7 +239,9 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { viewModel.updateClipboardSync(!settings.enableClipboardSync) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -258,7 +267,9 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { viewModel.updateAutoAcceptFileOffers(!settings.autoAcceptFileOffers) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -281,38 +292,10 @@ fun SettingsScreen(
                 )
             }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { showDiagnosticExportDialog = true },
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.diagnostics_export_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = stringResource(R.string.diagnostics_export_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
             AboutCard(
                 checkingUpdate = uiState.checkingUpdate,
                 onCheckForUpdate = viewModel::checkForUpdate,
+                onExportDiagnostics = { showDiagnosticExportDialog = true },
                 onProjectClick = {
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
@@ -333,26 +316,55 @@ private fun DiagnosticExportDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.diagnostics_export_title)) },
+        icon = {
+            Icon(
+                Icons.Default.FileDownload,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.diagnostics_export_title),
+                style = MaterialTheme.typography.titleLarge,
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.diagnostics_export_range_prompt))
-                TextButton(
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.diagnostics_export_range_prompt),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+                OutlinedButton(
                     onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
+                    Icon(Icons.Default.Schedule, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.diagnostics_export_last_day))
                 }
-                TextButton(
+                OutlinedButton(
                     onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
+                    Icon(Icons.Default.DateRange, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.diagnostics_export_last_week))
                 }
-                TextButton(
+                OutlinedButton(
                     onClick = { onExport(0L) },
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
                 ) {
+                    Icon(Icons.Default.History, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.diagnostics_export_all))
                 }
             }
@@ -365,6 +377,7 @@ private fun DiagnosticExportDialog(
         },
     )
 }
+
 private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
 
 @Composable
@@ -423,10 +436,12 @@ private fun ServerUrlDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AboutCard(
     checkingUpdate: Boolean,
     onCheckForUpdate: () -> Unit,
+    onExportDiagnostics: () -> Unit,
     onProjectClick: () -> Unit,
 ) {
     Card(
@@ -452,40 +467,43 @@ private fun AboutCard(
             InfoRow(label = stringResource(R.string.settings_project_url), value = PROJECT_URL)
             InfoRow(label = stringResource(R.string.settings_version), value = BuildConfig.VERSION_NAME)
             
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = onCheckForUpdate,
                     enabled = !checkingUpdate,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (checkingUpdate) {
                             stringResource(R.string.update_checking_btn)
                         } else {
                             stringResource(R.string.update_check_btn)
                         },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+
+                Button(
+                    onClick = onExportDiagnostics,
+                ) {
+                    Icon(Icons.Default.FileDownload, contentDescription = null)
+                    Text(
+                        text = stringResource(R.string.diagnostics_export_title),
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
 
                 Button(
                     onClick = onProjectClick,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Icon(Icons.Default.OpenInNew, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.settings_open_project),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
             }
