@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">此 QR Code 對應的裝置不在目前區域網路內。</string>
     <string name="err_pair_qr_already_paired">此裝置已在目前區域網路內完成配對。</string>
     <string name="err_pair_qr_not_ready">配對尚未就緒，請重試。</string>
+    <string name="device_version_old_warning_title">由於對端裝置版本過低，以下功能已停用：</string>
+    <string name="device_version_unknown_title">無法取得裝置版本</string>
+    <string name="device_version_unknown_body">請檢查連線後重試。</string>
+    <string name="device_warning_scheduled_power">定時電源/取消定時</string>
+    <string name="device_warning_pending_power">待執行電源倒數</string>
+    <string name="device_warning_state_query">媒體/電源狀態查詢</string>
+    <string name="device_warning_power_control">裝置電源控制：休眠/關機/鎖定</string>
+    <string name="retry_btn">重試</string>
+    <string name="dismiss_btn">關閉</string>
 </resources>

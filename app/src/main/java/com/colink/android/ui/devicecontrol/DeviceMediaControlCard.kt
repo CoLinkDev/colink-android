@@ -40,11 +40,14 @@ fun DeviceMediaControlCard(
     hasAvailableDevice: Boolean,
     modifier: Modifier = Modifier,
     support: SystemControlSupport? = null,
+    querySupport: SystemControlSupport? = null,
     viewModel: DeviceMediaControlViewModel = hiltViewModel(),
 ) {
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val activeSupport = support ?: viewModel.mediaControlSupport(selectedDeviceId)
+    val activeQuerySupport = querySupport ?: viewModel.systemControlQuerySupport(selectedDeviceId)
+    val stateQueryEnabled = activeQuerySupport == SystemControlSupport.SUPPORTED
     val enabled = hasAvailableDevice &&
         selectedDeviceId != null &&
         !state.submitting &&
@@ -124,20 +127,22 @@ fun DeviceMediaControlCard(
                         onClick = { viewModel.send(SystemControlAction.Mute) },
                     )
                 }
-                Text(
-                    text = stringResource(R.string.device_media_volume, state.volume),
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                Slider(
-                    value = state.volume.toFloat(),
-                    onValueChange = { viewModel.updateVolume(it.roundToInt()) },
-                    onValueChangeFinished = {
-                        viewModel.send(SystemControlAction.SetVolume, state.volume)
-                    },
-                    valueRange = 0f..100f,
-                    steps = 99,
-                    enabled = enabled,
-                )
+                if (stateQueryEnabled) {
+                    Text(
+                        text = stringResource(R.string.device_media_volume, state.volume),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Slider(
+                        value = state.volume.toFloat(),
+                        onValueChange = { viewModel.updateVolume(it.roundToInt()) },
+                        onValueChangeFinished = {
+                            viewModel.send(SystemControlAction.SetVolume, state.volume)
+                        },
+                        valueRange = 0f..100f,
+                        steps = 99,
+                        enabled = enabled,
+                    )
+                }
             }
         }
     }

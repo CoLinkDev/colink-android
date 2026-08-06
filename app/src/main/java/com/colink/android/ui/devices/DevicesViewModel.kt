@@ -19,8 +19,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,13 @@ data class DevicesUiState(
     val pairString: String? = null,
     val legacyPairString: Boolean = false,
 )
+
+data class PeerVersionRequestState(
+    val waiting: Boolean = false,
+    val failed: Boolean = false,
+)
+
+private const val PEER_VERSION_REQUEST_TIMEOUT_MILLIS = 15_000L
 
 @HiltViewModel
 class DevicesViewModel @Inject constructor(
@@ -96,6 +105,11 @@ class DevicesViewModel @Inject constructor(
         connectionManager.peerProtocolVersions
 
     private val _uiState = MutableStateFlow(DevicesUiState())
+    private val _peerVersionRequestStates =
+        MutableStateFlow<Map<String, PeerVersionRequestState>>(emptyMap())
+    private val peerVersionRequestJobs = mutableMapOf<String, Job>()
+    val peerVersionRequestStates: StateFlow<Map<String, PeerVersionRequestState>> =
+        _peerVersionRequestStates.asStateFlow()
     val uiState: StateFlow<DevicesUiState> = _uiState.asStateFlow()
 
     init {
@@ -219,7 +233,48 @@ class DevicesViewModel @Inject constructor(
     }
 
     fun requestPeerProtocolVersions(deviceId: String) {
+        if (deviceId.isBlank()) {
+            return
+        }
+        if (peerProtocolVersions.value[deviceId]?.businessVersion?.isNotBlank() == true) {
+            return
+        }
+        if (peerVersionRequestJobs[deviceId]?.isActive == true) {
+            return
+        }
+        peerVersionRequestJobs.remove(deviceId)?.cancel()
+        _peerVersionRequestStates.update {
+            it + (deviceId to PeerVersionRequestState(waiting = true))
+        }
         connectionManager.requestPeerProtocolVersions(deviceId)
+        val job = viewModelScope.launch {
+            val deadline = System.currentTimeMillis() + PEER_VERSION_REQUEST_TIMEOUT_MILLIS
+            while (true) {
+                if (peerProtocolVersions.value[deviceId]?.businessVersion?.isNotBlank() == true) {
+                    _peerVersionRequestStates.update {
+                        it + (deviceId to PeerVersionRequestState())
+                    }
+                    break
+                }
+                if (System.currentTimeMillis() >= deadline) {
+                    _peerVersionRequestStates.update {
+                        it + (deviceId to PeerVersionRequestState(waiting = false, failed = true))
+                    }
+                    break
+                }
+                delay(250)
+            }
+            peerVersionRequestJobs.remove(deviceId)
+        }
+        peerVersionRequestJobs[deviceId] = job
+    }
+
+    fun retryPeerProtocolVersions(deviceId: String) {
+        peerVersionRequestJobs.remove(deviceId)?.cancel()
+        _peerVersionRequestStates.update {
+            it + (deviceId to PeerVersionRequestState())
+        }
+        requestPeerProtocolVersions(deviceId)
     }
 
     fun clearMessage() {

@@ -1,6 +1,11 @@
 package com.colink.android.ui.devices
 
 import android.util.Base64
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -15,12 +20,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
@@ -28,11 +37,13 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -103,6 +114,7 @@ fun DeviceScreen(
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val peerProtocolVersions by viewModel.peerProtocolVersions.collectAsStateWithLifecycle()
+    val peerVersionRequestStates by viewModel.peerVersionRequestStates.collectAsStateWithLifecycle()
     val device = remember(devices, deviceId) {
         devices.firstOrNull { it.deviceId == deviceId }
     }
@@ -110,6 +122,7 @@ fun DeviceScreen(
         device?.deviceSources?.contains("local") == true
     var confirmAction by remember { mutableStateOf<DeviceAction?>(null) }
     var runningAction by remember { mutableStateOf<DeviceAction?>(null) }
+    var isWarningDismissed by rememberSaveable(deviceId) { mutableStateOf(false) }
     val context = LocalContext.current
     val isComputer = device?.let(::isComputerDevice) == true
     val isRemoteDevice = !isLocalDevice && device != null
@@ -123,8 +136,21 @@ fun DeviceScreen(
             cameraSupport = powerControlViewModel.remoteCameraSupport(deviceId),
             terminalSupport = powerControlViewModel.terminalSupport(deviceId),
             wakeOnLanSupport = powerControlViewModel.wakeOnLanSupport(deviceId),
+            delayedPowerSupport = powerControlViewModel.delayedPowerControlSupport(deviceId),
+            systemControlQuerySupport = mediaControlViewModel.systemControlQuerySupport(deviceId),
+            pendingPowerQuerySupport = powerControlViewModel.pendingPowerQuerySupport(deviceId),
         )
     }
+    val peerVersionRequestState = peerVersionRequestStates[deviceId]
+    val hasBusinessVersion = !deviceProtocolVersions?.businessVersion.isNullOrBlank()
+    val waitingForPeerVersion = isRemoteDevice &&
+        isReachable &&
+        !hasBusinessVersion &&
+        peerVersionRequestState?.failed != true
+    val peerVersionFailed = isRemoteDevice &&
+        isReachable &&
+        !hasBusinessVersion &&
+        peerVersionRequestState?.failed == true
 
     LaunchedEffect(isRemoteDevice, isReachable, isComputer) {
         if (isRemoteDevice && isReachable && isComputer) {
@@ -250,71 +276,133 @@ fun DeviceScreen(
                 )
             }
         } else {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            ) {
+            val disabledFeatures = disabledFeatureNames(deviceCapabilities)
+            if (waitingForPeerVersion) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (peerVersionFailed) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.device_version_unknown_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.device_version_unknown_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(
+                            onClick = { viewModel.retryPeerProtocolVersions(deviceId) },
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.retry_btn))
+                        }
+                    }
+                }
+            } else {
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                ) {
                 val isWideLayout = maxWidth >= 600.dp
                 val contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)
 
                 if (isWideLayout) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            contentPadding = contentPadding,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        AnimatedVisibility(
+                            visible = !isWarningDismissed && disabledFeatures.isNotEmpty(),
+                            enter = fadeIn() + expandVertically(),
+                            exit = fadeOut() + shrinkVertically(),
                         ) {
-                            deviceControlItems(
-                                device = device,
-                                isRemoteDevice = isRemoteDevice,
-                                isReachable = isReachable,
-                                isComputer = isComputer,
-                                capabilities = deviceCapabilities,
-                                onOpenChat = onOpenChat,
-                                onStartCamera = onStartCamera,
-                                onStartTerminal = onStartTerminal,
-                                onStartCastBoard = onStartCastBoard,
-                                castBoardViewModel = castBoardViewModel,
-                                mediaControlViewModel = mediaControlViewModel,
-                                powerControlViewModel = powerControlViewModel,
+                            DeviceVersionWarningCard(
+                                disabledFeatures = disabledFeatures,
+                                onDismiss = { isWarningDismissed = true },
                             )
                         }
-                        LazyColumn(
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                            contentPadding = contentPadding,
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                .fillMaxWidth()
+                                .weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            deviceManagementItems(
-                                device = device,
-                                isRemoteDevice = isRemoteDevice,
-                                isReachable = isReachable,
-                                isLocalDevice = isLocalDevice,
-                                actionsEnabled = runningAction == null,
-                                wakeOnLanSupport = deviceCapabilities.wakeOnLanSupport,
-                                protocolVersions = deviceProtocolVersions,
-                                onRotateKey = {
-                                    confirmAction = DeviceAction.RotateKey(device.deviceId, device.name)
-                                },
-                                onRename = {
-                                    confirmAction = DeviceAction.Rename(device.deviceId, device.name)
-                                },
-                                onDelete = {
-                                    confirmAction = DeviceAction.Delete(device.deviceId, device.name)
-                                },
-                                onForgetTrust = {
-                                    confirmAction = DeviceAction.ForgetTrust(device.deviceId, device.name)
-                                },
-                            )
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentPadding = contentPadding,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                deviceControlItems(
+                                    device = device,
+                                    isRemoteDevice = isRemoteDevice,
+                                    isReachable = isReachable,
+                                    isComputer = isComputer,
+                                    capabilities = deviceCapabilities,
+                                    onOpenChat = onOpenChat,
+                                    onStartCamera = onStartCamera,
+                                    onStartTerminal = onStartTerminal,
+                                    onStartCastBoard = onStartCastBoard,
+                                    castBoardViewModel = castBoardViewModel,
+                                    mediaControlViewModel = mediaControlViewModel,
+                                    powerControlViewModel = powerControlViewModel,
+                                )
+                            }
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentPadding = contentPadding,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                deviceManagementItems(
+                                    device = device,
+                                    isRemoteDevice = isRemoteDevice,
+                                    isReachable = isReachable,
+                                    isLocalDevice = isLocalDevice,
+                                    actionsEnabled = runningAction == null,
+                                    wakeOnLanSupport = deviceCapabilities.wakeOnLanSupport,
+                                    protocolVersions = deviceProtocolVersions,
+                                    onRotateKey = {
+                                        confirmAction = DeviceAction.RotateKey(device.deviceId, device.name)
+                                    },
+                                    onRename = {
+                                        confirmAction = DeviceAction.Rename(device.deviceId, device.name)
+                                    },
+                                    onDelete = {
+                                        confirmAction = DeviceAction.Delete(device.deviceId, device.name)
+                                    },
+                                    onForgetTrust = {
+                                        confirmAction = DeviceAction.ForgetTrust(device.deviceId, device.name)
+                                    },
+                                )
+                            }
                         }
                     }
                 } else {
@@ -325,6 +413,18 @@ fun DeviceScreen(
                         contentPadding = contentPadding,
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        item(contentType = "version-warning") {
+                            AnimatedVisibility(
+                                visible = !isWarningDismissed && disabledFeatures.isNotEmpty(),
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically(),
+                            ) {
+                                DeviceVersionWarningCard(
+                                    disabledFeatures = disabledFeatures,
+                                    onDismiss = { isWarningDismissed = true },
+                                )
+                            }
+                        }
                         deviceControlItems(
                             device = device,
                             isRemoteDevice = isRemoteDevice,
@@ -362,6 +462,7 @@ fun DeviceScreen(
                         )
                         item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
+                }
                 }
             }
         }
@@ -435,7 +536,94 @@ private data class DeviceCapabilities(
     val cameraSupport: RemoteCameraSupport = RemoteCameraSupport.UNKNOWN,
     val terminalSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
     val wakeOnLanSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val delayedPowerSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val systemControlQuerySupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val pendingPowerQuerySupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
 )
+
+@Composable
+private fun disabledFeatureNames(capabilities: DeviceCapabilities): List<String> {
+    val names = mutableListOf<String>()
+    if (capabilities.cameraSupport == RemoteCameraSupport.TOO_OLD) {
+        names += stringResource(R.string.device_control_camera)
+    }
+    if (capabilities.terminalSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_control_terminal)
+    }
+    if (capabilities.wakeOnLanSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_wake_on_lan_title)
+    }
+    if (capabilities.mediaSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_media_control_title)
+    }
+    if (capabilities.powerSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_warning_power_control)
+    }
+    if (capabilities.delayedPowerSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_warning_scheduled_power)
+    }
+    if (capabilities.pendingPowerQuerySupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_warning_pending_power)
+    }
+    if (capabilities.systemControlQuerySupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_warning_state_query)
+    }
+    return names
+}
+
+@Composable
+private fun DeviceVersionWarningCard(
+    disabledFeatures: List<String>,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+        ),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(24.dp),
+            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.device_version_old_warning_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
+                Text(
+                    text = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
+                )
+            }
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(
+                    text = stringResource(R.string.dismiss_btn),
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+    }
+}
 
 private fun LazyListScope.deviceControlItems(
     device: Device,
@@ -455,21 +643,25 @@ private fun LazyListScope.deviceControlItems(
         item(contentType = "chat") {
             ChatEntryCard(onClick = { onOpenChat(device.deviceId) })
         }
-        item(contentType = "camera") {
-            CameraControlCard(
-                deviceId = device.deviceId,
-                onOpen = onStartCamera,
-                support = capabilities.cameraSupport,
-            )
+        if (capabilities.cameraSupport == RemoteCameraSupport.SUPPORTED) {
+            item(contentType = "camera") {
+                CameraControlCard(
+                    deviceId = device.deviceId,
+                    onOpen = onStartCamera,
+                    support = capabilities.cameraSupport,
+                )
+            }
         }
     }
     if (isRemoteDevice && isReachable && isComputer) {
-        item(contentType = "terminal") {
-            TerminalControlCard(
-                deviceId = device.deviceId,
-                onOpen = onStartTerminal,
-                support = capabilities.terminalSupport,
-            )
+        if (capabilities.terminalSupport == SystemControlSupport.SUPPORTED) {
+            item(contentType = "terminal") {
+                TerminalControlCard(
+                    deviceId = device.deviceId,
+                    onOpen = onStartTerminal,
+                    support = capabilities.terminalSupport,
+                )
+            }
         }
         item(contentType = "castboard") {
             CastBoardControlCard(
@@ -477,18 +669,24 @@ private fun LazyListScope.deviceControlItems(
                 viewModel = castBoardViewModel,
             )
         }
-        item(contentType = "media") {
-            DeviceMediaControlCard(
-                hasAvailableDevice = true,
-                support = capabilities.mediaSupport,
-                viewModel = mediaControlViewModel,
-            )
+        if (capabilities.mediaSupport == SystemControlSupport.SUPPORTED) {
+            item(contentType = "media") {
+                DeviceMediaControlCard(
+                    hasAvailableDevice = true,
+                    support = capabilities.mediaSupport,
+                    querySupport = capabilities.systemControlQuerySupport,
+                    viewModel = mediaControlViewModel,
+                )
+            }
         }
-        item(contentType = "power") {
-            DevicePowerControlCard(
-                support = capabilities.powerSupport,
-                viewModel = powerControlViewModel,
-            )
+        if (capabilities.powerSupport == SystemControlSupport.SUPPORTED) {
+            item(contentType = "power") {
+                DevicePowerControlCard(
+                    support = capabilities.powerSupport,
+                    pendingPowerQuerySupport = capabilities.pendingPowerQuerySupport,
+                    viewModel = powerControlViewModel,
+                )
+            }
         }
     }
 }
@@ -506,7 +704,9 @@ private fun LazyListScope.deviceManagementItems(
     onDelete: () -> Unit,
     onForgetTrust: () -> Unit,
 ) {
-    if ((isRemoteDevice && isReachable) || isLocalDevice) {
+    val showWakeOnLan = isLocalDevice ||
+        (isRemoteDevice && isReachable && wakeOnLanSupport == SystemControlSupport.SUPPORTED)
+    if (showWakeOnLan) {
         item(contentType = "wol") {
             WakeOnLanControlCard(
                 selectedDevice = device,

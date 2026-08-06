@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">この QR コードのデバイスはローカルネットワークで利用できません。</string>
     <string name="err_pair_qr_already_paired">このデバイスはローカルネットワークですでにペアリングされています。</string>
     <string name="err_pair_qr_not_ready">ペアリングはまだ利用できません。もう一度お試しください。</string>
+    <string name="device_version_old_warning_title">相手デバイスのバージョンが古すぎるため、以下の機能は無効になっています：</string>
+    <string name="device_version_unknown_title">デバイスバージョンを取得できません</string>
+    <string name="device_version_unknown_body">接続を確認して、もう一度お試しください。</string>
+    <string name="device_warning_scheduled_power">予約電源操作とキャンセル</string>
+    <string name="device_warning_pending_power">実行待ちの電源操作の残り時間</string>
+    <string name="device_warning_state_query">メディア/電源状態の照会</string>
+    <string name="device_warning_power_control">デバイス電源制御：スリープ/シャットダウン/ロック</string>
+    <string name="retry_btn">再試行</string>
+    <string name="dismiss_btn">閉じる</string>
 </resources>

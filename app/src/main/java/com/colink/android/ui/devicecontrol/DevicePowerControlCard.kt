@@ -52,6 +52,7 @@ import com.colink.android.ui.components.isComputerDevice
 fun DevicePowerControlCard(
     modifier: Modifier = Modifier,
     support: SystemControlSupport? = null,
+    pendingPowerQuerySupport: SystemControlSupport? = null,
     viewModel: DevicePowerControlViewModel = hiltViewModel(),
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
@@ -66,6 +67,8 @@ fun DevicePowerControlCard(
         availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
     }
     val activeSupport = support ?: viewModel.systemControlSupport(selectedDeviceId)
+    val activePendingPowerQuerySupport = pendingPowerQuerySupport
+        ?: viewModel.pendingPowerQuerySupport(selectedDeviceId)
     var pendingAction by remember { mutableStateOf<SystemControlAction?>(null) }
     var delaySeconds by remember(pendingAction) { mutableStateOf("") }
     val delayedPowerSupport = viewModel.delayedPowerControlSupport(selectedDeviceId)
@@ -97,45 +100,47 @@ fun DevicePowerControlCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            state.pendingPower?.let { pendingPower ->
-                val remainingMs = state.pendingPowerRemainingMs ?: pendingPower.remainingMs
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+            if (activePendingPowerQuerySupport == SystemControlSupport.SUPPORTED) {
+                state.pendingPower?.let { pendingPower ->
+                    val remainingMs = state.pendingPowerRemainingMs ?: pendingPower.remainingMs
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = RoundedCornerShape(12.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp),
-                        )
-                        Column(
-                            modifier = Modifier.padding(start = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.device_power_scheduled_action,
-                                    pendingPowerActionLabel(pendingPower.action),
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp),
                             )
-                            Text(
-                                text = stringResource(
-                                    R.string.device_power_scheduled_remaining,
-                                    (remainingMs + 999) / 1_000,
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Column(
+                                modifier = Modifier.padding(start = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        R.string.device_power_scheduled_action,
+                                        pendingPowerActionLabel(pendingPower.action),
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = stringResource(
+                                        R.string.device_power_scheduled_remaining,
+                                        (remainingMs + 999) / 1_000,
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
@@ -178,14 +183,14 @@ fun DevicePowerControlCard(
                         destructive = true,
                         onClick = { pendingAction = SystemControlAction.Shutdown },
                     )
-                    PowerActionButton(
-                        label = stringResource(R.string.device_power_cancel_scheduled),
-                        icon = Icons.Default.PowerSettingsNew,
-                        enabled = selectedDevice != null &&
-                            !state.submitting &&
-                            delayedPowerSupport == SystemControlSupport.SUPPORTED,
-                        onClick = { pendingAction = SystemControlAction.CancelPower },
-                    )
+                    if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
+                        PowerActionButton(
+                            label = stringResource(R.string.device_power_cancel_scheduled),
+                            icon = Icons.Default.PowerSettingsNew,
+                            enabled = selectedDevice != null && !state.submitting,
+                            onClick = { pendingAction = SystemControlAction.CancelPower },
+                        )
+                    }
                 }
             }
         }

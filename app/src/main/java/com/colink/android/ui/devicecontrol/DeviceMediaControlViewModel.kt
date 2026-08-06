@@ -81,6 +81,10 @@ class DeviceMediaControlViewModel @Inject constructor(
     fun mediaControlSupport(deviceId: String?): SystemControlSupport =
         deviceId?.let(connectionManager::mediaControlSupport) ?: SystemControlSupport.UNKNOWN
 
+    fun systemControlQuerySupport(deviceId: String?): SystemControlSupport =
+        deviceId?.let(connectionManager::systemControlQuerySupport)
+            ?: SystemControlSupport.UNKNOWN
+
     fun send(action: SystemControlAction, volume: Int? = null) {
         val targetDeviceId = _selectedDeviceId.value ?: return
         if (_uiState.value.submitting) {

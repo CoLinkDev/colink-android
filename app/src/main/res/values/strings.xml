@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">The device for this QR code is not available on the local network.</string>
     <string name="err_pair_qr_already_paired">This device is already paired on the local network.</string>
     <string name="err_pair_qr_not_ready">Pairing is not ready yet. Try again.</string>
+    <string name="device_version_old_warning_title">The remote device version is too old. These features are disabled:</string>
+    <string name="device_version_unknown_title">Unable to get device version</string>
+    <string name="device_version_unknown_body">Check the connection and try again.</string>
+    <string name="device_warning_scheduled_power">Scheduled power actions and cancellation</string>
+    <string name="device_warning_pending_power">Pending power countdown</string>
+    <string name="device_warning_state_query">Media and power state queries</string>
+    <string name="device_warning_power_control">Device power control: sleep, shutdown, lock</string>
+    <string name="retry_btn">Retry</string>
+    <string name="dismiss_btn">Dismiss</string>
 </resources>

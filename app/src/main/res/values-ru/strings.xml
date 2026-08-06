@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">Устройство для этого QR-кода недоступно в локальной сети.</string>
     <string name="err_pair_qr_already_paired">Это устройство уже сопряжено в локальной сети.</string>
     <string name="err_pair_qr_not_ready">Сопряжение пока недоступно. Повторите попытку.</string>
+    <string name="device_version_old_warning_title">Версия удалённого устройства слишком старая. Эти функции отключены:</string>
+    <string name="device_version_unknown_title">Не удалось получить версию устройства</string>
+    <string name="device_version_unknown_body">Проверьте подключение и повторите попытку.</string>
+    <string name="device_warning_scheduled_power">Запланированные действия питания и отмена</string>
+    <string name="device_warning_pending_power">Обратный отсчёт ожидающего действия питания</string>
+    <string name="device_warning_state_query">Запросы состояния медиа и питания</string>
+    <string name="device_warning_power_control">Управление питанием устройства: сон, выключение, блокировка</string>
+    <string name="retry_btn">Повторить</string>
+    <string name="dismiss_btn">Закрыть</string>
 </resources>

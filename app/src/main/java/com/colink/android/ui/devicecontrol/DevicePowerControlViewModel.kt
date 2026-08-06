@@ -106,6 +106,10 @@ class DevicePowerControlViewModel @Inject constructor(
         deviceId?.let(connectionManager::delayedPowerControlSupport)
             ?: SystemControlSupport.UNKNOWN
 
+    fun pendingPowerQuerySupport(deviceId: String?): SystemControlSupport =
+        deviceId?.let(connectionManager::pendingPowerQuerySupport)
+            ?: SystemControlSupport.UNKNOWN
+
     fun send(action: SystemControlAction, delay: Int? = null) {
         val targetDeviceId = _selectedDeviceId.value ?: return
         if (_uiState.value.submitting) {

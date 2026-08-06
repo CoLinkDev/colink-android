@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">Das Gerät für diesen QR-Code ist im lokalen Netzwerk nicht verfügbar.</string>
     <string name="err_pair_qr_already_paired">Dieses Gerät ist im lokalen Netzwerk bereits gekoppelt.</string>
     <string name="err_pair_qr_not_ready">Die Kopplung ist noch nicht verfügbar. Versuche es erneut.</string>
+    <string name="device_version_old_warning_title">Die Version des Remote-Geräts ist zu alt. Diese Funktionen sind deaktiviert:</string>
+    <string name="device_version_unknown_title">Geräteversion kann nicht abgerufen werden</string>
+    <string name="device_version_unknown_body">Prüfe die Verbindung und versuche es erneut.</string>
+    <string name="device_warning_scheduled_power">Geplante Stromaktionen und Abbruch</string>
+    <string name="device_warning_pending_power">Anstehender Strom-Countdown</string>
+    <string name="device_warning_state_query">Medien- und Stromstatusabfragen</string>
+    <string name="device_warning_power_control">Geräteenergie steuern: Ruhezustand, Herunterfahren, Sperren</string>
+    <string name="retry_btn">Erneut versuchen</string>
+    <string name="dismiss_btn">Schließen</string>
 </resources>

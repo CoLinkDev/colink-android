@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">이 QR 코드의 기기는 로컬 네트워크에서 사용할 수 없습니다.</string>
     <string name="err_pair_qr_already_paired">이 기기는 로컬 네트워크에서 이미 페어링되었습니다.</string>
     <string name="err_pair_qr_not_ready">아직 페어링을 사용할 수 없습니다. 다시 시도하세요.</string>
+    <string name="device_version_old_warning_title">상대 기기 버전이 너무 낮아 다음 기능이 비활성화되었습니다:</string>
+    <string name="device_version_unknown_title">기기 버전을 가져올 수 없습니다</string>
+    <string name="device_version_unknown_body">연결을 확인한 후 다시 시도하세요.</string>
+    <string name="device_warning_scheduled_power">예약 전원 작업 및 취소</string>
+    <string name="device_warning_pending_power">대기 중인 전원 작업 남은 시간</string>
+    <string name="device_warning_state_query">미디어/전원 상태 조회</string>
+    <string name="device_warning_power_control">기기 전원 제어: 절전/종료/잠금</string>
+    <string name="retry_btn">다시 시도</string>
+    <string name="dismiss_btn">닫기</string>
 </resources>

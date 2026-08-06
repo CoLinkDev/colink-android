@@ -343,4 +343,13 @@
     <string name="err_pair_qr_device_unavailable">El dispositivo de este código QR no está disponible en la red local.</string>
     <string name="err_pair_qr_already_paired">Este dispositivo ya está emparejado en la red local.</string>
     <string name="err_pair_qr_not_ready">El emparejamiento aún no está disponible. Inténtalo de nuevo.</string>
+    <string name="device_version_old_warning_title">La versión del dispositivo remoto es demasiado antigua. Estas funciones están desactivadas:</string>
+    <string name="device_version_unknown_title">No se pudo obtener la versión del dispositivo</string>
+    <string name="device_version_unknown_body">Comprueba la conexión e inténtalo de nuevo.</string>
+    <string name="device_warning_scheduled_power">Acciones de energía programadas y cancelación</string>
+    <string name="device_warning_pending_power">Cuenta atrás de energía pendiente</string>
+    <string name="device_warning_state_query">Consultas de estado de medios y energía</string>
+    <string name="device_warning_power_control">Control de energía del dispositivo: suspender, apagar, bloquear</string>
+    <string name="retry_btn">Reintentar</string>
+    <string name="dismiss_btn">Cerrar</string>
 </resources>
