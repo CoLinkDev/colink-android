@@ -109,7 +109,7 @@ class TransfersViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     working = false,
-                    message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_file_offer_sent),
+                    message = result.exceptionOrNull()?.message,
                 )
             }
         }

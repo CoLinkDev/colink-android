@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +45,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Close
@@ -607,12 +614,30 @@ private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
             isSending -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
         }
-        Text(
-            text = "${timeText} · ${routeName}",
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = textColor,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
-        )
+        ) {
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = textColor,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            if (outgoing && !isSending && !isFailed) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+            Text(
+                text = routeName,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = textColor,
+            )
+        }
     }
 }
 
@@ -822,12 +847,30 @@ private fun TransferBubble(
             "cloud" -> stringResource(R.string.route_cloud)
             else -> transfer.route
         }
-        Text(
-            text = "${timeText} · ${routeName}",
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp),
-        )
+        ) {
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            if (outgoing && transfer.status in setOf("completed", "offered", "sending", "receiving", "verifying")) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+            Text(
+                text = routeName,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            )
+        }
     }
 }
 

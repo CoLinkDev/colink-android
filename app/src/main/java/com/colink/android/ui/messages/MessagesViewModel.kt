@@ -129,8 +129,7 @@ class MessagesViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     sending = false,
-                    message = result.exceptionOrNull()?.message
-                        ?: localizedContext.getString(R.string.message_sent),
+                    message = result.exceptionOrNull()?.message,
                 )
             }
         }
