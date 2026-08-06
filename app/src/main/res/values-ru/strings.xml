@@ -143,7 +143,7 @@
     <!-- Devices List -->
     <string name="devices_subtitle">Доступно %1$d · Всего %2$d</string>
     <string name="search_devices_action">Поиск устройств</string>
-    <string name="search_devices_hint">Поиск по имени, ID или IP</string>
+    <string name="search_devices_hint">Поиск по имени или ID</string>
     <string name="search_no_results">Совпадающие устройства не найдены</string>
     <string name="no_devices_title">Устройства не найдены</string>
     <string name="no_devices_body">Войдите на другом устройстве, а затем обновите этот список.</string>

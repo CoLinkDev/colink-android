@@ -2,6 +2,13 @@ package com.colink.android.ui.devices
 
 import android.graphics.Bitmap
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -71,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -87,6 +96,7 @@ import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.ScreenColumn
+import com.colink.android.ui.components.ScreenHeader
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -160,8 +170,7 @@ fun DeviceListScreen(
             val q = searchQuery.trim()
             sortedLanPairingCandidates.filter { candidate ->
                 candidate.name.contains(q, ignoreCase = true) ||
-                    candidate.deviceId.contains(q, ignoreCase = true) ||
-                    candidate.ip.contains(q, ignoreCase = true)
+                    candidate.deviceId.contains(q, ignoreCase = true)
             }
         }
     }
@@ -200,62 +209,99 @@ fun DeviceListScreen(
             devices.size
         ),
         modifier = modifier,
-        headerOverride = if (isSearchActive) {
-            {
-                DeviceSearchHeader(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    onClose = {
-                        isSearchActive = false
-                        searchQuery = ""
-                    },
-                )
-            }
-        } else null,
-        action = {
-            Row {
-                IconButton(onClick = { isSearchActive = true }) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = stringResource(R.string.search_devices_action),
-                    )
-                }
-                IconButton(
-                    onClick = {
-                        pairStringScanner.startScan()
-                            .addOnSuccessListener { barcode ->
-                                barcode.rawValue?.let(viewModel::startPairStringPairing)
-                                    ?: Toast.makeText(
-                                        context,
-                                        R.string.err_pair_qr_invalid,
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                            }
-                            .addOnCanceledListener {
-                                // Returning from the scanner is a normal user cancellation.
-                            }
-                            .addOnFailureListener(
-                                OnFailureListener { error ->
-                                    if (!isCodeScannerCancellation(error)) {
-                                        Toast.makeText(
-                                            context,
-                                            R.string.pair_qr_scanner_unavailable,
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                },
-                            )
-                    },
+        headerOverride = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                AnimatedVisibility(
+                    visible = !isSearchActive,
+                    enter = fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = stringResource(R.string.pair_qr_scan),
+                    ScreenHeader(
+                        title = stringResource(R.string.nav_devices),
+                        subtitle = stringResource(
+                            R.string.devices_subtitle,
+                            availableDeviceCount,
+                            devices.size
+                        ),
+                        action = {
+                            Row {
+                                IconButton(onClick = { isSearchActive = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = stringResource(R.string.search_devices_action),
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        pairStringScanner.startScan()
+                                            .addOnSuccessListener { barcode ->
+                                                barcode.rawValue?.let(viewModel::startPairStringPairing)
+                                                    ?: Toast.makeText(
+                                                        context,
+                                                        R.string.err_pair_qr_invalid,
+                                                        Toast.LENGTH_SHORT,
+                                                    ).show()
+                                            }
+                                            .addOnCanceledListener {
+                                                // Returning from the scanner is a normal user cancellation.
+                                            }
+                                            .addOnFailureListener(
+                                                OnFailureListener { error ->
+                                                    if (!isCodeScannerCancellation(error)) {
+                                                        Toast.makeText(
+                                                            context,
+                                                            R.string.pair_qr_scanner_unavailable,
+                                                            Toast.LENGTH_SHORT,
+                                                        ).show()
+                                                    }
+                                                },
+                                            )
+                                    },
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCodeScanner,
+                                        contentDescription = stringResource(R.string.pair_qr_scan),
+                                    )
+                                }
+                                IconButton(onClick = viewModel::createPairString) {
+                                    Icon(
+                                        imageVector = Icons.Default.QrCode,
+                                        contentDescription = stringResource(R.string.pair_qr_show),
+                                    )
+                                }
+                            }
+                        },
                     )
                 }
-                IconButton(onClick = viewModel::createPairString) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode,
-                        contentDescription = stringResource(R.string.pair_qr_show),
+
+                AnimatedVisibility(
+                    visible = isSearchActive,
+                    enter = fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                        scaleIn(
+                            transformOrigin = TransformOrigin(0.88f, 0.5f),
+                            initialScale = 0.7f,
+                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        ),
+                    exit = fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                        scaleOut(
+                            transformOrigin = TransformOrigin(0.88f, 0.5f),
+                            targetScale = 0.7f,
+                            animationSpec = tween(180, easing = FastOutSlowInEasing),
+                        ),
+                ) {
+                    DeviceSearchHeader(
+                        query = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        onClose = {
+                            isSearchActive = false
+                            searchQuery = ""
+                        },
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
@@ -343,7 +389,7 @@ private fun DeviceSearchHeader(
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
