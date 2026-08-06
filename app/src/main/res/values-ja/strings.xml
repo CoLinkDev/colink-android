@@ -22,6 +22,11 @@
     <string name="camera_connecting">接続中...</string>
     <string name="camera_waiting_video">映像を待機中...</string>
     <string name="camera_close">閉じる</string>
+    <string name="camera_snapshot">スクリーンショット</string>
+    <string name="camera_record_start">録画</string>
+    <string name="camera_record_stop">録画停止</string>
+    <string name="camera_snapshot_saved">ギャラリーに保存しました</string>
+    <string name="camera_record_saved">動画をギャラリーに保存しました</string>
     <string name="camera_debug_title">映像情報</string>
     <string name="camera_debug_session">セッション</string>
     <string name="camera_debug_stream">ストリーム</string>

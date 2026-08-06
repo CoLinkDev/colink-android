@@ -22,6 +22,11 @@
     <string name="camera_connecting">正在连接...</string>
     <string name="camera_waiting_video">正在等待视频...</string>
     <string name="camera_close">关闭</string>
+    <string name="camera_snapshot">截图</string>
+    <string name="camera_record_start">录屏</string>
+    <string name="camera_record_stop">停止录屏</string>
+    <string name="camera_snapshot_saved">截图已保存到相册</string>
+    <string name="camera_record_saved">录屏已保存到相册</string>
     <string name="camera_debug_title">画面信息</string>
     <string name="camera_debug_session">会话</string>
     <string name="camera_debug_stream">流参数</string>

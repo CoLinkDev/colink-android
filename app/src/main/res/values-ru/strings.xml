@@ -22,6 +22,11 @@
     <string name="camera_connecting">Подключение...</string>
     <string name="camera_waiting_video">Ожидание видеопотока...</string>
     <string name="camera_close">Закрыть</string>
+    <string name="camera_snapshot">Снимок</string>
+    <string name="camera_record_start">Запись</string>
+    <string name="camera_record_stop">Остановить</string>
+    <string name="camera_snapshot_saved">Снимок сохранен в галерею</string>
+    <string name="camera_record_saved">Запись сохранена в галерею</string>
     <string name="camera_debug_title">Сведения о видео</string>
     <string name="camera_debug_session">Сеанс</string>
     <string name="camera_debug_stream">Поток</string>

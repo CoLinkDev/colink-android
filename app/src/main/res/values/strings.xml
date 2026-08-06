@@ -22,6 +22,11 @@
     <string name="camera_connecting">Connecting...</string>
     <string name="camera_waiting_video">Waiting for video stream...</string>
     <string name="camera_close">Close</string>
+    <string name="camera_snapshot">Snapshot</string>
+    <string name="camera_record_start">Record</string>
+    <string name="camera_record_stop">Stop recording</string>
+    <string name="camera_snapshot_saved">Snapshot saved to gallery</string>
+    <string name="camera_record_saved">Recording saved to gallery</string>
     <string name="camera_debug_title">Video information</string>
     <string name="camera_debug_session">Session</string>
     <string name="camera_debug_stream">Stream</string>
