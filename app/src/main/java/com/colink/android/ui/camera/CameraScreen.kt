@@ -1,5 +1,9 @@
 package com.colink.android.ui.camera
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.view.SurfaceHolder
@@ -10,19 +14,25 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -527,177 +537,307 @@ class CameraViewModel @Inject constructor(private val connection: ConnectionMana
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewModel) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsState()
     val debugState by viewModel.debugState.collectAsState()
     val errorMessage = state.error?.let { error -> stringResource(error.messageRes) }
+    var isFullScreen by rememberSaveable { mutableStateOf(false) }
+
     LaunchedEffect(deviceId) { viewModel.load(deviceId) }
-    BackHandler { viewModel.close(); onBack() }
+    LaunchedEffect(state.sessionId) {
+        if (state.sessionId == null) {
+            isFullScreen = false
+        }
+    }
+
+    DisposableEffect(isFullScreen) {
+        val activity = context.findActivity()
+        if (isFullScreen) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    BackHandler {
+        if (isFullScreen) {
+            isFullScreen = false
+        } else {
+            viewModel.close()
+            onBack()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.device_control_camera)) },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.close(); onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+            if (!isFullScreen) {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.device_control_camera)) },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.close(); onBack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.load(deviceId) }) {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                        }
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.load(deviceId) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                    }
-                }
-            )
-        }
+                )
+            }
+        },
+        containerColor = if (isFullScreen) Color.Black else MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(if (isFullScreen) PaddingValues(0.dp) else padding)
+                .background(if (isFullScreen) Color.Black else Color.Transparent)
         ) {
             if (state.sessionId == null) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = stringResource(R.string.camera_select_placeholder),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = stringResource(R.string.camera_select_placeholder),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
-                    if (state.cameras.isNotEmpty()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            state.cameras.forEach { camera ->
-                                val selected = camera == state.selected
-                                FilterChip(
-                                    selected = selected,
-                                    onClick = { viewModel.select(camera) },
-                                    label = { Text(camera.label) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
+                        if (state.cameras.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                state.cameras.forEach { camera ->
+                                    val selected = camera == state.selected
+                                    FilterChip(
                                         selected = selected,
-                                        borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                        selectedBorderColor = Color.Transparent,
-                                    ),
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = if (selected) Icons.Default.Check else Icons.Default.Videocam,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                )
+                                        onClick = { viewModel.select(camera) },
+                                        label = { Text(camera.label) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = selected,
+                                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                            selectedBorderColor = Color.Transparent,
+                                        ),
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (selected) Icons.Default.Check else Icons.Default.Videocam,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                            )
+                                        }
+                                    )
+                                }
                             }
+                        }
+
+                        Button(
+                            onClick = viewModel::open,
+                            enabled = state.selected != null && !state.loading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (state.loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                            } else {
+                                Icon(
+                                    Icons.Default.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(ButtonDefaults.IconSize),
+                                )
+                                Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                            }
+                            Text(if (state.loading) stringResource(R.string.camera_connecting) else stringResource(R.string.camera_open))
                         }
                     }
 
-                    Button(
-                        onClick = viewModel::open,
-                        enabled = state.selected != null && !state.loading,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (state.loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier
-                                    .size(ButtonDefaults.IconSize),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                        } else {
-                            Icon(
-                                Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(ButtonDefaults.IconSize),
-                            )
-                            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                        }
-                        Text(if (state.loading) stringResource(R.string.camera_connecting) else stringResource(R.string.camera_open))
+                    errorMessage?.let { message ->
+                        Text(
+                            text = message,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             } else {
-                val bitmap = state.bitmap
-                if (state.codec == "h264") {
-                    H264VideoSurface(
-                        state.width,
-                        state.height,
-                        requireNotNull(state.sessionId),
-                        viewModel.h264Frames,
-                        viewModel::onDecoderDebug,
-                        viewModel::onDecoderFailure,
-                    )
-                } else if (bitmap == null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (isFullScreen) {
+                                Modifier
+                            } else {
+                                Modifier
+                                    .padding(16.dp)
+                                    .verticalScroll(rememberScrollState())
+                            }
+                        ),
+                    verticalArrangement = if (isFullScreen) Arrangement.Center else Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16f / 9f),
+                        modifier = if (isFullScreen) {
+                            Modifier.fillMaxSize()
+                        } else {
+                            Modifier.fillMaxWidth()
+                        },
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        CameraVideoContent(
+                            state = state,
+                            h264Frames = viewModel.h264Frames,
+                            onDecoderDebug = viewModel::onDecoderDebug,
+                            onDecoderFailure = viewModel::onDecoderFailure,
+                            isFullScreen = isFullScreen,
+                        )
+                        IconButton(
+                            onClick = { isFullScreen = !isFullScreen },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(if (isFullScreen) 24.dp else 8.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         ) {
-                            CircularProgressIndicator()
-                            Text(
-                                text = stringResource(R.string.camera_waiting_video),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            Icon(
+                                imageVector = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = null,
+                                tint = Color.White
                             )
                         }
                     }
-                } else {
-                    RemoteBitmap(bitmap, state.width, state.height)
+
+                    if (!isFullScreen) {
+                        Button(
+                            onClick = viewModel::close,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.camera_close))
+                        }
+
+                        CameraDebugPanel(debugState)
+
+                        errorMessage?.let { message ->
+                            Text(
+                                text = message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
                 }
-
-                Button(
-                    onClick = viewModel::close,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.camera_close))
-                }
-
-                CameraDebugPanel(debugState)
-            }
-
-            errorMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
             }
         }
     }
 }
 
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
 @Composable
-private fun RemoteBitmap(bitmap: Bitmap, width: Int, height: Int) {
+private fun CameraVideoContent(
+    state: CameraUiState,
+    h264Frames: Flow<RemoteCameraFrame>,
+    onDecoderDebug: (H264DecoderDebugStats) -> Unit,
+    onDecoderFailure: () -> Unit,
+    modifier: Modifier = Modifier,
+    isFullScreen: Boolean = false,
+) {
+    val bitmap = state.bitmap
+    if (state.codec == "h264") {
+        H264VideoSurface(
+            state.width,
+            state.height,
+            requireNotNull(state.sessionId),
+            h264Frames,
+            onDecoderDebug,
+            onDecoderFailure,
+            modifier = modifier,
+            isFullScreen = isFullScreen,
+        )
+    } else if (bitmap == null) {
+        Box(
+            modifier = modifier
+                .then(
+                    if (isFullScreen) {
+                        Modifier.fillMaxHeight().aspectRatio(16f / 9f, matchHeightConstraintsFirst = true)
+                    } else {
+                        Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator()
+                Text(
+                    text = stringResource(R.string.camera_waiting_video),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        RemoteBitmap(bitmap, state.width, state.height, modifier = modifier, isFullScreen = isFullScreen)
+    }
+}
+
+@Composable
+private fun RemoteBitmap(
+    bitmap: Bitmap,
+    width: Int,
+    height: Int,
+    modifier: Modifier = Modifier,
+    isFullScreen: Boolean = false,
+) {
     DisposableEffect(bitmap) {
         onDispose {
             if (!bitmap.isRecycled) bitmap.recycle()
         }
     }
+    val aspectRatio = if (width > 0 && height > 0) width.toFloat() / height else 16f / 9f
     Image(
         bitmap = bitmap.asImageBitmap(),
         contentDescription = null,
         contentScale = ContentScale.Fit,
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(if (width > 0 && height > 0) width.toFloat() / height else 16f / 9f),
+        modifier = modifier
+            .then(
+                if (isFullScreen) {
+                    Modifier.fillMaxHeight().aspectRatio(aspectRatio, matchHeightConstraintsFirst = true)
+                } else {
+                    Modifier.fillMaxWidth().aspectRatio(aspectRatio)
+                }
+            ),
     )
 }
 
@@ -709,6 +849,8 @@ private fun H264VideoSurface(
     frames: Flow<RemoteCameraFrame>,
     onDebugStats: (H264DecoderDebugStats) -> Unit,
     onDecoderFailure: () -> Unit,
+    modifier: Modifier = Modifier,
+    isFullScreen: Boolean = false,
 ) {
     val currentOnDebugStats = rememberUpdatedState(onDebugStats)
     val currentOnDecoderFailure = rememberUpdatedState(onDecoderFailure)
@@ -726,6 +868,7 @@ private fun H264VideoSurface(
             decoder.queue(frame.bytes, frame.sequence, frame.keyframe, frame.timestampUs)
         }
     }
+    val aspectRatio = if (width > 0 && height > 0) width.toFloat() / height else 16f / 9f
     AndroidView(
         factory = { context ->
             SurfaceView(context).apply {
@@ -739,9 +882,14 @@ private fun H264VideoSurface(
                 })
             }
         },
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(if (width > 0 && height > 0) width.toFloat() / height else 16f / 9f),
+        modifier = modifier
+            .then(
+                if (isFullScreen) {
+                    Modifier.fillMaxHeight().aspectRatio(aspectRatio, matchHeightConstraintsFirst = true)
+                } else {
+                    Modifier.fillMaxWidth().aspectRatio(aspectRatio)
+                }
+            ),
     )
 }
 
