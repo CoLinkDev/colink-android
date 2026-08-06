@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">Файлы приложения</string>
     <string name="remote_files_root_app_files_extra">Файлы приложения %1$d</string>
     <string name="remote_files_root_shared_storage">Общее хранилище</string>
+    <string name="remote_files_path">Путь</string>
+    <string name="remote_files_copy_path">Копировать путь</string>
+    <string name="remote_files_path_copied">Путь скопирован в буфер обмена</string>
+    <string name="remote_files_jump">Перейти</string>
+    <string name="remote_files_paste">Вставить</string>
     
     <!-- Settings -->
     <string name="settings_title">Настройки</string>

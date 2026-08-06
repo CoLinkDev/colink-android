@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">App files</string>
     <string name="remote_files_root_app_files_extra">App files %1$d</string>
     <string name="remote_files_root_shared_storage">Shared storage</string>
+    <string name="remote_files_path">Path</string>
+    <string name="remote_files_copy_path">Copy path</string>
+    <string name="remote_files_path_copied">Path copied to clipboard</string>
+    <string name="remote_files_jump">Jump</string>
+    <string name="remote_files_paste">Paste</string>
     
     <!-- Settings -->
     <string name="settings_title">Settings</string>

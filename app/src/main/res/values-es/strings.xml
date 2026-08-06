@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">Archivos de la aplicación</string>
     <string name="remote_files_root_app_files_extra">Archivos de la aplicación %1$d</string>
     <string name="remote_files_root_shared_storage">Almacenamiento compartido</string>
+    <string name="remote_files_path">Ruta</string>
+    <string name="remote_files_copy_path">Copiar ruta</string>
+    <string name="remote_files_path_copied">Ruta copiada al portapapeles</string>
+    <string name="remote_files_jump">Ir</string>
+    <string name="remote_files_paste">Pegar</string>
     
     <!-- Settings -->
     <string name="settings_title">Ajustes</string>

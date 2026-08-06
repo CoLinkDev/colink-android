@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">App-Dateien</string>
     <string name="remote_files_root_app_files_extra">App-Dateien %1$d</string>
     <string name="remote_files_root_shared_storage">Gemeinsamer Speicher</string>
+    <string name="remote_files_path">Pfad</string>
+    <string name="remote_files_copy_path">Pfad kopieren</string>
+    <string name="remote_files_path_copied">Pfad in Zwischenablage kopiert</string>
+    <string name="remote_files_jump">Springen</string>
+    <string name="remote_files_paste">Einfügen</string>
     
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>

@@ -1,7 +1,10 @@
 package com.colink.android.ui.filesystem
 
+import android.content.Context
+import android.widget.Toast
 import java.text.DateFormat
 import java.util.Date
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,30 +20,42 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AltRoute
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderZip
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.VideoFile
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,24 +63,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.VideoFile
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.FolderZip
-import androidx.compose.material.icons.filled.Code
-import androidx.activity.compose.BackHandler
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
@@ -83,10 +101,23 @@ fun RemoteFilesystemScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentPath = state.currentPath
-    val canNavigateUp = currentPath != null
 
-    BackHandler(enabled = canNavigateUp) {
-        viewModel.navigateUp()
+    var showPathActionDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.toastMessage) {
+        val msg = state.toastMessage
+        if (!msg.isNullOrBlank()) {
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            viewModel.clearToastMessage()
+        }
+    }
+
+    BackHandler(enabled = true) {
+        if (currentPath != null) {
+            viewModel.navigateUp()
+        } else {
+            onBack()
+        }
     }
 
     Scaffold(
@@ -110,15 +141,7 @@ fun RemoteFilesystemScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(
-                        onClick = {
-                            if (canNavigateUp) {
-                                viewModel.navigateUp()
-                            } else {
-                                onBack()
-                            }
-                        }
-                    ) {
+                    IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back_desc),
@@ -155,6 +178,8 @@ fun RemoteFilesystemScreen(
                         path = currentPath,
                         total = state.total,
                         onNavigateUp = viewModel::navigateUp,
+                        onOpenPathActionDialog = { showPathActionDialog = true },
+                        onSegmentClick = { path -> viewModel.jumpToPath(path) },
                     )
                 }
             }
@@ -186,7 +211,10 @@ fun RemoteFilesystemScreen(
                     item { FilesEmpty(stringResource(R.string.remote_files_locations_empty)) }
                 } else {
                     items(state.roots, key = { it.path }) { root ->
-                        RootRow(root = root, onClick = { viewModel.openRoot(root.path) })
+                        RootRow(
+                            root = root,
+                            onClick = { viewModel.openRoot(root.path) }
+                        )
                     }
                 }
             } else {
@@ -194,9 +222,7 @@ fun RemoteFilesystemScreen(
                     item { FilesEmpty(stringResource(R.string.remote_files_directory_empty)) }
                 } else {
                     items(state.entries, key = { entry -> "${entry.kind}:${entry.name}" }) { entry ->
-                        val download = currentPath?.let { path ->
-                            state.downloads[remoteChild(path, entry.name)]
-                        }
+                        val download = state.downloads[remoteChild(currentPath, entry.name)]
                         FileEntryRow(
                             entry = entry,
                             download = download,
@@ -231,27 +257,97 @@ fun RemoteFilesystemScreen(
             }
         }
     }
+
+    if (showPathActionDialog) {
+        PathActionDialog(
+            currentPath = currentPath ?: "",
+            onDismiss = { showPathActionDialog = false },
+            onCopy = { path -> viewModel.copyPathToClipboard(path) },
+            onJump = { path ->
+                showPathActionDialog = false
+                viewModel.jumpToPath(path)
+            }
+        )
+    }
 }
 
 @Composable
-private fun FilesIntro(title: String, body: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(26.dp))
-            Spacer(Modifier.width(14.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(body, style = MaterialTheme.typography.bodySmall)
+private fun PathActionDialog(
+    currentPath: String,
+    onDismiss: () -> Unit,
+    onCopy: (String) -> Unit,
+    onJump: (String) -> Unit,
+) {
+    var pathInput by remember { mutableStateOf(currentPath) }
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.remote_files_path)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = pathInput,
+                    onValueChange = { pathInput = it },
+                    label = { Text(stringResource(R.string.remote_files_path)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 复制与粘贴按钮聚合在左侧
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { onCopy(pathInput) }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.remote_files_copy_path))
+                        }
+                        TextButton(
+                            onClick = {
+                                try {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                    val item = clipboard?.primaryClip?.getItemAt(0)
+                                    val text = item?.text?.toString()
+                                    if (!text.isNullOrBlank()) {
+                                        pathInput = text.trim()
+                                    }
+                                } catch (_: Exception) {
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.remote_files_paste))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onJump(pathInput) }) {
+                Text(stringResource(R.string.remote_files_jump))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
             }
         }
-    }
+    )
 }
 
 @Composable
@@ -259,40 +355,159 @@ private fun CurrentFolderHeader(
     path: String,
     total: Long,
     onNavigateUp: () -> Unit,
+    onOpenPathActionDialog: () -> Unit,
+    onSegmentClick: (String) -> Unit,
 ) {
+    val segments = remember(path) { parsePathSegments(path) }
+    val lazyListState = rememberLazyListState()
+
+    LaunchedEffect(path) {
+        if (segments.isNotEmpty()) {
+            lazyListState.scrollToItem(segments.lastIndex)
+        }
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            FilledTonalIconButton(
-                onClick = onNavigateUp,
-                modifier = Modifier.size(40.dp),
+            // 最上方放大显示且带动态渐隐特效的面包屑Segment链
+            LazyRow(
+                state = lazyListState,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalFadingEdge(lazyListState, length = 24.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.remote_files_up_desc),
-                )
+                items(segments) { (name, fullPath) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onSegmentClick(fullPath) }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = path,
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = stringResource(R.string.remote_files_item_count, total),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+
+            // “共X项”与首个面包屑文字左对齐
+            Text(
+                text = stringResource(R.string.remote_files_item_count, total),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+
+            // 下方药丸形按钮组：向上 & 地址
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                FilledTonalButton(
+                    onClick = onNavigateUp,
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.remote_files_up_desc))
+                }
+
+                FilledTonalButton(
+                    onClick = onOpenPathActionDialog,
+                    shape = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.AltRoute,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.remote_files_path))
+                }
             }
         }
     }
+}
+
+private fun Modifier.horizontalFadingEdge(
+    state: LazyListState,
+    length: Dp = 24.dp,
+): Modifier = this
+    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+
+        val canScrollLeft = state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 0
+        val canScrollRight = state.canScrollForward
+
+        if (canScrollLeft) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.Transparent, Color.Black),
+                    startX = 0f,
+                    endX = length.toPx(),
+                ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+
+        if (canScrollRight) {
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.Black, Color.Transparent),
+                    startX = size.width - length.toPx(),
+                    endX = size.width,
+                ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
+
+private data class PathSegment(val name: String, val fullPath: String)
+
+private fun parsePathSegments(path: String): List<PathSegment> {
+    val isWin = path.contains('\\') && !path.contains('/')
+    val sep = if (isWin) "\\" else "/"
+    val parts = path.split('/', '\\').filter { it.isNotEmpty() }
+    if (parts.isEmpty()) return emptyList()
+
+    val result = mutableListOf<PathSegment>()
+    var current = ""
+    for (i in parts.indices) {
+        val part = parts[i]
+        current = if (i == 0 && isWin && part.endsWith(":")) {
+            "$part\\"
+        } else if (i == 0 && !isWin) {
+            "/$part"
+        } else {
+            if (current.endsWith(sep) || current.endsWith("/")) "$current$part" else "$current$sep$part"
+        }
+        result.add(PathSegment(name = part, fullPath = current))
+    }
+    return result
 }
 
 private fun getFileIcon(fileName: String): ImageVector {

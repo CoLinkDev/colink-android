@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">應用程式檔案</string>
     <string name="remote_files_root_app_files_extra">應用程式檔案 %1$d</string>
     <string name="remote_files_root_shared_storage">共用儲存空間</string>
+    <string name="remote_files_path">路徑</string>
+    <string name="remote_files_copy_path">複製路徑</string>
+    <string name="remote_files_path_copied">路徑已複製到剪貼簿</string>
+    <string name="remote_files_jump">跳轉</string>
+    <string name="remote_files_paste">貼上</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>

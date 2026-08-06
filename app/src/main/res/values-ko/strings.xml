@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">앱 파일</string>
     <string name="remote_files_root_app_files_extra">앱 파일 %1$d</string>
     <string name="remote_files_root_shared_storage">공유 저장소</string>
+    <string name="remote_files_path">경로</string>
+    <string name="remote_files_copy_path">경로 복사</string>
+    <string name="remote_files_path_copied">경로가 클립보드에 복사되었습니다</string>
+    <string name="remote_files_jump">이동</string>
+    <string name="remote_files_paste">붙여넣기</string>
     
     <!-- Settings -->
     <string name="settings_title">설정</string>

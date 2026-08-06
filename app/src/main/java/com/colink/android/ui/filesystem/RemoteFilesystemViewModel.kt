@@ -44,6 +44,7 @@ data class RemoteFilesystemUiState(
     val unsupported: Boolean = false,
     val error: String? = null,
     val downloads: Map<String, RemoteFilesystemDownloadUi> = emptyMap(),
+    val toastMessage: String? = null,
 )
 
 @HiltViewModel
@@ -107,13 +108,42 @@ class RemoteFilesystemViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) { loadDirectory(remoteChild(path, entry.name)) }
     }
 
+    fun jumpToPath(rawPath: String) {
+        val trimmed = rawPath.trim()
+        viewModelScope.launch(Dispatchers.IO) {
+            if (trimmed.isBlank() || trimmed == "/" || trimmed == "\\") {
+                loadRoots()
+            } else {
+                loadDirectory(trimmed)
+            }
+        }
+    }
+
     fun navigateUp() {
         val parent = _uiState.value.currentPath?.let(::remoteParent)
-        if (parent == null) {
-            viewModelScope.launch(Dispatchers.IO) { loadRoots() }
-        } else {
-            viewModelScope.launch(Dispatchers.IO) { loadDirectory(parent) }
+        viewModelScope.launch(Dispatchers.IO) {
+            if (parent == null) {
+                loadRoots()
+            } else {
+                loadDirectory(parent)
+            }
         }
+    }
+
+    fun copyPathToClipboard(path: String) {
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            if (clipboard != null) {
+                val clip = android.content.ClipData.newPlainText("path", path)
+                clipboard.setPrimaryClip(clip)
+                _uiState.update { it.copy(toastMessage = localizedContext().getString(R.string.remote_files_path_copied)) }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    fun clearToastMessage() {
+        _uiState.update { it.copy(toastMessage = null) }
     }
 
     fun loadMore() {

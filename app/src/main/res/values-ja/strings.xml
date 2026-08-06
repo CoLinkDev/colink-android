@@ -271,6 +271,11 @@
     <string name="remote_files_root_app_files">アプリのファイル</string>
     <string name="remote_files_root_app_files_extra">アプリのファイル %1$d</string>
     <string name="remote_files_root_shared_storage">共有ストレージ</string>
+    <string name="remote_files_path">パス</string>
+    <string name="remote_files_copy_path">パスをコピー</string>
+    <string name="remote_files_path_copied">パスをクリップボードにコピーしました</string>
+    <string name="remote_files_jump">移動</string>
+    <string name="remote_files_paste">貼り付け</string>
     
     <!-- Settings -->
     <string name="settings_title">設定</string>
