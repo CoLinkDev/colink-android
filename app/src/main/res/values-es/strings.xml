@@ -23,10 +23,7 @@
     <string name="camera_waiting_video">Esperando señal de video...</string>
     <string name="camera_close">Cerrar</string>
     <string name="camera_snapshot">Captura</string>
-    <string name="camera_record_start">Grabar</string>
-    <string name="camera_record_stop">Detener</string>
     <string name="camera_snapshot_saved">Captura guardada en la galería</string>
-    <string name="camera_record_saved">Grabación guardada en la galería</string>
     <string name="camera_debug_title">Información de vídeo</string>
     <string name="camera_debug_session">Sesión</string>
     <string name="camera_debug_stream">Transmisión</string>

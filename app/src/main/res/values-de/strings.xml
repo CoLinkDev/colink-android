@@ -23,10 +23,7 @@
     <string name="camera_waiting_video">Warte auf Video-Stream...</string>
     <string name="camera_close">Schließen</string>
     <string name="camera_snapshot">Screenshot</string>
-    <string name="camera_record_start">Aufnahme</string>
-    <string name="camera_record_stop">Stoppen</string>
     <string name="camera_snapshot_saved">Screenshot in Galerie gespeichert</string>
-    <string name="camera_record_saved">Aufnahme in Galerie gespeichert</string>
     <string name="camera_debug_title">Bildinformationen</string>
     <string name="camera_debug_session">Sitzung</string>
     <string name="camera_debug_stream">Stream</string>

@@ -23,10 +23,7 @@
     <string name="camera_waiting_video">비디오 대기 중...</string>
     <string name="camera_close">닫기</string>
     <string name="camera_snapshot">캡처</string>
-    <string name="camera_record_start">녹화</string>
-    <string name="camera_record_stop">녹화 중지</string>
     <string name="camera_snapshot_saved">갤러리에 저장되었습니다</string>
-    <string name="camera_record_saved">녹화 영상이 갤러리에 저장되었습니다</string>
     <string name="camera_debug_title">영상 정보</string>
     <string name="camera_debug_session">세션</string>
     <string name="camera_debug_stream">스트림</string>

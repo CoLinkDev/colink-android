@@ -1,23 +1,14 @@
 package com.colink.android.ui.camera
 
 import android.app.Activity
-import android.content.ContentValues
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
-import android.media.MediaCodec
-import android.media.MediaFormat
-import android.media.MediaMuxer
 import android.os.Build
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.MediaStore
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.nio.ByteBuffer
 import android.view.PixelCopy
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -44,7 +35,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayArrow
@@ -125,6 +115,10 @@ enum class CameraUiError(val messageRes: Int) {
     CLOSE_FAILED(R.string.camera_error_close_failed),
 }
 
+sealed interface CameraUiEvent {
+    data object SnapshotSaved : CameraUiEvent
+}
+
 private const val CAMERA_OPEN_TIMEOUT_MILLIS = 20_000L
 private const val CAMERA_REASON_REJECTED = "colink:camera.rejected.v1"
 private const val CAMERA_REASON_NOT_AVAILABLE = "colink:camera.not_available.v1"
@@ -172,7 +166,10 @@ data class RemoteCameraFrame(
 )
 
 @HiltViewModel
-class CameraViewModel @Inject constructor(private val connection: ConnectionManager) : ViewModel() {
+class CameraViewModel @Inject constructor(
+    private val connection: ConnectionManager,
+    private val mediaStore: CameraMediaStore,
+) : ViewModel() {
     private val _state = MutableStateFlow(CameraUiState())
     val state = _state.asStateFlow()
     private val _h264Frames = MutableSharedFlow<RemoteCameraFrame>(
@@ -180,6 +177,8 @@ class CameraViewModel @Inject constructor(private val connection: ConnectionMana
         onBufferOverflow = BufferOverflow.DROP_OLDEST,
     )
     val h264Frames = _h264Frames.asSharedFlow()
+    private val _events = MutableSharedFlow<CameraUiEvent>(extraBufferCapacity = 1)
+    val events = _events.asSharedFlow()
     private val _debugState = MutableStateFlow(CameraDebugUiState())
     val debugState = _debugState.asStateFlow()
     private var deviceId: String? = null
@@ -327,6 +326,23 @@ class CameraViewModel @Inject constructor(private val connection: ConnectionMana
             }
         }
         clear(null)
+    }
+
+    fun saveSnapshot(bitmap: Bitmap, recycleWhenSaved: Boolean = false) {
+        val snapshot = if (recycleWhenSaved) {
+            bitmap
+        } else {
+            bitmap.copy(bitmap.config ?: Bitmap.Config.ARGB_8888, false)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                if (mediaStore.saveSnapshot(snapshot)) {
+                    _events.emit(CameraUiEvent.SnapshotSaved)
+                }
+            } finally {
+                if (!snapshot.isRecycled) snapshot.recycle()
+            }
+        }
     }
 
     internal fun onDecoderDebug(stats: H264DecoderDebugStats) {
@@ -574,44 +590,17 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
     var isFullScreen by rememberSaveable { mutableStateOf(false) }
     var areControlsVisible by rememberSaveable { mutableStateOf(true) }
     var surfaceViewRef by remember { mutableStateOf<SurfaceView?>(null) }
-    var isRecording by remember { mutableStateOf(false) }
-    var currentRecorder by remember { mutableStateOf<H264MuxerRecorder?>(null) }
 
     val snapshotSavedMsg = stringResource(R.string.camera_snapshot_saved)
-    val recordSavedMsg = stringResource(R.string.camera_record_saved)
 
     fun takeSnapshot() {
         val bitmap = state.bitmap
         if (bitmap != null) {
-            if (saveBitmapToGallery(context, bitmap)) {
-                Toast.makeText(context, snapshotSavedMsg, Toast.LENGTH_SHORT).show()
-            }
+            viewModel.saveSnapshot(bitmap)
         } else {
             surfaceViewRef?.let { surfaceView ->
                 captureSurfaceViewBitmap(surfaceView) { capturedBitmap ->
-                    if (capturedBitmap != null && saveBitmapToGallery(context, capturedBitmap)) {
-                        Toast.makeText(context, snapshotSavedMsg, Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
-    }
-
-    fun toggleRecording() {
-        if (!isRecording) {
-            val recordFile = File(context.cacheDir, "camera_rec_${System.currentTimeMillis()}.mp4")
-            val recorder = H264MuxerRecorder(recordFile, state.width, state.height)
-            currentRecorder = recorder
-            isRecording = true
-        } else {
-            isRecording = false
-            val recorder = currentRecorder
-            currentRecorder = null
-            if (recorder != null) {
-                recorder.stop()
-                if (recorder.outputFile.exists() && recorder.outputFile.length() > 0) {
-                    saveVideoToGallery(context, recorder.outputFile)
-                    Toast.makeText(context, recordSavedMsg, Toast.LENGTH_SHORT).show()
+                    capturedBitmap?.let { viewModel.saveSnapshot(it, recycleWhenSaved = true) }
                 }
             }
         }
@@ -621,10 +610,15 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
     LaunchedEffect(state.sessionId) {
         if (state.sessionId == null) {
             isFullScreen = false
-            if (isRecording) {
-                isRecording = false
-                currentRecorder?.stop()
-                currentRecorder = null
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                CameraUiEvent.SnapshotSaved -> {
+                    Toast.makeText(context, snapshotSavedMsg, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -639,14 +633,6 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
         if (isFullScreen && areControlsVisible) {
             delay(3_000L)
             areControlsVisible = false
-        }
-    }
-
-    LaunchedEffect(isRecording) {
-        if (isRecording) {
-            viewModel.h264Frames.collect { frame ->
-                currentRecorder?.writeFrame(frame)
-            }
         }
     }
 
@@ -872,12 +858,6 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                                 onClick = ::takeSnapshot,
                             )
                             CameraActionButton(
-                                label = stringResource(if (isRecording) R.string.camera_record_stop else R.string.camera_record_start),
-                                icon = if (isRecording) Icons.Default.FiberManualRecord else Icons.Default.Videocam,
-                                isRecording = isRecording,
-                                onClick = ::toggleRecording,
-                            )
-                            CameraActionButton(
                                 label = stringResource(R.string.camera_close),
                                 icon = Icons.Default.Close,
                                 destructive = true,
@@ -920,12 +900,6 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                                 onClick = ::takeSnapshot,
                             )
                             CameraActionButton(
-                                label = stringResource(if (isRecording) R.string.camera_record_stop else R.string.camera_record_start),
-                                icon = if (isRecording) Icons.Default.FiberManualRecord else Icons.Default.Videocam,
-                                isRecording = isRecording,
-                                onClick = ::toggleRecording,
-                            )
-                            CameraActionButton(
                                 label = stringResource(R.string.camera_close),
                                 icon = Icons.Default.Close,
                                 destructive = true,
@@ -957,13 +931,12 @@ private fun CameraActionButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     destructive: Boolean = false,
-    isRecording: Boolean = false,
 ) {
     Button(
         modifier = modifier,
         enabled = enabled,
         onClick = onClick,
-        colors = if (destructive || isRecording) {
+        colors = if (destructive) {
             ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.error,
                 contentColor = MaterialTheme.colorScheme.onError,
@@ -1253,181 +1226,6 @@ private fun captureSurfaceViewBitmap(surfaceView: SurfaceView, onResult: (Bitmap
     } else {
         onResult(null)
     }
-}
-
-private fun saveBitmapToGallery(context: Context, bitmap: Bitmap): Boolean {
-    return runCatching {
-        val filename = "CoLink_Camera_${System.currentTimeMillis()}.jpg"
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/CoLink")
-            }
-        }
-        val resolver = context.contentResolver
-        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues) ?: return false
-        resolver.openOutputStream(uri)?.use { stream ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, stream)
-        }
-        true
-    }.getOrDefault(false)
-}
-
-private fun saveVideoToGallery(context: Context, videoFile: File): Boolean {
-    return runCatching {
-        val filename = "CoLink_Record_${System.currentTimeMillis()}.mp4"
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-            put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/CoLink")
-            }
-        }
-        val resolver = context.contentResolver
-        val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues) ?: return false
-        resolver.openOutputStream(uri)?.use { output ->
-            videoFile.inputStream().use { input -> input.copyTo(output) }
-        }
-        videoFile.delete()
-        true
-    }.getOrDefault(false)
-}
-
-private class H264MuxerRecorder(
-    val outputFile: File,
-    val width: Int,
-    val height: Int,
-) {
-    private var muxer: MediaMuxer? = null
-    private var trackIndex = -1
-    private var isStarted = false
-    private var sps: ByteArray? = null
-    private var pps: ByteArray? = null
-    private var baseTimestampUs: Long = 0L
-
-    fun writeFrame(frame: RemoteCameraFrame) {
-        if (!isStarted) {
-            if (sps == null || pps == null) {
-                val pair = extractSpsPps(frame.bytes)
-                if (pair.first != null) sps = pair.first
-                if (pair.second != null) pps = pair.second
-            }
-            val currentSps = sps
-            val currentPps = pps
-            if (currentSps != null && currentPps != null && frame.keyframe) {
-                runCatching {
-                    val mediaMuxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                    val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width.coerceAtLeast(16), height.coerceAtLeast(16))
-                    format.setByteBuffer("csd-0", ByteBuffer.wrap(currentSps))
-                    format.setByteBuffer("csd-1", ByteBuffer.wrap(currentPps))
-                    trackIndex = mediaMuxer.addTrack(format)
-                    mediaMuxer.start()
-                    muxer = mediaMuxer
-                    isStarted = true
-                    baseTimestampUs = frame.timestampUs
-                }
-            }
-        }
-
-        if (isStarted && muxer != null && trackIndex >= 0) {
-            runCatching {
-                val avccData = annexBToAvcc(frame.bytes)
-                val buffer = ByteBuffer.wrap(avccData)
-                val bufferInfo = MediaCodec.BufferInfo()
-                val pts = (frame.timestampUs - baseTimestampUs).coerceAtLeast(0)
-                bufferInfo.set(0, avccData.size, pts, if (frame.keyframe) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
-                muxer?.writeSampleData(trackIndex, buffer, bufferInfo)
-            }
-        }
-    }
-
-    fun stop(): Boolean {
-        return runCatching {
-            if (isStarted) {
-                muxer?.stop()
-                muxer?.release()
-                muxer = null
-                isStarted = false
-                true
-            } else false
-        }.getOrDefault(false)
-    }
-}
-
-private fun annexBToAvcc(bytes: ByteArray): ByteArray {
-    val out = ByteArrayOutputStream()
-    var i = 0
-    val len = bytes.size
-    val nals = mutableListOf<ByteArray>()
-    
-    while (i < len) {
-        val startCodeLen = when {
-            i + 3 < len && bytes[i] == 0.toByte() && bytes[i + 1] == 0.toByte() && bytes[i + 2] == 0.toByte() && bytes[i + 3] == 1.toByte() -> 4
-            i + 2 < len && bytes[i] == 0.toByte() && bytes[i + 1] == 0.toByte() && bytes[i + 2] == 1.toByte() -> 3
-            else -> 0
-        }
-        if (startCodeLen > 0) {
-            val start = i + startCodeLen
-            i = start
-            while (i < len && !(i + 3 < len && bytes[i] == 0.toByte() && bytes[i + 1] == 0.toByte() && (bytes[i + 2] == 1.toByte() || (i + 3 < len && bytes[i + 2] == 0.toByte() && bytes[i + 3] == 1.toByte())))) {
-                i++
-            }
-            if (i > start) nals.add(bytes.copyOfRange(start, i))
-        } else {
-            i++
-        }
-    }
-
-    for (nal in nals) {
-        val size = nal.size
-        out.write((size shr 24) and 0xFF)
-        out.write((size shr 16) and 0xFF)
-        out.write((size shr 8) and 0xFF)
-        out.write(size and 0xFF)
-        out.write(nal, 0, size)
-    }
-    return if (out.size() > 0) out.toByteArray() else bytes
-}
-
-private fun extractSpsPps(bytes: ByteArray): Pair<ByteArray?, ByteArray?> {
-    var sps: ByteArray? = null
-    var pps: ByteArray? = null
-    var i = 0
-    val len = bytes.size
-    while (i < len) {
-        val startCodeLen = when {
-            i + 3 < len && bytes[i] == 0.toByte() && bytes[i + 1] == 0.toByte() && bytes[i + 2] == 0.toByte() && bytes[i + 3] == 1.toByte() -> 4
-            i + 2 < len && bytes[i] == 0.toByte() && bytes[i + 1] == 0.toByte() && bytes[i + 2] == 1.toByte() -> 3
-            else -> 0
-        }
-        if (startCodeLen > 0) {
-            val nalStart = i + startCodeLen
-            var nalEnd = len
-            var j = nalStart
-            while (j < len) {
-                if (j + 3 < len && bytes[j] == 0.toByte() && bytes[j + 1] == 0.toByte() && bytes[j + 2] == 0.toByte() && bytes[j + 3] == 1.toByte()) {
-                    nalEnd = j
-                    break
-                }
-                if (j + 2 < len && bytes[j] == 0.toByte() && bytes[j + 1] == 0.toByte() && bytes[j + 2] == 1.toByte()) {
-                    nalEnd = j
-                    break
-                }
-                j++
-            }
-            if (nalStart < nalEnd) {
-                val nalType = bytes[nalStart].toInt() and 0x1F
-                val nalData = bytes.copyOfRange(i, nalEnd)
-                if (nalType == 7 && sps == null) sps = nalData
-                if (nalType == 8 && pps == null) pps = nalData
-            }
-            i = nalEnd
-        } else {
-            i++
-        }
-    }
-    return Pair(sps, pps)
 }
 
 @Composable

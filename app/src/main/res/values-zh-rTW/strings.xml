@@ -23,10 +23,7 @@
     <string name="camera_waiting_video">正在等待視訊...</string>
     <string name="camera_close">關閉</string>
     <string name="camera_snapshot">擷圖</string>
-    <string name="camera_record_start">錄影</string>
-    <string name="camera_record_stop">停止錄影</string>
     <string name="camera_snapshot_saved">擷圖已儲存至相簿</string>
-    <string name="camera_record_saved">錄影已儲存至相簿</string>
     <string name="camera_debug_title">畫面資訊</string>
     <string name="camera_debug_session">工作階段</string>
     <string name="camera_debug_stream">串流參數</string>
