@@ -261,6 +261,16 @@ internal fun shouldRefreshMdnsDiscovery(
     endpointIp != sourceIp &&
         (previousRefreshAt == null || now - previousRefreshAt >= MDNS_REFRESH_MIN_INTERVAL_MILLIS)
 
+internal fun cloudBackoffDelay(attempt: Int): Long =
+    when {
+        attempt <= 3 -> 1_000L
+        attempt <= 6 -> 2_000L
+        attempt == 7 -> 4_000L
+        attempt == 8 -> 8_000L
+        attempt == 9 -> 16_000L
+        else -> 30_000L
+    }
+
 class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
 )
@@ -364,6 +374,7 @@ class ConnectionManager @Inject constructor(
     private val _cloudState = MutableStateFlow(CloudConnectionState())
     private val _lanConnectionError = MutableStateFlow<String?>(null)
     private var connectionJob: Job? = null
+    private val cloudRestartMutex = Mutex()
     private var swimJob: Job? = null
     private var suspectJob: Job? = null
     private val incomingTransfers = ConcurrentHashMap<String, IncomingTransferState>()
@@ -434,6 +445,14 @@ class ConnectionManager @Inject constructor(
             onLanAvailable = {
                 CoLinkLog.i("Connection", "network available, restarting LAN services")
                 scope.launch { restartLan() }
+            },
+            onNetworkLost = {
+                CoLinkLog.i("Connection", "network lost, stopping cloud websocket")
+                restartCloudAfterNetworkChange(reason = "network lost", reconnect = false)
+            },
+            onNetworkAvailable = {
+                CoLinkLog.i("Connection", "network available, restarting cloud websocket")
+                restartCloudAfterNetworkChange(reason = "network available", reconnect = true)
             },
         )
         scope.launch {
@@ -521,6 +540,26 @@ class ConnectionManager @Inject constructor(
         scope.launch {
             deviceRepository.clearCloudPresence()
             deviceRepository.listLocalDevices()
+        }
+    }
+
+    private fun restartCloudAfterNetworkChange(reason: String, reconnect: Boolean) {
+        scope.launch {
+            cloudRestartMutex.withLock {
+                if (!started.get()) {
+                    return@withLock
+                }
+                connectionJob?.cancel()
+                connectionJob = null
+                cloudWebSocketClient.close()
+                cloudBusinessVersions.clear()
+                deviceRepository.clearCloudPresence()
+                _cloudState.value = CloudConnectionState()
+                if (reconnect && settingsDataStore.currentSession() != null) {
+                    CoLinkLog.i("Cloud", "restarting cloud websocket reason=$reason")
+                    connectionJob = scope.launch { runCloudLoop() }
+                }
+            }
         }
     }
 
@@ -3372,6 +3411,10 @@ class ConnectionManager @Inject constructor(
                 url = buildWsUrl(ticket.serverUrl, ticket.ticket),
                 listener = object : CloudWebSocketClient.Listener {
                     override fun onOpen() {
+                        if (!connectionScope.isActive) {
+                            return
+                        }
+                        attempt = 0
                         _cloudState.value = CloudConnectionState(CloudStatus.Connected)
                         CoLinkLog.i("Cloud", "cloud websocket connected")
                         connectionScope.launch {
@@ -3383,6 +3426,9 @@ class ConnectionManager @Inject constructor(
                     }
 
                     override fun onMessage(webSocket: WebSocket, message: CloudServerEnvelope) {
+                        if (!connectionScope.isActive) {
+                            return
+                        }
                         CoLinkLog.d("Cloud", "received cloud message type=${message.type} from=${CoLinkLog.shortId(message.from)}")
                         connectionScope.launch { handleCloudMessage(webSocket, message) }
                     }
@@ -3532,13 +3578,7 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun backoffDelay(attempt: Int): Long =
-        when (attempt) {
-            0, 1 -> 1_000
-            2 -> 2_000
-            3 -> 4_000
-            4 -> 8_000
-            else -> 30_000
-        }
+        cloudBackoffDelay(attempt)
 
     private fun shouldInitiate(localDeviceId: String, peerDeviceId: String): Boolean =
         localDeviceId < peerDeviceId
