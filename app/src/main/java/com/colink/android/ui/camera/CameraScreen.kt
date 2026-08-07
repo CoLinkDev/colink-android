@@ -23,10 +23,16 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -57,6 +63,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.colink.android.BuildConfig
@@ -563,6 +572,7 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
     val debugState by viewModel.debugState.collectAsState()
     val errorMessage = state.error?.let { error -> stringResource(error.messageRes) }
     var isFullScreen by rememberSaveable { mutableStateOf(false) }
+    var areControlsVisible by rememberSaveable { mutableStateOf(true) }
     var surfaceViewRef by remember { mutableStateOf<SurfaceView?>(null) }
     var isRecording by remember { mutableStateOf(false) }
     var currentRecorder by remember { mutableStateOf<H264MuxerRecorder?>(null) }
@@ -619,6 +629,19 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
         }
     }
 
+    LaunchedEffect(isFullScreen) {
+        if (isFullScreen) {
+            areControlsVisible = true
+        }
+    }
+
+    LaunchedEffect(isFullScreen, areControlsVisible) {
+        if (isFullScreen && areControlsVisible) {
+            delay(3_000L)
+            areControlsVisible = false
+        }
+    }
+
     LaunchedEffect(isRecording) {
         if (isRecording) {
             viewModel.h264Frames.collect { frame ->
@@ -636,6 +659,27 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
         }
         onDispose {
             activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    DisposableEffect(isFullScreen, areControlsVisible) {
+        val activity = context.findActivity()
+        if (activity != null) {
+            val window = activity.window
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (isFullScreen && !areControlsVisible) {
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        onDispose {
+            val activity = context.findActivity()
+            if (activity != null) {
+                val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
         }
     }
 
@@ -673,6 +717,16 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                 .fillMaxSize()
                 .padding(if (isFullScreen) PaddingValues(0.dp) else padding)
                 .background(if (isFullScreen) Color.Black else Color.Transparent)
+                .then(
+                    if (isFullScreen) {
+                        Modifier.clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) {
+                            areControlsVisible = !areControlsVisible
+                        }
+                    } else Modifier
+                )
         ) {
             if (state.sessionId == null) {
                 Column(
@@ -843,13 +897,17 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                     }
                 }
 
-                if (isFullScreen) {
+                AnimatedVisibility(
+                    visible = isFullScreen && areControlsVisible,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 16.dp)
+                ) {
                     Surface(
                         color = Color.Black.copy(alpha = 0.65f),
                         shape = CircleShape,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 16.dp)
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -1083,7 +1141,7 @@ private fun CameraDebugPanel(state: CameraDebugUiState) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { isExpanded = !isExpanded }
-                    .padding(14.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1102,7 +1160,7 @@ private fun CameraDebugPanel(state: CameraDebugUiState) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                        .padding(start = 14.dp, end = 14.dp, bottom = 14.dp, top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     CameraDebugRow(
