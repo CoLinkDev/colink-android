@@ -109,6 +109,7 @@ import com.colink.android.ui.transfers.openTransferFile
 import android.widget.Toast
 import java.text.DateFormat
 import com.colink.android.util.TransferSpeedTracker
+import com.colink.android.util.formatFileSize
 import java.util.Date
 
 private val openDocumentMimeTypes = arrayOf("*/*")
@@ -658,7 +659,7 @@ private fun TransferBubble(
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(transfer.updatedAt))
     }
     val sizeText = remember(transfer.fileSize) {
-        formatSize(transfer.fileSize)
+        formatFileSize(transfer.fileSize)
     }
     val progressText = remember(transfer.status, transfer.transferredBytes, transfer.fileSize, transfer.sessionId) {
         if (transfer.status == "sending" || transfer.status == "receiving") {
@@ -884,7 +885,7 @@ private fun TransferDetailSheet(
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
             .format(Date(transfer.createdAt))
     }
-    val sizeText = remember(transfer.fileSize) { formatSize(transfer.fileSize) }
+    val sizeText = remember(transfer.fileSize) { formatFileSize(transfer.fileSize) }
     val localLocationText = transfer.localUri
         ?.takeIf { it.isNotBlank() }
         ?.let { raw ->
@@ -931,6 +932,17 @@ private fun TransferDetailSheet(
                 fontWeight = FontWeight.Bold,
             )
 
+            Button(
+                onClick = onOpen,
+                enabled = canOpen,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+            ) {
+                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.open_file_btn))
+            }
+
             TransferDetailRow(stringResource(R.string.transfer_detail_status)) {
                 BadgeChip(
                     text = statusLabel(transfer.status),
@@ -975,16 +987,6 @@ private fun TransferDetailSheet(
             TransferDetailRow(stringResource(R.string.transfer_detail_direction), directionText)
             TransferDetailRow(stringResource(R.string.transfer_detail_route), routeText)
             TransferDetailRow(stringResource(R.string.transfer_detail_device), deviceText)
-
-            Button(
-                onClick = onOpen,
-                enabled = canOpen,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-            ) {
-                Text(stringResource(R.string.open_file_btn))
-            }
         }
     }
 }
@@ -1028,14 +1030,6 @@ private fun statusLabel(status: String): String =
         "rejected" -> stringResource(R.string.status_rejected)
         "cancelled" -> stringResource(R.string.status_cancelled)
         else -> status.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
-    }
-
-private fun formatSize(bytes: Long): String =
-    when {
-        bytes >= 1024 * 1024 * 1024 -> "${bytes / (1024 * 1024 * 1024)} GB"
-        bytes >= 1024 * 1024 -> "${bytes / (1024 * 1024)} MB"
-        bytes >= 1024 -> "${bytes / 1024} KB"
-        else -> "$bytes B"
     }
 
 private fun deviceTypeIcon(type: String) =
