@@ -41,13 +41,21 @@ class FileChecksumVerifier private constructor(
 }
 
 fun ContentResolver.fileChecksum(uri: Uri, algorithm: String): String =
-    openInputStream(uri)?.use { input ->
-        buildFileChecksum(input, algorithm)
-    } ?: error("file is unavailable")
+    if (algorithm == "none") {
+        "none:none"
+    } else {
+        openInputStream(uri)?.use { input ->
+            buildFileChecksum(input, algorithm)
+        } ?: error("file is unavailable")
+    }
 
 fun File.fileChecksum(algorithm: String): String =
-    inputStream().use { input ->
-        buildFileChecksum(input, algorithm)
+    if (algorithm == "none") {
+        "none:none"
+    } else {
+        inputStream().use { input ->
+            buildFileChecksum(input, algorithm)
+        }
     }
 
 private fun buildFileChecksum(input: InputStream, algorithm: String): String {

@@ -110,11 +110,11 @@ class TransfersViewModel @Inject constructor(
                 }
                 return@launch
             }
+            _uiState.update { it.copy(working = false) }
             val result = connectionManager
                 .sendFileOffer(targetDeviceId, offer)
             _uiState.update {
                 it.copy(
-                    working = false,
                     message = result.exceptionOrNull()?.message,
                 )
             }
