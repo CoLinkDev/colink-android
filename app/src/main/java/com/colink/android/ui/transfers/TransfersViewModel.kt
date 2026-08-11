@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class TransfersUiState(
-    val working: Boolean = false,
     val message: String? = null,
     val localDeviceId: String? = null,
 )
@@ -63,11 +62,10 @@ class TransfersViewModel @Inject constructor(
     fun accept(sessionId: String) {
         val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(working = true, message = null) }
+            _uiState.update { it.copy(message = null) }
             val result = connectionManager.acceptFileOffer(sessionId)
             _uiState.update {
                 it.copy(
-                    working = false,
                     message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_transfer_accepted),
                 )
             }
@@ -77,11 +75,10 @@ class TransfersViewModel @Inject constructor(
     fun reject(sessionId: String) {
         val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {
-            _uiState.update { it.copy(working = true, message = null) }
+            _uiState.update { it.copy(message = null) }
             val result = connectionManager.rejectFileOffer(sessionId)
             _uiState.update {
                 it.copy(
-                    working = false,
                     message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_transfer_rejected),
                 )
             }
@@ -93,31 +90,31 @@ class TransfersViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             if (targetDeviceId == null || uri == null) {
                 _uiState.update {
-                    it.copy(working = false, message = localizedContext.getString(R.string.toast_select_device_and_file))
+                    it.copy(message = localizedContext.getString(R.string.toast_select_device_and_file))
                 }
                 return@launch
             }
-            _uiState.update { it.copy(working = true, message = null) }
+            _uiState.update { it.copy(message = null) }
+            val prepared = connectionManager
+                .beginOutgoingTransfer(contentResolver, targetDeviceId, uri)
+                .getOrElse {
+                    _uiState.update { state -> state.copy(message = it.message) }
+                    return@launch
+                }
             val offer = runCatching {
                 buildFileOffer(
                     contentResolver,
                     uri,
-                    connectionManager.fileChecksumAlgorithmFor(targetDeviceId),
+                    prepared.algorithm,
+                    prepared.sessionId,
                 )
             }.getOrElse {
-                _uiState.update { state ->
-                    state.copy(working = false, message = it.message)
-                }
+                connectionManager.failOutgoingTransfer(prepared.sessionId, it.message)
+                _uiState.update { state -> state.copy(message = it.message) }
                 return@launch
             }
-            _uiState.update { it.copy(working = false) }
-            val result = connectionManager
-                .sendFileOffer(targetDeviceId, offer)
-            _uiState.update {
-                it.copy(
-                    message = result.exceptionOrNull()?.message,
-                )
-            }
+            val result = connectionManager.sendFileOffer(targetDeviceId, offer)
+            _uiState.update { state -> state.copy(message = result.exceptionOrNull()?.message) }
         }
     }
 

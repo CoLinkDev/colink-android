@@ -329,6 +329,8 @@
     <string name="status_sending">Enviando</string>
     <string name="status_verifying">Comprobando integridad</string>
     <string name="status_offered">Ofrecido</string>
+    <string name="status_computing">Calculando hash</string>
+    <string name="status_connecting">Conectando</string>
     <string name="status_failed">Fallido</string>
     <string name="status_rejected">Rechazado</string>
     <string name="status_cancelled">Cancelado</string>

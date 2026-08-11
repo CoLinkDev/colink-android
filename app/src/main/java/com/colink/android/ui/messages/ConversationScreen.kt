@@ -298,7 +298,6 @@ fun ConversationScreen(
                     device = device,
                     timelineItems = timelineItems,
                     isSendingMessage = messageUiState.sending,
-                    isWorkingFiles = transferUiState.working,
                     draft = draft,
                     onDraftChange = { draft = it },
                     onSendText = {
@@ -369,7 +368,6 @@ private fun ConversationContent(
     device: Device,
     timelineItems: List<TimelineItem>,
     isSendingMessage: Boolean,
-    isWorkingFiles: Boolean,
     draft: String,
     onDraftChange: (String) -> Unit,
     onSendText: () -> Unit,
@@ -387,13 +385,6 @@ private fun ConversationContent(
             .imePadding(),
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        if (isWorkingFiles) {
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
         ConversationThread(
             timelineItems = timelineItems,
             onAcceptTransfer = onAcceptTransfer,
@@ -1031,6 +1022,8 @@ private fun statusLabel(status: String): String =
         "sending" -> stringResource(R.string.status_sending)
         "verifying" -> stringResource(R.string.status_verifying)
         "offered" -> stringResource(R.string.status_offered)
+        "computing" -> stringResource(R.string.status_computing)
+        "connecting" -> stringResource(R.string.status_connecting)
         "failed" -> stringResource(R.string.status_failed)
         "rejected" -> stringResource(R.string.status_rejected)
         "cancelled" -> stringResource(R.string.status_cancelled)

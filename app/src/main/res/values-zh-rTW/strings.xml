@@ -329,6 +329,8 @@
     <string name="status_sending">傳送中</string>
     <string name="status_verifying">正在檢查完整性</string>
     <string name="status_offered">已提供</string>
+    <string name="status_computing">正在計算雜湊</string>
+    <string name="status_connecting">正在建立連線</string>
     <string name="status_failed">失敗</string>
     <string name="status_rejected">已拒絕</string>
     <string name="status_cancelled">已取消</string>

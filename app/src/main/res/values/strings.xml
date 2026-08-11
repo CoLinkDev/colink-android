@@ -329,6 +329,8 @@
     <string name="status_sending">Sending</string>
     <string name="status_verifying">Checking integrity</string>
     <string name="status_offered">Offered</string>
+    <string name="status_computing">Computing hash</string>
+    <string name="status_connecting">Connecting</string>
     <string name="status_failed">Failed</string>
     <string name="status_rejected">Rejected</string>
     <string name="status_cancelled">Cancelled</string>

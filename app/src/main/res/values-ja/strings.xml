@@ -329,6 +329,8 @@
     <string name="status_sending">送信中</string>
     <string name="status_verifying">整合性を確認中</string>
     <string name="status_offered">提案済み</string>
+    <string name="status_computing">ハッシュ計算中</string>
+    <string name="status_connecting">接続中</string>
     <string name="status_failed">失敗</string>
     <string name="status_rejected">拒否されました</string>
     <string name="status_cancelled">キャンセルされました</string>

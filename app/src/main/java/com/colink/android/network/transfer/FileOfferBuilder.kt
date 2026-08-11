@@ -9,66 +9,19 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private const val FILE_CHUNK_SIZE = 512 * 1024L
+const val FILE_CHUNK_SIZE = 512 * 1024L
 
 data class BuiltFileOffer(
     val payload: FileOfferPayload,
     val localUri: String,
 )
 
-suspend fun buildFileOffer(
-    contentResolver: ContentResolver,
-    uri: Uri,
-    algorithm: String,
-): BuiltFileOffer =
-    withContext(Dispatchers.IO) {
-        val metadata = contentResolver.readFileMetadata(uri)
-        val totalChunks = if (metadata.size == 0L) {
-            0
-        } else {
-            (metadata.size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
-        }
-        BuiltFileOffer(
-            payload = FileOfferPayload(
-                sessionId = UUID.randomUUID().toString(),
-                fileName = metadata.name,
-                fileSize = metadata.size,
-                totalChunks = totalChunks,
-                chunkSize = FILE_CHUNK_SIZE,
-                checksum = contentResolver.fileChecksum(uri, algorithm),
-            ),
-            localUri = uri.toString(),
-        )
-    }
-
-suspend fun buildFileOffer(file: File, algorithm: String): BuiltFileOffer =
-    withContext(Dispatchers.IO) {
-        require(file.isFile) { "file is unavailable" }
-        val size = file.length()
-        val totalChunks = if (size == 0L) {
-            0
-        } else {
-            (size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
-        }
-        BuiltFileOffer(
-            payload = FileOfferPayload(
-                sessionId = UUID.randomUUID().toString(),
-                fileName = file.name.ifBlank { "file" },
-                fileSize = size,
-                totalChunks = totalChunks,
-                chunkSize = FILE_CHUNK_SIZE,
-                checksum = file.fileChecksum(algorithm),
-            ),
-            localUri = file.toURI().toString(),
-        )
-    }
-
-private data class FileMetadata(
+data class FileMetadata(
     val name: String,
     val size: Long,
 )
 
-private fun ContentResolver.readFileMetadata(uri: Uri): FileMetadata {
+fun ContentResolver.readFileMetadata(uri: Uri): FileMetadata {
     var name = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null } ?: "file"
     var size = -1L
     query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)
@@ -90,3 +43,55 @@ private fun ContentResolver.readFileMetadata(uri: Uri): FileMetadata {
     require(size >= 0) { "file size is unavailable" }
     return FileMetadata(name = name, size = size)
 }
+
+suspend fun buildFileOffer(
+    contentResolver: ContentResolver,
+    uri: Uri,
+    algorithm: String,
+    sessionId: String = UUID.randomUUID().toString(),
+): BuiltFileOffer =
+    withContext(Dispatchers.IO) {
+        val metadata = contentResolver.readFileMetadata(uri)
+        val totalChunks = if (metadata.size == 0L) {
+            0
+        } else {
+            (metadata.size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+        }
+        BuiltFileOffer(
+            payload = FileOfferPayload(
+                sessionId = sessionId,
+                fileName = metadata.name,
+                fileSize = metadata.size,
+                totalChunks = totalChunks,
+                chunkSize = FILE_CHUNK_SIZE,
+                checksum = contentResolver.fileChecksum(uri, algorithm),
+            ),
+            localUri = uri.toString(),
+        )
+    }
+
+suspend fun buildFileOffer(
+    file: File,
+    algorithm: String,
+    sessionId: String = UUID.randomUUID().toString(),
+): BuiltFileOffer =
+    withContext(Dispatchers.IO) {
+        require(file.isFile) { "file is unavailable" }
+        val size = file.length()
+        val totalChunks = if (size == 0L) {
+            0
+        } else {
+            (size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+        }
+        BuiltFileOffer(
+            payload = FileOfferPayload(
+                sessionId = sessionId,
+                fileName = file.name.ifBlank { "file" },
+                fileSize = size,
+                totalChunks = totalChunks,
+                chunkSize = FILE_CHUNK_SIZE,
+                checksum = file.fileChecksum(algorithm),
+            ),
+            localUri = file.toURI().toString(),
+        )
+    }

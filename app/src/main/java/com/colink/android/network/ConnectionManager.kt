@@ -142,12 +142,15 @@ import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.buildFileOffer
 import com.colink.android.network.transfer.selectFileChecksumAlgorithm
+import com.colink.android.network.transfer.FILE_CHUNK_SIZE
+import com.colink.android.network.transfer.FileChecksumVerifier
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
-import com.colink.android.network.transfer.FileChecksumVerifier
+import com.colink.android.network.transfer.readFileMetadata
 import com.colink.android.network.music.MusicSyncManager
 import com.colink.android.network.sysinfo.SysInfoSyncManager
 import com.colink.android.util.LocaleHelper
+import android.content.ContentResolver
 import java.io.File
 import java.io.InterruptedIOException
 import java.io.InputStream
@@ -229,6 +232,11 @@ private const val REASON_TRANSFER_USER_REJECTED = "colink:transfer.user_rejected
 private const val REASON_TRANSFER_CHECKSUM_MISMATCH = "colink:transfer.checksum_mismatch.v1"
 private const val REASON_TRANSFER_GENERIC = "colink:transfer.generic.v1"
 private const val REASON_CAMERA_GENERIC = "colink:camera.generic.v1"
+
+data class PreparedOutgoingTransfer(
+    val sessionId: String,
+    val algorithm: String,
+)
 
 enum class RemoteFilesystemSupport {
     SUPPORTED,
@@ -2483,38 +2491,96 @@ class ConnectionManager @Inject constructor(
             }
         }
 
-    suspend fun sendFileOffer(
+    suspend fun beginOutgoingTransfer(
+        contentResolver: ContentResolver,
         targetDeviceId: String,
-        offer: BuiltFileOffer,
-        correlationId: String? = null,
-    ): Result<Unit> =
+        uri: Uri,
+    ): Result<PreparedOutgoingTransfer> =
         runCatching {
+            val algorithm = fileChecksumAlgorithmFor(targetDeviceId)
+            val metadata = contentResolver.readFileMetadata(uri)
+            val sessionId = UUID.randomUUID().toString()
             val now = System.currentTimeMillis()
             val route = routeForDevice(targetDeviceId)
+            val totalChunks = if (metadata.size == 0L) {
+                0
+            } else {
+                (metadata.size + FILE_CHUNK_SIZE - 1) / FILE_CHUNK_SIZE
+            }
             fileTransferRepository.save(
                 FileTransfer(
-                    sessionId = offer.payload.sessionId,
+                    sessionId = sessionId,
                     deviceId = targetDeviceId,
                     direction = FileTransferDirection.Outgoing,
-                    fileName = offer.payload.fileName,
-                    fileSize = offer.payload.fileSize,
+                    fileName = metadata.name,
+                    fileSize = metadata.size,
                     transferredBytes = 0,
-                    totalChunks = offer.payload.totalChunks,
-                    status = "offered",
-                    checksum = offer.payload.checksum,
+                    totalChunks = totalChunks,
+                    status = "computing",
+                    checksum = "",
                     route = route,
-                    localUri = offer.localUri,
+                    localUri = uri.toString(),
                     error = null,
                     createdAt = now,
                     updatedAt = now,
                 ),
             )
-            outgoingTransfers[offer.payload.sessionId] = OutgoingTransferState(
+            PreparedOutgoingTransfer(sessionId = sessionId, algorithm = algorithm)
+        }
+
+    suspend fun failOutgoingTransfer(sessionId: String, error: String?) {
+        fileTransferRepository.get(sessionId)?.let { transfer ->
+            fileTransferRepository.save(
+                transfer.copy(
+                    status = "failed",
+                    error = error,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    suspend fun sendFileOffer(
+        targetDeviceId: String,
+        offer: BuiltFileOffer,
+        correlationId: String? = null,
+    ): Result<Unit> {
+        val sessionId = offer.payload.sessionId
+        return try {
+            val now = System.currentTimeMillis()
+            val route = routeForDevice(targetDeviceId)
+            val existing = fileTransferRepository.get(sessionId)
+            val base = existing?.copy(
+                deviceId = targetDeviceId,
+                fileName = offer.payload.fileName,
+                fileSize = offer.payload.fileSize,
+                totalChunks = offer.payload.totalChunks,
+                checksum = offer.payload.checksum,
+                route = route,
+                localUri = offer.localUri,
+            ) ?: FileTransfer(
+                sessionId = sessionId,
+                deviceId = targetDeviceId,
+                direction = FileTransferDirection.Outgoing,
+                fileName = offer.payload.fileName,
+                fileSize = offer.payload.fileSize,
+                transferredBytes = 0,
+                totalChunks = offer.payload.totalChunks,
+                status = "offered",
+                checksum = offer.payload.checksum,
+                route = route,
+                localUri = offer.localUri,
+                error = null,
+                createdAt = now,
+                updatedAt = now,
+            )
+            fileTransferRepository.save(base.copy(status = "connecting", updatedAt = now))
+            outgoingTransfers[sessionId] = OutgoingTransferState(
                 deviceId = targetDeviceId,
                 localUri = offer.localUri,
                 chunkSize = offer.payload.chunkSize.toInt(),
             )
-            scheduleOfferExpiry(offer.payload.sessionId)
+            scheduleOfferExpiry(sessionId)
             val actualRoute = sendBusinessMessage(
                 targetDeviceId = targetDeviceId,
                 business = BusinessEnvelope(
@@ -2523,17 +2589,27 @@ class ConnectionManager @Inject constructor(
                 ),
                 correlationId = correlationId,
             ).getOrThrow()
-            fileTransferRepository.get(offer.payload.sessionId)?.let { transfer ->
-                if (transfer.route != actualRoute) {
-                    fileTransferRepository.save(
-                        transfer.copy(
-                            route = actualRoute,
-                            updatedAt = System.currentTimeMillis(),
-                        ),
-                    )
-                }
+            fileTransferRepository.save(
+                base.copy(
+                    status = "offered",
+                    route = actualRoute,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            Result.success(Unit)
+        } catch (error: Throwable) {
+            fileTransferRepository.get(sessionId)?.let { transfer ->
+                fileTransferRepository.save(
+                    transfer.copy(
+                        status = "failed",
+                        error = error.message ?: "failed to send file offer",
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
             }
+            Result.failure(error)
         }
+    }
 
     suspend fun rejectFileOffer(sessionId: String, reason: String = REASON_TRANSFER_USER_REJECTED): Result<Unit> =
         runCatching {
