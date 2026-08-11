@@ -327,7 +327,7 @@
     <string name="status_completed">已完成</string>
     <string name="status_receiving">接收中</string>
     <string name="status_sending">发送中</string>
-    <string name="status_verifying">正在检查完整性</string>
+    <string name="status_verifying">保存中</string>
     <string name="status_offered">已提供</string>
     <string name="status_computing">正在计算哈希</string>
     <string name="status_connecting">正在建立连接</string>

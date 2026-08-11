@@ -327,7 +327,7 @@
     <string name="status_completed">Abgeschlossen</string>
     <string name="status_receiving">Empfangen</string>
     <string name="status_sending">Senden</string>
-    <string name="status_verifying">Integrität wird geprüft</string>
+    <string name="status_verifying">Speichern</string>
     <string name="status_offered">Angeboten</string>
     <string name="status_computing">Hash wird berechnet</string>
     <string name="status_connecting">Verbinde</string>

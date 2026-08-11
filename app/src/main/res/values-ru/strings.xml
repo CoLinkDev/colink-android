@@ -327,7 +327,7 @@
     <string name="status_completed">Завершено</string>
     <string name="status_receiving">Получение</string>
     <string name="status_sending">Отправка</string>
-    <string name="status_verifying">Проверка целостности</string>
+    <string name="status_verifying">Сохранение</string>
     <string name="status_offered">Предложено</string>
     <string name="status_computing">Вычисление хеша</string>
     <string name="status_connecting">Подключение</string>

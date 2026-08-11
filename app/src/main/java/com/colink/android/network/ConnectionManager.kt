@@ -152,6 +152,7 @@ import com.colink.android.network.sysinfo.SysInfoSyncManager
 import com.colink.android.util.LocaleHelper
 import android.content.ContentResolver
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InterruptedIOException
 import java.io.InputStream
 import android.net.Uri
@@ -2936,7 +2937,10 @@ class ConnectionManager @Inject constructor(
             json.decodeFromJsonElement(FileCancelPayload.serializer(), business.payload)
         }.getOrNull() ?: return
         val transfer = fileTransferRepository.get(payload.sessionId) ?: return
-        incomingTransfers.remove(payload.sessionId)?.tempFile?.delete()
+        incomingTransfers.remove(payload.sessionId)?.let { removed ->
+            closeIncomingOutput(removed)
+            removed.tempFile.delete()
+        }
         outgoingTransfers.remove(payload.sessionId)
         ackSignals.remove(payload.sessionId)?.complete(Unit)
         lanWebSocketServer.unregisterTransfer(payload.sessionId)
@@ -3104,6 +3108,7 @@ class ConnectionManager @Inject constructor(
                 val reason = frame.payload.decodeToString().ifBlank { "cancelled" }
                 incomingTransfers.remove(sessionId)
                 lanWebSocketServer.unregisterTransfer(sessionId)
+                closeIncomingOutput(state)
                 state.tempFile.delete()
                 fileTransferRepository.save(
                     transfer.copy(
@@ -3152,6 +3157,7 @@ class ConnectionManager @Inject constructor(
         state: IncomingTransferState,
         transfer: FileTransfer,
     ) {
+        closeIncomingOutput(state)
         val localizedContext = LocaleHelper.localized(context)
         val chunksComplete = state.receivedChunks == state.expectedChunks
         val verifyingTransfer = if (chunksComplete) {
@@ -3680,28 +3686,32 @@ class ConnectionManager @Inject constructor(
                 sendRetransmit(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
             }
             else -> {
-                var deltaBytes = appendIncomingChunk(state, bytes).toLong()
+                appendIncomingChunk(state, bytes)
                 while (true) {
                     val buffered = state.reorderBuffer.remove(state.receivedChunks) ?: break
-                    deltaBytes += appendIncomingChunk(state, buffered)
+                    appendIncomingChunk(state, buffered)
                 }
                 val current = fileTransferRepository.get(sessionId) ?: transfer
-                val nextBytes = (current.transferredBytes + deltaBytes).coerceAtMost(current.fileSize)
-                fileTransferRepository.save(
-                    current.copy(
-                        transferredBytes = nextBytes,
-                        route = state.route,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
-                if (shouldSendFileAck(state.receivedChunks, state.expectedChunks)) {
+                val nextBytes = state.receivedBytes.coerceAtMost(current.fileSize)
+                val complete = state.receivedChunks == state.expectedChunks
+                val ackDue = shouldSendFileAck(state.receivedChunks, state.expectedChunks)
+                if (complete || ackDue) {
+                    fileTransferRepository.save(
+                        current.copy(
+                            transferredBytes = nextBytes,
+                            route = state.route,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+                if (ackDue) {
                     sendAck(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
                 }
-                if (finishWhenComplete && state.receivedChunks == state.expectedChunks) {
+                if (finishWhenComplete && complete) {
                     finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
                 }
                 if (!finishWhenComplete && state.finishReceived) {
-                    if (state.receivedChunks == state.expectedChunks) {
+                    if (complete) {
                         finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
                     } else {
                         sendRetransmit(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
@@ -3718,7 +3728,10 @@ class ConnectionManager @Inject constructor(
             if (transfer.status != "offered") {
                 return@launch
             }
-            incomingTransfers.remove(sessionId)?.tempFile?.delete()
+            incomingTransfers.remove(sessionId)?.let { expired ->
+                closeIncomingOutput(expired)
+                expired.tempFile.delete()
+            }
             outgoingTransfers.remove(sessionId)
             fileTransferRepository.save(
                 transfer.copy(
@@ -3731,10 +3744,16 @@ class ConnectionManager @Inject constructor(
     }
 
     private fun appendIncomingChunk(state: IncomingTransferState, bytes: ByteArray): Int {
-        state.tempFile.appendBytes(bytes)
+        state.output.write(bytes)
         state.verifier.update(bytes)
         state.receivedChunks += 1
+        state.receivedBytes += bytes.size
         return bytes.size
+    }
+
+    private fun closeIncomingOutput(state: IncomingTransferState) {
+        runCatching { state.output.flush() }
+        runCatching { state.output.close() }
     }
 
     private suspend fun processFileAck(sessionId: String, nextExpectedIndex: Long) {
@@ -3902,7 +3921,10 @@ class ConnectionManager @Inject constructor(
     ): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
-            incomingTransfers.remove(sessionId)?.tempFile?.delete()
+            incomingTransfers.remove(sessionId)?.let { removed ->
+                closeIncomingOutput(removed)
+                removed.tempFile.delete()
+            }
             outgoingTransfers.remove(sessionId)?.transferConnection?.send(FileDataFrame.cancel(reason))
             ackSignals.remove(sessionId)?.complete(Unit)
             lanWebSocketServer.sendTransferFrame(sessionId, FileDataFrame.cancel(reason))
@@ -4366,7 +4388,10 @@ private data class IncomingTransferState(
     val reorderBuffer: TreeMap<Long, ByteArray> = TreeMap(),
     var finishReceived: Boolean = false,
     val frameMutex: Mutex = Mutex(),
-)
+) {
+    val output: FileOutputStream = FileOutputStream(tempFile)
+    var receivedBytes: Long = 0
+}
 
 private data class OutgoingTransferState(
     val deviceId: String,
