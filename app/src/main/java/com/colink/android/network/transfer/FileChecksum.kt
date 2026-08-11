@@ -2,12 +2,21 @@ package com.colink.android.network.transfer
 
 import android.content.ContentResolver
 import android.net.Uri
+import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 import org.bouncycastle.crypto.digests.Blake3Digest
 
-private const val DEFAULT_FILE_CHECKSUM_ALGORITHM = "blake3"
+fun selectFileChecksumAlgorithm(peerBusinessVersion: String?): String =
+    when {
+        peerBusinessVersion
+            ?.let { supportsBusinessProtocolAtLeast(it, major = 1, minor = 3) } == true -> "none"
+        peerBusinessVersion
+            ?.let { supportsBusinessProtocolAtLeast(it, major = 1, minor = 2) } == true -> "blake3"
+        peerBusinessVersion != null -> error("peer does not support any file checksum algorithm")
+        else -> "blake3"
+    }
 
 class FileChecksumVerifier private constructor(
     private val expectedDigest: String,
@@ -31,14 +40,14 @@ class FileChecksumVerifier private constructor(
     }
 }
 
-fun ContentResolver.fileChecksum(uri: Uri): String =
+fun ContentResolver.fileChecksum(uri: Uri, algorithm: String): String =
     openInputStream(uri)?.use { input ->
-        buildFileChecksum(input, DEFAULT_FILE_CHECKSUM_ALGORITHM)
+        buildFileChecksum(input, algorithm)
     } ?: error("file is unavailable")
 
-fun File.fileChecksum(): String =
+fun File.fileChecksum(algorithm: String): String =
     inputStream().use { input ->
-        buildFileChecksum(input, DEFAULT_FILE_CHECKSUM_ALGORITHM)
+        buildFileChecksum(input, algorithm)
     }
 
 private fun buildFileChecksum(input: InputStream, algorithm: String): String {

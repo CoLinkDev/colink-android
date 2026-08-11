@@ -332,6 +332,21 @@
     <string name="status_failed">失敗</string>
     <string name="status_rejected">拒否されました</string>
     <string name="status_cancelled">キャンセルされました</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">時間</string>
+    <string name="transfer_detail_status">ステータス</string>
+    <string name="transfer_detail_file_size">サイズ</string>
+    <string name="transfer_detail_local_location">ローカル場所</string>
+    <string name="transfer_detail_hash_algorithm">ハッシュアルゴリズム</string>
+    <string name="transfer_detail_hash">ハッシュ</string>
+    <string name="transfer_detail_direction">方向</string>
+    <string name="transfer_detail_route">経路</string>
+    <string name="transfer_detail_device">デバイス</string>
+    <string name="transfer_direction_incoming">受信</string>
+    <string name="transfer_direction_outgoing">送信</string>
+    <string name="open_file_btn">ファイルを開く</string>
+    <string name="transfer_hash_none">なし</string>
     <string name="pair_qr_scan">ペアリング QR コードを読み取る</string>
     <string name="pair_qr_show">ペアリング QR コードを表示</string>
     <string name="pair_qr_title">ペアリング QR コード</string>

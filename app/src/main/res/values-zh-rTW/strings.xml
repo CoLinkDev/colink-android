@@ -332,6 +332,21 @@
     <string name="status_failed">失敗</string>
     <string name="status_rejected">已拒絕</string>
     <string name="status_cancelled">已取消</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">時間</string>
+    <string name="transfer_detail_status">狀態</string>
+    <string name="transfer_detail_file_size">大小</string>
+    <string name="transfer_detail_local_location">本機位置</string>
+    <string name="transfer_detail_hash_algorithm">雜湊演算法</string>
+    <string name="transfer_detail_hash">雜湊值</string>
+    <string name="transfer_detail_direction">方向</string>
+    <string name="transfer_detail_route">路由</string>
+    <string name="transfer_detail_device">裝置</string>
+    <string name="transfer_direction_incoming">接收</string>
+    <string name="transfer_direction_outgoing">傳送</string>
+    <string name="open_file_btn">開啟檔案</string>
+    <string name="transfer_hash_none">無</string>
     <string name="pair_qr_scan">掃描配對 QR Code</string>
     <string name="pair_qr_show">顯示配對 QR Code</string>
     <string name="pair_qr_title">配對 QR Code</string>

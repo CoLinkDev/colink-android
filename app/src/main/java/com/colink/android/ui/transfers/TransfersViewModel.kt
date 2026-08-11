@@ -98,7 +98,13 @@ class TransfersViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(working = true, message = null) }
-            val offer = runCatching { buildFileOffer(contentResolver, uri) }.getOrElse {
+            val offer = runCatching {
+                buildFileOffer(
+                    contentResolver,
+                    uri,
+                    connectionManager.fileChecksumAlgorithmFor(targetDeviceId),
+                )
+            }.getOrElse {
                 _uiState.update { state ->
                     state.copy(working = false, message = it.message)
                 }

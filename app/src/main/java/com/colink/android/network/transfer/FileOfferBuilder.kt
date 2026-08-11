@@ -16,7 +16,11 @@ data class BuiltFileOffer(
     val localUri: String,
 )
 
-suspend fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFileOffer =
+suspend fun buildFileOffer(
+    contentResolver: ContentResolver,
+    uri: Uri,
+    algorithm: String,
+): BuiltFileOffer =
     withContext(Dispatchers.IO) {
         val metadata = contentResolver.readFileMetadata(uri)
         val totalChunks = if (metadata.size == 0L) {
@@ -31,13 +35,13 @@ suspend fun buildFileOffer(contentResolver: ContentResolver, uri: Uri): BuiltFil
                 fileSize = metadata.size,
                 totalChunks = totalChunks,
                 chunkSize = FILE_CHUNK_SIZE,
-                checksum = contentResolver.fileChecksum(uri),
+                checksum = contentResolver.fileChecksum(uri, algorithm),
             ),
             localUri = uri.toString(),
         )
     }
 
-suspend fun buildFileOffer(file: File): BuiltFileOffer =
+suspend fun buildFileOffer(file: File, algorithm: String): BuiltFileOffer =
     withContext(Dispatchers.IO) {
         require(file.isFile) { "file is unavailable" }
         val size = file.length()
@@ -53,7 +57,7 @@ suspend fun buildFileOffer(file: File): BuiltFileOffer =
                 fileSize = size,
                 totalChunks = totalChunks,
                 chunkSize = FILE_CHUNK_SIZE,
-                checksum = file.fileChecksum(),
+                checksum = file.fileChecksum(algorithm),
             ),
             localUri = file.toURI().toString(),
         )

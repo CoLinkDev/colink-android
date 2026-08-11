@@ -141,6 +141,7 @@ import com.colink.android.network.message.checkBusinessProtocolVersion
 import com.colink.android.network.message.supportsBusinessProtocolAtLeast
 import com.colink.android.network.transfer.BuiltFileOffer
 import com.colink.android.network.transfer.buildFileOffer
+import com.colink.android.network.transfer.selectFileChecksumAlgorithm
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.FileChecksumVerifier
@@ -1132,6 +1133,9 @@ class ConnectionManager @Inject constructor(
         return algorithm != "none" || peerBusinessVersion(deviceId)
             ?.let { supportsBusinessProtocolAtLeast(it, major = 1, minor = 3) } == true
     }
+
+    fun fileChecksumAlgorithmFor(deviceId: String): String =
+        selectFileChecksumAlgorithm(peerBusinessVersion(deviceId))
 
     private fun peerBusinessVersion(deviceId: String): String? =
         lanWebSocketServer.peerBusinessVersion(deviceId)
@@ -2212,7 +2216,7 @@ class ConnectionManager @Inject constructor(
                 }
                 runFilesystemOperation { localFilesystem.download(request) }
                     .onSuccess { file ->
-                        runCatching { buildFileOffer(file) }
+                        runCatching { buildFileOffer(file, fileChecksumAlgorithmFor(fromDeviceId)) }
                             .onSuccess { offer ->
                                 sendFileOffer(fromDeviceId, offer, correlationId = requestId)
                                     .onFailure { error ->

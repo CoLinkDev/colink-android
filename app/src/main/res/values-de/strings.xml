@@ -332,6 +332,21 @@
     <string name="status_failed">Fehlgeschlagen</string>
     <string name="status_rejected">Abgelehnt</string>
     <string name="status_cancelled">Abgebrochen</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">Zeit</string>
+    <string name="transfer_detail_status">Status</string>
+    <string name="transfer_detail_file_size">Größe</string>
+    <string name="transfer_detail_local_location">Lokaler Speicherort</string>
+    <string name="transfer_detail_hash_algorithm">Hash-Algorithmus</string>
+    <string name="transfer_detail_hash">Hash</string>
+    <string name="transfer_detail_direction">Richtung</string>
+    <string name="transfer_detail_route">Route</string>
+    <string name="transfer_detail_device">Gerät</string>
+    <string name="transfer_direction_incoming">Eingehend</string>
+    <string name="transfer_direction_outgoing">Ausgehend</string>
+    <string name="open_file_btn">Datei öffnen</string>
+    <string name="transfer_hash_none">Keine</string>
     <string name="pair_qr_scan">Kopplungs-QR-Code scannen</string>
     <string name="pair_qr_show">Kopplungs-QR-Code anzeigen</string>
     <string name="pair_qr_title">Kopplungs-QR-Code</string>

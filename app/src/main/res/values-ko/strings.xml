@@ -332,6 +332,21 @@
     <string name="status_failed">실패함</string>
     <string name="status_rejected">거절됨</string>
     <string name="status_cancelled">취소됨</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">시간</string>
+    <string name="transfer_detail_status">상태</string>
+    <string name="transfer_detail_file_size">크기</string>
+    <string name="transfer_detail_local_location">로컬 위치</string>
+    <string name="transfer_detail_hash_algorithm">해시 알고리즘</string>
+    <string name="transfer_detail_hash">해시</string>
+    <string name="transfer_detail_direction">방향</string>
+    <string name="transfer_detail_route">경로</string>
+    <string name="transfer_detail_device">기기</string>
+    <string name="transfer_direction_incoming">수신</string>
+    <string name="transfer_direction_outgoing">발신</string>
+    <string name="open_file_btn">파일 열기</string>
+    <string name="transfer_hash_none">없음</string>
     <string name="pair_qr_scan">페어링 QR 코드 스캔</string>
     <string name="pair_qr_show">페어링 QR 코드 표시</string>
     <string name="pair_qr_title">페어링 QR 코드</string>

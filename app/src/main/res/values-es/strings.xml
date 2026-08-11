@@ -332,6 +332,21 @@
     <string name="status_failed">Fallido</string>
     <string name="status_rejected">Rechazado</string>
     <string name="status_cancelled">Cancelado</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">Hora</string>
+    <string name="transfer_detail_status">Estado</string>
+    <string name="transfer_detail_file_size">Tamaño</string>
+    <string name="transfer_detail_local_location">Ubicación local</string>
+    <string name="transfer_detail_hash_algorithm">Algoritmo hash</string>
+    <string name="transfer_detail_hash">Hash</string>
+    <string name="transfer_detail_direction">Dirección</string>
+    <string name="transfer_detail_route">Ruta</string>
+    <string name="transfer_detail_device">Dispositivo</string>
+    <string name="transfer_direction_incoming">Entrante</string>
+    <string name="transfer_direction_outgoing">Saliente</string>
+    <string name="open_file_btn">Abrir archivo</string>
+    <string name="transfer_hash_none">Ninguno</string>
     <string name="pair_qr_scan">Escanear código QR de emparejamiento</string>
     <string name="pair_qr_show">Mostrar código QR de emparejamiento</string>
     <string name="pair_qr_title">Código QR de emparejamiento</string>

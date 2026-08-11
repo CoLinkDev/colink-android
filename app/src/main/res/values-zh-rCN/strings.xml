@@ -332,6 +332,21 @@
     <string name="status_failed">失败</string>
     <string name="status_rejected">已拒绝</string>
     <string name="status_cancelled">已取消</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">时间</string>
+    <string name="transfer_detail_status">状态</string>
+    <string name="transfer_detail_file_size">大小</string>
+    <string name="transfer_detail_local_location">本地位置</string>
+    <string name="transfer_detail_hash_algorithm">哈希算法</string>
+    <string name="transfer_detail_hash">哈希值</string>
+    <string name="transfer_detail_direction">方向</string>
+    <string name="transfer_detail_route">路由</string>
+    <string name="transfer_detail_device">设备</string>
+    <string name="transfer_direction_incoming">接收</string>
+    <string name="transfer_direction_outgoing">发送</string>
+    <string name="open_file_btn">打开文件</string>
+    <string name="transfer_hash_none">无</string>
     <string name="pair_qr_scan">扫描配对二维码</string>
     <string name="pair_qr_show">显示配对二维码</string>
     <string name="pair_qr_title">配对二维码</string>

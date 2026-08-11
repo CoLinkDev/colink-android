@@ -332,6 +332,21 @@
     <string name="status_failed">Ошибка</string>
     <string name="status_rejected">Отклонено</string>
     <string name="status_cancelled">Отменено</string>
+
+    <!-- Transfer detail sheet -->
+    <string name="transfer_detail_time">Время</string>
+    <string name="transfer_detail_status">Статус</string>
+    <string name="transfer_detail_file_size">Размер</string>
+    <string name="transfer_detail_local_location">Локальный путь</string>
+    <string name="transfer_detail_hash_algorithm">Алгоритм хеширования</string>
+    <string name="transfer_detail_hash">Хеш</string>
+    <string name="transfer_detail_direction">Направление</string>
+    <string name="transfer_detail_route">Маршрут</string>
+    <string name="transfer_detail_device">Устройство</string>
+    <string name="transfer_direction_incoming">Входящий</string>
+    <string name="transfer_direction_outgoing">Исходящий</string>
+    <string name="open_file_btn">Открыть файл</string>
+    <string name="transfer_hash_none">Нет</string>
     <string name="pair_qr_scan">Сканировать QR-код сопряжения</string>
     <string name="pair_qr_show">Показать QR-код сопряжения</string>
     <string name="pair_qr_title">QR-код сопряжения</string>

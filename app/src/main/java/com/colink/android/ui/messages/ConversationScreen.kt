@@ -69,6 +69,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -87,6 +88,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -130,6 +132,8 @@ fun ConversationScreen(
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val messageUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val transferUiState by transferViewModel.uiState.collectAsStateWithLifecycle()
+
+    var detailTransfer by remember { mutableStateOf<FileTransfer?>(null) }
 
     var draft by rememberSaveable(selectedDeviceId) { mutableStateOf("") }
     var pendingFileUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
@@ -310,7 +314,7 @@ fun ConversationScreen(
                     },
                     onAcceptTransfer = transferViewModel::accept,
                     onRejectTransfer = transferViewModel::reject,
-                    onOpenTransfer = { transfer -> openTransferFile(context, transfer) },
+                    onTransferClick = { detailTransfer = it },
                     modifier = Modifier.padding(
                         top = innerPadding.calculateTopPadding(),
                     ),
@@ -349,6 +353,15 @@ fun ConversationScreen(
             },
         )
     }
+
+    detailTransfer?.let { transfer ->
+        TransferDetailSheet(
+            transfer = transfer,
+            deviceName = selectedDevice?.name,
+            onOpen = { openTransferFile(context, transfer) },
+            onDismiss = { detailTransfer = null },
+        )
+    }
 }
 
 @Composable
@@ -363,7 +376,7 @@ private fun ConversationContent(
     onPickFile: () -> Unit,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
-    onOpenTransfer: (FileTransfer) -> Unit,
+    onTransferClick: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val sendEnabled = device.online || device.lanAvailable
@@ -385,7 +398,7 @@ private fun ConversationContent(
             timelineItems = timelineItems,
             onAcceptTransfer = onAcceptTransfer,
             onRejectTransfer = onRejectTransfer,
-            onOpenTransfer = onOpenTransfer,
+            onTransferClick = onTransferClick,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -513,7 +526,7 @@ private fun ConversationThread(
     timelineItems: List<TimelineItem>,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
-    onOpenTransfer: (FileTransfer) -> Unit,
+    onTransferClick: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -552,7 +565,7 @@ private fun ConversationThread(
                             transfer = item.transfer,
                             onAccept = { onAcceptTransfer(item.transfer.sessionId) },
                             onReject = { onRejectTransfer(item.transfer.sessionId) },
-                            onOpen = { onOpenTransfer(item.transfer) },
+                            onClick = { onTransferClick(item.transfer) },
                         )
                     }
                 }
@@ -646,11 +659,10 @@ private fun TransferBubble(
     transfer: FileTransfer,
     onAccept: () -> Unit,
     onReject: () -> Unit,
-    onOpen: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val outgoing = transfer.direction == FileTransferDirection.Outgoing
-    val canOpen = transfer.status == "completed" && !transfer.localUri.isNullOrBlank()
     val timeText = remember(transfer.updatedAt) {
         DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(transfer.updatedAt))
     }
@@ -695,15 +707,8 @@ private fun TransferBubble(
             },
             modifier = Modifier
                 .widthIn(min = 200.dp, max = 320.dp)
-                .then(
-                    if (canOpen) {
-                        Modifier
-                            .clip(bubbleShape)
-                            .clickable(onClick = onOpen)
-                    } else {
-                        Modifier
-                    }
-                ),
+                .clip(bubbleShape)
+                .clickable(onClick = onClick),
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -871,6 +876,150 @@ private fun TransferBubble(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
             )
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferDetailSheet(
+    transfer: FileTransfer,
+    deviceName: String?,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val canOpen = transfer.status == "completed" && !transfer.localUri.isNullOrBlank()
+    val timeText = remember(transfer.createdAt) {
+        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+            .format(Date(transfer.createdAt))
+    }
+    val sizeText = remember(transfer.fileSize) { formatSize(transfer.fileSize) }
+    val localLocationText = transfer.localUri
+        ?.takeIf { it.isNotBlank() }
+        ?.let { raw ->
+            val uri = Uri.parse(raw)
+            if (uri.scheme == "file") uri.path.orEmpty() else raw
+        }
+        ?: stringResource(R.string.transfer_hash_none)
+    val algorithm = transfer.checksum.substringBefore(':', missingDelimiterValue = "").lowercase()
+    val algorithmText = when (algorithm) {
+        "blake3" -> "BLAKE3"
+        "sha256" -> "SHA-256"
+        "none" -> stringResource(R.string.transfer_hash_none)
+        else -> algorithm.ifBlank { "?" }
+    }
+    val hashText = if (algorithm == "none") {
+        stringResource(R.string.transfer_hash_none)
+    } else {
+        transfer.checksum.substringAfter(':', "")
+    }
+    val directionText = if (transfer.direction == FileTransferDirection.Incoming) {
+        stringResource(R.string.transfer_direction_incoming)
+    } else {
+        stringResource(R.string.transfer_direction_outgoing)
+    }
+    val routeText = when (transfer.route) {
+        "lan" -> stringResource(R.string.route_lan)
+        "cloud" -> stringResource(R.string.route_cloud)
+        else -> transfer.route
+    }
+    val deviceText = deviceName?.takeIf { it.isNotBlank() } ?: transfer.deviceId
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = transfer.fileName.ifBlank { stringResource(R.string.unnamed_file) },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+
+            TransferDetailRow(stringResource(R.string.transfer_detail_status)) {
+                BadgeChip(
+                    text = statusLabel(transfer.status),
+                    containerColor = if (transfer.status == "completed") {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (transfer.status == "completed") {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+            transfer.error?.takeIf { it.isNotBlank() }?.let { error ->
+                Text(
+                    text = com.colink.android.util.ProtocolReasonFormatter.format(context, error),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            TransferDetailRow(stringResource(R.string.transfer_detail_time), timeText)
+            TransferDetailRow(stringResource(R.string.transfer_detail_file_size), sizeText)
+            TransferDetailRow(stringResource(R.string.transfer_detail_local_location)) {
+                Text(
+                    text = localLocationText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                )
+            }
+            TransferDetailRow(stringResource(R.string.transfer_detail_hash_algorithm), algorithmText)
+            TransferDetailRow(stringResource(R.string.transfer_detail_hash)) {
+                Text(
+                    text = hashText,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                )
+            }
+            TransferDetailRow(stringResource(R.string.transfer_detail_direction), directionText)
+            TransferDetailRow(stringResource(R.string.transfer_detail_route), routeText)
+            TransferDetailRow(stringResource(R.string.transfer_detail_device), deviceText)
+
+            Button(
+                onClick = onOpen,
+                enabled = canOpen,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            ) {
+                Text(stringResource(R.string.open_file_btn))
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferDetailRow(
+    label: String,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
+
+@Composable
+private fun TransferDetailRow(
+    label: String,
+    value: String,
+) {
+    TransferDetailRow(label) {
+        Text(text = value, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
