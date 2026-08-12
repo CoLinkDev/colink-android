@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · Cola %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">Saltos %1$d/%2$d · Decodificador %3$d/%4$d · Descartados %5$d · Errores %6$d · Reinicios %7$d</string>
     <string name="camera_debug_frame_value">Secuencia %1$s · Fotogramas clave %2$d · Desfase %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">Error de cámara</string>
     <string name="camera_error_load_failed">No se pudo obtener la lista de cámaras del dispositivo remoto.</string>
     <string name="camera_error_open_failed">No se pudo abrir la cámara remota.</string>
     <string name="camera_error_disconnected">La conexión de la cámara remota se cerró.</string>

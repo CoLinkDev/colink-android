@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,6 +41,7 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
@@ -88,6 +88,7 @@ import com.colink.android.R
 import com.colink.android.network.message.FsEntry
 import com.colink.android.network.message.FsRootEntry
 import com.colink.android.ui.components.CoLinkTextField
+import com.colink.android.ui.components.WarningCard
 import com.colink.android.ui.transfers.openTransferFile
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -185,9 +186,12 @@ fun RemoteFilesystemScreen(
 
             state.error?.let { error ->
                 item {
-                    FilesError(
-                        message = error,
-                        onRetry = viewModel::refresh,
+                    WarningCard(
+                        title = stringResource(R.string.remote_files_error_title),
+                        body = error,
+                        icon = Icons.Default.ErrorOutline,
+                        actionLabel = stringResource(R.string.remote_files_retry),
+                        onAction = viewModel::refresh,
                     )
                 }
             }
@@ -204,7 +208,13 @@ fun RemoteFilesystemScreen(
                     }
                 }
             } else if (state.unsupported) {
-                item { FilesUnsupported() }
+                item {
+                    WarningCard(
+                        title = stringResource(R.string.remote_files_unsupported_title),
+                        body = stringResource(R.string.remote_files_unsupported_body),
+                        icon = Icons.Default.Info,
+                    )
+                }
             } else if (currentPath == null) {
                 if (state.roots.isEmpty() && state.error == null) {
                     item { FilesEmpty(stringResource(R.string.remote_files_locations_empty)) }
@@ -711,63 +721,6 @@ private fun FilesEmpty(message: String) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@Composable
-private fun FilesError(message: String, onRetry: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Row(
-            modifier = Modifier.padding(start = 14.dp, top = 14.dp, end = 14.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Icon(Icons.Default.ErrorOutline, contentDescription = null, modifier = Modifier.padding(top = 2.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.remote_files_error_title), 
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(message, style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.remote_files_retry)) }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilesUnsupported() {
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.remote_files_unsupported_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = stringResource(R.string.remote_files_unsupported_body),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
     }
 }
 

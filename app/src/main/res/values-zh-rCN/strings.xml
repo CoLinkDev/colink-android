@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · 队列 %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">缺帧 %1$d/%2$d · 解码器 %3$d/%4$d · 丢弃 %5$d · 错误 %6$d · 重启 %7$d</string>
     <string name="camera_debug_frame_value">序号 %1$s · 关键帧 %2$d · 漂移 %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">摄像头错误</string>
     <string name="camera_error_load_failed">无法获取对端设备上的摄像头列表。</string>
     <string name="camera_error_open_failed">无法打开远程摄像头。</string>
     <string name="camera_error_disconnected">远程摄像头连接已关闭。</string>

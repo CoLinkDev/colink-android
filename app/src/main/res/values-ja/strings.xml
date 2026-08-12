@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · キュー %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">欠落 %1$d/%2$d · デコーダー %3$d/%4$d · 破棄 %5$d · エラー %6$d · 再起動 %7$d</string>
     <string name="camera_debug_frame_value">シーケンス %1$s · キーフレーム %2$d · ずれ %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">カメラエラー</string>
     <string name="camera_error_load_failed">リモートデバイスからカメラ一覧を取得できませんでした。</string>
     <string name="camera_error_open_failed">リモートカメラを開けませんでした。</string>
     <string name="camera_error_disconnected">リモートカメラとの接続が閉じられました。</string>

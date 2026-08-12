@@ -66,6 +66,7 @@ import com.colink.android.network.RemoteCameraProtocolException
 import com.colink.android.network.RemoteCameraTimeoutException
 import com.colink.android.network.RemoteCameraUnsupportedException
 import com.colink.android.network.message.CameraEntry
+import com.colink.android.ui.components.WarningCard
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import android.os.SystemClock
@@ -790,10 +791,9 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                     }
 
                     errorMessage?.let { message ->
-                        Text(
-                            text = message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
+                        WarningCard(
+                            title = stringResource(R.string.camera_error_title),
+                            body = message,
                         )
                     }
                 }
@@ -868,10 +868,9 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                         CameraDebugPanel(debugState)
 
                         errorMessage?.let { message ->
-                            Text(
-                                text = message,
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
+                            WarningCard(
+                                title = stringResource(R.string.camera_error_title),
+                                body = message,
                             )
                         }
                     }

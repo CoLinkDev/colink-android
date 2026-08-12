@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · 대기열 %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">누락 %1$d/%2$d · 디코더 %3$d/%4$d · 폐기 %5$d · 오류 %6$d · 재시작 %7$d</string>
     <string name="camera_debug_frame_value">시퀀스 %1$s · 키프레임 %2$d · 지연 편차 %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">카메라 오류</string>
     <string name="camera_error_load_failed">원격 기기에서 카메라 목록을 가져올 수 없습니다.</string>
     <string name="camera_error_open_failed">원격 카메라를 열 수 없습니다.</string>
     <string name="camera_error_disconnected">원격 카메라 연결이 종료되었습니다.</string>

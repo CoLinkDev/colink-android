@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · Queue %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">Gaps %1$d/%2$d · Decoder %3$d/%4$d · Drops %5$d · Errors %6$d · Restarts %7$d</string>
     <string name="camera_debug_frame_value">Sequence %1$s · Keyframes %2$d · Drift %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">Camera error</string>
     <string name="camera_error_load_failed">Couldn\'t get the camera list from the remote device.</string>
     <string name="camera_error_open_failed">Couldn\'t open the remote camera.</string>
     <string name="camera_error_disconnected">The remote camera connection was closed.</string>

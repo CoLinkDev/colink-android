@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · Очередь %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">Разрывы %1$d/%2$d · Декодер %3$d/%4$d · Отброшено %5$d · Ошибки %6$d · Перезапуски %7$d</string>
     <string name="camera_debug_frame_value">Последовательность %1$s · Ключевые кадры %2$d · Отклонение %3$d мс · NAL %4$s</string>
+    <string name="camera_error_title">Ошибка камеры</string>
     <string name="camera_error_load_failed">Не удалось получить список камер с удалённого устройства.</string>
     <string name="camera_error_open_failed">Не удалось открыть удалённую камеру.</string>
     <string name="camera_error_disconnected">Подключение к удалённой камере закрыто.</string>

@@ -39,6 +39,7 @@
     <string name="camera_debug_decoder_value">%1$s · %2$.1f FPS · 佇列 %3$d · %4$s</string>
     <string name="camera_debug_integrity_value">遺失影格 %1$d/%2$d · 解碼器 %3$d/%4$d · 捨棄 %5$d · 錯誤 %6$d · 重新啟動 %7$d</string>
     <string name="camera_debug_frame_value">序號 %1$s · 關鍵影格 %2$d · 漂移 %3$d ms · NAL %4$s</string>
+    <string name="camera_error_title">相機錯誤</string>
     <string name="camera_error_load_failed">無法取得遠端裝置上的相機清單。</string>
     <string name="camera_error_open_failed">無法開啟遠端相機。</string>
     <string name="camera_error_disconnected">遠端相機連線已關閉。</string>

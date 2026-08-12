@@ -37,7 +37,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VpnKey
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -85,6 +84,7 @@ import com.colink.android.ui.castboard.CastBoardControlCard
 import com.colink.android.ui.castboard.CastBoardViewModel
 import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.EmptyState
+import com.colink.android.ui.components.WarningCard
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.devicecontrol.DeviceMediaControlCard
 import com.colink.android.ui.devicecontrol.DeviceMediaControlViewModel
@@ -340,9 +340,11 @@ fun DeviceScreen(
                             enter = fadeIn() + expandVertically(),
                             exit = fadeOut() + shrinkVertically(),
                         ) {
-                            DeviceVersionWarningCard(
-                                disabledFeatures = disabledFeatures,
-                                onDismiss = { isWarningDismissed = true },
+                            WarningCard(
+                                title = stringResource(R.string.device_version_old_warning_title),
+                                body = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
+                                actionLabel = stringResource(R.string.dismiss_btn),
+                                onAction = { isWarningDismissed = true },
                             )
                         }
                         Row(
@@ -418,9 +420,11 @@ fun DeviceScreen(
                                 enter = fadeIn() + expandVertically(),
                                 exit = fadeOut() + shrinkVertically(),
                             ) {
-                                DeviceVersionWarningCard(
-                                    disabledFeatures = disabledFeatures,
-                                    onDismiss = { isWarningDismissed = true },
+                                WarningCard(
+                                    title = stringResource(R.string.device_version_old_warning_title),
+                                    body = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
+                                    actionLabel = stringResource(R.string.dismiss_btn),
+                                    onAction = { isWarningDismissed = true },
                                 )
                             }
                         }
@@ -568,60 +572,6 @@ private fun disabledFeatureNames(capabilities: DeviceCapabilities): List<String>
         names += stringResource(R.string.device_warning_state_query)
     }
     return names
-}
-
-@Composable
-private fun DeviceVersionWarningCard(
-    disabledFeatures: List<String>,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
-        ),
-        shape = MaterialTheme.shapes.large,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(24.dp),
-            )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.device_version_old_warning_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                )
-                Text(
-                    text = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f),
-                )
-            }
-            TextButton(
-                onClick = onDismiss,
-                modifier = Modifier.align(Alignment.End),
-            ) {
-                Text(
-                    text = stringResource(R.string.dismiss_btn),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        }
-    }
 }
 
 private fun LazyListScope.deviceControlItems(
