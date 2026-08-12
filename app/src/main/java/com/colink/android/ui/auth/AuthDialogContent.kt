@@ -3,7 +3,6 @@ package com.colink.android.ui.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
@@ -12,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -38,7 +36,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.StateMessage
@@ -111,30 +108,6 @@ private fun AuthContent(
                 ),
                 singleLine = true,
             )
-
-            TextButton(
-                onClick = {
-                    serverUrl = BuildConfig.SERVER_BASE_URL
-                    if (localErrorResId == R.string.err_server_url_required ||
-                        localErrorResId == R.string.err_server_url_invalid
-                    ) {
-                        localErrorResId = null
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.Start)
-                    .heightIn(min = 0.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    text = stringResource(R.string.use_official_server),
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
 
             CoLinkTextField(
                 value = identifier,
