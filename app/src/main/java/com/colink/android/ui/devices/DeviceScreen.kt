@@ -49,8 +49,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -85,6 +83,7 @@ import com.colink.android.network.SystemControlSupport
 import com.colink.android.ui.camera.CameraControlCard
 import com.colink.android.ui.castboard.CastBoardControlCard
 import com.colink.android.ui.castboard.CastBoardViewModel
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.devicecontrol.DeviceMediaControlCard
@@ -935,7 +934,7 @@ private fun RenameDeviceDialog(
         title = { Text(stringResource(R.string.rename_device_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                CoLinkTextField(
                     value = name,
                     onValueChange = {
                         name = it
@@ -945,13 +944,6 @@ private fun RenameDeviceDialog(
                     label = { Text(stringResource(R.string.device_name_label)) },
                     singleLine = true,
                     isError = nameError,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ),
                     supportingText = {
                         if (nameError) {
                             Text(stringResource(R.string.err_device_name_required))

@@ -22,7 +22,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -47,6 +46,7 @@ import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.SystemControlUnsupportedException
 import com.colink.android.network.message.SystemControlAction
 import com.colink.android.network.message.isValidWakeOnLanMac
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.StateMessage
 import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -201,7 +201,7 @@ fun WakeOnLanControlCard(
                     StateMessage(text = stringResource(R.string.device_control_unsupported))
                 }
                 StateMessage(text = state.error)
-                OutlinedTextField(
+                CoLinkTextField(
                     value = targetMac,
                     onValueChange = { targetMac = it },
                     modifier = Modifier.fillMaxWidth(),
@@ -209,7 +209,6 @@ fun WakeOnLanControlCard(
                     placeholder = { Text(stringResource(R.string.device_wake_on_lan_mac_placeholder)) },
                     singleLine = true,
                     enabled = activeSupport != SystemControlSupport.TOO_OLD,
-                    shape = RoundedCornerShape(16.dp),
                     isError = targetMac.isNotBlank() && !validMac,
                 )
                 if (recentMacs.isNotEmpty()) {

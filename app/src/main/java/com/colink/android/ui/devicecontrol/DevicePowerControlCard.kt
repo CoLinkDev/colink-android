@@ -22,7 +22,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.network.SystemControlSupport
 import com.colink.android.network.message.SystemControlAction
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.StateMessage
 import com.colink.android.ui.components.devicesWithoutLocalDevice
 import com.colink.android.ui.components.isComputerDevice
@@ -216,14 +216,13 @@ fun DevicePowerControlCard(
                         ),
                     )
                     if (showDelayInput) {
-                        OutlinedTextField(
+                        CoLinkTextField(
                             value = delaySeconds,
                             onValueChange = { delaySeconds = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text(stringResource(R.string.device_power_delay_seconds)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(16.dp),
                             isError = !delayInputValid,
                             enabled = !state.submitting,
                         )

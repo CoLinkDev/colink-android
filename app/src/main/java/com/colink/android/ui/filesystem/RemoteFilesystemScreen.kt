@@ -54,8 +54,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -89,6 +87,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.R
 import com.colink.android.network.message.FsEntry
 import com.colink.android.network.message.FsRootEntry
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.transfers.openTransferFile
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -286,18 +285,11 @@ private fun PathActionDialog(
         title = { Text(stringResource(R.string.remote_files_path)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
+                CoLinkTextField(
                     value = pathInput,
                     onValueChange = { pathInput = it },
                     label = { Text(stringResource(R.string.remote_files_path)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
