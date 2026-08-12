@@ -124,6 +124,11 @@ fun DeviceListScreen(
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
 
+    fun closeSearch() {
+        searchQuery = ""
+        isSearchActive = false
+    }
+
     val availableDeviceCount = remember(devices) {
         devices.count { device -> device.online || device.lanAvailable }
     }
@@ -197,8 +202,7 @@ fun DeviceListScreen(
     }
 
     BackHandler(enabled = isSearchActive) {
-        isSearchActive = false
-        searchQuery = ""
+        closeSearch()
     }
 
     ScreenColumn(
@@ -298,8 +302,7 @@ fun DeviceListScreen(
                         query = searchQuery,
                         onQueryChange = { searchQuery = it },
                         onClose = {
-                            isSearchActive = false
-                            searchQuery = ""
+                            closeSearch()
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -329,7 +332,7 @@ fun DeviceListScreen(
                 onPairCandidate = { viewModel.startLanPairing(it) },
                 onDeviceSelected = { deviceId ->
                     if (isSearchActive) {
-                        isSearchActive = false
+                        closeSearch()
                     }
                     onDeviceSelected(deviceId)
                 },
