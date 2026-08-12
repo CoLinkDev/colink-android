@@ -3,6 +3,7 @@ package com.colink.android.ui.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -119,9 +121,19 @@ private fun AuthContent(
                         localErrorResId = null
                     }
                 },
-                modifier = Modifier.align(Alignment.End),
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .heightIn(min = 0.dp),
             ) {
-                Text(stringResource(R.string.use_official_server))
+                Icon(
+                    imageVector = Icons.Default.Public,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource(R.string.use_official_server),
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
 
             CoLinkTextField(
