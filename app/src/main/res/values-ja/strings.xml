@@ -133,7 +133,7 @@
     <string name="update_installing">インストーラーを開いています...</string>
     <string name="update_download_failed">更新をダウンロードできませんでした。もう一度お試しください。</string>
     <string name="update_later_btn">後で</string>
-    <string name="update_check_btn">更新</string>
+    <string name="update_check_btn">更新を確認</string>
     <string name="update_checking_btn">確認中...</string>
     <string name="update_up_to_date">最新バージョンです</string>
     <string name="update_check_failed">更新の確認に失敗しました</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">CoLink のパラメータと動作を設定</string>
     <string name="server_url_label">サーバーアドレス</string>
     <string name="edit_server_url_title">サーバーアドレスの変更</string>
+    <string name="use_official_server">公式アドレスを使用</string>
     <string name="device_name_label">デバイス名</string>
     <string name="language_label">言語 (Language)</string>
     <string name="save_btn">保存</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">情報</string>
     <string name="settings_project_url">プロジェクト URL</string>
     <string name="settings_version">バージョン</string>
-    <string name="settings_open_project">プロジェクト</string>
+    <string name="settings_open_project">プロジェクト URL</string>
     <string name="device_key_rotated">デバイスキーを更新しました</string>
     <string name="device_renamed">デバイス名を変更しました</string>
     <string name="device_deleted">デバイスを削除しました</string>

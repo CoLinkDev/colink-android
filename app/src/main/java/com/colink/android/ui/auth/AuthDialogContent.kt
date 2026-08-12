@@ -18,8 +18,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,9 +36,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.colink.android.BuildConfig
 import com.colink.android.R
-import com.colink.android.util.normalizeServerUrl
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.StateMessage
+import com.colink.android.util.normalizeServerUrl
 
 @Composable
 fun AuthDialogContent(
@@ -97,19 +97,12 @@ private fun AuthContent(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            OutlinedTextField(
+            CoLinkTextField(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.server_url_label)) },
                 leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Next
@@ -117,36 +110,36 @@ private fun AuthContent(
                 singleLine = true,
             )
 
-            OutlinedTextField(
+            TextButton(
+                onClick = {
+                    serverUrl = BuildConfig.SERVER_BASE_URL
+                    if (localErrorResId == R.string.err_server_url_required ||
+                        localErrorResId == R.string.err_server_url_invalid
+                    ) {
+                        localErrorResId = null
+                    }
+                },
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(stringResource(R.string.use_official_server))
+            }
+
+            CoLinkTextField(
                 value = identifier,
                 onValueChange = { identifier = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.email_or_username_label)) },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 singleLine = true,
             )
 
-            OutlinedTextField(
+            CoLinkTextField(
                 value = password,
                 onValueChange = { password = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(stringResource(R.string.password_label)) },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,

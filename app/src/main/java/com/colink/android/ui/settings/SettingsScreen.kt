@@ -44,8 +44,6 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.ui.components.AppUpdateDialog
+import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.normalizeServerUrl
@@ -198,7 +197,7 @@ fun SettingsScreen(
                 onExpandedChange = { expanded = !expanded },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
+                CoLinkTextField(
                     value = currentLanguageLabel,
                     onValueChange = {},
                     readOnly = true,
@@ -207,13 +206,6 @@ fun SettingsScreen(
                     modifier = Modifier
                         .menuAnchor()
                         .fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                    ),
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     }
@@ -393,26 +385,36 @@ private fun ServerUrlDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_server_url_title)) },
         text = {
-            OutlinedTextField(
-                value = serverUrl,
-                onValueChange = {
-                    serverUrl = it
-                    invalidUrl = false
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.server_url_label)) },
-                leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                singleLine = false,
-                maxLines = 3,
-                shape = RoundedCornerShape(16.dp),
-                isError = invalidUrl,
-                supportingText = if (invalidUrl) {
-                    { Text(stringResource(R.string.err_server_url_invalid)) }
-                } else {
-                    null
-                },
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                CoLinkTextField(
+                    value = serverUrl,
+                    onValueChange = {
+                        serverUrl = it
+                        invalidUrl = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.server_url_label)) },
+                    leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    singleLine = false,
+                    maxLines = 3,
+                    isError = invalidUrl,
+                    supportingText = if (invalidUrl) {
+                        { Text(stringResource(R.string.err_server_url_invalid)) }
+                    } else {
+                        null
+                    },
+                )
+                TextButton(
+                    onClick = {
+                        serverUrl = BuildConfig.SERVER_BASE_URL
+                        invalidUrl = false
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(stringResource(R.string.use_official_server))
+                }
+            }
         },
         confirmButton = {
             TextButton(

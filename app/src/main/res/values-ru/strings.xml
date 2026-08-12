@@ -133,7 +133,7 @@
     <string name="update_installing">Открывается установщик...</string>
     <string name="update_download_failed">Не удалось скачать обновление. Повторите попытку.</string>
     <string name="update_later_btn">Позже</string>
-    <string name="update_check_btn">Обновление</string>
+    <string name="update_check_btn">Проверить обновления</string>
     <string name="update_checking_btn">Проверка...</string>
     <string name="update_up_to_date">Установлена последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">Настройка параметров и поведения CoLink</string>
     <string name="server_url_label">Адрес сервера</string>
     <string name="edit_server_url_title">Изменить адрес сервера</string>
+    <string name="use_official_server">Использовать официальный адрес</string>
     <string name="device_name_label">Имя устройства</string>
     <string name="language_label">Язык (Language)</string>
     <string name="save_btn">Сохранить</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">О программе</string>
     <string name="settings_project_url">Ссылка на проект</string>
     <string name="settings_version">Версия</string>
-    <string name="settings_open_project">Проект</string>
+    <string name="settings_open_project">URL проекта</string>
     <string name="device_key_rotated">Ключ устройства изменен</string>
     <string name="device_renamed">Имя устройства изменено</string>
     <string name="device_deleted">Устройство удалено</string>

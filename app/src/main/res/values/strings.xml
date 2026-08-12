@@ -133,7 +133,7 @@
     <string name="update_installing">Opening installer...</string>
     <string name="update_download_failed">Unable to download the update. Try again.</string>
     <string name="update_later_btn">Later</string>
-    <string name="update_check_btn">Update</string>
+    <string name="update_check_btn">Check for Updates</string>
     <string name="update_checking_btn">Checking...</string>
     <string name="update_up_to_date">You are up to date</string>
     <string name="update_check_failed">Update check failed</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">Configure CoLink parameters and behavior</string>
     <string name="server_url_label">Server address</string>
     <string name="edit_server_url_title">Edit Server Address</string>
+    <string name="use_official_server">Use official address</string>
     <string name="device_name_label">Device name</string>
     <string name="language_label">Language (Language)</string>
     <string name="save_btn">Save</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">About</string>
     <string name="settings_project_url">Project URL</string>
     <string name="settings_version">Version</string>
-    <string name="settings_open_project">Project</string>
+    <string name="settings_open_project">Project URL</string>
     <string name="device_key_rotated">Device key rotated</string>
     <string name="device_renamed">Device renamed</string>
     <string name="device_deleted">Device deleted</string>

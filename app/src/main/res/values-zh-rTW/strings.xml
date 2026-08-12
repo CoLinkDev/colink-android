@@ -133,7 +133,7 @@
     <string name="update_installing">正在開啟安裝程式...</string>
     <string name="update_download_failed">更新下載失敗，請重試。</string>
     <string name="update_later_btn">稍後</string>
-    <string name="update_check_btn">更新</string>
+    <string name="update_check_btn">檢查更新</string>
     <string name="update_checking_btn">正在檢查...</string>
     <string name="update_up_to_date">目前已是最新版本</string>
     <string name="update_check_failed">檢查更新失敗</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">設定 CoLink 的參數和行為</string>
     <string name="server_url_label">伺服器地址</string>
     <string name="edit_server_url_title">修改伺服器地址</string>
+    <string name="use_official_server">使用官方地址</string>
     <string name="device_name_label">裝置名稱</string>
     <string name="language_label">語言 (Language)</string>
     <string name="save_btn">儲存</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">關於</string>
     <string name="settings_project_url">專案地址</string>
     <string name="settings_version">版本</string>
-    <string name="settings_open_project">專案</string>
+    <string name="settings_open_project">專案地址</string>
     <string name="device_key_rotated">裝置金鑰已輪換</string>
     <string name="device_renamed">裝置名稱已變更</string>
     <string name="device_deleted">裝置已刪除</string>

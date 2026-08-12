@@ -133,7 +133,7 @@
     <string name="update_installing">Installationsprogramm wird geöffnet...</string>
     <string name="update_download_failed">Update konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.</string>
     <string name="update_later_btn">Später</string>
-    <string name="update_check_btn">Update</string>
+    <string name="update_check_btn">Nach Updates suchen</string>
     <string name="update_checking_btn">Suche...</string>
     <string name="update_up_to_date">Sie sind auf dem neuesten Stand</string>
     <string name="update_check_failed">Update-Suche fehlgeschlagen</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">CoLink-Parameter und Verhalten konfigurieren</string>
     <string name="server_url_label">Serveradresse</string>
     <string name="edit_server_url_title">Serveradresse bearbeiten</string>
+    <string name="use_official_server">Offizielle Adresse verwenden</string>
     <string name="device_name_label">Gerätename</string>
     <string name="language_label">Sprache (Language)</string>
     <string name="save_btn">Speichern</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">Über</string>
     <string name="settings_project_url">Projekt-URL</string>
     <string name="settings_version">Version</string>
-    <string name="settings_open_project">Projekt</string>
+    <string name="settings_open_project">Projekt-URL</string>
     <string name="device_key_rotated">Geräteschlüssel rotiert</string>
     <string name="device_renamed">Gerät umbenannt</string>
     <string name="device_deleted">Gerät gelöscht</string>

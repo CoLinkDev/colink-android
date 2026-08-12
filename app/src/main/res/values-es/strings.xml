@@ -133,7 +133,7 @@
     <string name="update_installing">Abriendo instalador...</string>
     <string name="update_download_failed">No se pudo descargar la actualización. Inténtalo de nuevo.</string>
     <string name="update_later_btn">Más tarde</string>
-    <string name="update_check_btn">Actualizar</string>
+    <string name="update_check_btn">Buscar actualizaciones</string>
     <string name="update_checking_btn">Buscando...</string>
     <string name="update_up_to_date">Ya tienes la última versión</string>
     <string name="update_check_failed">No se pudo buscar actualizaciones</string>
@@ -284,6 +284,7 @@
     <string name="settings_subtitle">Configurar parámetros y comportamiento de CoLink</string>
     <string name="server_url_label">Dirección del servidor</string>
     <string name="edit_server_url_title">Editar dirección del servidor</string>
+    <string name="use_official_server">Usar dirección oficial</string>
     <string name="device_name_label">Nombre del dispositivo</string>
     <string name="language_label">Idioma (Language)</string>
     <string name="save_btn">Guardar</string>
@@ -319,7 +320,7 @@
     <string name="settings_about_title">Acerca de</string>
     <string name="settings_project_url">URL del proyecto</string>
     <string name="settings_version">Versión</string>
-    <string name="settings_open_project">Proyecto</string>
+    <string name="settings_open_project">URL del proyecto</string>
     <string name="device_key_rotated">Clave del dispositivo rotada</string>
     <string name="device_renamed">Nombre del dispositivo cambiado</string>
     <string name="device_deleted">Dispositivo eliminado</string>
