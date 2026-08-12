@@ -220,7 +220,7 @@ private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
 private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
 private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
-private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 5 * 60 * 1_000L
+private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 30 * 1_000L
 internal const val MDNS_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
 private const val MDNS_REFRESH_ENDPOINT_CHECK_DELAY_MILLIS = 2_000L
 private val SYSTEM_CONTROL_QUERY_FIELDS = listOf("volume", "muted", "playback")
@@ -3544,7 +3544,6 @@ class ConnectionManager @Inject constructor(
                     delay(CLOUD_DEVICE_SYNC_INTERVAL_MILLIS)
                     val session = authRepository.currentSession().getOrNull() ?: continue
                     runCatching {
-                        deviceRepository.ensureDeviceIdentity(session).getOrThrow()
                         deviceRepository.syncPendingDeviceKey(session).getOrThrow()
                         deviceRepository.syncDevices(session).getOrThrow()
                     }.onFailure { error ->
