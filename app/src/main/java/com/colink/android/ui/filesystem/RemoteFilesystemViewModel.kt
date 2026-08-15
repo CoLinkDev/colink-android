@@ -1,6 +1,8 @@
 package com.colink.android.ui.filesystem
 
 import android.content.Context
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,8 +12,11 @@ import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.network.ConnectionManager
 import com.colink.android.network.RemoteFilesystemDownload
+import com.colink.android.network.RemoteFilesystemErrorException
 import com.colink.android.network.RemoteFilesystemSupport
+import com.colink.android.network.RemoteFilesystemUpload
 import com.colink.android.network.RemoteFilesystemUnsupportedException
+import com.colink.android.network.transfer.readFileMetadata
 import com.colink.android.network.message.FsEntry
 import com.colink.android.network.message.FsRootEntry
 import com.colink.android.util.LocaleHelper
@@ -32,6 +37,11 @@ data class RemoteFilesystemDownloadUi(
     val error: String? = null,
 )
 
+data class RemoteFilesystemUploadUi(
+    val transfer: FileTransfer? = null,
+    val error: String? = null,
+)
+
 data class RemoteFilesystemUiState(
     val deviceName: String = "",
     val loading: Boolean = true,
@@ -44,6 +54,7 @@ data class RemoteFilesystemUiState(
     val unsupported: Boolean = false,
     val error: String? = null,
     val downloads: Map<String, RemoteFilesystemDownloadUi> = emptyMap(),
+    val uploads: Map<String, RemoteFilesystemUploadUi> = emptyMap(),
     val toastMessage: String? = null,
 )
 
@@ -57,6 +68,7 @@ class RemoteFilesystemViewModel @Inject constructor(
 ) : ViewModel() {
     private val deviceId = checkNotNull(savedStateHandle.get<String>("deviceId"))
     private val contentGeneration = AtomicLong(0L)
+    private val refreshedUploadSessionIds = mutableSetOf<String>()
     private val _uiState = MutableStateFlow(RemoteFilesystemUiState())
     val uiState: StateFlow<RemoteFilesystemUiState> = _uiState.asStateFlow()
 
@@ -64,11 +76,24 @@ class RemoteFilesystemViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 connectionManager.remoteFilesystemDownloads,
+                connectionManager.remoteFilesystemUploads,
                 fileTransferRepository.transfers,
-            ) { downloads, transfers ->
-                downloadsForDevice(downloads.values, transfers)
-            }.collect { downloads ->
-                _uiState.update { it.copy(downloads = downloads) }
+            ) { downloads, uploads, transfers ->
+                FilesystemTransfersUi(
+                    downloads = downloadsForDevice(downloads.values, transfers),
+                    uploads = uploadsForDevice(uploads.values, transfers),
+                    completedUploadPaths = uploads.values
+                        .filter { it.deviceId == deviceId }
+                        .mapNotNull { upload ->
+                            upload.sessionId
+                                ?.let { sessionId -> transfers.firstOrNull { it.sessionId == sessionId } }
+                                ?.takeIf { it.status == "completed" }
+                                ?.let { upload.remotePath to it.sessionId }
+                        },
+                )
+            }.collect { transfers ->
+                _uiState.update { it.copy(downloads = transfers.downloads, uploads = transfers.uploads) }
+                refreshCompletedUploads(transfers.completedUploadPaths)
             }
         }
         viewModelScope.launch(Dispatchers.IO) {
@@ -200,6 +225,39 @@ class RemoteFilesystemViewModel @Inject constructor(
         }
     }
 
+    fun upload(contentResolver: ContentResolver, uris: List<Uri>) {
+        val directory = _uiState.value.currentPath ?: return
+        if (uris.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(error = null) }
+            for (uri in uris) {
+                val name = runCatching { contentResolver.readFileMetadata(uri).name }
+                    .getOrElse { error ->
+                        _uiState.update { it.copy(error = error.userMessage()) }
+                        return@launch
+                    }
+                connectionManager.uploadRemoteFilesystemFile(
+                    contentResolver,
+                    deviceId,
+                    remoteChild(directory, name),
+                    uri,
+                ).onFailure { error ->
+                    _uiState.update { it.copy(error = error.userMessage()) }
+                    return@launch
+                }
+            }
+        }
+    }
+
+    fun cancelUpload(sessionId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            connectionManager.cancelTransfer(sessionId)
+                .onFailure { error ->
+                    _uiState.update { it.copy(error = error.userMessage()) }
+                }
+        }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
@@ -279,9 +337,33 @@ class RemoteFilesystemViewModel @Inject constructor(
 
     private fun localizedContext(): Context = LocaleHelper.localized(context)
 
-    private fun Throwable.userMessage(): String =
-        message?.takeIf { it.isNotBlank() }
-            ?: localizedContext().getString(R.string.remote_files_request_failed)
+    private fun refreshCompletedUploads(completedUploads: List<Pair<String, String>>) {
+        val currentPath = _uiState.value.currentPath ?: return
+        if (completedUploads.any { (path, sessionId) ->
+                remoteParent(path) == currentPath && refreshedUploadSessionIds.add(sessionId)
+            }
+        ) {
+            refresh()
+        }
+    }
+
+    private fun Throwable.userMessage(): String {
+        val resources = localizedContext()
+        return when (this) {
+            is RemoteFilesystemErrorException -> when (reason) {
+                "already_exists" -> resources.getString(R.string.remote_files_error_already_exists)
+                "invalid_path" -> resources.getString(R.string.remote_files_error_invalid_path)
+                "io_error" -> resources.getString(R.string.remote_files_error_io)
+                "not_directory" -> resources.getString(R.string.remote_files_error_not_directory)
+                "not_file" -> resources.getString(R.string.remote_files_error_not_file)
+                "not_found" -> resources.getString(R.string.remote_files_error_not_found)
+                "permission_denied" -> resources.getString(R.string.remote_files_error_permission_denied)
+                else -> resources.getString(R.string.remote_files_request_failed)
+            }
+            else -> message?.takeIf { it.isNotBlank() }
+                ?: resources.getString(R.string.remote_files_request_failed)
+        }
+    }
 
     private fun downloadsForDevice(
         downloads: Collection<RemoteFilesystemDownload>,
@@ -299,14 +381,37 @@ class RemoteFilesystemViewModel @Inject constructor(
                     error = attempt.error,
                 )
             }
+
+    private fun uploadsForDevice(
+        uploads: Collection<RemoteFilesystemUpload>,
+        transfers: List<FileTransfer>,
+    ): Map<String, RemoteFilesystemUploadUi> =
+        uploads.asSequence()
+            .filter { it.deviceId == deviceId }
+            .groupBy { it.remotePath }
+            .mapValues { (_, attempts) ->
+                val attempt = attempts.maxBy { it.requestedAt }
+                RemoteFilesystemUploadUi(
+                    transfer = attempt.sessionId?.let { sessionId ->
+                        transfers.firstOrNull { it.sessionId == sessionId }
+                    },
+                    error = attempt.error,
+                )
+            }
 }
+
+private data class FilesystemTransfersUi(
+    val downloads: Map<String, RemoteFilesystemDownloadUi>,
+    val uploads: Map<String, RemoteFilesystemUploadUi>,
+    val completedUploadPaths: List<Pair<String, String>>,
+)
 
 fun remoteChild(parent: String, name: String): String {
     val separator = if (parent.contains('\\') && !parent.contains('/')) "\\" else "/"
     return parent.trimEnd('/', '\\') + separator + name
 }
 
-private fun remoteParent(path: String): String? {
+internal fun remoteParent(path: String): String? {
     val trimmed = path.trimEnd('/', '\\')
     if (trimmed.isEmpty()) {
         return null

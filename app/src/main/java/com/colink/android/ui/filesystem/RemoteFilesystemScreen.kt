@@ -2,6 +2,8 @@ package com.colink.android.ui.filesystem
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import java.text.DateFormat
 import java.util.Date
 import androidx.activity.compose.BackHandler
@@ -32,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Description
@@ -45,6 +48,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -101,6 +105,9 @@ fun RemoteFilesystemScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentPath = state.currentPath
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        viewModel.upload(context.contentResolver, uris)
+    }
 
     var showPathActionDialog by remember { mutableStateOf(false) }
 
@@ -149,6 +156,15 @@ fun RemoteFilesystemScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        enabled = currentPath != null && !state.loading && !state.loadingMore && !state.unsupported,
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Upload,
+                            contentDescription = stringResource(R.string.send_file_desc),
+                        )
+                    }
                     IconButton(
                         enabled = !state.loading && !state.loadingMore && !state.unsupported,
                         onClick = viewModel::refresh,
@@ -227,19 +243,45 @@ fun RemoteFilesystemScreen(
                     }
                 }
             } else {
-                if (state.entries.isEmpty() && state.error == null) {
+                val uploads = state.uploads.filterKeys { remoteParent(it) == currentPath }
+                val pendingUploads = uploads.filterValues { it.transfer?.status != "completed" }
+                if (state.entries.isEmpty() && pendingUploads.isEmpty() && state.error == null) {
                     item { FilesEmpty(stringResource(R.string.remote_files_directory_empty)) }
                 } else {
                     items(state.entries, key = { entry -> "${entry.kind}:${entry.name}" }) { entry ->
                         val download = state.downloads[remoteChild(currentPath, entry.name)]
+                        val upload = uploads[remoteChild(currentPath, entry.name)]
                         FileEntryRow(
                             entry = entry,
                             download = download,
+                            upload = upload,
                             onOpenDirectory = { viewModel.openDirectory(entry) },
                             onDownload = { viewModel.download(entry) },
+                            onCancelUpload = viewModel::cancelUpload,
                             onOpenDownload = {
                                 download?.transfer?.let { transfer -> openTransferFile(context, transfer) }
                             },
+                        )
+                    }
+                    items(
+                        pendingUploads.filterKeys { path ->
+                            state.entries.none { entry -> remoteChild(currentPath, entry.name) == path }
+                        }.toList(),
+                        key = { (path, _) -> "upload:$path" },
+                    ) { (path, upload) ->
+                        FileEntryRow(
+                            entry = FsEntry(
+                                name = path.substringAfterLast('/', path.substringAfterLast('\\')),
+                                kind = "file",
+                                readonly = false,
+                                hidden = false,
+                            ),
+                            download = null,
+                            upload = upload,
+                            onOpenDirectory = {},
+                            onDownload = {},
+                            onCancelUpload = viewModel::cancelUpload,
+                            onOpenDownload = {},
                         )
                     }
                 }
@@ -589,8 +631,10 @@ private fun RootRow(
 private fun FileEntryRow(
     entry: FsEntry,
     download: RemoteFilesystemDownloadUi?,
+    upload: RemoteFilesystemUploadUi?,
     onOpenDirectory: () -> Unit,
     onDownload: () -> Unit,
+    onCancelUpload: (String) -> Unit,
     onOpenDownload: () -> Unit,
 ) {
     val isDirectory = entry.kind == "directory"
@@ -601,6 +645,16 @@ private fun FileEntryRow(
         transfer == null || transfer.status in setOf("offered", "receiving", "verifying")
     )
     val failed = download?.error != null || transfer?.status in setOf("failed", "rejected", "cancelled")
+    val uploadTransfer = upload?.transfer
+    val uploading = upload != null && upload.error == null &&
+        uploadTransfer?.status !in setOf("completed", "failed", "rejected", "cancelled")
+    val uploadFailed = upload?.error != null || uploadTransfer?.status in setOf("failed", "rejected", "cancelled")
+    val uploadCancellable = uploadTransfer?.status in setOf("offered", "accepted", "sending")
+    val uploadProgress = uploadTransfer
+        ?.takeIf { it.fileSize > 0L }
+        ?.let { transfer ->
+            (transfer.transferredBytes.toFloat() / transfer.fileSize.toFloat()).coerceIn(0f, 1f)
+        }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -664,9 +718,40 @@ private fun FileEntryRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            remoteUploadStatus(upload)?.let { status ->
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uploadFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (isFile) {
             when {
+                upload != null && uploading -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        if (uploadProgress == null) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            CircularProgressIndicator(
+                                progress = { uploadProgress },
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        }
+                    }
+                    if (uploadCancellable) {
+                        IconButton(onClick = { onCancelUpload(checkNotNull(uploadTransfer).sessionId) }) {
+                            Icon(
+                                imageVector = Icons.Default.Cancel,
+                                contentDescription = stringResource(R.string.cancel_btn),
+                            )
+                        }
+                    }
+                }
+                upload != null -> Unit
                 completed -> IconButton(onClick = onOpenDownload) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.OpenInNew,
@@ -684,6 +769,27 @@ private fun FileEntryRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun remoteUploadStatus(upload: RemoteFilesystemUploadUi?): String? {
+    if (upload == null) {
+        return null
+    }
+    if (upload.error != null) {
+        return stringResource(R.string.status_failed)
+    }
+    val transfer = upload.transfer
+    return when (transfer?.status) {
+        null, "connecting" -> stringResource(R.string.status_connecting)
+        "computing" -> stringResource(R.string.status_computing)
+        "offered", "accepted" -> stringResource(R.string.status_offered)
+        "sending" -> "${stringResource(R.string.status_sending)} ${formatBytes(transfer.transferredBytes.coerceIn(0L, transfer.fileSize))} / ${formatBytes(transfer.fileSize)}"
+        "failed" -> stringResource(R.string.status_failed)
+        "rejected" -> stringResource(R.string.status_rejected)
+        "cancelled" -> stringResource(R.string.status_cancelled)
+        else -> null
     }
 }
 

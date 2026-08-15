@@ -35,6 +35,7 @@ import com.colink.android.network.lan.PairStringStore
 import com.colink.android.network.lan.TransferConnection
 import com.colink.android.network.filesystem.LocalFilesystem
 import com.colink.android.network.filesystem.LocalFilesystemException
+import com.colink.android.network.filesystem.AuthorizedUploadDestination
 import com.colink.android.network.camera.CameraStreamHost
 import com.colink.android.network.camera.EncodedCameraFrame
 import com.colink.android.network.camera.CameraDataFrame
@@ -104,6 +105,8 @@ import com.colink.android.network.message.FileReadyPayload
 import com.colink.android.network.message.FileRejectPayload
 import com.colink.android.network.message.FileRetransmitPayload
 import com.colink.android.network.message.FS_DOWNLOAD_TYPE
+import com.colink.android.network.message.FS_UPLOAD_TYPE
+import com.colink.android.network.message.FS_UPLOAD_READY_TYPE
 import com.colink.android.network.message.FS_ERROR_TYPE
 import com.colink.android.network.message.FS_LIST_RESULT_TYPE
 import com.colink.android.network.message.FS_LIST_TYPE
@@ -118,6 +121,8 @@ import com.colink.android.network.message.FsListResultPayload
 import com.colink.android.network.message.FsRootsPayload
 import com.colink.android.network.message.FsRootsResultPayload
 import com.colink.android.network.message.FsStatPayload
+import com.colink.android.network.message.FsUploadPayload
+import com.colink.android.network.message.FsUploadReadyPayload
 import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
@@ -218,6 +223,7 @@ private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
 private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
+private const val FILESYSTEM_UPLOAD_READY_TIMEOUT_MILLIS = 60_000L
 private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
 private const val CAMERA_LIST_TIMEOUT_MILLIS = 20_000L
 private const val CLOUD_DEVICE_SYNC_INTERVAL_MILLIS = 30 * 1_000L
@@ -285,6 +291,15 @@ class RemoteFilesystemUnsupportedException : IllegalStateException(
     "Remote device does not support filesystem browsing",
 )
 
+class RemoteFilesystemUploadUnsupportedException : IllegalStateException(
+    "Remote device does not support filesystem uploads",
+)
+
+class RemoteFilesystemErrorException(
+    val reason: String,
+    message: String,
+) : IllegalStateException(message)
+
 class RemoteCameraUnsupportedException : IllegalStateException(
     "Remote device does not support camera streaming",
 )
@@ -349,6 +364,15 @@ data class RemoteFilesystemDownload(
     val error: String? = null,
 )
 
+data class RemoteFilesystemUpload(
+    val requestId: String,
+    val deviceId: String,
+    val remotePath: String,
+    val requestedAt: Long,
+    val sessionId: String? = null,
+    val error: String? = null,
+)
+
 @Singleton
 class ConnectionManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -391,6 +415,8 @@ class ConnectionManager @Inject constructor(
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
     private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
     private val pendingFilesystemRequests = ConcurrentHashMap<String, PendingFilesystemRequest>()
+    private val pendingFilesystemUploads = ConcurrentHashMap<String, PendingFilesystemUpload>()
+    private val filesystemUploadLock = Any()
     private val pendingSystemControlQueries = ConcurrentHashMap<String, PendingSystemControlQuery>()
     private val terminalOpenRequestIds = ConcurrentHashMap<String, String>()
     private val activeTerminalSessions = ConcurrentHashMap<String, String>()
@@ -411,6 +437,7 @@ class ConnectionManager @Inject constructor(
     private val cameraPendingLanReady = ConcurrentHashMap<String, Pair<String, CameraReadyPayload>>()
     private val pendingFilesystemDownloads = ConcurrentHashMap<String, RemoteFilesystemDownload>()
     private val _remoteFilesystemDownloads = MutableStateFlow<Map<String, RemoteFilesystemDownload>>(emptyMap())
+    private val _remoteFilesystemUploads = MutableStateFlow<Map<String, RemoteFilesystemUpload>>(emptyMap())
     private val ackSignals = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
     private val cloudBusinessVersions = ConcurrentHashMap<String, String>()
     private val _peerProtocolVersions = MutableStateFlow<Map<String, PeerProtocolVersions>>(emptyMap())
@@ -432,6 +459,8 @@ class ConnectionManager @Inject constructor(
     val cloudState: StateFlow<CloudConnectionState> = _cloudState.asStateFlow()
     val remoteFilesystemDownloads: StateFlow<Map<String, RemoteFilesystemDownload>> =
         _remoteFilesystemDownloads.asStateFlow()
+    val remoteFilesystemUploads: StateFlow<Map<String, RemoteFilesystemUpload>> =
+        _remoteFilesystemUploads.asStateFlow()
     val terminalEvents: Flow<TerminalEvent> = terminalEventChannel.receiveAsFlow()
     val cameraEvents: Flow<CameraEvent> = cameraEventChannel.receiveAsFlow()
     val cameraFrames: Flow<CameraEvent.Frame> = cameraFrameFlow.asSharedFlow()
@@ -518,6 +547,7 @@ class ConnectionManager @Inject constructor(
         outgoingTransfers.clear()
         pendingFilesystemDownloads.clear()
         _remoteFilesystemDownloads.value = emptyMap()
+        _remoteFilesystemUploads.value = emptyMap()
         ackSignals.values.forEach { it.complete(Unit) }
         ackSignals.clear()
         lanRuntimeState.clear()
@@ -1253,6 +1283,7 @@ class ConnectionManager @Inject constructor(
             return
         }
         if (!hasLanPeer(deviceId)) {
+            pendingFilesystemUploads.entries.removeIf { it.value.deviceId == deviceId }
             closeCameraSessionsForDevice(deviceId)
         }
         flushPendingLanSends(deviceId)
@@ -1417,9 +1448,9 @@ class ConnectionManager @Inject constructor(
             CAMERA_LIST_RESULT_TYPE -> handleCameraListResult(fromDeviceId, correlationId, business)
             CAMERA_OPEN_ACK_TYPE -> handleCameraOpenAck(fromDeviceId, correlationId, business)
             CAMERA_FRAME_TYPE -> handleCameraFrame(fromDeviceId, business)
-            FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE ->
+            FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE, FS_UPLOAD_TYPE ->
                 handleFilesystemRequest(fromDeviceId, envelopeId, business)
-            FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE ->
+            FS_ROOTS_RESULT_TYPE, FS_LIST_RESULT_TYPE, FS_STAT_RESULT_TYPE, FS_UPLOAD_READY_TYPE ->
                 completeFilesystemRequest(fromDeviceId, correlationId, business)
             FS_ERROR_TYPE -> {
                 completeFilesystemRequest(fromDeviceId, correlationId, business)
@@ -1511,6 +1542,55 @@ class ConnectionManager @Inject constructor(
         return sent
     }
 
+    suspend fun uploadRemoteFilesystemFile(
+        contentResolver: ContentResolver,
+        deviceId: String,
+        path: String,
+        uri: Uri,
+    ): Result<Unit> {
+        try {
+            requireRemoteFilesystemUploadSupport(deviceId)
+        } catch (error: Throwable) {
+            return Result.failure(error)
+        }
+        val requestId = UUID.randomUUID().toString()
+        rememberRemoteFilesystemUpload(
+            RemoteFilesystemUpload(
+                requestId = requestId,
+                deviceId = deviceId,
+                remotePath = path,
+                requestedAt = System.currentTimeMillis(),
+            ),
+        )
+        return runCatching {
+            val (_, response) = requestFilesystemWithId(
+                deviceId = deviceId,
+                request = BusinessEnvelope(
+                    type = FS_UPLOAD_TYPE,
+                    payload = json.encodeToJsonElement(FsUploadPayload(path)),
+                ),
+                expectedResponseType = FS_UPLOAD_READY_TYPE,
+                timeoutMillis = FILESYSTEM_UPLOAD_READY_TIMEOUT_MILLIS,
+                requestId = requestId,
+            ).getOrThrow()
+            check(response.type == FS_UPLOAD_READY_TYPE) { "Remote device did not authorize the upload" }
+
+            val prepared = beginOutgoingTransfer(contentResolver, deviceId, uri).getOrThrow()
+            updateRemoteFilesystemUpload(requestId) { it.copy(sessionId = prepared.sessionId) }
+            val offer = try {
+                buildFileOffer(contentResolver, uri, prepared.algorithm, prepared.sessionId)
+            } catch (error: Throwable) {
+                failOutgoingTransfer(prepared.sessionId, error.message)
+                throw error
+            }
+            sendFileOffer(deviceId, offer, correlationId = requestId).getOrThrow()
+        }.onFailure { error ->
+            updateRemoteFilesystemUpload(requestId) {
+                it.copy(error = error.message ?: "Upload could not start")
+            }
+        }
+    }
+
     private fun rememberRemoteFilesystemDownload(download: RemoteFilesystemDownload) {
         _remoteFilesystemDownloads.update { current ->
             val updated = current + (download.requestId to download)
@@ -1540,12 +1620,46 @@ class ConnectionManager @Inject constructor(
         _remoteFilesystemDownloads.update { current -> current - requestId }
     }
 
+    private fun rememberRemoteFilesystemUpload(upload: RemoteFilesystemUpload) {
+        _remoteFilesystemUploads.update { current ->
+            val updated = current + (upload.requestId to upload)
+            if (updated.size <= 100) {
+                updated
+            } else {
+                updated.values
+                    .sortedByDescending { it.requestedAt }
+                    .take(100)
+                    .associateBy { it.requestId }
+            }
+        }
+    }
+
+    private fun updateRemoteFilesystemUpload(
+        requestId: String,
+        transform: (RemoteFilesystemUpload) -> RemoteFilesystemUpload,
+    ) {
+        _remoteFilesystemUploads.update { current ->
+            current[requestId]?.let { upload ->
+                current + (requestId to transform(upload))
+            } ?: current
+        }
+    }
+
     private suspend fun requestFilesystem(
         deviceId: String,
         request: BusinessEnvelope,
         expectedResponseType: String,
-    ): Result<BusinessEnvelope> {
-        val requestId = UUID.randomUUID().toString()
+    ): Result<BusinessEnvelope> =
+        requestFilesystemWithId(deviceId, request, expectedResponseType, FILESYSTEM_REQUEST_TIMEOUT_MILLIS)
+            .map { it.second }
+
+    private suspend fun requestFilesystemWithId(
+        deviceId: String,
+        request: BusinessEnvelope,
+        expectedResponseType: String,
+        timeoutMillis: Long,
+        requestId: String = UUID.randomUUID().toString(),
+    ): Result<Pair<String, BusinessEnvelope>> {
         val pending = PendingFilesystemRequest(
             deviceId = deviceId,
             expectedResponseType = expectedResponseType,
@@ -1562,9 +1676,10 @@ class ConnectionManager @Inject constructor(
             return Result.failure(sent.exceptionOrNull() ?: IllegalStateException("Filesystem request failed"))
         }
         return try {
-            withTimeoutOrNull(FILESYSTEM_REQUEST_TIMEOUT_MILLIS) {
+            withTimeoutOrNull(timeoutMillis) {
                 pending.result.await()
-            } ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
+            }?.map { requestId to it }
+                ?: Result.failure(IllegalStateException("Remote device did not respond in time"))
         } finally {
             pendingFilesystemRequests.remove(requestId, pending)
         }
@@ -1576,8 +1691,15 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    private fun requireRemoteFilesystemUploadSupport(deviceId: String) {
+        val peerVersion = peerBusinessVersion(deviceId)
+        if (peerVersion == null || !supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 13)) {
+            throw RemoteFilesystemUploadUnsupportedException()
+        }
+    }
+
     private fun isFilesystemRequest(message: BusinessEnvelope): Boolean =
-        message.type in setOf(FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE)
+        message.type in setOf(FS_ROOTS_TYPE, FS_LIST_TYPE, FS_STAT_TYPE, FS_DOWNLOAD_TYPE, FS_UPLOAD_TYPE)
 
     private fun isSystemControlCommand(message: BusinessEnvelope): Boolean =
         message.type == SYSTEM_CONTROL_COMMAND_TYPE
@@ -2236,6 +2358,45 @@ class ConnectionManager @Inject constructor(
                     }
                     .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
             }
+            FS_UPLOAD_TYPE -> {
+                val request = decodeFilesystemPayload<FsUploadPayload>(business) ?: run {
+                    sendFilesystemError(fromDeviceId, requestId, "invalid_path", "Invalid upload request")
+                    return
+                }
+                runFilesystemOperation { localFilesystem.authorizeUpload(request.path) }
+                    .onSuccess { destination ->
+                        val authorization = PendingFilesystemUpload(fromDeviceId, destination)
+                        val reserved = synchronized(filesystemUploadLock) {
+                            pendingFilesystemUploads.values.none {
+                                it.destination.target == destination.target
+                            }.also { available ->
+                                if (available) {
+                                    pendingFilesystemUploads[requestId] = authorization
+                                }
+                            }
+                        }
+                        if (!reserved) {
+                            sendFilesystemError(fromDeviceId, requestId, "already_exists", "Upload destination is already reserved")
+                            return@onSuccess
+                        }
+                        sendBusinessMessage(
+                            targetDeviceId = fromDeviceId,
+                            business = BusinessEnvelope(
+                                type = FS_UPLOAD_READY_TYPE,
+                                payload = json.encodeToJsonElement(FsUploadReadyPayload),
+                            ),
+                            correlationId = requestId,
+                        ).onFailure {
+                            pendingFilesystemUploads.remove(requestId, authorization)
+                        }.onSuccess {
+                            scope.launch {
+                                delay(FILESYSTEM_UPLOAD_READY_TIMEOUT_MILLIS)
+                                pendingFilesystemUploads.remove(requestId, authorization)
+                            }
+                        }
+                    }
+                    .onFailure { sendFilesystemOperationError(fromDeviceId, requestId, it) }
+            }
         }
     }
 
@@ -2261,7 +2422,7 @@ class ConnectionManager @Inject constructor(
         }
         val result = if (business.type == FS_ERROR_TYPE) {
             val error = decodeFilesystemPayload<FsErrorPayload>(business)
-            Result.failure(IllegalStateException(error?.message ?: "Remote filesystem request failed"))
+            Result.failure(filesystemRequestError(error))
         } else {
             Result.success(business)
         }
@@ -2280,7 +2441,7 @@ class ConnectionManager @Inject constructor(
         }
         val error = decodeFilesystemPayload<FsErrorPayload>(business)
         updateRemoteFilesystemDownload(requestId) {
-            it.copy(error = error?.message ?: "Remote filesystem request failed")
+            it.copy(error = filesystemRequestError(error).message ?: "Remote filesystem request failed")
         }
     }
 
@@ -2314,6 +2475,16 @@ class ConnectionManager @Inject constructor(
             filesystemError?.reason ?: "io_error",
             filesystemError?.message ?: error.message ?: "Filesystem operation failed",
         )
+    }
+
+    private fun filesystemRequestError(error: FsErrorPayload?): Throwable {
+        if (error == null) {
+            return RemoteFilesystemErrorException("io_error", "Remote filesystem request failed")
+        }
+        if (error.reason in setOf("general", "generic")) {
+            return IllegalStateException(error.message)
+        }
+        return RemoteFilesystemErrorException(error.reason, error.message)
     }
 
     private suspend fun sendFilesystemError(
@@ -2357,6 +2528,20 @@ class ConnectionManager @Inject constructor(
         )
     }
 
+    private fun consumeFilesystemUploadAuthorization(
+        fromDeviceId: String,
+        correlationId: String?,
+    ): PendingFilesystemUpload? {
+        val requestId = correlationId ?: return null
+        val authorization = pendingFilesystemUploads[requestId] ?: return null
+        if (authorization.deviceId != fromDeviceId) {
+            return null
+        }
+        return pendingFilesystemUploads.remove(requestId, authorization)
+            .takeIf { it }
+            ?.let { authorization }
+    }
+
     private suspend fun handleFileOffer(
         fromDeviceId: String,
         envelopeId: String?,
@@ -2367,6 +2552,10 @@ class ConnectionManager @Inject constructor(
         val payload = runCatching {
             json.decodeFromJsonElement(FileOfferPayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        val filesystemUpload = consumeFilesystemUploadAuthorization(
+            fromDeviceId,
+            correlationId,
+        )
         val checksumAccepted = runCatching {
             FileChecksumVerifier.from(payload.checksum)
             fileChecksumAllowedForPeer(payload.checksum, fromDeviceId)
@@ -2419,8 +2608,8 @@ class ConnectionManager @Inject constructor(
                     }
                 }
         }
-        if (requestedDownload != null || settingsDataStore.currentSettings().autoAcceptFileOffers) {
-            acceptFileOffer(payload.sessionId)
+        if (requestedDownload != null || filesystemUpload != null || settingsDataStore.currentSettings().autoAcceptFileOffers) {
+            acceptFileOffer(payload.sessionId, filesystemUpload?.destination)
                 .onFailure { error ->
                     if (requestedDownload != null) {
                         CoLinkLog.w(
@@ -2437,6 +2626,7 @@ class ConnectionManager @Inject constructor(
                             "failed to automatically accept file offer session=${CoLinkLog.shortId(payload.sessionId)}",
                             error,
                         )
+                        rejectFileOffer(payload.sessionId, REASON_TRANSFER_GENERIC)
                     }
                 }
         } else {
@@ -2449,16 +2639,18 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    suspend fun acceptFileOffer(sessionId: String): Result<Unit> =
+    suspend fun acceptFileOffer(
+        sessionId: String,
+        uploadDestination: AuthorizedUploadDestination? = null,
+    ): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             require(transfer.status == "offered") { "transfer is no longer available" }
             val token = UUID.randomUUID().toString().replace("-", "")
             val verifier = FileChecksumVerifier.from(transfer.checksum)
-            val tempFile = File.createTempFile(
-                "colink-${sessionId}-",
-                ".part",
-            )
+            val tempFile = uploadDestination?.let {
+                localFilesystem.createUploadTemp(it, transfer.fileSize)
+            } ?: File.createTempFile("colink-${sessionId}-", ".part")
             incomingTransfers[sessionId] = IncomingTransferState(
                 deviceId = transfer.deviceId,
                 expectedChunks = transfer.totalChunks,
@@ -2466,6 +2658,7 @@ class ConnectionManager @Inject constructor(
                 tempFile = tempFile,
                 verifier = verifier,
                 route = transfer.route,
+                uploadDestination = uploadDestination,
             )
             lanWebSocketServer.registerTransferToken(sessionId, token)
             val accepted = transfer.copy(
@@ -2474,19 +2667,33 @@ class ConnectionManager @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
             )
             fileTransferRepository.save(accepted)
-            sendBusinessMessage(
-                targetDeviceId = transfer.deviceId,
-                business = BusinessEnvelope(
-                    type = FILE_ACCEPT_TYPE,
-                    payload = json.encodeToJsonElement(
-                        FileAcceptPayload(
-                            sessionId = sessionId,
-                            transferToken = token,
+            try {
+                sendBusinessMessage(
+                    targetDeviceId = transfer.deviceId,
+                    business = BusinessEnvelope(
+                        type = FILE_ACCEPT_TYPE,
+                        payload = json.encodeToJsonElement(
+                            FileAcceptPayload(
+                                sessionId = sessionId,
+                                transferToken = token,
+                            ),
                         ),
                     ),
-                ),
-                correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
-            ).getOrThrow()
+                    correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
+                ).getOrThrow()
+            } catch (error: Throwable) {
+                incomingTransfers.remove(sessionId)
+                lanWebSocketServer.unregisterTransfer(sessionId)
+                tempFile.delete()
+                fileTransferRepository.save(
+                    accepted.copy(
+                        status = "failed",
+                        error = transferRecordError(REASON_TRANSFER_GENERIC, error.message),
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
+                throw error
+            }
             if (transfer.totalChunks == 0L) {
                 finishIncomingTransfer(sessionId, incomingTransfers[sessionId] ?: return@runCatching, accepted)
             }
@@ -3181,18 +3388,30 @@ class ConnectionManager @Inject constructor(
             !chunksComplete -> "Missing file chunks"
             else -> transferErrorMessage(REASON_TRANSFER_CHECKSUM_MISMATCH)
         }
+        var commitError: String? = null
         val finalUri = if (success) {
-            saveReceivedFileToDownloads(state.tempFile, verifyingTransfer.fileName)
+            runCatching {
+                state.uploadDestination?.let { destination ->
+                    localFilesystem.commitUpload(destination, state.tempFile)
+                } ?: saveReceivedFileToDownloads(state.tempFile, verifyingTransfer.fileName)
+                    ?: error("Could not save received file")
+            }.onFailure { error ->
+                commitError = error.message ?: "Could not save received file"
+                state.tempFile.delete()
+            }.getOrNull()
         } else {
             state.tempFile.delete()
             null
         }
+        val completed = success && finalUri != null
+        val finalReason = if (completed) null else reason ?: REASON_TRANSFER_GENERIC
+        val finalMessage = if (completed) null else commitError ?: message ?: "Could not save received file"
         fileTransferRepository.save(
             verifyingTransfer.copy(
-                status = if (success) "completed" else "failed",
-                transferredBytes = if (success) verifyingTransfer.fileSize else transfer.transferredBytes,
+                status = if (completed) "completed" else "failed",
+                transferredBytes = if (completed) verifyingTransfer.fileSize else transfer.transferredBytes,
                 localUri = finalUri ?: verifyingTransfer.localUri,
-                error = transferRecordError(reason, message),
+                error = transferRecordError(finalReason, finalMessage),
                 updatedAt = System.currentTimeMillis(),
             ),
         )
@@ -3205,16 +3424,16 @@ class ConnectionManager @Inject constructor(
                 payload = json.encodeToJsonElement(
                     FileDonePayload(
                         sessionId = sessionId,
-                        success = success,
-                        reason = reason,
-                        message = message,
+                        success = completed,
+                        reason = finalReason,
+                        message = finalMessage,
                     ),
                 ),
             ),
         )
         notifyEvent(
             deviceId = state.deviceId,
-            title = if (success) {
+            title = if (completed) {
                 localizedContext.getString(R.string.notification_file_received_title)
             } else {
                 localizedContext.getString(R.string.notification_file_transfer_failed_title)
@@ -3557,6 +3776,7 @@ class ConnectionManager @Inject constructor(
             deviceSyncJob.cancel()
             connectionScope.cancel()
             cloudBusinessVersions.clear()
+            pendingFilesystemUploads.clear()
             deviceRepository.clearCloudPresence()
             attempt += 1
             CoLinkLog.w("Cloud", "cloud loop reconnecting attempt=$attempt reason=${reason ?: "unknown"}")
@@ -3582,6 +3802,7 @@ class ConnectionManager @Inject constructor(
             "device.offline" -> {
                 message.from?.let { deviceId ->
                     cloudBusinessVersions.remove(deviceId)
+                    pendingFilesystemUploads.entries.removeIf { it.value.deviceId == deviceId }
                     closeCameraSessionsForDevice(deviceId)
                     deviceRepository.markCloudPresence(
                         deviceId = deviceId,
@@ -4383,6 +4604,7 @@ private data class IncomingTransferState(
     val tempFile: File,
     val verifier: FileChecksumVerifier,
     var route: String = "cloud",
+    val uploadDestination: AuthorizedUploadDestination? = null,
     val windowSize: Long = LAN_SEND_WINDOW_CHUNKS,
     val reorderBuffer: TreeMap<Long, ByteArray> = TreeMap(),
     var finishReceived: Boolean = false,
@@ -4412,6 +4634,11 @@ private data class PendingFilesystemRequest(
     val deviceId: String,
     val expectedResponseType: String,
     val result: CompletableDeferred<Result<BusinessEnvelope>>,
+)
+
+private data class PendingFilesystemUpload(
+    val deviceId: String,
+    val destination: AuthorizedUploadDestination,
 )
 
 private data class PendingSystemControlQuery(

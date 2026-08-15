@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">Dateien konnten nicht geladen werden</string>
     <string name="remote_files_retry">Erneut versuchen</string>
     <string name="remote_files_request_failed">Das Gerät konnte die Dateianfrage nicht abschließen.</string>
+    <string name="remote_files_error_already_exists">Am Ziel befindet sich bereits eine Datei mit demselben Namen.</string>
+    <string name="remote_files_error_invalid_path">Der Dateipfad ist ungültig.</string>
+    <string name="remote_files_error_io">Dieser Speicherort konnte nicht gelesen oder beschrieben werden.</string>
+    <string name="remote_files_error_not_directory">Der angeforderte Speicherort ist kein Ordner.</string>
+    <string name="remote_files_error_not_file">Der angeforderte Speicherort ist keine Datei.</string>
+    <string name="remote_files_error_not_found">Die angeforderte Datei oder der Ordner wurde nicht gefunden.</string>
+    <string name="remote_files_error_permission_denied">Sie haben keine Berechtigung für diesen Speicherort.</string>
     <string name="remote_files_read_only">Schreibgeschützt</string>
     <string name="remote_files_unsupported_title">Dieses Gerät ist zu alt</string>
     <string name="remote_files_unsupported_body">Aktualisiere CoLink auf diesem Gerät, um seine Dateien zu durchsuchen.</string>

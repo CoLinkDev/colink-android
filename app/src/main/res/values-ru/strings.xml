@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">Не удалось загрузить файлы</string>
     <string name="remote_files_retry">Повторить</string>
     <string name="remote_files_request_failed">Устройство не смогло выполнить запрос файла.</string>
+    <string name="remote_files_error_already_exists">В месте назначения уже есть файл с таким именем.</string>
+    <string name="remote_files_error_invalid_path">Путь к файлу недействителен.</string>
+    <string name="remote_files_error_io">Не удалось прочитать или записать данные в это расположение.</string>
+    <string name="remote_files_error_not_directory">Запрошенное расположение не является папкой.</string>
+    <string name="remote_files_error_not_file">Запрошенное расположение не является файлом.</string>
+    <string name="remote_files_error_not_found">Запрошенный файл или папка не найдены.</string>
+    <string name="remote_files_error_permission_denied">Нет разрешения на доступ к этому расположению.</string>
     <string name="remote_files_read_only">Только для чтения</string>
     <string name="remote_files_unsupported_title">Версия этого устройства слишком старая</string>
     <string name="remote_files_unsupported_body">Обновите CoLink на этом устройстве, чтобы просматривать его файлы.</string>

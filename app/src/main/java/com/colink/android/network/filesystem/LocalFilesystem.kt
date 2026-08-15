@@ -15,9 +15,11 @@ import com.colink.android.network.message.FsDownloadPayload
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.nio.file.AccessDeniedException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +31,12 @@ class LocalFilesystemException(
     val reason: String,
     message: String,
 ) : IllegalStateException(message)
+
+data class AuthorizedUploadDestination(
+    val parent: Path,
+    val target: Path,
+    val resolvedParent: Path,
+)
 
 @Singleton
 class LocalFilesystem @Inject constructor(
@@ -124,6 +132,41 @@ class LocalFilesystem @Inject constructor(
         return file
     }
 
+    fun authorizeUpload(path: String): AuthorizedUploadDestination {
+        val target = absoluteFile(path).toPath().normalize()
+        val parent = target.parent
+            ?: throw LocalFilesystemException("invalid_path", "Upload destination must have a parent directory")
+        target.fileName
+            ?: throw LocalFilesystemException("invalid_path", "Upload destination must be a file path")
+        val resolvedParent = validateUploadParent(parent)
+        requireAbsentUploadTarget(target)
+        return AuthorizedUploadDestination(parent, target, resolvedParent)
+    }
+
+    fun createUploadTemp(destination: AuthorizedUploadDestination, expectedBytes: Long): File {
+        val parent = revalidateUploadParent(destination)
+        if (expectedBytes < 0 || parent.toFile().usableSpace < expectedBytes) {
+            throw LocalFilesystemException("io_error", "Insufficient storage for upload")
+        }
+        return Files.createTempFile(parent, ".colink-", ".part").toFile()
+    }
+
+    fun commitUpload(destination: AuthorizedUploadDestination, tempFile: File): String {
+        val parent = revalidateUploadParent(destination)
+        val target = parent.resolve(destination.target.fileName.toString())
+        requireAbsentUploadTarget(target)
+        try {
+            Files.move(tempFile.toPath(), target)
+        } catch (error: FileAlreadyExistsException) {
+            throw LocalFilesystemException("already_exists", "Upload destination already exists")
+        } catch (error: LocalFilesystemException) {
+            throw error
+        } catch (error: Exception) {
+            throw LocalFilesystemException("io_error", error.message ?: "Could not commit uploaded file")
+        }
+        return target.toString()
+    }
+
     private fun addRoot(
         roots: MutableMap<String, FsRootEntry>,
         file: File,
@@ -151,6 +194,59 @@ class LocalFilesystem @Inject constructor(
             throw LocalFilesystemException("generic", "Path must be absolute")
         }
         return file
+    }
+
+    private fun validateUploadParent(parent: Path): Path {
+        if (!Files.isDirectory(parent, LinkOption.NOFOLLOW_LINKS)) {
+            throw LocalFilesystemException("invalid_path", "Upload parent is not a directory")
+        }
+        if (!Files.isWritable(parent)) {
+            throw LocalFilesystemException("permission_denied", "Upload directory cannot be written")
+        }
+        if (hasSymbolicLink(parent)) {
+            throw LocalFilesystemException("invalid_path", "Upload directory must not contain symbolic links")
+        }
+        return try {
+            parent.toRealPath(LinkOption.NOFOLLOW_LINKS)
+        } catch (error: Exception) {
+            throw LocalFilesystemException("invalid_path", error.message ?: "Upload directory is unavailable")
+        }
+    }
+
+    private fun revalidateUploadParent(destination: AuthorizedUploadDestination): Path {
+        val current = validateUploadParent(destination.parent)
+        if (current != destination.resolvedParent) {
+            throw LocalFilesystemException("invalid_path", "Upload directory changed after authorization")
+        }
+        return current
+    }
+
+    private fun requireAbsentUploadTarget(target: Path) {
+        try {
+            Files.readAttributes(target, BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+            throw LocalFilesystemException("already_exists", "Upload destination already exists")
+        } catch (_: NoSuchFileException) {
+            Unit
+        } catch (error: LocalFilesystemException) {
+            throw error
+        } catch (error: AccessDeniedException) {
+            throw LocalFilesystemException("permission_denied", error.message ?: "Upload destination cannot be checked")
+        } catch (error: SecurityException) {
+            throw LocalFilesystemException("permission_denied", error.message ?: "Upload destination cannot be checked")
+        } catch (error: Exception) {
+            throw LocalFilesystemException("io_error", error.message ?: "Upload destination cannot be checked")
+        }
+    }
+
+    private fun hasSymbolicLink(path: Path): Boolean {
+        var current = path.root ?: return false
+        for (part in path) {
+            current = current.resolve(part)
+            if (Files.isSymbolicLink(current)) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun entry(file: File): FsEntry = entry(file, attributes(file))

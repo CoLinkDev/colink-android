@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">Couldn\'t load files</string>
     <string name="remote_files_retry">Try again</string>
     <string name="remote_files_request_failed">The device couldn\'t complete the file request.</string>
+    <string name="remote_files_error_already_exists">A file with the same name already exists at the destination.</string>
+    <string name="remote_files_error_invalid_path">The file path is invalid.</string>
+    <string name="remote_files_error_io">This location could not be read or written.</string>
+    <string name="remote_files_error_not_directory">The requested location is not a folder.</string>
+    <string name="remote_files_error_not_file">The requested location is not a file.</string>
+    <string name="remote_files_error_not_found">The requested file or folder could not be found.</string>
+    <string name="remote_files_error_permission_denied">You do not have permission to access this location.</string>
     <string name="remote_files_read_only">Read-only</string>
     <string name="remote_files_unsupported_title">This device is too old</string>
     <string name="remote_files_unsupported_body">Update CoLink on this device to browse its files.</string>

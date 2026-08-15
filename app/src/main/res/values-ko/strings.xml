@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">파일을 불러올 수 없습니다</string>
     <string name="remote_files_retry">다시 시도</string>
     <string name="remote_files_request_failed">기기가 파일 요청을 완료하지 못했습니다.</string>
+    <string name="remote_files_error_already_exists">대상 위치에 같은 이름의 파일이 이미 있습니다.</string>
+    <string name="remote_files_error_invalid_path">파일 경로가 올바르지 않습니다.</string>
+    <string name="remote_files_error_io">이 위치를 읽거나 쓸 수 없습니다.</string>
+    <string name="remote_files_error_not_directory">요청한 위치가 폴더가 아닙니다.</string>
+    <string name="remote_files_error_not_file">요청한 위치가 파일이 아닙니다.</string>
+    <string name="remote_files_error_not_found">요청한 파일 또는 폴더를 찾을 수 없습니다.</string>
+    <string name="remote_files_error_permission_denied">이 위치에 접근할 권한이 없습니다.</string>
     <string name="remote_files_read_only">읽기 전용</string>
     <string name="remote_files_unsupported_title">이 기기의 버전이 너무 낮습니다</string>
     <string name="remote_files_unsupported_body">파일을 보려면 이 기기의 CoLink를 업데이트하세요.</string>

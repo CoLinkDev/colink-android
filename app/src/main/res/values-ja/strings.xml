@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">ファイルを読み込めませんでした</string>
     <string name="remote_files_retry">再試行</string>
     <string name="remote_files_request_failed">デバイスはファイル要求を完了できませんでした。</string>
+    <string name="remote_files_error_already_exists">保存先に同名のファイルが既にあります。</string>
+    <string name="remote_files_error_invalid_path">ファイルパスが無効です。</string>
+    <string name="remote_files_error_io">この場所の読み取りまたは書き込みができません。</string>
+    <string name="remote_files_error_not_directory">指定した場所はフォルダーではありません。</string>
+    <string name="remote_files_error_not_file">指定した場所はファイルではありません。</string>
+    <string name="remote_files_error_not_found">指定したファイルまたはフォルダーが見つかりません。</string>
+    <string name="remote_files_error_permission_denied">この場所にアクセスする権限がありません。</string>
     <string name="remote_files_read_only">読み取り専用</string>
     <string name="remote_files_unsupported_title">このデバイスのバージョンは古すぎます</string>
     <string name="remote_files_unsupported_body">ファイルを閲覧するには、このデバイスの CoLink を更新してください。</string>

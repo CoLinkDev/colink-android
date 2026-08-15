@@ -81,6 +81,27 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesFilesystemUploadMessagesWithEmptyReadyPayload() {
+        val request = BusinessEnvelope(
+            type = FS_UPLOAD_TYPE,
+            payload = json.encodeToJsonElement(FsUploadPayload(path = "/remote/report.pdf")),
+        )
+        val ready = BusinessEnvelope(
+            type = FS_UPLOAD_READY_TYPE,
+            payload = json.encodeToJsonElement(FsUploadReadyPayload),
+        )
+
+        assertEquals(
+            """{"type":"fs.v1.upload","payload":{"path":"/remote/report.pdf"}}""",
+            json.encodeToString(request),
+        )
+        assertEquals(
+            """{"type":"fs.v1.upload-ready","payload":{}}""",
+            json.encodeToString(ready),
+        )
+    }
+
+    @Test
     fun serializesSwimPingReqEnvelope() {
         val envelope = SwimEnvelope(
             type = "swim.ping-req",

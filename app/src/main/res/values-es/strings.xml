@@ -267,6 +267,13 @@
     <string name="remote_files_error_title">No se pudieron cargar los archivos</string>
     <string name="remote_files_retry">Intentar de nuevo</string>
     <string name="remote_files_request_failed">El dispositivo no pudo completar la solicitud de archivo.</string>
+    <string name="remote_files_error_already_exists">Ya existe un archivo con el mismo nombre en el destino.</string>
+    <string name="remote_files_error_invalid_path">La ruta del archivo no es válida.</string>
+    <string name="remote_files_error_io">No se pudo leer ni escribir en esta ubicación.</string>
+    <string name="remote_files_error_not_directory">La ubicación solicitada no es una carpeta.</string>
+    <string name="remote_files_error_not_file">La ubicación solicitada no es un archivo.</string>
+    <string name="remote_files_error_not_found">No se encontró el archivo o la carpeta solicitados.</string>
+    <string name="remote_files_error_permission_denied">No tiene permiso para acceder a esta ubicación.</string>
     <string name="remote_files_read_only">Solo lectura</string>
     <string name="remote_files_unsupported_title">Este dispositivo es demasiado antiguo</string>
     <string name="remote_files_unsupported_body">Actualiza CoLink en este dispositivo para explorar sus archivos.</string>

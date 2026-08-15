@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.12.1"
+const val BUSINESS_PROTOCOL_VERSION = "1.13.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
@@ -32,6 +32,8 @@ const val FS_LIST_RESULT_TYPE = "fs.v1.list-result"
 const val FS_STAT_TYPE = "fs.v1.stat"
 const val FS_STAT_RESULT_TYPE = "fs.v1.stat-result"
 const val FS_DOWNLOAD_TYPE = "fs.v1.download"
+const val FS_UPLOAD_TYPE = "fs.v1.upload"
+const val FS_UPLOAD_READY_TYPE = "fs.v1.upload-ready"
 const val FS_ERROR_TYPE = "fs.v1.error"
 const val SYSTEM_CONTROL_COMMAND_TYPE = "system-control.v1.command"
 const val SYSTEM_CONTROL_QUERY_TYPE = "system-control.v1.query"
@@ -379,6 +381,14 @@ data class FsEntry(
 data class FsStatPayload(
     val path: String,
 )
+
+@Serializable
+data class FsUploadPayload(
+    val path: String,
+)
+
+@Serializable
+object FsUploadReadyPayload
 
 @Serializable
 data class FsStatResultPayload(
