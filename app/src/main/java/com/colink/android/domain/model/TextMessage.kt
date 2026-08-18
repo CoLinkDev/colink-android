@@ -6,10 +6,17 @@ data class TextMessage(
     val direction: MessageDirection,
     val text: String,
     val route: String,
+    val deliveryStatus: MessageDeliveryStatus,
     val createdAt: Long,
 )
 
 enum class MessageDirection {
     Incoming,
     Outgoing,
+}
+
+enum class MessageDeliveryStatus {
+    Sending,
+    Sent,
+    ReceiptReceived,
 }

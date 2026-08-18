@@ -32,6 +32,7 @@ object DatabaseModule {
                 CoLinkDatabase.MIGRATION_7_8,
                 CoLinkDatabase.MIGRATION_8_9,
                 CoLinkDatabase.MIGRATION_9_10,
+                CoLinkDatabase.MIGRATION_10_11,
             )
             .build()
 

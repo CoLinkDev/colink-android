@@ -23,7 +23,7 @@ import com.colink.android.data.local.db.entity.TrustedPeerKeyEntity
         FileTransferEntity::class,
         TrustedPeerKeyEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class CoLinkDatabase : RoomDatabase() {
@@ -260,6 +260,15 @@ abstract class CoLinkDatabase : RoomDatabase() {
                     )
                     db.execSQL(
                         "CREATE INDEX IF NOT EXISTS index_diagnostic_logs_createdAt ON diagnostic_logs (createdAt)",
+                    )
+                }
+            }
+
+        val MIGRATION_10_11: Migration =
+            object : Migration(10, 11) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "ALTER TABLE messages ADD COLUMN deliveryStatus TEXT NOT NULL DEFAULT 'Sent'",
                     )
                 }
             }

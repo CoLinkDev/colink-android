@@ -46,6 +46,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Close
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.PhoneIphone
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Verified
@@ -100,6 +102,7 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.MessageDirection
+import com.colink.android.domain.model.MessageDeliveryStatus
 import com.colink.android.domain.model.TextMessage
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.DestinationDeviceDialog
@@ -606,7 +609,7 @@ private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
         }
 
         val isFailed = message.route == "failed"
-        val isSending = message.route == "sending"
+        val isSending = message.deliveryStatus == MessageDeliveryStatus.Sending
         val routeName = when (message.route) {
             "lan" -> stringResource(R.string.route_lan)
             "cloud" -> stringResource(R.string.route_cloud)
@@ -629,9 +632,13 @@ private fun MessageBubble(message: TextMessage, modifier: Modifier = Modifier) {
                 color = textColor,
             )
             Spacer(modifier = Modifier.width(6.dp))
-            if (outgoing && !isSending && !isFailed) {
+            if (outgoing && !isFailed) {
                 Icon(
-                    imageVector = Icons.Default.Check,
+                    imageVector = when (message.deliveryStatus) {
+                        MessageDeliveryStatus.Sending -> Icons.Default.Schedule
+                        MessageDeliveryStatus.Sent -> Icons.Default.Check
+                        MessageDeliveryStatus.ReceiptReceived -> Icons.Default.DoneAll
+                    },
                     contentDescription = null,
                     tint = textColor,
                     modifier = Modifier.size(13.dp),

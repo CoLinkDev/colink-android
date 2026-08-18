@@ -8,6 +8,7 @@ import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.MessageDirection
+import com.colink.android.domain.model.MessageDeliveryStatus
 import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.repository.AuthRepository
@@ -126,7 +127,9 @@ import com.colink.android.network.message.FsUploadReadyPayload
 import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.message.TEXT_MESSAGE_TYPE
+import com.colink.android.network.message.TEXT_MESSAGE_RECEIPT_TYPE
 import com.colink.android.network.message.TextMessagePayload
+import com.colink.android.network.message.TextMessageReceiptPayload
 import com.colink.android.network.message.TerminalClosePayload
 import com.colink.android.network.message.TerminalDataPayload
 import com.colink.android.network.message.TerminalOpenAckPayload
@@ -926,13 +929,14 @@ class ConnectionManager @Inject constructor(
                 payload = json.encodeToJsonElement(payload),
             )
 
-            // Save outgoing message to DB immediately in "sending" state
+            // Persist the first state before routing so the timeline immediately reflects the attempt.
             messageRepository.saveTextMessage(
                 messageId = messageId,
                 deviceId = targetDeviceId,
                 direction = MessageDirection.Outgoing,
                 text = trimmed,
                 route = "sending",
+                deliveryStatus = MessageDeliveryStatus.Sending,
             )
 
             val routeResult = runCatching {
@@ -940,12 +944,20 @@ class ConnectionManager @Inject constructor(
             }
 
             val finalRoute = if (routeResult.isSuccess) routeResult.getOrThrow() else "failed"
-            messageRepository.saveTextMessage(
+            val deliveryStatus = if (routeResult.isSuccess) {
+                if (peerCannotSendTextMessageReceipt(targetDeviceId)) {
+                    MessageDeliveryStatus.ReceiptReceived
+                } else {
+                    MessageDeliveryStatus.Sent
+                }
+            } else {
+                MessageDeliveryStatus.Sending
+            }
+            messageRepository.updateOutgoingTextMessageDelivery(
                 messageId = messageId,
                 deviceId = targetDeviceId,
-                direction = MessageDirection.Outgoing,
-                text = trimmed,
                 route = finalRoute,
+                deliveryStatus = deliveryStatus,
             )
 
             routeResult.getOrThrow()
@@ -1182,6 +1194,11 @@ class ConnectionManager @Inject constructor(
             ?: cloudBusinessVersions[deviceId]
             ?: peerProtocolVersions.value[deviceId]?.businessVersion
 
+    private fun peerCannotSendTextMessageReceipt(deviceId: String): Boolean =
+        peerBusinessVersion(deviceId)
+            ?.let { !supportsBusinessProtocolAtLeast(it, major = 1, minor = 14) }
+            ?: false
+
     fun requestPeerProtocolVersions(deviceId: String) {
         rememberPeerProtocolVersions(
             deviceId = deviceId,
@@ -1222,6 +1239,11 @@ class ConnectionManager @Inject constructor(
                 businessVersion = current.businessVersion ?: normalizedBusinessVersion,
             )
             if (updated == current) versions else versions + (deviceId to updated)
+        }
+        if (normalizedBusinessVersion != null && peerCannotSendTextMessageReceipt(deviceId)) {
+            scope.launch {
+                messageRepository.markSentOutgoingTextMessagesReceiptReceived(deviceId)
+            }
         }
     }
 
@@ -1410,6 +1432,7 @@ class ConnectionManager @Inject constructor(
     ) {
         when (business.type) {
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
+            TEXT_MESSAGE_RECEIPT_TYPE -> handleTextMessageReceipt(fromDeviceId, business, route)
             CLIPBOARD_SYNC_TYPE -> clipboardSyncHandler.receive(business)
             FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, correlationId, business, route)
             FILE_ACCEPT_TYPE -> handleFileAccept(fromDeviceId, business)
@@ -2514,17 +2537,47 @@ class ConnectionManager @Inject constructor(
         val textPayload = runCatching {
             json.decodeFromJsonElement(TextMessagePayload.serializer(), business.payload)
         }.getOrNull() ?: return
-        messageRepository.saveTextMessage(
+        val inserted = messageRepository.saveTextMessage(
             messageId = textPayload.messageId,
             deviceId = fromDeviceId,
             direction = MessageDirection.Incoming,
             text = textPayload.text,
             route = route,
+            deliveryStatus = MessageDeliveryStatus.Sent,
         )
-        notifier.notifyMessageReceived(
+        sendBusinessMessage(
+            fromDeviceId,
+            BusinessEnvelope(
+                type = TEXT_MESSAGE_RECEIPT_TYPE,
+                payload = json.encodeToJsonElement(TextMessageReceiptPayload(textPayload.messageId)),
+            ),
+        ).onFailure { error ->
+            CoLinkLog.w(
+                "Message",
+                "failed to send text message receipt device=${CoLinkLog.shortId(fromDeviceId)} reason=${error.message}",
+            )
+        }
+        if (inserted) {
+            notifier.notifyMessageReceived(
+                deviceId = fromDeviceId,
+                deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
+                text = textPayload.text,
+            )
+        }
+    }
+
+    private suspend fun handleTextMessageReceipt(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+    ) {
+        val receipt = runCatching {
+            json.decodeFromJsonElement(TextMessageReceiptPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        messageRepository.markOutgoingTextMessageReceiptReceived(
+            messageId = receipt.messageId,
             deviceId = fromDeviceId,
-            deviceName = deviceRepository.getDevice(fromDeviceId)?.name ?: fromDeviceId,
-            text = textPayload.text,
+            route = route,
         )
     }
 
