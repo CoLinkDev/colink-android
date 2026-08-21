@@ -145,6 +145,7 @@ fun CastBoardFullScreen(
     val sysInfoState by viewModel.sysInfoState.collectAsStateWithLifecycle()
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val sourceDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
+    val peerProtocolVersions by viewModel.peerProtocolVersions.collectAsStateWithLifecycle()
     val connectionStatus by viewModel.connectionStatus.collectAsStateWithLifecycle()
     val sourceDevice = remember(devices, sourceDeviceId) {
         devices.firstOrNull { it.deviceId == sourceDeviceId }
@@ -154,7 +155,10 @@ fun CastBoardFullScreen(
     var controlsVisible by remember { mutableStateOf(true) }
     var controlsRevealTick by remember { mutableStateOf(0) }
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
-    val castBoardUrl = remember(context) { castBoardUrl(context) }
+    val peerBusinessVersion = peerProtocolVersions[sourceDeviceId]?.businessVersion
+    val castBoardUrl = remember(context, sourceDeviceId, peerBusinessVersion) {
+        castBoardUrl(context, peerBusinessVersion)
+    }
     val assetLoader = remember(context) {
         WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
@@ -364,7 +368,7 @@ fun CastBoardFullScreen(
     }
 }
 
-private fun castBoardUrl(context: Context): String {
+private fun castBoardUrl(context: Context, peerBusinessVersion: String?): String {
     val devUrl = BuildConfig.CASTBOARD_DEV_URL.trim()
     val rawLang = com.colink.android.util.LocaleHelper.cachedLanguage(context)
     val lang = if (rawLang == "system") {
@@ -386,10 +390,11 @@ private fun castBoardUrl(context: Context): String {
             "$baseUrl?debug=1"
         }
     }
+    val peerBusinessVersionParameter = peerBusinessVersion.orEmpty()
     return if (baseUrl.contains("?")) {
-        "$baseUrl&lang=$lang"
+        "$baseUrl&lang=$lang&peerBusinessVersion=$peerBusinessVersionParameter"
     } else {
-        "$baseUrl?lang=$lang"
+        "$baseUrl?lang=$lang&peerBusinessVersion=$peerBusinessVersionParameter"
     }
 }
 

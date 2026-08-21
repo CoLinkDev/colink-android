@@ -58,6 +58,8 @@ class CastBoardViewModel @Inject constructor(
 
     val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
 
+    val peerProtocolVersions = connectionManager.peerProtocolVersions
+
     private val _localDeviceId = MutableStateFlow<String?>(null)
     val localDeviceId: StateFlow<String?> = _localDeviceId.asStateFlow()
 
@@ -112,6 +114,7 @@ class CastBoardViewModel @Inject constructor(
         sourceDeviceId = normalized
         _selectedDeviceId.value = normalized
         CoLinkLog.i("CastBoard", "source selected device=${CoLinkLog.shortId(normalized)}")
+        connectionManager.requestPeerProtocolVersions(normalized)
         musicSyncManager.beginSession(normalized)
         sysInfoSyncManager.beginSession(normalized)
         heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
