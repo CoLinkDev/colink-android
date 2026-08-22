@@ -349,7 +349,12 @@ fun CastBoardFullScreen(
                         webSettings.forceDark = WebSettings.FORCE_DARK_OFF
                     }
                     webSettings.cacheMode = WebSettings.LOAD_DEFAULT
-                    configureCastBoardIpc(this, allowedOrigins, bridge)
+                    configureCastBoardIpc(
+                        webView = this,
+                        allowedOrigins = allowedOrigins,
+                        bridge = bridge,
+                        onSysInfoAlive = viewModel::sendSingleSysInfoAlive,
+                    )
                     webViewClient = object : WebViewClient() {
                         override fun shouldInterceptRequest(
                             view: WebView?,
@@ -487,6 +492,7 @@ private fun configureCastBoardIpc(
     webView: WebView,
     allowedOrigins: Set<String>,
     bridge: MusicBridge,
+    onSysInfoAlive: () -> Unit,
 ) {
     check(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
         "CastBoard requires WebView Web Message Listener support"
@@ -501,7 +507,7 @@ private fun configureCastBoardIpc(
         allowedOrigins,
         WebViewCompat.WebMessageListener { _, message, _, isMainFrame, replyProxy ->
             if (isMainFrame) {
-                handleCastBoardRequest(message.data, replyProxy, bridge)
+                handleCastBoardRequest(message.data, replyProxy, bridge, onSysInfoAlive)
             }
         },
     )
@@ -512,6 +518,7 @@ private fun handleCastBoardRequest(
     data: String?,
     replyProxy: JavaScriptReplyProxy,
     bridge: MusicBridge,
+    onSysInfoAlive: () -> Unit,
 ) {
     val request = data?.let {
         runCatching { castBoardIpcJson.decodeFromString<CastBoardRequest>(it) }.getOrNull()
@@ -527,6 +534,10 @@ private fun handleCastBoardRequest(
             replyProxy.postMessage(castBoardResponse(request.id, ok = true))
             bridge.markPageReady(replyProxy)
             bridge.dispatchHostReady()
+        }
+        "castboard.sysinfo.alive" -> {
+            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+            onSysInfoAlive()
         }
         else -> replyProxy.postMessage(
             castBoardResponse(request.id, ok = false, error = "Unknown CastBoard request type"),

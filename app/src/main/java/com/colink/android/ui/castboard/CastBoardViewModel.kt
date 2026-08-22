@@ -136,17 +136,25 @@ class CastBoardViewModel @Inject constructor(
                     wasWaitingForDevice = false
                 }
                 connectionManager.sendMusicAlive(normalized)
-                connectionManager.sendSysInfoAlive(normalized)
                 connectionManager.sendMusicRequest(normalized)
                 while (isActive) {
                     delay(HEARTBEAT_INTERVAL_MILLIS)
                     connectionManager.sendMusicAlive(normalized)
-                    connectionManager.sendSysInfoAlive(normalized)
                     if (musicSyncManager.state.value.track == null) {
                         connectionManager.sendMusicRequest(normalized)
                     }
                 }
             }
+        }
+    }
+
+    fun sendSingleSysInfoAlive() {
+        val targetDeviceId = sourceDeviceId ?: return
+        if (connectionStatus.value != CastBoardConnectionStatus.Connected) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            connectionManager.sendSysInfoAlive(targetDeviceId)
         }
     }
 
