@@ -1,76 +1,21 @@
 package com.colink.android.ui.castboard.bridge
 
 import android.webkit.WebView
-import com.colink.android.network.message.MusicLyricLinePayload
+import com.colink.android.network.message.MUSIC_LYRIC_TYPE
+import com.colink.android.network.message.MUSIC_PROGRESS_TYPE
+import com.colink.android.network.message.MUSIC_TRACK_TYPE
+import com.colink.android.network.message.SYSINFO_STATS_TYPE
+import com.colink.android.network.message.MusicLyricPayload
+import com.colink.android.network.message.MusicProgressPayload
 import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.music.MusicSyncState
 import com.colink.android.network.sysinfo.SysInfoSyncState
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
-private const val MUSIC_EVENT_TRACK = "Track"
-private const val MUSIC_EVENT_LYRIC = "Lyric"
-private const val MUSIC_EVENT_PROGRESS = "PlayerProgress"
-private const val SYSINFO_EVENT_STATS = "SysInfoStats"
 
 private val json = Json {
     encodeDefaults = true
 }
-
-@Serializable
-private data class LegacyTrackEvent(
-    val author: String = "",
-    val title: String = "",
-    val album: String = "",
-    val source: String = "",
-    val cover: String = "",
-    val duration: Long = 0,
-    val durationHuman: String = "0:00",
-    val url: String = "",
-    val id: String = "",
-    val isVideo: Boolean = false,
-    val isAdvertisement: Boolean = false,
-    val inLibrary: Boolean = false,
-)
-
-@Serializable
-private data class LegacyLyricEvent(
-    val lines: List<LegacyLyricLine> = emptyList(),
-    val translatedLines: List<LegacyLyricLine> = emptyList(),
-    val title: String = "",
-    val author: String = "",
-    val duration: Long = 0,
-    val hasLyric: Boolean = false,
-    val hasTranslatedLyric: Boolean = false,
-    val hasKaraokeLyric: Boolean = false,
-    val lrc: String = "",
-    val translatedLyric: String = "",
-    val karaokeLyric: String = "",
-)
-
-@Serializable
-private data class LegacyLyricLine(
-    val time: Double,
-    val text: String,
-)
-
-@Serializable
-private data class LegacyProgressEvent(
-    val progress: Long,
-    val paused: Boolean,
-)
-
-@Serializable
-private data class LegacySysInfoEvent(
-    val cpu: Double,
-    val mem: Double,
-    val gpu: Double? = null,
-    val netUp: Double? = null,
-    val netDown: Double? = null,
-    val diskRead: Double? = null,
-    val diskWrite: Double? = null,
-)
 
 class MusicBridge {
     private var webView: WebView? = null
@@ -78,9 +23,9 @@ class MusicBridge {
     private var forceSync = true
     private var lastState: MusicSyncState = MusicSyncState()
     private var lastSysInfoState: SysInfoSyncState = SysInfoSyncState()
-    private var lastTrackEvent: LegacyTrackEvent? = null
-    private var lastLyricEvent: LegacyLyricEvent? = null
-    private var lastProgressEvent: LegacyProgressEvent? = null
+    private var lastTrack: MusicTrackPayload? = null
+    private var lastLyric: MusicLyricPayload? = null
+    private var lastProgress: MusicProgressPayload? = null
 
     fun bind(webView: WebView) {
         this.webView = webView
@@ -90,9 +35,9 @@ class MusicBridge {
         webView = null
         pageReady = false
         forceSync = true
-        lastTrackEvent = null
-        lastLyricEvent = null
-        lastProgressEvent = null
+        lastTrack = null
+        lastLyric = null
+        lastProgress = null
         lastState = MusicSyncState()
         lastSysInfoState = SysInfoSyncState()
     }
@@ -126,23 +71,24 @@ class MusicBridge {
         }
 
         val state = lastState
-        val trackEvent = state.track.toLegacyTrackEvent()
-        val lyricEvent = state.toLegacyLyricEvent()
-        val progressEvent = state.toLegacyProgressEvent()
+        val track = state.track ?: MusicTrackPayload()
+        val trackId = state.track?.trackId.orEmpty()
+        val lyric = state.lyric ?: MusicLyricPayload(trackId = trackId)
+        val progress = state.progress ?: MusicProgressPayload(trackId = trackId, progress = 0L, paused = true)
 
-        if (forceSync || trackEvent != lastTrackEvent) {
-            dispatch(view, MUSIC_EVENT_TRACK, trackEvent)
-            lastTrackEvent = trackEvent
+        if (forceSync || track != lastTrack) {
+            dispatchBusiness(view, MUSIC_TRACK_TYPE, track)
+            lastTrack = track
         }
 
-        if (forceSync || lyricEvent != lastLyricEvent) {
-            dispatch(view, MUSIC_EVENT_LYRIC, lyricEvent)
-            lastLyricEvent = lyricEvent
+        if (forceSync || lyric != lastLyric) {
+            dispatchBusiness(view, MUSIC_LYRIC_TYPE, lyric)
+            lastLyric = lyric
         }
 
-        if (forceSync || progressEvent != lastProgressEvent) {
-            dispatch(view, MUSIC_EVENT_PROGRESS, progressEvent)
-            lastProgressEvent = progressEvent
+        if (forceSync || progress != lastProgress) {
+            dispatchBusiness(view, MUSIC_PROGRESS_TYPE, progress)
+            lastProgress = progress
         }
 
         forceSync = false
@@ -154,91 +100,13 @@ class MusicBridge {
             return
         }
         val stats = lastSysInfoState.stats ?: return
-        dispatchSysInfo(
-            view,
-            LegacySysInfoEvent(
-                cpu = stats.cpu,
-                mem = stats.mem,
-                gpu = stats.gpu,
-                netUp = stats.netUp,
-                netDown = stats.netDown,
-                diskRead = stats.diskRead,
-                diskWrite = stats.diskWrite,
-            ),
-        )
+        dispatchBusiness(view, SYSINFO_STATS_TYPE, stats)
     }
 
-    private inline fun <reified T> dispatch(view: WebView, event: String, payload: T) {
-        val script = "window.handleMusicEvent(${json.encodeToString(event)}, ${json.encodeToString(payload)})"
+    private inline fun <reified T> dispatchBusiness(view: WebView, type: String, payload: T) {
+        val script = "window.handleCoLinkBusinessEvent(${json.encodeToString(type)}, ${json.encodeToString(payload)})"
         view.post {
             view.evaluateJavascript(script, null)
         }
-    }
-
-    private fun dispatchSysInfo(view: WebView, payload: LegacySysInfoEvent) {
-        val script = "window.handleSysInfoStats(${json.encodeToString(payload)})"
-        view.post {
-            view.evaluateJavascript(script, null)
-        }
-    }
-
-    private fun MusicSyncState.toLegacyLyricEvent(): LegacyLyricEvent {
-        val lyric = lyric ?: return emptyLyricEvent()
-        val title = track?.title.orEmpty()
-        val author = track?.artists.orEmpty().joinToString(", ")
-        val durationSeconds = (track?.duration ?: 0L) / 1000L
-        return LegacyLyricEvent(
-            lines = lyric.lines.orEmpty().map { it.toLegacyLine() },
-            translatedLines = lyric.translatedLines.orEmpty().map { it.toLegacyLine() },
-            title = title,
-            author = author,
-            duration = durationSeconds,
-            hasLyric = lyric.lines?.isNotEmpty() == true,
-            hasTranslatedLyric = lyric.translatedLines?.isNotEmpty() == true,
-            hasKaraokeLyric = false,
-            lrc = "",
-            translatedLyric = "",
-            karaokeLyric = "",
-        )
-    }
-
-    private fun MusicSyncState.toLegacyProgressEvent(): LegacyProgressEvent =
-        LegacyProgressEvent(
-            progress = progress?.progress ?: 0L,
-            paused = progress?.paused ?: true,
-        )
-
-    private fun MusicTrackPayload?.toLegacyTrackEvent(): LegacyTrackEvent {
-        val track = this ?: return emptyTrackEvent()
-        val durationSeconds = (track.duration ?: 0L) / 1000L
-        return LegacyTrackEvent(
-            author = track.artists.orEmpty().joinToString(", "),
-            title = track.title.orEmpty(),
-            album = track.album.orEmpty(),
-            source = track.source.orEmpty(),
-            cover = track.coverData?.let {
-                "data:image/png;base64,$it"
-            }.orEmpty().ifBlank { track.coverUrl.orEmpty() },
-            duration = durationSeconds,
-            durationHuman = formatDuration(durationSeconds),
-            id = track.trackId.orEmpty(),
-        )
-    }
-
-    private fun MusicLyricLinePayload.toLegacyLine(): LegacyLyricLine =
-        LegacyLyricLine(
-            time = time / 1000.0,
-            text = text,
-        )
-
-    private fun emptyTrackEvent(): LegacyTrackEvent = LegacyTrackEvent()
-
-    private fun emptyLyricEvent(): LegacyLyricEvent = LegacyLyricEvent()
-
-    private fun formatDuration(seconds: Long): String {
-        val total = seconds.coerceAtLeast(0)
-        val minutes = total / 60
-        val remain = total % 60
-        return "$minutes:${remain.toString().padStart(2, '0')}"
     }
 }
