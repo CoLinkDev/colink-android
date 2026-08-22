@@ -49,6 +49,20 @@ class MusicBridge {
         flushSysInfo()
     }
 
+    fun dispatchHostReady() {
+        if (!pageReady) {
+            return
+        }
+        val proxy = replyProxy ?: return
+        val message = buildJsonObject {
+            put("channel", "castboard")
+            put("kind", "event")
+            put("type", "host.ready")
+            put("payload", buildJsonObject {})
+        }
+        proxy.postMessage(json.encodeToString(message))
+    }
+
     fun markPageLoading() {
         replyProxy = null
         pageReady = false

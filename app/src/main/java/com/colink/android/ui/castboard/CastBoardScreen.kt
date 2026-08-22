@@ -526,6 +526,7 @@ private fun handleCastBoardRequest(
         "castboard.ready" -> {
             replyProxy.postMessage(castBoardResponse(request.id, ok = true))
             bridge.markPageReady(replyProxy)
+            bridge.dispatchHostReady()
         }
         else -> replyProxy.postMessage(
             castBoardResponse(request.id, ok = false, error = "Unknown CastBoard request type"),
