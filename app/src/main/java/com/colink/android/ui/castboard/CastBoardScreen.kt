@@ -70,7 +70,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 import androidx.compose.foundation.layout.size
@@ -81,6 +84,8 @@ private const val CASTBOARD_ASSET_ORIGIN = "https://appassets.androidplatform.ne
 private val castBoardIpcJson = Json {
     ignoreUnknownKeys = true
 }
+
+private val castBoardMediaControlActions = setOf("play", "pause", "next", "previous")
 
 private val castBoardIpcScript = """
     window.castboardIPC = (() => {
@@ -133,6 +138,7 @@ private data class CastBoardRequest(
     val kind: String,
     val id: String,
     val type: String,
+    val payload: JsonObject = JsonObject(emptyMap()),
 )
 
 @Composable
@@ -354,6 +360,7 @@ fun CastBoardFullScreen(
                         allowedOrigins = allowedOrigins,
                         bridge = bridge,
                         onSysInfoAlive = viewModel::sendSingleSysInfoAlive,
+                        onMediaControl = viewModel::sendMediaControl,
                     )
                     webViewClient = object : WebViewClient() {
                         override fun shouldInterceptRequest(
@@ -493,6 +500,7 @@ private fun configureCastBoardIpc(
     allowedOrigins: Set<String>,
     bridge: MusicBridge,
     onSysInfoAlive: () -> Unit,
+    onMediaControl: (String) -> Unit,
 ) {
     check(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
         "CastBoard requires WebView Web Message Listener support"
@@ -507,7 +515,13 @@ private fun configureCastBoardIpc(
         allowedOrigins,
         WebViewCompat.WebMessageListener { _, message, _, isMainFrame, replyProxy ->
             if (isMainFrame) {
-                handleCastBoardRequest(message.data, replyProxy, bridge, onSysInfoAlive)
+                handleCastBoardRequest(
+                    data = message.data,
+                    replyProxy = replyProxy,
+                    bridge = bridge,
+                    onSysInfoAlive = onSysInfoAlive,
+                    onMediaControl = onMediaControl,
+                )
             }
         },
     )
@@ -519,6 +533,7 @@ private fun handleCastBoardRequest(
     replyProxy: JavaScriptReplyProxy,
     bridge: MusicBridge,
     onSysInfoAlive: () -> Unit,
+    onMediaControl: (String) -> Unit,
 ) {
     val request = data?.let {
         runCatching { castBoardIpcJson.decodeFromString<CastBoardRequest>(it) }.getOrNull()
@@ -539,11 +554,27 @@ private fun handleCastBoardRequest(
             replyProxy.postMessage(castBoardResponse(request.id, ok = true))
             onSysInfoAlive()
         }
+        "castboard.media.control" -> {
+            val action = request.mediaControlAction()
+            if (action == null) {
+                replyProxy.postMessage(
+                    castBoardResponse(request.id, ok = false, error = "Unsupported CastBoard media control action"),
+                )
+                return
+            }
+            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+            onMediaControl(action)
+        }
         else -> replyProxy.postMessage(
             castBoardResponse(request.id, ok = false, error = "Unknown CastBoard request type"),
         )
     }
 }
+
+private fun CastBoardRequest.mediaControlAction(): String? =
+    (payload["action"] as? JsonPrimitive)
+        ?.contentOrNull
+        ?.takeIf(castBoardMediaControlActions::contains)
 
 private fun castBoardResponse(id: String, ok: Boolean, error: String? = null): String =
     castBoardIpcJson.encodeToString(

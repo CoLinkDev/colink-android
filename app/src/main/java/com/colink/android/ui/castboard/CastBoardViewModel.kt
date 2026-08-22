@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.network.message.SystemControlAction
 import com.colink.android.network.music.MusicSyncManager
 import com.colink.android.network.music.MusicSyncState
 import com.colink.android.network.sysinfo.SysInfoSyncManager
@@ -155,6 +156,31 @@ class CastBoardViewModel @Inject constructor(
         }
         viewModelScope.launch(Dispatchers.IO) {
             connectionManager.sendSysInfoAlive(targetDeviceId)
+        }
+    }
+
+    fun sendMediaControl(action: String) {
+        val systemAction = when (action) {
+            "play" -> SystemControlAction.Play
+            "pause" -> SystemControlAction.Pause
+            "next" -> SystemControlAction.Next
+            "previous" -> SystemControlAction.Previous
+            else -> {
+                CoLinkLog.w("CastBoard", "ignored unsupported media control action=$action")
+                return
+            }
+        }
+        val targetDeviceId = sourceDeviceId ?: return
+        if (connectionStatus.value != CastBoardConnectionStatus.Connected) {
+            CoLinkLog.w("CastBoard", "ignored media control while source is disconnected")
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            connectionManager.sendSystemControl(targetDeviceId, systemAction)
+                .onFailure { error ->
+                    CoLinkLog.w("CastBoard", "media control failed: ${error.message}")
+                }
         }
     }
 
