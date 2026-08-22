@@ -1,6 +1,6 @@
 package com.colink.android.ui.castboard.bridge
 
-import android.webkit.WebView
+import androidx.webkit.JavaScriptReplyProxy
 import com.colink.android.network.message.MUSIC_LYRIC_TYPE
 import com.colink.android.network.message.MUSIC_PROGRESS_TYPE
 import com.colink.android.network.message.MUSIC_TRACK_TYPE
@@ -12,13 +12,16 @@ import com.colink.android.network.music.MusicSyncState
 import com.colink.android.network.sysinfo.SysInfoSyncState
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.put
 
 private val json = Json {
     encodeDefaults = true
 }
 
 class MusicBridge {
-    private var webView: WebView? = null
+    private var replyProxy: JavaScriptReplyProxy? = null
     private var pageReady = false
     private var forceSync = true
     private var lastState: MusicSyncState = MusicSyncState()
@@ -27,12 +30,8 @@ class MusicBridge {
     private var lastLyric: MusicLyricPayload? = null
     private var lastProgress: MusicProgressPayload? = null
 
-    fun bind(webView: WebView) {
-        this.webView = webView
-    }
-
     fun unbind() {
-        webView = null
+        replyProxy = null
         pageReady = false
         forceSync = true
         lastTrack = null
@@ -42,7 +41,8 @@ class MusicBridge {
         lastSysInfoState = SysInfoSyncState()
     }
 
-    fun markPageReady() {
+    fun markPageReady(replyProxy: JavaScriptReplyProxy) {
+        this.replyProxy = replyProxy
         pageReady = true
         forceSync = true
         flush()
@@ -50,6 +50,7 @@ class MusicBridge {
     }
 
     fun markPageLoading() {
+        replyProxy = null
         pageReady = false
         forceSync = true
     }
@@ -65,7 +66,6 @@ class MusicBridge {
     }
 
     private fun flush() {
-        val view = webView ?: return
         if (!pageReady) {
             return
         }
@@ -77,17 +77,17 @@ class MusicBridge {
         val progress = state.progress ?: MusicProgressPayload(trackId = trackId, progress = 0L, paused = true)
 
         if (forceSync || track != lastTrack) {
-            dispatchBusiness(view, MUSIC_TRACK_TYPE, track)
+            dispatchBusiness(MUSIC_TRACK_TYPE, track)
             lastTrack = track
         }
 
         if (forceSync || lyric != lastLyric) {
-            dispatchBusiness(view, MUSIC_LYRIC_TYPE, lyric)
+            dispatchBusiness(MUSIC_LYRIC_TYPE, lyric)
             lastLyric = lyric
         }
 
         if (forceSync || progress != lastProgress) {
-            dispatchBusiness(view, MUSIC_PROGRESS_TYPE, progress)
+            dispatchBusiness(MUSIC_PROGRESS_TYPE, progress)
             lastProgress = progress
         }
 
@@ -95,18 +95,24 @@ class MusicBridge {
     }
 
     private fun flushSysInfo() {
-        val view = webView ?: return
         if (!pageReady) {
             return
         }
         val stats = lastSysInfoState.stats ?: return
-        dispatchBusiness(view, SYSINFO_STATS_TYPE, stats)
+        dispatchBusiness(SYSINFO_STATS_TYPE, stats)
     }
 
-    private inline fun <reified T> dispatchBusiness(view: WebView, type: String, payload: T) {
-        val script = "window.handleCoLinkBusinessEvent(${json.encodeToString(type)}, ${json.encodeToString(payload)})"
-        view.post {
-            view.evaluateJavascript(script, null)
+    private inline fun <reified T> dispatchBusiness(type: String, payload: T) {
+        val proxy = replyProxy ?: return
+        val message = buildJsonObject {
+            put("channel", "castboard")
+            put("kind", "event")
+            put("type", "business")
+            put("payload", buildJsonObject {
+                put("type", type)
+                put("payload", json.encodeToJsonElement(payload))
+            })
         }
+        proxy.postMessage(json.encodeToString(message))
     }
 }

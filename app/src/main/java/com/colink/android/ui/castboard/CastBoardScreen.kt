@@ -3,6 +3,7 @@ package com.colink.android.ui.castboard
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.net.Uri
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -54,7 +55,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.ui.components.devicesWithoutLocalDevice
@@ -62,9 +66,74 @@ import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.castboard.bridge.MusicBridge
 import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.delay
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+
+private const val CASTBOARD_ASSET_ORIGIN = "https://appassets.androidplatform.net"
+
+private val castBoardIpcJson = Json {
+    ignoreUnknownKeys = true
+}
+
+private val castBoardIpcScript = """
+    window.castboardIPC = (() => {
+      let nextId = 1;
+      const pending = new Map();
+      const listeners = new Set();
+
+      function request({ type, payload }) {
+        const id = String(nextId++);
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          window.castboardPort.postMessage(JSON.stringify({
+            channel: "castboard",
+            kind: "request",
+            id,
+            type,
+            payload: payload || {},
+          }));
+        });
+      }
+
+      window.castboardPort.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        if (message.channel !== "castboard") return;
+        if (message.kind === "response") {
+          const pendingRequest = pending.get(message.id);
+          if (pendingRequest) {
+            pending.delete(message.id);
+            message.ok ? pendingRequest.resolve(message.result) : pendingRequest.reject(message.error);
+          }
+        } else if (message.kind === "event") {
+          for (const listener of listeners) {
+            listener(message);
+          }
+        }
+      };
+
+      function subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      }
+
+      return { request, subscribe };
+    })();
+""".trimIndent()
+
+@Serializable
+private data class CastBoardRequest(
+    val channel: String,
+    val kind: String,
+    val id: String,
+    val type: String,
+)
 
 @Composable
 fun CastBoardControlCard(
@@ -164,6 +233,7 @@ fun CastBoardFullScreen(
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
             .build()
     }
+    val allowedOrigins = remember { castBoardAllowedOrigins() }
 
     fun revealControls() {
         controlsVisible = true
@@ -279,6 +349,7 @@ fun CastBoardFullScreen(
                         webSettings.forceDark = WebSettings.FORCE_DARK_OFF
                     }
                     webSettings.cacheMode = WebSettings.LOAD_DEFAULT
+                    configureCastBoardIpc(this, allowedOrigins, bridge)
                     webViewClient = object : WebViewClient() {
                         override fun shouldInterceptRequest(
                             view: WebView?,
@@ -286,10 +357,14 @@ fun CastBoardFullScreen(
                         ): WebResourceResponse? =
                             request?.url?.let(assetLoader::shouldInterceptRequest)
 
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            bridge.markPageLoading()
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             CoLinkLog.i("CastBoard", "web content loaded")
-                            bridge.markPageReady()
                         }
 
                         override fun onReceivedError(
@@ -306,7 +381,6 @@ fun CastBoardFullScreen(
                             }
                         }
                     }
-                    bridge.bind(this)
                     loadUrl(castBoardUrl)
                 }.also {
                     webView = it
@@ -397,6 +471,82 @@ private fun castBoardUrl(context: Context, peerBusinessVersion: String?): String
         "$baseUrl?lang=$lang&peerBusinessVersion=$peerBusinessVersionParameter"
     }
 }
+
+private fun castBoardAllowedOrigins(): Set<String> {
+    val devUrl = BuildConfig.CASTBOARD_DEV_URL.trim()
+    if (BuildConfig.DEBUG && devUrl.isNotEmpty()) {
+        val uri = Uri.parse(devUrl)
+        val scheme = requireNotNull(uri.scheme) { "CASTBOARD_DEV_URL requires a URL scheme" }
+        val authority = requireNotNull(uri.authority) { "CASTBOARD_DEV_URL requires a host" }
+        return setOf("$scheme://$authority")
+    }
+    return setOf(CASTBOARD_ASSET_ORIGIN)
+}
+
+private fun configureCastBoardIpc(
+    webView: WebView,
+    allowedOrigins: Set<String>,
+    bridge: MusicBridge,
+) {
+    check(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+        "CastBoard requires WebView Web Message Listener support"
+    }
+    check(WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+        "CastBoard requires WebView document-start script support"
+    }
+
+    WebViewCompat.addWebMessageListener(
+        webView,
+        "castboardPort",
+        allowedOrigins,
+        WebViewCompat.WebMessageListener { _, message, _, isMainFrame, replyProxy ->
+            if (isMainFrame) {
+                handleCastBoardRequest(message.data, replyProxy, bridge)
+            }
+        },
+    )
+    WebViewCompat.addDocumentStartJavaScript(webView, castBoardIpcScript, allowedOrigins)
+}
+
+private fun handleCastBoardRequest(
+    data: String?,
+    replyProxy: JavaScriptReplyProxy,
+    bridge: MusicBridge,
+) {
+    val request = data?.let {
+        runCatching { castBoardIpcJson.decodeFromString<CastBoardRequest>(it) }.getOrNull()
+    } ?: return
+    if (request.channel != "castboard" || request.kind != "request") {
+        return
+    }
+
+    when (request.type) {
+        "castboard.close",
+        "castboard.openDevTools" -> replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+        "castboard.ready" -> {
+            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+            bridge.markPageReady(replyProxy)
+        }
+        else -> replyProxy.postMessage(
+            castBoardResponse(request.id, ok = false, error = "Unknown CastBoard request type"),
+        )
+    }
+}
+
+private fun castBoardResponse(id: String, ok: Boolean, error: String? = null): String =
+    castBoardIpcJson.encodeToString(
+        buildJsonObject {
+            put("channel", "castboard")
+            put("kind", "response")
+            put("id", id)
+            put("ok", ok)
+            if (ok) {
+                put("result", buildJsonObject {})
+            } else {
+                put("error", error.orEmpty())
+            }
+        },
+    )
 
 private tailrec fun Context.findActivity(): Activity {
     return when (this) {
