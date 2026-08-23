@@ -12,6 +12,14 @@ Android client for CoLink — clipboard sync, file transfer, text messaging, and
 
 ## Setup
 
+Clone with submodules:
+
+```sh
+git clone --recurse-submodules <repo-url>
+# or, if already cloned:
+git submodule update --init
+```
+
 Create `local.properties` in the project root:
 
 ```properties
@@ -31,7 +39,7 @@ SERVER_BASE_URL=https://sync.colink.evative7.host
 ./gradlew assembleRelease
 ```
 
-Release builds require signing config in `local.properties`:
+Release builds require Node.js 20+ and pnpm (for the CastBoard asset build) plus signing config in `local.properties`:
 
 ```properties
 KEYSTORE_FILE=release.jks
@@ -46,4 +54,4 @@ The app runs a persistent foreground service (`CoLinkService`) that maintains bo
 
 - **LAN discovery**: Android NSD (mDNS)
 - **LAN crypto**: Ed25519 identity, X25519 ECDH + HKDF-SHA256 session key, AES-256-GCM / ChaCha20-Poly1305
-- **CastBoard**: embedded WebView loading bundled assets from `app/src/main/assets/castboard/`
+- **CastBoard**: embedded WebView loading bundled assets from the `castboard` submodule build output (debug with `CASTBOARD_DEV_URL` connects to external dev server instead)

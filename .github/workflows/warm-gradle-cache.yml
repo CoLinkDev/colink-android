@@ -19,12 +19,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: colink-android
+          submodules: true
 
-      - name: Checkout CastBoard
-        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          repository: CoLinkDev/colink-castboard
-          path: colink-castboard
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
       - name: Setup JDK 21
         uses: actions/setup-java@v4
