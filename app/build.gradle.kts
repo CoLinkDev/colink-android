@@ -1,4 +1,6 @@
+import java.util.Locale
 import java.util.Properties
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.Sync
 
 plugins {
@@ -25,9 +27,14 @@ val serverBaseUrl = localProperties
 val castBoardDevUrl = localProperties
     .getProperty("CASTBOARD_DEV_URL", "")
     .trim()
-val castBoardProjectDir = rootProject.file("../colink-castboard")
-val castBoardSourceDir = castBoardProjectDir.resolve("src")
-val generatedAssetsDir = layout.buildDirectory.dir("generated/assets")
+val castBoardProjectDir = rootProject.file("castboard")
+val castBoardDistDir = castBoardProjectDir.resolve("dist")
+val generatedCastBoardAssetsDir = layout.buildDirectory.dir("generated/castboard-assets")
+val pnpmCommand = if (System.getProperty("os.name").lowercase(Locale.ROOT).contains("windows")) {
+    "pnpm.cmd"
+} else {
+    "pnpm"
+}
 
 android {
     namespace = "com.colink.android"
@@ -92,31 +99,52 @@ android {
         }
     }
 
-    aaptOptions {
-        ignoreAssetsPattern = "!SourceHanSansSC-VF.ttf.woff2:!SourceHanSansSC-VF.ttf"
-    }
-
 }
 
 kotlin {
     jvmToolchain(21)
 }
 
-val syncCastBoardAssets by tasks.registering(Sync::class) {
-    from(castBoardSourceDir) {
-        into("castboard")
-    }
-    into(generatedAssetsDir)
+val buildCastBoard by tasks.registering(Exec::class) {
+    workingDir(castBoardProjectDir)
+    commandLine(pnpmCommand, "build")
+    inputs.dir(castBoardProjectDir.resolve("src"))
+    inputs.file(castBoardProjectDir.resolve("package.json"))
+    inputs.file(castBoardProjectDir.resolve("scripts/build.mjs"))
+    outputs.dir(castBoardDistDir)
 }
 
-android.sourceSets.getByName("main").assets.srcDir(syncCastBoardAssets)
+val syncReleaseCastBoardAssets by tasks.registering(Sync::class) {
+    dependsOn(buildCastBoard)
+    from(castBoardDistDir) {
+        into("castboard")
+    }
+    into(generatedCastBoardAssetsDir.map { it.dir("release") })
+}
+
+val syncDebugCastBoardAssets by tasks.registering(Sync::class) {
+    into(generatedCastBoardAssetsDir.map { it.dir("debug") })
+    if (castBoardDevUrl.isEmpty()) {
+        dependsOn(buildCastBoard)
+        from(castBoardDistDir) {
+            into("castboard")
+        }
+    }
+}
+
+android.sourceSets.getByName("release").assets.srcDir(syncReleaseCastBoardAssets)
+android.sourceSets.getByName("debug").assets.srcDir(syncDebugCastBoardAssets)
 
 tasks.matching { task ->
-    (task.name.startsWith("merge") && task.name.endsWith("Assets")) ||
-        task.name.startsWith("lintVital") ||
-        task.name.endsWith("LintVitalReportModel")
+    task.name == "mergeReleaseAssets" ||
+        (task.name.contains("Release") &&
+            (task.name.startsWith("lintVital") || task.name.endsWith("LintVitalReportModel")))
 }.configureEach {
-    dependsOn(syncCastBoardAssets)
+    dependsOn(syncReleaseCastBoardAssets)
+}
+
+tasks.matching { task -> task.name == "mergeDebugAssets" }.configureEach {
+    dependsOn(syncDebugCastBoardAssets)
 }
 
 dependencies {
