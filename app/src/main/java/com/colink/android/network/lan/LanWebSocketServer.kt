@@ -1,5 +1,7 @@
 package com.colink.android.network.lan
 
+import android.content.Context
+import android.net.Uri
 import com.colink.android.crypto.Handshake
 import com.colink.android.crypto.LanSessionCrypto
 import com.colink.android.data.local.datastore.SettingsDataStore
@@ -37,16 +39,19 @@ import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.application.install
-import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
@@ -55,16 +60,31 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import io.netty.buffer.ByteBuf
+import io.netty.channel.ChannelHandlerContext
+import io.netty.handler.codec.ByteToMessageDecoder
+import io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContextBuilder
+import io.netty.handler.ssl.SslHandler
+import java.io.InputStream
 import java.io.InterruptedIOException
+import java.math.BigInteger
 import java.net.BindException
 import java.net.InetSocketAddress
+import java.net.NetworkInterface
 import java.net.ServerSocket
+import java.security.KeyPairGenerator
+import java.security.MessageDigest
 import java.security.SecureRandom
+import java.security.spec.ECGenParameterSpec
 import java.util.Base64
+import java.util.Date
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.TimeoutCancellationException
@@ -81,6 +101,18 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.asn1.x509.BasicConstraints
+import org.bouncycastle.asn1.x509.ExtendedKeyUsage
+import org.bouncycastle.asn1.x509.Extension
+import org.bouncycastle.asn1.x509.GeneralName
+import org.bouncycastle.asn1.x509.GeneralNames
+import org.bouncycastle.asn1.x509.KeyPurposeId
+import org.bouncycastle.asn1.x509.KeyUsage
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
+import org.bouncycastle.jce.provider.BouncyCastleProvider
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
 const val LAN_PORT = 27_777
 private const val MIN_LAN_PORT = 1_024
@@ -92,6 +124,9 @@ private const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
 private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 private const val CAMERA_SEND_BUFFER_CAPACITY = 3
+private const val TEMPORARY_CERTIFICATE_VALIDITY_MILLIS = 24L * 60L * 60L * 1_000L
+private val RANGE_HEADER = Regex("bytes=(\\d+)-")
+private val HTTP_MISDIRECTED_REQUEST = HttpStatusCode(421, "Misdirected Request")
 private const val REASON_AUTH_UNKNOWN_DEVICE = "colink:auth.unknown_device.v1"
 private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
@@ -105,6 +140,7 @@ private const val MESSAGE_KEY_EXCHANGE_GENERIC = "Ephemeral key exchange failed"
 
 @Singleton
 class LanWebSocketServer @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val settingsDataStore: SettingsDataStore,
     private val lanRuntimeState: LanRuntimeState,
     private val json: Json,
@@ -117,11 +153,13 @@ class LanWebSocketServer @Inject constructor(
     private val peers = ConcurrentHashMap<String, ServerPeerConnection>()
     private val transferTokens = ConcurrentHashMap<String, String>()
     private val transferConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
+    private val fileV3Transfers = ConcurrentHashMap<String, FileV3Transfer>()
     private val cameraTokens = ConcurrentHashMap<String, String>()
     private val cameraConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
     private val cameraSenders = ConcurrentHashMap<String, Channel<CameraDataFrame>>()
     private var engine: ApplicationEngine? = null
     private var port: Int? = null
+    private var tlsCertificate: TemporaryTlsCertificate? = null
     private var listener: Listener? = null
 
     @Synchronized
@@ -131,15 +169,22 @@ class LanWebSocketServer @Inject constructor(
             return port
         }
         this.listener = listener
+        val temporaryTlsCertificate = runCatching { createTemporaryTlsCertificate() }
+            .getOrElse { error ->
+                CoLinkLog.w("LAN", "failed to create TLS certificate", error)
+                this.listener = null
+                return null
+            }
         for (candidatePort in lanPortCandidates()) {
             if (!isLanPortAvailable(candidatePort)) {
                 continue
             }
-            val candidate = createEngine(candidatePort)
+            val candidate = createEngine(candidatePort, temporaryTlsCertificate)
             val startResult = runCatching { candidate.start(wait = false) }
             if (startResult.isSuccess) {
                 engine = candidate
                 port = candidatePort
+                tlsCertificate = temporaryTlsCertificate
                 CoLinkLog.i(
                     "LAN",
                     "LAN server started port=$candidatePort preferredPort=$LAN_PORT",
@@ -167,6 +212,8 @@ class LanWebSocketServer @Inject constructor(
         peers.clear()
         transferTokens.clear()
         transferConnections.clear()
+        fileV3Transfers.clear()
+        tlsCertificate = null
         cameraTokens.clear()
         cameraConnections.clear()
         cameraSenders.values.forEach { it.close() }
@@ -181,16 +228,127 @@ class LanWebSocketServer @Inject constructor(
     fun createPairString(identity: DeviceIdentity, legacy: Boolean = false): String =
         pairStringStore.issue(identity, legacy)
 
-    private fun createEngine(port: Int): ApplicationEngine =
-        embeddedServer(CIO, host = "0.0.0.0", port = port) {
+    private fun createEngine(port: Int, certificate: TemporaryTlsCertificate): ApplicationEngine =
+        embeddedServer(
+            Netty,
+            configure = {
+                requestReadTimeoutSeconds = 10
+                channelPipelineConfig = {
+                    addFirst("colink-tls-multiplexer", TlsOrPlaintextHandler(certificate.sslContext))
+                }
+            },
+            host = "0.0.0.0",
+            port = port,
+        ) {
             install(WebSockets)
             routing {
                 post("/peer/swim/v1") { call.handleSwimPing() }
                 webSocket("/peer") { handlePeer(this) }
                 webSocket("/transfer/{sessionId}") { handleTransfer(this) }
                 webSocket("/camera-stream/{sessionId}") { handleCamera(this) }
+                get("/transfer/v3/{sessionId}") { call.handleFileV3Transfer() }
             }
         }
+
+    private suspend fun ApplicationCall.handleFileV3Transfer() {
+        if (request.local.scheme != "https") {
+            respond(HTTP_MISDIRECTED_REQUEST)
+            return
+        }
+        val sessionId = parameters["sessionId"]?.takeIf { it.isNotBlank() } ?: run {
+            respond(HttpStatusCode.NotFound)
+            return
+        }
+        val transfer = fileV3Transfers[sessionId] ?: run {
+            respond(HttpStatusCode.NotFound)
+            return
+        }
+        val token = request.headers[HttpHeaders.Authorization]
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")
+            ?.takeIf { it.isNotEmpty() }
+        if (token == null || !constantTimeEquals(token, transfer.token)) {
+            respond(HttpStatusCode.Unauthorized)
+            return
+        }
+        val start = parseRangeStart(request.headers[HttpHeaders.Range], transfer.fileSize) ?: run {
+            respond(HttpStatusCode.RequestedRangeNotSatisfiable)
+            return
+        }
+        if (!transfer.active.compareAndSet(false, true)) {
+            respond(HttpStatusCode.Conflict)
+            return
+        }
+        transfer.started.set(true)
+        try {
+            val input = context.contentResolver.openInputStream(Uri.parse(transfer.localUri)) ?: run {
+                respond(HttpStatusCode.NotFound)
+                return
+            }
+            input.use {
+                val contentLength = transfer.fileSize - start
+                val status = if (start == 0L && request.headers[HttpHeaders.Range] == null) {
+                    HttpStatusCode.OK
+                } else {
+                    HttpStatusCode.PartialContent
+                }
+                response.headers.append(HttpHeaders.AcceptRanges, "bytes")
+                response.headers.append(HttpHeaders.ContentLength, contentLength.toString())
+                if (status == HttpStatusCode.PartialContent) {
+                    response.headers.append(
+                        HttpHeaders.ContentRange,
+                        "bytes $start-${transfer.fileSize - 1}/${transfer.fileSize}",
+                    )
+                }
+                respondOutputStream(ContentType.Application.OctetStream, status) {
+                    skipFully(input, start)
+                    copyRange(input, this, contentLength)
+                }
+            }
+        } finally {
+            transfer.active.set(false)
+        }
+    }
+
+    private fun parseRangeStart(range: String?, fileSize: Long): Long? {
+        if (range == null) {
+            return 0L
+        }
+        val match = RANGE_HEADER.matchEntire(range) ?: return null
+        val start = match.groupValues[1].toLongOrNull() ?: return null
+        return start.takeIf { it < fileSize }
+    }
+
+    private fun constantTimeEquals(left: String, right: String): Boolean =
+        MessageDigest.isEqual(left.encodeToByteArray(), right.encodeToByteArray())
+
+    private fun skipFully(input: InputStream, offset: Long) {
+        var remaining = offset
+        while (remaining > 0) {
+            val skipped = input.skip(remaining)
+            if (skipped > 0) {
+                remaining -= skipped
+            } else {
+                if (input.read() == -1) {
+                    error("file ended before requested range")
+                }
+                remaining -= 1
+            }
+        }
+    }
+
+    private fun copyRange(input: InputStream, output: java.io.OutputStream, byteCount: Long) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var remaining = byteCount
+        while (remaining > 0) {
+            val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+            if (read < 0) {
+                error("file ended before response completed")
+            }
+            output.write(buffer, 0, read)
+            remaining -= read
+        }
+    }
 
     private fun isLanPortAvailable(port: Int): Boolean =
         runCatching {
@@ -261,6 +419,26 @@ class LanWebSocketServer @Inject constructor(
             true
         }.getOrDefault(false)
     }
+
+    fun registerFileV3Transfer(
+        sessionId: String,
+        token: String,
+        localUri: String,
+        fileSize: Long,
+    ): String {
+        require(fileSize >= 0) { "file size must not be negative" }
+        val certificate = checkNotNull(tlsCertificate) { "LAN server is not running" }
+        val transfer = FileV3Transfer(token = token, localUri = localUri, fileSize = fileSize)
+        check(fileV3Transfers.putIfAbsent(sessionId, transfer) == null) { "file transfer is already registered" }
+        return certificate.fingerprint
+    }
+
+    fun unregisterFileV3Transfer(sessionId: String) {
+        fileV3Transfers.remove(sessionId)
+    }
+
+    fun hasFileV3TransferStarted(sessionId: String): Boolean =
+        fileV3Transfers[sessionId]?.started?.get() == true
 
     fun registerCameraToken(sessionId: String, token: String) {
         cameraTokens[sessionId] = token
@@ -1146,6 +1324,75 @@ class LanWebSocketServer @Inject constructor(
         send(Frame.Text(json.encodeToString(envelope)))
     }
 
+    private fun createTemporaryTlsCertificate(): TemporaryTlsCertificate {
+        val keyPair = KeyPairGenerator.getInstance("EC").apply {
+            initialize(ECGenParameterSpec("secp256r1"), SecureRandom())
+        }.generateKeyPair()
+        val now = System.currentTimeMillis()
+        val subject = X500Name("CN=CoLink LAN Transfer")
+        val certificateBuilder = JcaX509v3CertificateBuilder(
+            subject,
+            BigInteger(160, SecureRandom()),
+            Date(now - 60_000),
+            Date(now + TEMPORARY_CERTIFICATE_VALIDITY_MILLIS),
+            subject,
+            keyPair.public,
+        ).apply {
+            addExtension(Extension.basicConstraints, true, BasicConstraints(false))
+            addExtension(Extension.keyUsage, true, KeyUsage(KeyUsage.digitalSignature))
+            addExtension(
+                Extension.extendedKeyUsage,
+                false,
+                ExtendedKeyUsage(KeyPurposeId.id_kp_serverAuth),
+            )
+            val addresses = localIpAddresses()
+            if (addresses.isNotEmpty()) {
+                addExtension(
+                    Extension.subjectAlternativeName,
+                    false,
+                    GeneralNames(addresses.map { GeneralName(GeneralName.iPAddress, it) }.toTypedArray()),
+                )
+            }
+        }
+        val provider = BouncyCastleProvider()
+        val certificate = JcaX509CertificateConverter()
+            .setProvider(provider)
+            .getCertificate(
+                certificateBuilder.build(
+                    JcaContentSignerBuilder("SHA256withECDSA")
+                        .setProvider(provider)
+                        .build(keyPair.private),
+                ),
+            )
+        val sslContext = SslContextBuilder.forServer(keyPair.private, certificate)
+            .protocols("TLSv1.3", "TLSv1.2")
+            .build()
+        val fingerprint = MessageDigest.getInstance("SHA-256")
+            .digest(certificate.encoded)
+            .joinToString(separator = "") { "%02x".format(it) }
+        return TemporaryTlsCertificate(sslContext = sslContext, fingerprint = "sha256:$fingerprint")
+    }
+
+    private fun localIpAddresses(): List<String> {
+        val interfaces = NetworkInterface.getNetworkInterfaces() ?: return emptyList()
+        val addresses = linkedSetOf<String>()
+        while (interfaces.hasMoreElements()) {
+            val networkInterface = interfaces.nextElement()
+            if (!networkInterface.isUp || networkInterface.isLoopback) {
+                continue
+            }
+            val interfaceAddresses = networkInterface.inetAddresses
+            while (interfaceAddresses.hasMoreElements()) {
+                val address = interfaceAddresses.nextElement()
+                if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isMulticastAddress) {
+                    continue
+                }
+                addresses += address.hostAddress.substringBefore('%')
+            }
+        }
+        return addresses.toList()
+    }
+
     interface Listener {
         fun onConnected(deviceId: String)
         fun onPeerP2pVersion(deviceId: String, version: String)
@@ -1169,6 +1416,51 @@ class LanWebSocketServer @Inject constructor(
         fun currentSwimIncarnation(localDeviceId: String): Long
     }
 }
+
+private data class TemporaryTlsCertificate(
+    val sslContext: SslContext,
+    val fingerprint: String,
+)
+
+private data class FileV3Transfer(
+    val token: String,
+    val localUri: String,
+    val fileSize: Long,
+    val active: AtomicBoolean = AtomicBoolean(false),
+    val started: AtomicBoolean = AtomicBoolean(false),
+)
+
+private class TlsOrPlaintextHandler(
+    private val sslContext: SslContext,
+) : ByteToMessageDecoder() {
+    override fun decode(ctx: ChannelHandlerContext, input: ByteBuf, out: MutableList<Any>) {
+        if (!input.isReadable) {
+            return
+        }
+        when (input.getUnsignedByte(input.readerIndex()).toInt()) {
+            TLS_HANDSHAKE_FIRST_BYTE -> {
+                val handler = sslContext.newHandler(ctx.alloc()).apply {
+                    handshakeTimeoutMillis = HANDSHAKE_TIMEOUT_MILLIS
+                }
+                ctx.pipeline().replace(this, "ssl", handler)
+            }
+
+            in PLAINTEXT_HTTP_FIRST_BYTES -> ctx.pipeline().remove(this)
+            else -> ctx.close()
+        }
+    }
+}
+
+private const val TLS_HANDSHAKE_FIRST_BYTE = 0x16
+private val PLAINTEXT_HTTP_FIRST_BYTES = setOf(
+    'G'.code,
+    'P'.code,
+    'H'.code,
+    'D'.code,
+    'O'.code,
+    'C'.code,
+    'T'.code,
+)
 
 private class ServerPeerState(
     val identity: DeviceIdentity,

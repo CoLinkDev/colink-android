@@ -57,6 +57,16 @@ import com.colink.android.network.message.FILE_OFFER_TYPE
 import com.colink.android.network.message.FILE_READY_TYPE
 import com.colink.android.network.message.FILE_REJECT_TYPE
 import com.colink.android.network.message.FILE_RETRANSMIT_TYPE
+import com.colink.android.network.message.FILE_V3_ACCEPT_TYPE
+import com.colink.android.network.message.FILE_V3_ACK_TYPE
+import com.colink.android.network.message.FILE_V3_CANCEL_TYPE
+import com.colink.android.network.message.FILE_V3_CHUNK_TYPE
+import com.colink.android.network.message.FILE_V3_DONE_TYPE
+import com.colink.android.network.message.FILE_V3_FINISH_TYPE
+import com.colink.android.network.message.FILE_V3_OFFER_TYPE
+import com.colink.android.network.message.FILE_V3_READY_TYPE
+import com.colink.android.network.message.FILE_V3_REJECT_TYPE
+import com.colink.android.network.message.FILE_V3_RETRANSMIT_TYPE
 import com.colink.android.network.message.MUSIC_ALIVE_TYPE
 import com.colink.android.network.message.MUSIC_LYRIC_TYPE
 import com.colink.android.network.message.MUSIC_PROGRESS_TYPE
@@ -105,6 +115,10 @@ import com.colink.android.network.message.FileOfferPayload
 import com.colink.android.network.message.FileReadyPayload
 import com.colink.android.network.message.FileRejectPayload
 import com.colink.android.network.message.FileRetransmitPayload
+import com.colink.android.network.message.FileFinishPayload
+import com.colink.android.network.message.FileV3AcceptPayload
+import com.colink.android.network.message.FileV3OfferPayload
+import com.colink.android.network.message.FileV3ReadyPayload
 import com.colink.android.network.message.FS_DOWNLOAD_TYPE
 import com.colink.android.network.message.FS_UPLOAD_TYPE
 import com.colink.android.network.message.FS_UPLOAD_READY_TYPE
@@ -152,6 +166,7 @@ import com.colink.android.network.transfer.buildFileOffer
 import com.colink.android.network.transfer.selectFileChecksumAlgorithm
 import com.colink.android.network.transfer.FILE_CHUNK_SIZE
 import com.colink.android.network.transfer.FileChecksumVerifier
+import com.colink.android.network.transfer.matchesFileChecksum
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.transfer.FileDataFrameKind
 import com.colink.android.network.transfer.readFileMetadata
@@ -170,6 +185,7 @@ import android.provider.MediaStore
 import com.colink.android.util.CoLinkLog
 import java.net.URI
 import java.net.URLEncoder
+import java.security.SecureRandom
 import java.util.Base64
 import java.util.TreeMap
 import java.util.UUID
@@ -217,6 +233,11 @@ private const val LAN_SEND_WINDOW_CHUNKS = 8L
 private const val CAMERA_CLOUD_QUEUE_LIMIT_BYTES = 64L * 1024L
 private const val CAMERA_LAN_QUEUE_LIMIT_BYTES = 128L * 1024L
 private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
+private const val FILE_V3_RELAY_SEND_WINDOW_CHUNKS = 4L
+private const val FILE_V3_RELAY_ACK_INTERVAL_CHUNKS = 4L
+private const val FILE_V3_RELAY_ACK_INTERVAL_MILLIS = 500L
+private const val FILE_V3_RELAY_RETRANSMIT_TIMEOUT_MILLIS = 2_000L
+private const val FILE_V3_RELAY_IDLE_TIMEOUT_MILLIS = 30 * 60 * 1_000L
 private const val SWIM_PERIOD_MILLIS = 5_000L
 private const val SWIM_SUSPECT_TIMEOUT_MILLIS = 3_000L
 private const val SWIM_MAX_GOSSIP = 10
@@ -225,6 +246,7 @@ private const val SWIM_SUSPECT_MISSES = 2
 private const val SWIM_PING_REQ_FANOUT = 2
 private const val LAN_SEND_TIMEOUT_MILLIS = 15_000L
 private const val FILE_OFFER_TIMEOUT_MILLIS = 60_000L
+private const val FILE_V3_READY_TIMEOUT_MILLIS = 60_000L
 private const val FILESYSTEM_REQUEST_TIMEOUT_MILLIS = 20_000L
 private const val FILESYSTEM_UPLOAD_READY_TIMEOUT_MILLIS = 60_000L
 private const val SYSTEM_CONTROL_QUERY_TIMEOUT_MILLIS = 5_000L
@@ -247,6 +269,39 @@ data class PreparedOutgoingTransfer(
     val sessionId: String,
     val algorithm: String,
 )
+
+private enum class FileTransferProtocol {
+    V2,
+    V3,
+    ;
+
+    val offerType: String
+        get() = if (this == V3) FILE_V3_OFFER_TYPE else FILE_OFFER_TYPE
+
+    val acceptType: String
+        get() = if (this == V3) FILE_V3_ACCEPT_TYPE else FILE_ACCEPT_TYPE
+
+    val rejectType: String
+        get() = if (this == V3) FILE_V3_REJECT_TYPE else FILE_REJECT_TYPE
+
+    val cancelType: String
+        get() = if (this == V3) FILE_V3_CANCEL_TYPE else FILE_CANCEL_TYPE
+
+    val readyType: String
+        get() = if (this == V3) FILE_V3_READY_TYPE else FILE_READY_TYPE
+
+    val chunkType: String
+        get() = if (this == V3) FILE_V3_CHUNK_TYPE else FILE_CHUNK_TYPE
+
+    val ackType: String
+        get() = if (this == V3) FILE_V3_ACK_TYPE else FILE_ACK_TYPE
+
+    val retransmitType: String
+        get() = if (this == V3) FILE_V3_RETRANSMIT_TYPE else FILE_RETRANSMIT_TYPE
+
+    val doneType: String
+        get() = if (this == V3) FILE_V3_DONE_TYPE else FILE_DONE_TYPE
+}
 
 enum class RemoteFilesystemSupport {
     SUPPORTED,
@@ -416,6 +471,7 @@ class ConnectionManager @Inject constructor(
     private var suspectJob: Job? = null
     private val incomingTransfers = ConcurrentHashMap<String, IncomingTransferState>()
     private val outgoingTransfers = ConcurrentHashMap<String, OutgoingTransferState>()
+    private val fileTransferProtocols = ConcurrentHashMap<String, FileTransferProtocol>()
     private val incomingFileOfferCorrelationIds = ConcurrentHashMap<String, String>()
     private val pendingFilesystemRequests = ConcurrentHashMap<String, PendingFilesystemRequest>()
     private val pendingFilesystemUploads = ConcurrentHashMap<String, PendingFilesystemUpload>()
@@ -1188,6 +1244,16 @@ class ConnectionManager @Inject constructor(
     fun fileChecksumAlgorithmFor(deviceId: String): String =
         selectFileChecksumAlgorithm(peerBusinessVersion(deviceId))
 
+    private fun fileTransferProtocolFor(deviceId: String): FileTransferProtocol =
+        if (
+            peerBusinessVersion(deviceId)
+                ?.let { supportsBusinessProtocolAtLeast(it, major = 1, minor = 15) } == true
+        ) {
+            FileTransferProtocol.V3
+        } else {
+            FileTransferProtocol.V2
+        }
+
     private fun peerBusinessVersion(deviceId: String): String? =
         lanWebSocketServer.peerBusinessVersion(deviceId)
             ?: lanWebSocketClient.peerBusinessVersion(deviceId)
@@ -1434,15 +1500,52 @@ class ConnectionManager @Inject constructor(
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
             TEXT_MESSAGE_RECEIPT_TYPE -> handleTextMessageReceipt(fromDeviceId, business, route)
             CLIPBOARD_SYNC_TYPE -> clipboardSyncHandler.receive(business)
-            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, correlationId, business, route)
+            FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, correlationId, business, route, FileTransferProtocol.V2)
+            FILE_V3_OFFER_TYPE -> {
+                val payload = runCatching {
+                    json.decodeFromJsonElement(FileV3OfferPayload.serializer(), business.payload)
+                }.getOrNull() ?: return
+                if (payload.fileSize < 0 || !payload.sessionId.isV4SessionId()) {
+                    return
+                }
+                handleFileOffer(
+                    fromDeviceId,
+                    envelopeId,
+                    correlationId,
+                    BusinessEnvelope(
+                        type = FILE_V3_OFFER_TYPE,
+                        payload = json.encodeToJsonElement(
+                            FileOfferPayload(
+                                sessionId = payload.sessionId,
+                                fileName = payload.fileName,
+                                fileSize = payload.fileSize,
+                                totalChunks = 0,
+                                chunkSize = FILE_CHUNK_SIZE,
+                                checksum = payload.checksum,
+                            ),
+                        ),
+                    ),
+                    route,
+                    FileTransferProtocol.V3,
+                )
+            }
             FILE_ACCEPT_TYPE -> handleFileAccept(fromDeviceId, business)
+            FILE_V3_ACCEPT_TYPE -> handleFileV3Accept(fromDeviceId, business, route)
             FILE_READY_TYPE -> handleFileReady(fromDeviceId, business)
-            FILE_CHUNK_TYPE -> handleFileChunk(fromDeviceId, business, route)
-            FILE_ACK_TYPE -> handleFileAck(business)
-            FILE_RETRANSMIT_TYPE -> handleFileRetransmit(business, lan = false)
-            FILE_REJECT_TYPE -> handleFileReject(business)
-            FILE_CANCEL_TYPE -> handleFileCancel(business)
-            FILE_DONE_TYPE -> handleFileDone(business)
+            FILE_V3_READY_TYPE -> handleFileV3Ready(fromDeviceId, business, route)
+            FILE_CHUNK_TYPE -> handleFileChunk(fromDeviceId, business, route, FileTransferProtocol.V2)
+            FILE_V3_CHUNK_TYPE -> handleFileChunk(fromDeviceId, business, route, FileTransferProtocol.V3)
+            FILE_ACK_TYPE -> handleFileAck(fromDeviceId, business, route, FileTransferProtocol.V2)
+            FILE_V3_ACK_TYPE -> handleFileAck(fromDeviceId, business, route, FileTransferProtocol.V3)
+            FILE_RETRANSMIT_TYPE -> handleFileRetransmit(fromDeviceId, business, route, lan = false, FileTransferProtocol.V2)
+            FILE_V3_RETRANSMIT_TYPE -> handleFileRetransmit(fromDeviceId, business, route, lan = false, FileTransferProtocol.V3)
+            FILE_REJECT_TYPE -> handleFileReject(fromDeviceId, business, route, FileTransferProtocol.V2)
+            FILE_V3_REJECT_TYPE -> handleFileReject(fromDeviceId, business, route, FileTransferProtocol.V3)
+            FILE_CANCEL_TYPE -> handleFileCancel(fromDeviceId, business, route, FileTransferProtocol.V2)
+            FILE_V3_CANCEL_TYPE -> handleFileCancel(fromDeviceId, business, route, FileTransferProtocol.V3)
+            FILE_DONE_TYPE -> handleFileDone(fromDeviceId, business, route, FileTransferProtocol.V2)
+            FILE_V3_DONE_TYPE -> handleFileDone(fromDeviceId, business, route, FileTransferProtocol.V3)
+            FILE_V3_FINISH_TYPE -> handleFileV3Finish(fromDeviceId, business, route)
             MUSIC_TRACK_TYPE -> runCatching {
                 json.decodeFromJsonElement(MusicTrackPayload.serializer(), business.payload)
             }.getOrNull()?.let { musicSyncManager.acceptTrack(fromDeviceId, it) }
@@ -2601,10 +2704,14 @@ class ConnectionManager @Inject constructor(
         correlationId: String?,
         business: BusinessEnvelope,
         route: String,
+        protocol: FileTransferProtocol,
     ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileOfferPayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        if (payload.fileSize < 0 || payload.totalChunks < 0 || payload.chunkSize <= 0) {
+            return
+        }
         val filesystemUpload = consumeFilesystemUploadAuthorization(
             fromDeviceId,
             correlationId,
@@ -2614,20 +2721,25 @@ class ConnectionManager @Inject constructor(
             fileChecksumAllowedForPeer(payload.checksum, fromDeviceId)
         }.getOrDefault(false)
         if (!checksumAccepted) {
-            sendBusinessMessage(
-                targetDeviceId = fromDeviceId,
-                business = BusinessEnvelope(
-                    type = FILE_REJECT_TYPE,
-                    payload = json.encodeToJsonElement(
-                        FileRejectPayload(
-                            sessionId = payload.sessionId,
-                            reason = REASON_TRANSFER_GENERIC,
-                            message = "Unsupported file checksum algorithm",
-                        ),
+            val reject = BusinessEnvelope(
+                type = protocol.rejectType,
+                payload = json.encodeToJsonElement(
+                    FileRejectPayload(
+                        sessionId = payload.sessionId,
+                        reason = REASON_TRANSFER_GENERIC,
+                        message = "Unsupported file checksum algorithm",
                     ),
                 ),
-                correlationId = envelopeId,
             )
+            if (protocol == FileTransferProtocol.V3) {
+                runCatching { sendFileV3Control(fromDeviceId, route, reject, envelopeId) }
+            } else {
+                sendBusinessMessage(
+                    targetDeviceId = fromDeviceId,
+                    business = reject,
+                    correlationId = envelopeId,
+                )
+            }
             return
         }
         val now = System.currentTimeMillis()
@@ -2649,6 +2761,7 @@ class ConnectionManager @Inject constructor(
                 updatedAt = now,
             ),
         )
+        fileTransferProtocols[payload.sessionId] = protocol
         envelopeId?.let { incomingFileOfferCorrelationIds[payload.sessionId] = it }
         scheduleOfferExpiry(payload.sessionId)
         val requestedDownload = correlationId?.let { requestId ->
@@ -2699,7 +2812,17 @@ class ConnectionManager @Inject constructor(
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
             require(transfer.status == "offered") { "transfer is no longer available" }
-            val token = UUID.randomUUID().toString().replace("-", "")
+            val protocol = fileTransferProtocols[sessionId] ?: FileTransferProtocol.V2
+            val transferToken = if (protocol == FileTransferProtocol.V3 && transfer.route == "lan") {
+                generateTransferToken()
+            } else {
+                null
+            }
+            val v2Token = if (protocol == FileTransferProtocol.V2) {
+                UUID.randomUUID().toString().replace("-", "")
+            } else {
+                null
+            }
             val verifier = FileChecksumVerifier.from(transfer.checksum)
             val tempFile = uploadDestination?.let {
                 localFilesystem.createUploadTemp(it, transfer.fileSize)
@@ -2711,9 +2834,18 @@ class ConnectionManager @Inject constructor(
                 tempFile = tempFile,
                 verifier = verifier,
                 route = transfer.route,
+                protocol = protocol,
+                transferToken = transferToken,
                 uploadDestination = uploadDestination,
+                windowSize = if (protocol == FileTransferProtocol.V3 && transfer.route == "cloud") {
+                    FILE_V3_RELAY_SEND_WINDOW_CHUNKS
+                } else {
+                    LAN_SEND_WINDOW_CHUNKS
+                },
             )
-            lanWebSocketServer.registerTransferToken(sessionId, token)
+            if (protocol == FileTransferProtocol.V2) {
+                lanWebSocketServer.registerTransferToken(sessionId, checkNotNull(v2Token))
+            }
             val accepted = transfer.copy(
                 status = "receiving",
                 localUri = tempFile.absolutePath,
@@ -2721,22 +2853,45 @@ class ConnectionManager @Inject constructor(
             )
             fileTransferRepository.save(accepted)
             try {
-                sendBusinessMessage(
-                    targetDeviceId = transfer.deviceId,
-                    business = BusinessEnvelope(
-                        type = FILE_ACCEPT_TYPE,
+                val accept = if (protocol == FileTransferProtocol.V3) {
+                    BusinessEnvelope(
+                        type = protocol.acceptType,
+                        payload = json.encodeToJsonElement(
+                            FileV3AcceptPayload(
+                                sessionId = sessionId,
+                                transferToken = transferToken,
+                            ),
+                        ),
+                    )
+                } else {
+                    BusinessEnvelope(
+                        type = protocol.acceptType,
                         payload = json.encodeToJsonElement(
                             FileAcceptPayload(
                                 sessionId = sessionId,
-                                transferToken = token,
+                                transferToken = checkNotNull(v2Token),
                             ),
                         ),
-                    ),
-                    correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
-                ).getOrThrow()
+                    )
+                }
+                if (protocol == FileTransferProtocol.V3) {
+                    sendFileV3Control(
+                        targetDeviceId = transfer.deviceId,
+                        controlRoute = transfer.route,
+                        business = accept,
+                        correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
+                    )
+                } else {
+                    sendBusinessMessage(
+                        targetDeviceId = transfer.deviceId,
+                        business = accept,
+                        correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
+                    ).getOrThrow()
+                }
             } catch (error: Throwable) {
                 incomingTransfers.remove(sessionId)
-                lanWebSocketServer.unregisterTransfer(sessionId)
+                cleanupFileTransferEndpoint(sessionId, protocol)
+                fileTransferProtocols.remove(sessionId, protocol)
                 tempFile.delete()
                 fileTransferRepository.save(
                     accepted.copy(
@@ -2747,8 +2902,10 @@ class ConnectionManager @Inject constructor(
                 )
                 throw error
             }
-            if (transfer.totalChunks == 0L) {
+            if (protocol == FileTransferProtocol.V2 && transfer.totalChunks == 0L) {
                 finishIncomingTransfer(sessionId, incomingTransfers[sessionId] ?: return@runCatching, accepted)
+            } else if (protocol == FileTransferProtocol.V3 && transfer.route == "cloud") {
+                watchFileV3RelayIncoming(sessionId)
             }
         }
 
@@ -2809,7 +2966,12 @@ class ConnectionManager @Inject constructor(
         val sessionId = offer.payload.sessionId
         return try {
             val now = System.currentTimeMillis()
-            val route = routeForDevice(targetDeviceId)
+            val protocol = fileTransferProtocolFor(targetDeviceId)
+            val route = if (protocol == FileTransferProtocol.V3) {
+                if (hasLanPeer(targetDeviceId)) "lan" else "cloud"
+            } else {
+                routeForDevice(targetDeviceId)
+            }
             val existing = fileTransferRepository.get(sessionId)
             val base = existing?.copy(
                 deviceId = targetDeviceId,
@@ -2835,30 +2997,64 @@ class ConnectionManager @Inject constructor(
                 createdAt = now,
                 updatedAt = now,
             )
-            fileTransferRepository.save(base.copy(status = "connecting", updatedAt = now))
+            fileTransferRepository.save(base.copy(status = "offered", updatedAt = now))
             outgoingTransfers[sessionId] = OutgoingTransferState(
                 deviceId = targetDeviceId,
                 localUri = offer.localUri,
                 chunkSize = offer.payload.chunkSize.toInt(),
+                protocol = protocol,
+                controlRoute = route,
             )
+            fileTransferProtocols[sessionId] = protocol
             scheduleOfferExpiry(sessionId)
-            val actualRoute = sendBusinessMessage(
-                targetDeviceId = targetDeviceId,
-                business = BusinessEnvelope(
-                    type = FILE_OFFER_TYPE,
+            val offerEnvelope = if (protocol == FileTransferProtocol.V3) {
+                BusinessEnvelope(
+                    type = protocol.offerType,
+                    payload = json.encodeToJsonElement(
+                        FileV3OfferPayload(
+                            sessionId = offer.payload.sessionId,
+                            fileName = offer.payload.fileName,
+                            fileSize = offer.payload.fileSize,
+                            checksum = offer.payload.checksum,
+                        ),
+                    ),
+                )
+            } else {
+                BusinessEnvelope(
+                    type = protocol.offerType,
                     payload = json.encodeToJsonElement(offer.payload),
-                ),
-                correlationId = correlationId,
-            ).getOrThrow()
-            fileTransferRepository.save(
-                base.copy(
-                    status = "offered",
-                    route = actualRoute,
-                    updatedAt = System.currentTimeMillis(),
-                ),
-            )
+                )
+            }
+            val actualRoute = if (protocol == FileTransferProtocol.V3) {
+                sendFileV3Control(
+                    targetDeviceId = targetDeviceId,
+                    controlRoute = route,
+                    business = offerEnvelope,
+                    correlationId = correlationId,
+                )
+            } else {
+                sendBusinessMessage(
+                    targetDeviceId = targetDeviceId,
+                    business = offerEnvelope,
+                    correlationId = correlationId,
+                ).getOrThrow()
+            }
+            outgoingTransfers[sessionId]?.controlRoute = actualRoute
+            fileTransferRepository.get(sessionId)?.let { current ->
+                if (current.route != actualRoute) {
+                    fileTransferRepository.save(
+                        current.copy(
+                            route = actualRoute,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }
             Result.success(Unit)
         } catch (error: Throwable) {
+            outgoingTransfers.remove(sessionId)?.transferConnection?.close()
+            ackSignals.remove(sessionId)?.complete(Unit)
+            fileTransferProtocols.remove(sessionId)
             fileTransferRepository.get(sessionId)?.let { transfer ->
                 fileTransferRepository.save(
                     transfer.copy(
@@ -2875,6 +3071,7 @@ class ConnectionManager @Inject constructor(
     suspend fun rejectFileOffer(sessionId: String, reason: String = REASON_TRANSFER_USER_REJECTED): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
+            val protocol = fileTransferProtocols[sessionId] ?: FileTransferProtocol.V2
             val message = transferErrorMessage(reason)
             fileTransferRepository.save(
                 transfer.copy(
@@ -2883,20 +3080,27 @@ class ConnectionManager @Inject constructor(
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
-            sendBusinessMessage(
-                targetDeviceId = transfer.deviceId,
-                business = BusinessEnvelope(
-                    type = FILE_REJECT_TYPE,
-                    payload = json.encodeToJsonElement(
-                        FileRejectPayload(
-                            sessionId = sessionId,
-                            reason = reason,
-                            message = message,
-                        ),
+            val reject = BusinessEnvelope(
+                type = protocol.rejectType,
+                payload = json.encodeToJsonElement(
+                    FileRejectPayload(
+                        sessionId = sessionId,
+                        reason = reason,
+                        message = message,
                     ),
                 ),
-                correlationId = incomingFileOfferCorrelationIds.remove(sessionId),
-            ).getOrThrow()
+            )
+            val correlationId = incomingFileOfferCorrelationIds.remove(sessionId)
+            if (protocol == FileTransferProtocol.V3) {
+                sendFileV3Control(transfer.deviceId, transfer.route, reject, correlationId)
+            } else {
+                sendBusinessMessage(
+                    targetDeviceId = transfer.deviceId,
+                    business = reject,
+                    correlationId = correlationId,
+                ).getOrThrow()
+            }
+            fileTransferProtocols.remove(sessionId, protocol)
         }
 
     fun startLanPairing(deviceId: String) {
@@ -2985,7 +3189,9 @@ class ConnectionManager @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
             ),
         )
-        val outgoing = outgoingTransfers[payload.sessionId] ?: return
+        val outgoing = outgoingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V2 }
+            ?: return
         val endpoint = lanRuntimeState.endpoint(fromDeviceId)
         if (endpoint != null && swimMembership.memberState(fromDeviceId) in setOf(MemberState.Alive, MemberState.Suspect)) {
             var opened = false
@@ -3022,6 +3228,96 @@ class ConnectionManager @Inject constructor(
         }
 
         sendRelayFileData(payload.sessionId, outgoing)
+    }
+
+    private suspend fun handleFileV3Accept(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+    ) {
+        val payload = runCatching {
+            json.decodeFromJsonElement(FileV3AcceptPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        val outgoing = outgoingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V3 }
+            ?: return
+        if (transfer.deviceId != fromDeviceId) {
+            return
+        }
+        if (transfer.status != "offered") {
+            return
+        }
+        if (outgoing.controlRoute != route) {
+            cancelTransfer(
+                payload.sessionId,
+                REASON_TRANSFER_GENERIC,
+                "file.v3.accept arrived on a different control-plane route",
+            )
+            return
+        }
+        fileTransferRepository.save(
+            transfer.copy(
+                status = "accepted",
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        outgoing.lastActivityAt = System.currentTimeMillis()
+        if (route == "lan") {
+            val token = payload.transferToken?.takeIf(::isValidTransferToken) ?: run {
+                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Invalid LAN transfer token")
+                return
+            }
+            val fingerprint = runCatching {
+                lanWebSocketServer.registerFileV3Transfer(
+                    sessionId = payload.sessionId,
+                    token = token,
+                    localUri = outgoing.localUri,
+                    fileSize = transfer.fileSize,
+                )
+            }.getOrElse { error ->
+                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, error.message ?: "HTTPS endpoint could not start")
+                return
+            }
+            fileTransferRepository.save(
+                transfer.copy(
+                    status = "sending",
+                    route = "lan",
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+            runCatching {
+                sendFileV3Control(
+                    targetDeviceId = fromDeviceId,
+                    controlRoute = route,
+                    business = BusinessEnvelope(
+                        type = FILE_V3_READY_TYPE,
+                        payload = json.encodeToJsonElement(
+                            FileV3ReadyPayload(
+                                sessionId = payload.sessionId,
+                                certFingerprint = fingerprint,
+                            ),
+                        ),
+                    ),
+                )
+            }.onFailure { error ->
+                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, error.message ?: "HTTPS endpoint is unavailable")
+            }
+            scheduleFileV3ReadyTimeout(payload.sessionId)
+            return
+        }
+        if (route != "cloud" || payload.transferToken != null) {
+            cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Relay transfer must not include a token")
+            return
+        }
+        runCatching { sendRelayFileData(payload.sessionId, outgoing) }
+            .onFailure { error ->
+                cancelTransfer(
+                    payload.sessionId,
+                    REASON_TRANSFER_GENERIC,
+                    error.message ?: "Relay transfer could not start",
+                )
+            }
     }
 
     private suspend fun sendLanFileData(
@@ -3078,6 +3374,9 @@ class ConnectionManager @Inject constructor(
                 updatedAt = System.currentTimeMillis(),
             ),
         )
+        if (outgoing.protocol == FileTransferProtocol.V3) {
+            watchFileV3RelayOutgoing(sessionId)
+        }
         val encoder = Base64.getEncoder()
         val uri = Uri.parse(outgoing.localUri)
         var index = 0L
@@ -3088,7 +3387,12 @@ class ConnectionManager @Inject constructor(
                 if (read <= 0) {
                     break
                 }
-                if (!waitForSendWindow(sessionId, index, RELAY_SEND_WINDOW_CHUNKS)) {
+                val windowSize = if (outgoing.protocol == FileTransferProtocol.V3) {
+                    FILE_V3_RELAY_SEND_WINDOW_CHUNKS
+                } else {
+                    RELAY_SEND_WINDOW_CHUNKS
+                }
+                if (!waitForSendWindow(sessionId, index, windowSize)) {
                     cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Transfer timed out")
                     return
                 }
@@ -3096,7 +3400,7 @@ class ConnectionManager @Inject constructor(
                 sendViaCloud(
                     outgoing.deviceId,
                     BusinessEnvelope(
-                        type = FILE_CHUNK_TYPE,
+                        type = outgoing.protocol.chunkType,
                         payload = json.encodeToJsonElement(
                             FileChunkPayload(
                                 sessionId = sessionId,
@@ -3114,9 +3418,31 @@ class ConnectionManager @Inject constructor(
                     cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, it.message ?: "Cloud connection is not ready")
                     return
                 }
+                if (outgoing.protocol == FileTransferProtocol.V3) {
+                    outgoing.lastActivityAt = System.currentTimeMillis()
+                }
                 index += 1
             }
         } ?: error("file is unavailable")
+        if (outgoing.protocol == FileTransferProtocol.V3) {
+            sendViaCloud(
+                outgoing.deviceId,
+                BusinessEnvelope(
+                    type = FILE_V3_FINISH_TYPE,
+                    payload = json.encodeToJsonElement(
+                        FileFinishPayload(
+                            sessionId = sessionId,
+                            totalChunks = index,
+                        ),
+                    ),
+                ),
+            ).getOrElse {
+                cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, it.message ?: "Cloud connection is not ready")
+                return
+            }
+            outgoing.lastActivityAt = System.currentTimeMillis()
+        }
+        outgoing.finishSent = true
     }
 
     private suspend fun handleFileReady(fromDeviceId: String, business: BusinessEnvelope) {
@@ -3128,6 +3454,7 @@ class ConnectionManager @Inject constructor(
             return
         }
         val state = incomingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V2 }
         if (state != null) {
             state.route = "lan"
         }
@@ -3139,50 +3466,217 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    private suspend fun handleFileChunk(
+    private suspend fun handleFileV3Ready(
         fromDeviceId: String,
         business: BusinessEnvelope,
         route: String,
     ) {
+        if (route != "lan") {
+            return
+        }
+        val payload = runCatching {
+            json.decodeFromJsonElement(FileV3ReadyPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val state = incomingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V3 }
+            ?: return
+        val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (
+            transfer.deviceId != fromDeviceId ||
+            transfer.status != "receiving" ||
+            state.route != "lan" ||
+            transfer.route != "lan" ||
+            state.readyReceived
+        ) {
+            return
+        }
+        val endpoint = lanRuntimeState.endpoint(fromDeviceId) ?: run {
+            cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "LAN endpoint is unavailable")
+            return
+        }
+        state.readyReceived = true
+        state.route = "lan"
+        fileTransferRepository.save(
+            transfer.copy(
+                route = "lan",
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        val token = state.transferToken ?: run {
+            cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "LAN transfer token is unavailable")
+            return
+        }
+        scope.launch {
+            val result = lanWebSocketClient.downloadFileV3(
+                sessionId = payload.sessionId,
+                token = token,
+                ip = endpoint.ip,
+                port = endpoint.port,
+                certFingerprint = payload.certFingerprint,
+                destination = state.tempFile,
+                expectedFileSize = transfer.fileSize,
+            )
+            result.onSuccess {
+                finishIncomingTransfer(payload.sessionId, state, transfer)
+            }.onFailure { error ->
+                cancelTransfer(
+                    payload.sessionId,
+                    REASON_TRANSFER_GENERIC,
+                    error.message ?: "HTTPS file download failed",
+                )
+            }
+        }
+    }
+
+    private suspend fun handleFileV3Finish(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+    ) {
+        if (route != "cloud") {
+            return
+        }
+        val payload = runCatching {
+            json.decodeFromJsonElement(FileFinishPayload.serializer(), business.payload)
+        }.getOrNull() ?: return
+        val state = incomingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V3 }
+            ?: return
+        val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (transfer.deviceId != fromDeviceId || state.route != "cloud") {
+            cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Invalid relay transfer finish")
+            return
+        }
+        if (payload.totalChunks < 0) {
+            cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Invalid relay transfer finish")
+            return
+        }
+        state.frameMutex.withLock {
+            if (incomingTransfers[payload.sessionId] !== state) {
+                return@withLock
+            }
+            if (state.finishReceived && state.expectedChunks != payload.totalChunks) {
+                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Relay transfer finish changed totalChunks")
+                return@withLock
+            }
+            state.expectedChunks = payload.totalChunks
+            state.finishReceived = true
+            val now = System.currentTimeMillis()
+            state.lastActivityAt = now
+            if (state.receivedChunks < state.expectedChunks) {
+                if (state.gapDetectedAt == null) {
+                    state.gapDetectedAt = now
+                }
+            }
+            val updatedTransfer = transfer.copy(
+                totalChunks = payload.totalChunks,
+                updatedAt = now,
+            )
+            fileTransferRepository.save(updatedTransfer)
+            if (state.receivedChunks == state.expectedChunks) {
+                finishIncomingTransfer(payload.sessionId, state, updatedTransfer)
+            } else if (state.receivedChunks > state.expectedChunks) {
+                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "Relay transfer contains too many chunks")
+            }
+        }
+    }
+
+    private suspend fun handleFileChunk(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileChunkPayload.serializer(), business.payload)
         }.getOrNull() ?: return
-        val state = incomingTransfers[payload.sessionId] ?: return
-        val transfer = fileTransferRepository.get(payload.sessionId) ?: return
-        if (transfer.deviceId != fromDeviceId) {
+        if (protocol == FileTransferProtocol.V3 && route != "cloud") {
             return
         }
-        state.route = route
+        val state = incomingTransfers[payload.sessionId]
+            ?.takeIf { it.protocol == protocol }
+            ?: return
+        val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (
+            transfer.deviceId != fromDeviceId ||
+            (protocol == FileTransferProtocol.V3 && state.route != "cloud")
+        ) {
+            return
+        }
         val bytes = runCatching { Base64.getDecoder().decode(payload.data) }.getOrNull() ?: return
-        processIncomingChunk(
-            sessionId = payload.sessionId,
-            state = state,
-            transfer = transfer,
-            chunkIndex = payload.chunkIndex,
-            bytes = bytes,
-            finishWhenComplete = true,
-        )
+        state.frameMutex.withLock {
+            if (incomingTransfers[payload.sessionId] !== state) {
+                return@withLock
+            }
+            state.route = route
+            processIncomingChunk(
+                sessionId = payload.sessionId,
+                state = state,
+                transfer = transfer,
+                chunkIndex = payload.chunkIndex,
+                bytes = bytes,
+                finishWhenComplete = protocol == FileTransferProtocol.V2,
+            )
+        }
     }
 
-    private suspend fun handleFileAck(business: BusinessEnvelope) {
+    private suspend fun handleFileAck(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileAckPayload.serializer(), business.payload)
         }.getOrNull() ?: return
-        processFileAck(payload.sessionId, payload.nextExpectedIndex)
+        if (
+            protocol == FileTransferProtocol.V3 &&
+            (route != "cloud" || !isValidFileV3OutgoingControl(payload.sessionId, fromDeviceId, route))
+        ) {
+            return
+        }
+        processFileAck(payload.sessionId, payload.nextExpectedIndex, protocol)
     }
 
-    private suspend fun handleFileRetransmit(business: BusinessEnvelope, lan: Boolean) {
+    private suspend fun handleFileRetransmit(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        lan: Boolean,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileRetransmitPayload.serializer(), business.payload)
         }.getOrNull() ?: return
-        retransmitFileChunk(payload.sessionId, payload.chunkIndex, lan)
+        if (
+            protocol == FileTransferProtocol.V3 &&
+            (route != "cloud" || !isValidFileV3OutgoingControl(payload.sessionId, fromDeviceId, route))
+        ) {
+            return
+        }
+        retransmitFileChunk(payload.sessionId, payload.chunkIndex, lan, protocol)
     }
 
-    private suspend fun handleFileReject(business: BusinessEnvelope) {
+    private suspend fun handleFileReject(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileRejectPayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        if (fileTransferProtocols[payload.sessionId] != protocol) {
+            return
+        }
         val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (protocol == FileTransferProtocol.V3 && !isValidFileV3OutgoingControl(payload.sessionId, fromDeviceId, route)) {
+            return
+        }
+        outgoingTransfers.remove(payload.sessionId)?.transferConnection?.close()
+        ackSignals.remove(payload.sessionId)?.complete(Unit)
+        cleanupFileTransferEndpoint(payload.sessionId, protocol)
+        fileTransferProtocols.remove(payload.sessionId, protocol)
         fileTransferRepository.save(
             transfer.copy(
                 status = "rejected",
@@ -3192,18 +3686,30 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    private suspend fun handleFileCancel(business: BusinessEnvelope) {
+    private suspend fun handleFileCancel(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileCancelPayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        if (fileTransferProtocols[payload.sessionId] != protocol) {
+            return
+        }
         val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (protocol == FileTransferProtocol.V3 && !isValidFileV3Control(payload.sessionId, fromDeviceId, route)) {
+            return
+        }
         incomingTransfers.remove(payload.sessionId)?.let { removed ->
             closeIncomingOutput(removed)
             removed.tempFile.delete()
         }
         outgoingTransfers.remove(payload.sessionId)
         ackSignals.remove(payload.sessionId)?.complete(Unit)
-        lanWebSocketServer.unregisterTransfer(payload.sessionId)
+        cleanupFileTransferEndpoint(payload.sessionId, protocol)
+        fileTransferProtocols.remove(payload.sessionId, protocol)
         fileTransferRepository.save(
             transfer.copy(
                 status = "cancelled",
@@ -3213,15 +3719,27 @@ class ConnectionManager @Inject constructor(
         )
     }
 
-    private suspend fun handleFileDone(business: BusinessEnvelope) {
+    private suspend fun handleFileDone(
+        fromDeviceId: String,
+        business: BusinessEnvelope,
+        route: String,
+        protocol: FileTransferProtocol,
+    ) {
         val payload = runCatching {
             json.decodeFromJsonElement(FileDonePayload.serializer(), business.payload)
         }.getOrNull() ?: return
+        if (fileTransferProtocols[payload.sessionId] != protocol) {
+            return
+        }
         val transfer = fileTransferRepository.get(payload.sessionId) ?: return
+        if (protocol == FileTransferProtocol.V3 && !isValidFileV3OutgoingControl(payload.sessionId, fromDeviceId, route)) {
+            return
+        }
         outgoingTransfers.remove(payload.sessionId)?.transferConnection?.close()
         incomingTransfers.remove(payload.sessionId)
         ackSignals.remove(payload.sessionId)?.complete(Unit)
-        lanWebSocketServer.unregisterTransfer(payload.sessionId)
+        cleanupFileTransferEndpoint(payload.sessionId, protocol)
+        fileTransferProtocols.remove(payload.sessionId, protocol)
         fileTransferRepository.save(
             transfer.copy(
                 status = if (payload.success) "completed" else "failed",
@@ -3260,6 +3778,60 @@ class ConnectionManager @Inject constructor(
         sendLan = { sendViaLan(targetDeviceId, business, correlationId, envelopeId) },
         sendCloud = { sendViaCloud(targetDeviceId, business, correlationId, envelopeId) },
     )
+
+    private suspend fun sendFileV3Control(
+        targetDeviceId: String,
+        controlRoute: String,
+        business: BusinessEnvelope,
+        correlationId: String? = null,
+    ): String =
+        when (controlRoute) {
+            "lan" -> {
+                check(trySendViaExistingLan(targetDeviceId, business, correlationId)) {
+                    "AEAD-protected LAN control connection is unavailable"
+                }
+                "lan"
+            }
+
+            "cloud" -> sendViaCloud(targetDeviceId, business, correlationId).getOrThrow()
+            else -> error("invalid file transfer control route")
+        }
+
+    private suspend fun cleanupFileTransferEndpoint(
+        sessionId: String,
+        protocol: FileTransferProtocol,
+    ) {
+        if (protocol == FileTransferProtocol.V3) {
+            lanWebSocketServer.unregisterFileV3Transfer(sessionId)
+        } else {
+            lanWebSocketServer.unregisterTransfer(sessionId)
+        }
+    }
+
+    private fun isValidFileV3OutgoingControl(sessionId: String, fromDeviceId: String, route: String): Boolean {
+        val outgoing = outgoingTransfers[sessionId] ?: return false
+        return outgoing.protocol == FileTransferProtocol.V3 &&
+            outgoing.deviceId == fromDeviceId &&
+            outgoing.controlRoute == route
+    }
+
+    private fun isValidFileV3Control(sessionId: String, fromDeviceId: String, route: String): Boolean {
+        if (isValidFileV3OutgoingControl(sessionId, fromDeviceId, route)) {
+            return true
+        }
+        val incoming = incomingTransfers[sessionId] ?: return false
+        return incoming.protocol == FileTransferProtocol.V3 &&
+            incoming.deviceId == fromDeviceId &&
+            incoming.route == route
+    }
+
+    private fun generateTransferToken(): String =
+        ByteArray(32)
+            .also(SecureRandom()::nextBytes)
+            .let { Base64.getUrlEncoder().withoutPadding().encodeToString(it) }
+
+    private fun isValidTransferToken(token: String): Boolean =
+        token.length == 43 && token.all { it.isLetterOrDigit() || it == '-' || it == '_' }
 
     private suspend fun routeForDevice(deviceId: String): String {
         val reachable = lanRuntimeState.peer(deviceId)?.isReachable == true
@@ -3327,7 +3899,9 @@ class ConnectionManager @Inject constructor(
         }
 
     private suspend fun handleTransferFrame(sessionId: String, frame: FileDataFrame) {
-        val state = incomingTransfers[sessionId] ?: return
+        val state = incomingTransfers[sessionId]
+            ?.takeIf { it.protocol == FileTransferProtocol.V2 }
+            ?: return
         state.frameMutex.withLock {
             if (incomingTransfers[sessionId] !== state) {
                 return
@@ -3358,7 +3932,13 @@ class ConnectionManager @Inject constructor(
             FileDataFrameKind.Finish -> {
                 state.finishReceived = true
                 if (state.receivedChunks < state.expectedChunks) {
-                    sendRetransmit(state.deviceId, sessionId, state.receivedChunks, lan = true)
+                    sendRetransmit(
+                        state.deviceId,
+                        sessionId,
+                        state.receivedChunks,
+                        lan = true,
+                        protocol = FileTransferProtocol.V2,
+                    )
                 } else {
                     finishIncomingTransfer(sessionId, state, transfer.copy(route = "lan"))
                 }
@@ -3368,6 +3948,7 @@ class ConnectionManager @Inject constructor(
                 val reason = frame.payload.decodeToString().ifBlank { "cancelled" }
                 incomingTransfers.remove(sessionId)
                 lanWebSocketServer.unregisterTransfer(sessionId)
+                fileTransferProtocols.remove(sessionId, FileTransferProtocol.V2)
                 closeIncomingOutput(state)
                 state.tempFile.delete()
                 fileTransferRepository.save(
@@ -3379,19 +3960,28 @@ class ConnectionManager @Inject constructor(
                 )
             }
 
-            FileDataFrameKind.Ack -> processFileAck(sessionId, frame.index.toLong())
+            FileDataFrameKind.Ack -> processFileAck(sessionId, frame.index.toLong(), FileTransferProtocol.V2)
             FileDataFrameKind.Retransmit -> retransmitFileChunk(
                 sessionId = sessionId,
                 chunkIndex = frame.index.toLong(),
                 lan = true,
+                protocol = FileTransferProtocol.V2,
             )
         }
     }
 
     private suspend fun handleOutgoingTransferFrame(sessionId: String, frame: FileDataFrame) {
+        if (outgoingTransfers[sessionId]?.protocol != FileTransferProtocol.V2) {
+            return
+        }
         when (frame.kind) {
-            FileDataFrameKind.Ack -> processFileAck(sessionId, frame.index.toLong())
-            FileDataFrameKind.Retransmit -> retransmitFileChunk(sessionId, frame.index.toLong(), lan = true)
+            FileDataFrameKind.Ack -> processFileAck(sessionId, frame.index.toLong(), FileTransferProtocol.V2)
+            FileDataFrameKind.Retransmit -> retransmitFileChunk(
+                sessionId,
+                frame.index.toLong(),
+                lan = true,
+                protocol = FileTransferProtocol.V2,
+            )
             FileDataFrameKind.Cancel -> {
                 val reason = frame.payload.decodeToString().ifBlank { "cancelled" }
                 val transfer = fileTransferRepository.get(sessionId) ?: return
@@ -3419,8 +4009,12 @@ class ConnectionManager @Inject constructor(
     ) {
         closeIncomingOutput(state)
         val localizedContext = LocaleHelper.localized(context)
-        val chunksComplete = state.receivedChunks == state.expectedChunks
-        val verifyingTransfer = if (chunksComplete) {
+        val dataComplete = if (state.protocol == FileTransferProtocol.V3 && state.route == "lan") {
+            state.tempFile.length() == transfer.fileSize
+        } else {
+            state.receivedChunks == state.expectedChunks && state.receivedBytes == transfer.fileSize
+        }
+        val verifyingTransfer = if (dataComplete) {
             transfer.copy(
                 status = "verifying",
                 transferredBytes = transfer.fileSize,
@@ -3429,16 +4023,18 @@ class ConnectionManager @Inject constructor(
         } else {
             transfer
         }
-        val checksumMatches = chunksComplete && state.verifier.verify()
-        val success = chunksComplete && checksumMatches
+        val checksumMatches = dataComplete && runCatching {
+            state.tempFile.matchesFileChecksum(transfer.checksum)
+        }.getOrDefault(false)
+        val success = dataComplete && checksumMatches
         val reason = when {
             success -> null
-            !chunksComplete -> REASON_TRANSFER_GENERIC
+            !dataComplete -> REASON_TRANSFER_GENERIC
             else -> REASON_TRANSFER_CHECKSUM_MISMATCH
         }
         val message = when {
             success -> null
-            !chunksComplete -> "Missing file chunks"
+            !dataComplete -> "Received file size does not match offer"
             else -> transferErrorMessage(REASON_TRANSFER_CHECKSUM_MISMATCH)
         }
         var commitError: String? = null
@@ -3469,21 +4065,25 @@ class ConnectionManager @Inject constructor(
             ),
         )
         incomingTransfers.remove(sessionId)
-        lanWebSocketServer.unregisterTransfer(sessionId)
-        sendBusinessMessage(
-            targetDeviceId = state.deviceId,
-            business = BusinessEnvelope(
-                type = FILE_DONE_TYPE,
-                payload = json.encodeToJsonElement(
-                    FileDonePayload(
-                        sessionId = sessionId,
-                        success = completed,
-                        reason = finalReason,
-                        message = finalMessage,
-                    ),
+        cleanupFileTransferEndpoint(sessionId, state.protocol)
+        val done = BusinessEnvelope(
+            type = state.protocol.doneType,
+            payload = json.encodeToJsonElement(
+                FileDonePayload(
+                    sessionId = sessionId,
+                    success = completed,
+                    reason = finalReason,
+                    message = finalMessage,
                 ),
             ),
         )
+        if (state.protocol == FileTransferProtocol.V3) {
+            runCatching { sendFileV3Control(state.deviceId, state.route, done) }
+                .onFailure { error -> CoLinkLog.w("Transfer", "failed to send v3 completion", error) }
+        } else {
+            sendBusinessMessage(targetDeviceId = state.deviceId, business = done)
+        }
+        fileTransferProtocols.remove(sessionId, state.protocol)
         notifyEvent(
             deviceId = state.deviceId,
             title = if (completed) {
@@ -3950,24 +4550,75 @@ class ConnectionManager @Inject constructor(
         bytes: ByteArray,
         finishWhenComplete: Boolean,
     ) {
+        if (chunkIndex < 0) {
+            return
+        }
+        val isV3Relay = state.protocol == FileTransferProtocol.V3 && state.route == "cloud"
+        val now = System.currentTimeMillis()
+        if (isV3Relay) {
+            state.lastActivityAt = now
+            if (state.finishReceived && chunkIndex >= state.expectedChunks) {
+                cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Relay transfer contains an out-of-range chunk")
+                return
+            }
+        }
         when {
-            chunkIndex < state.receivedChunks -> sendAck(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
+            chunkIndex < state.receivedChunks -> {
+                if (isV3Relay) {
+                    maybeSendFileV3RelayAck(sessionId, state)
+                } else {
+                    sendAck(
+                        state.deviceId,
+                        sessionId,
+                        state.receivedChunks,
+                        state.route == "lan",
+                        state.protocol,
+                    )
+                }
+            }
             chunkIndex > state.receivedChunks -> {
-                if (chunkIndex - state.receivedChunks <= state.windowSize) {
+                if (isV3Relay &&
+                    chunkIndex - state.receivedChunks <= state.windowSize &&
+                    (state.reorderBuffer.containsKey(chunkIndex) ||
+                        state.reorderBuffer.size < state.windowSize)
+                ) {
                     state.reorderBuffer.putIfAbsent(chunkIndex, bytes)
                 }
-                sendRetransmit(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
+                if (isV3Relay) {
+                    if (state.gapDetectedAt == null) {
+                        state.gapDetectedAt = now
+                    }
+                } else {
+                    sendRetransmit(
+                        state.deviceId,
+                        sessionId,
+                        state.receivedChunks,
+                        state.route == "lan",
+                        state.protocol,
+                    )
+                }
             }
             else -> {
                 appendIncomingChunk(state, bytes)
-                while (true) {
-                    val buffered = state.reorderBuffer.remove(state.receivedChunks) ?: break
-                    appendIncomingChunk(state, buffered)
+                if (isV3Relay) {
+                    while (true) {
+                        val buffered = state.reorderBuffer.remove(state.receivedChunks) ?: break
+                        appendIncomingChunk(state, buffered)
+                    }
+                    state.gapDetectedAt = if (state.reorderBuffer.isEmpty()) null else now
                 }
                 val current = fileTransferRepository.get(sessionId) ?: transfer
                 val nextBytes = state.receivedBytes.coerceAtMost(current.fileSize)
-                val complete = state.receivedChunks == state.expectedChunks
-                val ackDue = shouldSendFileAck(state.receivedChunks, state.expectedChunks)
+                val complete = if (isV3Relay) {
+                    state.finishReceived && state.receivedChunks == state.expectedChunks
+                } else {
+                    state.receivedChunks == state.expectedChunks
+                }
+                val ackDue = if (isV3Relay) {
+                    state.receivedChunks - state.lastAcknowledgedChunks >= FILE_V3_RELAY_ACK_INTERVAL_CHUNKS
+                } else {
+                    shouldSendFileAck(state.receivedChunks, state.expectedChunks)
+                }
                 if (complete || ackDue) {
                     fileTransferRepository.save(
                         current.copy(
@@ -3977,18 +4628,34 @@ class ConnectionManager @Inject constructor(
                         ),
                     )
                 }
-                if (ackDue) {
-                    sendAck(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
+                if (isV3Relay) {
+                    maybeSendFileV3RelayAck(sessionId, state)
+                } else if (ackDue) {
+                    sendAck(
+                        state.deviceId,
+                        sessionId,
+                        state.receivedChunks,
+                        state.route == "lan",
+                        state.protocol,
+                    )
                 }
                 if (finishWhenComplete && complete) {
                     finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
                 }
-                if (!finishWhenComplete && state.finishReceived) {
+                if (!finishWhenComplete && state.finishReceived && !isV3Relay) {
                     if (complete) {
                         finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
                     } else {
-                        sendRetransmit(state.deviceId, sessionId, state.receivedChunks, state.route == "lan")
+                        sendRetransmit(
+                            state.deviceId,
+                            sessionId,
+                            state.receivedChunks,
+                            state.route == "lan",
+                            state.protocol,
+                        )
                     }
+                } else if (isV3Relay && state.finishReceived && complete) {
+                    finishIncomingTransfer(sessionId, state, current.copy(transferredBytes = nextBytes))
                 }
             }
         }
@@ -4006,6 +4673,8 @@ class ConnectionManager @Inject constructor(
                 expired.tempFile.delete()
             }
             outgoingTransfers.remove(sessionId)
+            ackSignals.remove(sessionId)?.complete(Unit)
+            fileTransferProtocols.remove(sessionId)
             fileTransferRepository.save(
                 transfer.copy(
                     status = "failed",
@@ -4016,22 +4685,151 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    private fun scheduleFileV3ReadyTimeout(sessionId: String) {
+        scope.launch {
+            delay(FILE_V3_READY_TIMEOUT_MILLIS)
+            val outgoing = outgoingTransfers[sessionId]
+                ?.takeIf { it.protocol == FileTransferProtocol.V3 && it.controlRoute == "lan" }
+                ?: return@launch
+            val transfer = fileTransferRepository.get(sessionId) ?: return@launch
+            if (transfer.status == "sending" && !lanWebSocketServer.hasFileV3TransferStarted(sessionId)) {
+                cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "HTTPS transfer did not complete")
+            }
+        }
+    }
+
+    private fun watchFileV3RelayOutgoing(sessionId: String) {
+        scope.launch {
+            while (isActive) {
+                delay(FILE_V3_RELAY_ACK_INTERVAL_MILLIS)
+                val outgoing = outgoingTransfers[sessionId]
+                    ?.takeIf {
+                        it.protocol == FileTransferProtocol.V3 && it.controlRoute == "cloud"
+                    }
+                    ?: return@launch
+                if (System.currentTimeMillis() - outgoing.lastActivityAt >= FILE_V3_RELAY_IDLE_TIMEOUT_MILLIS) {
+                    cancelTransfer(
+                        sessionId,
+                        REASON_TRANSFER_GENERIC,
+                        "Relay transfer timed out due to inactivity",
+                    )
+                    return@launch
+                }
+            }
+        }
+    }
+
+    private fun watchFileV3RelayIncoming(sessionId: String) {
+        scope.launch {
+            while (isActive) {
+                delay(FILE_V3_RELAY_ACK_INTERVAL_MILLIS)
+                val state = incomingTransfers[sessionId]
+                    ?.takeIf {
+                        it.protocol == FileTransferProtocol.V3 && it.route == "cloud"
+                    }
+                    ?: return@launch
+                var timedOut = false
+                var retransmitIndex: Long? = null
+                state.frameMutex.withLock {
+                    if (incomingTransfers[sessionId] !== state) {
+                        return@withLock
+                    }
+                    val now = System.currentTimeMillis()
+                    if (now - state.lastActivityAt >= FILE_V3_RELAY_IDLE_TIMEOUT_MILLIS) {
+                        timedOut = true
+                        return@withLock
+                    }
+                    maybeSendFileV3RelayAck(sessionId, state)
+                    if (state.gapDetectedAt?.let {
+                            now - it >= FILE_V3_RELAY_RETRANSMIT_TIMEOUT_MILLIS
+                        } == true
+                    ) {
+                        state.gapDetectedAt = now
+                        retransmitIndex = state.receivedChunks
+                    }
+                }
+                if (timedOut) {
+                    cancelTransfer(
+                        sessionId,
+                        REASON_TRANSFER_GENERIC,
+                        "Relay transfer timed out due to inactivity",
+                    )
+                    return@launch
+                }
+                retransmitIndex?.let { chunkIndex ->
+                    sendRetransmit(
+                        deviceId = state.deviceId,
+                        sessionId = sessionId,
+                        chunkIndex = chunkIndex,
+                        lan = false,
+                        protocol = FileTransferProtocol.V3,
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun maybeSendFileV3RelayAck(
+        sessionId: String,
+        state: IncomingTransferState,
+    ) {
+        val now = System.currentTimeMillis()
+        if (
+            state.receivedChunks <= state.lastAcknowledgedChunks ||
+            (
+                state.receivedChunks - state.lastAcknowledgedChunks < FILE_V3_RELAY_ACK_INTERVAL_CHUNKS &&
+                    now - state.lastAckAt < FILE_V3_RELAY_ACK_INTERVAL_MILLIS
+            )
+        ) {
+            return
+        }
+        val nextExpectedIndex = state.receivedChunks
+        sendAck(
+            deviceId = state.deviceId,
+            sessionId = sessionId,
+            nextExpectedIndex = nextExpectedIndex,
+            lan = false,
+            protocol = FileTransferProtocol.V3,
+        )
+        state.lastAcknowledgedChunks = maxOf(state.lastAcknowledgedChunks, nextExpectedIndex)
+        state.lastAckAt = now
+        fileTransferRepository.get(sessionId)?.let { transfer ->
+            fileTransferRepository.save(
+                transfer.copy(
+                    transferredBytes = state.receivedBytes.coerceAtMost(transfer.fileSize),
+                    updatedAt = now,
+                ),
+            )
+        }
+    }
+
     private fun appendIncomingChunk(state: IncomingTransferState, bytes: ByteArray): Int {
-        state.output.write(bytes)
+        checkNotNull(state.output) { "chunk stream is unavailable for this transfer" }.write(bytes)
         state.verifier.update(bytes)
         state.receivedChunks += 1
         state.receivedBytes += bytes.size
+        state.lastActivityAt = System.currentTimeMillis()
         return bytes.size
     }
 
     private fun closeIncomingOutput(state: IncomingTransferState) {
-        runCatching { state.output.flush() }
-        runCatching { state.output.close() }
+        state.output?.let { output ->
+            runCatching { output.flush() }
+            runCatching { output.close() }
+            state.output = null
+        }
     }
 
-    private suspend fun processFileAck(sessionId: String, nextExpectedIndex: Long) {
+    private suspend fun processFileAck(
+        sessionId: String,
+        nextExpectedIndex: Long,
+        protocol: FileTransferProtocol,
+    ) {
         val transfer = fileTransferRepository.get(sessionId) ?: return
-        val outgoing = outgoingTransfers[sessionId]
+        val outgoing = outgoingTransfers[sessionId]?.takeIf { it.protocol == protocol }
+        if (outgoing?.let { it.protocol == FileTransferProtocol.V3 && it.controlRoute == "cloud" } == true) {
+            outgoing.lastActivityAt = System.currentTimeMillis()
+        }
         if (outgoing != null && nextExpectedIndex > outgoing.acknowledgedChunks) {
             outgoing.acknowledgedChunks = nextExpectedIndex.coerceAtMost(transfer.totalChunks)
             ackSignals.remove(sessionId)?.complete(Unit)
@@ -4063,7 +4861,23 @@ class ConnectionManager @Inject constructor(
             }
             val signal = CompletableDeferred<Unit>()
             ackSignals[sessionId] = signal
-            withTimeoutOrNull(30_000) { signal.await() } ?: return false
+            val updated = outgoingTransfers[sessionId]
+            if (updated == null || nextChunkIndex - updated.acknowledgedChunks < windowSize) {
+                ackSignals.remove(sessionId, signal)
+                return updated != null
+            }
+            val signalled = if (
+                updated.protocol == FileTransferProtocol.V3 && updated.controlRoute == "cloud"
+            ) {
+                signal.await()
+                true
+            } else {
+                withTimeoutOrNull(30_000) { signal.await() } != null
+            }
+            ackSignals.remove(sessionId, signal)
+            if (!signalled) {
+                return false
+            }
         }
     }
 
@@ -4071,11 +4885,19 @@ class ConnectionManager @Inject constructor(
         sessionId: String,
         chunkIndex: Long,
         lan: Boolean,
+        protocol: FileTransferProtocol,
     ) {
         if (chunkIndex < 0) {
             return
         }
-        val outgoing = outgoingTransfers[sessionId] ?: return
+        val outgoing = outgoingTransfers[sessionId]?.takeIf { it.protocol == protocol } ?: return
+        val transfer = fileTransferRepository.get(sessionId) ?: return
+        if (chunkIndex >= transfer.totalChunks) {
+            return
+        }
+        if (protocol == FileTransferProtocol.V3 && !lan) {
+            outgoing.lastActivityAt = System.currentTimeMillis()
+        }
         val offset = chunkIndex * outgoing.chunkSize
         val bytes = readChunk(Uri.parse(outgoing.localUri), offset, outgoing.chunkSize) ?: return
         if (lan) {
@@ -4086,7 +4908,7 @@ class ConnectionManager @Inject constructor(
             sendViaCloud(
                 outgoing.deviceId,
                 BusinessEnvelope(
-                    type = FILE_CHUNK_TYPE,
+                    type = protocol.chunkType,
                     payload = json.encodeToJsonElement(
                         FileChunkPayload(
                             sessionId = sessionId,
@@ -4101,6 +4923,9 @@ class ConnectionManager @Inject constructor(
                     "relay chunk retransmit failed session=${CoLinkLog.shortId(sessionId)} index=$chunkIndex",
                     it,
                 )
+            }
+            if (protocol == FileTransferProtocol.V3) {
+                outgoing.lastActivityAt = System.currentTimeMillis()
             }
         }
     }
@@ -4138,6 +4963,7 @@ class ConnectionManager @Inject constructor(
         sessionId: String,
         nextExpectedIndex: Long,
         lan: Boolean,
+        protocol: FileTransferProtocol,
     ) {
         if (lan) {
             lanWebSocketServer.sendTransferFrame(
@@ -4146,18 +4972,20 @@ class ConnectionManager @Inject constructor(
             )
             return
         }
-        sendBusinessMessage(
-            targetDeviceId = deviceId,
-            business = BusinessEnvelope(
-                type = FILE_ACK_TYPE,
-                payload = json.encodeToJsonElement(
-                    FileAckPayload(
-                        sessionId = sessionId,
-                        nextExpectedIndex = nextExpectedIndex,
-                    ),
+        val ack = BusinessEnvelope(
+            type = protocol.ackType,
+            payload = json.encodeToJsonElement(
+                FileAckPayload(
+                    sessionId = sessionId,
+                    nextExpectedIndex = nextExpectedIndex,
                 ),
             ),
         )
+        if (protocol == FileTransferProtocol.V3) {
+            sendViaCloud(deviceId, ack)
+        } else {
+            sendBusinessMessage(targetDeviceId = deviceId, business = ack)
+        }
     }
 
     private suspend fun sendRetransmit(
@@ -4165,6 +4993,7 @@ class ConnectionManager @Inject constructor(
         sessionId: String,
         chunkIndex: Long,
         lan: Boolean,
+        protocol: FileTransferProtocol,
     ) {
         if (lan) {
             lanWebSocketServer.sendTransferFrame(
@@ -4173,18 +5002,20 @@ class ConnectionManager @Inject constructor(
             )
             return
         }
-        sendBusinessMessage(
-            targetDeviceId = deviceId,
-            business = BusinessEnvelope(
-                type = FILE_RETRANSMIT_TYPE,
-                payload = json.encodeToJsonElement(
-                    FileRetransmitPayload(
-                        sessionId = sessionId,
-                        chunkIndex = chunkIndex,
-                    ),
+        val retransmit = BusinessEnvelope(
+            type = protocol.retransmitType,
+            payload = json.encodeToJsonElement(
+                FileRetransmitPayload(
+                    sessionId = sessionId,
+                    chunkIndex = chunkIndex,
                 ),
             ),
         )
+        if (protocol == FileTransferProtocol.V3) {
+            sendViaCloud(deviceId, retransmit)
+        } else {
+            sendBusinessMessage(targetDeviceId = deviceId, business = retransmit)
+        }
     }
 
     suspend fun cancelTransfer(
@@ -4194,14 +5025,23 @@ class ConnectionManager @Inject constructor(
     ): Result<Unit> =
         runCatching {
             val transfer = fileTransferRepository.get(sessionId) ?: error("transfer not found")
-            incomingTransfers.remove(sessionId)?.let { removed ->
+            val protocol = fileTransferProtocols[sessionId] ?: FileTransferProtocol.V2
+            val incoming = incomingTransfers.remove(sessionId)
+            val outgoing = outgoingTransfers.remove(sessionId)
+            val controlRoute = outgoing?.controlRoute ?: incoming?.route ?: transfer.route
+            incoming?.let { removed ->
                 closeIncomingOutput(removed)
                 removed.tempFile.delete()
             }
-            outgoingTransfers.remove(sessionId)?.transferConnection?.send(FileDataFrame.cancel(reason))
+            if (protocol == FileTransferProtocol.V2) {
+                outgoing?.transferConnection?.send(FileDataFrame.cancel(reason))
+            }
             ackSignals.remove(sessionId)?.complete(Unit)
-            lanWebSocketServer.sendTransferFrame(sessionId, FileDataFrame.cancel(reason))
-            lanWebSocketServer.unregisterTransfer(sessionId)
+            if (protocol == FileTransferProtocol.V2) {
+                lanWebSocketServer.sendTransferFrame(sessionId, FileDataFrame.cancel(reason))
+            }
+            cleanupFileTransferEndpoint(sessionId, protocol)
+            fileTransferProtocols.remove(sessionId, protocol)
             fileTransferRepository.save(
                 transfer.copy(
                     status = "cancelled",
@@ -4209,23 +5049,29 @@ class ConnectionManager @Inject constructor(
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
-            sendBusinessMessage(
-                targetDeviceId = transfer.deviceId,
-                business = BusinessEnvelope(
-                    type = FILE_CANCEL_TYPE,
-                    payload = json.encodeToJsonElement(
-                        FileCancelPayload(
-                            sessionId = sessionId,
-                            reason = reason,
-                            message = message,
-                        ),
+            val cancel = BusinessEnvelope(
+                type = protocol.cancelType,
+                payload = json.encodeToJsonElement(
+                    FileCancelPayload(
+                        sessionId = sessionId,
+                        reason = reason,
+                        message = message,
                     ),
                 ),
-            ).getOrThrow()
+            )
+            if (protocol == FileTransferProtocol.V3) {
+                sendFileV3Control(transfer.deviceId, controlRoute, cancel)
+            } else {
+                sendBusinessMessage(targetDeviceId = transfer.deviceId, business = cancel).getOrThrow()
+            }
         }
 
     private fun shouldSendFileAck(nextExpectedIndex: Long, totalChunks: Long): Boolean =
-        nextExpectedIndex >= totalChunks || nextExpectedIndex % FILE_ACK_INTERVAL_CHUNKS == 0L
+        nextExpectedIndex > 0 &&
+            (
+                (totalChunks > 0 && nextExpectedIndex >= totalChunks) ||
+                    nextExpectedIndex % FILE_ACK_INTERVAL_CHUNKS == 0L
+            )
 
     private fun acknowledgedBytes(
         fileSize: Long,
@@ -4652,18 +5498,26 @@ class ConnectionManager @Inject constructor(
 
 private data class IncomingTransferState(
     val deviceId: String,
-    val expectedChunks: Long,
+    var expectedChunks: Long,
     var receivedChunks: Long,
     val tempFile: File,
     val verifier: FileChecksumVerifier,
     var route: String = "cloud",
+    val protocol: FileTransferProtocol,
+    val transferToken: String? = null,
     val uploadDestination: AuthorizedUploadDestination? = null,
     val windowSize: Long = LAN_SEND_WINDOW_CHUNKS,
     val reorderBuffer: TreeMap<Long, ByteArray> = TreeMap(),
     var finishReceived: Boolean = false,
+    var readyReceived: Boolean = false,
+    var gapDetectedAt: Long? = null,
+    var lastAckAt: Long = System.currentTimeMillis(),
+    var lastAcknowledgedChunks: Long = 0,
+    var lastActivityAt: Long = System.currentTimeMillis(),
     val frameMutex: Mutex = Mutex(),
 ) {
-    val output: FileOutputStream = FileOutputStream(tempFile)
+    var output: FileOutputStream? =
+        if (protocol == FileTransferProtocol.V2 || route == "cloud") FileOutputStream(tempFile) else null
     var receivedBytes: Long = 0
 }
 
@@ -4671,9 +5525,12 @@ private data class OutgoingTransferState(
     val deviceId: String,
     val localUri: String,
     val chunkSize: Int,
+    val protocol: FileTransferProtocol,
+    @Volatile var controlRoute: String,
     @Volatile var acknowledgedChunks: Long = 0,
     @Volatile var transferConnection: TransferConnection? = null,
     @Volatile var finishSent: Boolean = false,
+    @Volatile var lastActivityAt: Long = System.currentTimeMillis(),
 )
 
 private data class PendingLanSend(
@@ -4701,6 +5558,9 @@ private data class PendingSystemControlQuery(
 
 private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
     this is InterruptedIOException || cause?.isExpectedSwimProbeFailure() == true
+
+private fun String.isV4SessionId(): Boolean =
+    runCatching { UUID.fromString(this).version() == 4 }.getOrDefault(false)
 
 private fun SwimEnvelope.isTargetAck(targetDeviceId: String): Boolean =
     type == "swim.ack" && payload.from == targetDeviceId

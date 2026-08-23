@@ -33,10 +33,21 @@ import com.colink.android.network.message.supportsLanPairStringV2
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.network.camera.CameraDataFrame
 import com.colink.android.util.CoLinkLog
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.security.MessageDigest
+import java.security.cert.CertificateException
+import java.security.cert.X509Certificate
+import java.security.interfaces.ECPublicKey
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSession
+import javax.net.ssl.X509TrustManager
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -51,8 +62,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import okhttp3.OkHttpClient
+import okhttp3.CipherSuite
+import okhttp3.ConnectionSpec
+import okhttp3.HttpUrl
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.TlsVersion
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
@@ -921,6 +936,73 @@ class LanWebSocketClient @Inject constructor(
         )
     }
 
+    fun downloadFileV3(
+        sessionId: String,
+        token: String,
+        ip: String,
+        port: Int,
+        certFingerprint: String,
+        destination: File,
+        expectedFileSize: Long,
+        onProgress: (Long) -> Unit = {},
+    ): Result<Unit> =
+        runCatching {
+            require(expectedFileSize >= 0) { "file size must not be negative" }
+            val expectedFingerprint = parseCertificateFingerprint(certFingerprint)
+            val offset = destination.takeIf(File::exists)?.length() ?: 0L
+            require(offset <= expectedFileSize) { "partial file is larger than expected" }
+            val trustManager = PinnedCertificateTrustManager(expectedFingerprint)
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf(trustManager), null)
+            }
+            val client = okHttpClient.newBuilder()
+                .sslSocketFactory(sslContext.socketFactory, trustManager)
+                .hostnameVerifier(PinnedCertificateHostnameVerifier(expectedFingerprint))
+                .connectionSpecs(listOf(FILE_V3_TLS_SPEC))
+                .build()
+            val url = HttpUrl.Builder()
+                .scheme("https")
+                .host(ip)
+                .port(port)
+                .addPathSegment("transfer")
+                .addPathSegment("v3")
+                .addPathSegment(sessionId)
+                .build()
+            val request = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer $token")
+                .apply {
+                    if (offset > 0) {
+                        header("Range", "bytes=$offset-")
+                    }
+                }
+                .build()
+            client.newCall(request).execute().use { response ->
+                validateFileV3Response(response, offset, expectedFileSize)
+                val body = response.body ?: throw IOException("file transfer response has no body")
+                destination.parentFile?.mkdirs()
+                FileOutputStream(destination, offset > 0).use { output ->
+                    body.byteStream().use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var transferred = offset
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) {
+                                break
+                            }
+                            if (read == 0) {
+                                continue
+                            }
+                            output.write(buffer, 0, read)
+                            transferred += read
+                            onProgress(transferred)
+                        }
+                    }
+                }
+            }
+            require(destination.length() == expectedFileSize) { "file size does not match offer" }
+        }
+
     fun connectCamera(sessionId: String, token: String, ip: String, port: Int, listener: CameraListener) {
         val request = Request.Builder().url("ws://$ip:$port/camera-stream/$sessionId?token=$token").build()
         okHttpClient.newWebSocket(
@@ -1109,6 +1191,82 @@ class TransferConnection internal constructor(
     fun send(frame: FileDataFrame): Boolean = webSocket.send(okio.ByteString.of(*frame.encode()))
     fun close() {
         webSocket.close(1000, "transfer finished")
+    }
+}
+
+private val FILE_V3_TLS_SPEC = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+    .tlsVersions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
+    .cipherSuites(
+        CipherSuite.TLS_AES_128_GCM_SHA256,
+        CipherSuite.TLS_AES_256_GCM_SHA384,
+        CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
+        CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+        CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+        CipherSuite.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
+    )
+    .build()
+
+private fun parseCertificateFingerprint(value: String): ByteArray {
+    val digest = value.removePrefix("sha256:")
+    require(value.startsWith("sha256:") && digest.length == 64) { "invalid certificate fingerprint" }
+    require(digest.all { it in '0'..'9' || it in 'a'..'f' }) { "invalid certificate fingerprint" }
+    return ByteArray(32) { index ->
+        digest.substring(index * 2, index * 2 + 2).toInt(16).toByte()
+    }
+}
+
+private fun validateFileV3Response(response: Response, offset: Long, fileSize: Long) {
+    val expectedLength = fileSize - offset
+    val expectedStatus = if (offset == 0L) 200 else 206
+    require(response.code == expectedStatus) { "file transfer returned HTTP ${response.code}" }
+    require(response.header("Content-Length")?.toLongOrNull() == expectedLength) {
+        "file transfer response has an invalid content length"
+    }
+    if (offset > 0) {
+        require(response.header("Content-Range") == "bytes $offset-${fileSize - 1}/$fileSize") {
+            "file transfer response has an invalid content range"
+        }
+    }
+}
+
+private class PinnedCertificateTrustManager(
+    private val expectedFingerprint: ByteArray,
+) : X509TrustManager {
+    override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {
+        throw CertificateException("client certificates are not accepted")
+    }
+
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+        val certificate = chain.firstOrNull() ?: throw CertificateException("server certificate is missing")
+        requireP256(certificate)
+        val actualFingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
+        if (!MessageDigest.isEqual(actualFingerprint, expectedFingerprint)) {
+            throw CertificateException("server certificate fingerprint does not match")
+        }
+    }
+}
+
+private class PinnedCertificateHostnameVerifier(
+    private val expectedFingerprint: ByteArray,
+) : HostnameVerifier {
+    override fun verify(hostname: String, session: SSLSession): Boolean =
+        runCatching {
+            val certificate = session.peerCertificates.firstOrNull() as? X509Certificate ?: return false
+            requireP256(certificate)
+            MessageDigest.isEqual(
+                MessageDigest.getInstance("SHA-256").digest(certificate.encoded),
+                expectedFingerprint,
+            )
+        }.getOrDefault(false)
+}
+
+private fun requireP256(certificate: X509Certificate) {
+    val publicKey = certificate.publicKey as? ECPublicKey
+        ?: throw CertificateException("server certificate must use ECDSA P-256")
+    if (publicKey.params.curve.field.fieldSize != 256) {
+        throw CertificateException("server certificate must use ECDSA P-256")
     }
 }
 

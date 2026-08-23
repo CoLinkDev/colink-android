@@ -95,6 +95,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/io.netty.versions.properties"
             excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
     }
@@ -162,6 +164,7 @@ dependencies {
     implementation(libs.androidx.webkit)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.bouncycastle.bcprov)
+    implementation(libs.bouncycastle.bcpkix)
     implementation(libs.compose.animation)
     implementation(libs.compose.foundation)
     implementation(libs.compose.material.icons)
@@ -170,7 +173,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.hilt.android)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.websockets)
     implementation(libs.material.components)

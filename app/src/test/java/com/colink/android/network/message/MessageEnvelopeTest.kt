@@ -81,6 +81,55 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesFileV3ControlPayloadsWithoutV2Fields() {
+        val offer = BusinessEnvelope(
+            type = FILE_V3_OFFER_TYPE,
+            payload = json.encodeToJsonElement(
+                FileV3OfferPayload(
+                    sessionId = "s1",
+                    fileName = "report.pdf",
+                    fileSize = 10,
+                    checksum = "blake3:abc",
+                ),
+            ),
+        )
+        val accept = BusinessEnvelope(
+            type = FILE_V3_ACCEPT_TYPE,
+            payload = json.encodeToJsonElement(FileV3AcceptPayload(sessionId = "s1")),
+        )
+        val ready = BusinessEnvelope(
+            type = FILE_V3_READY_TYPE,
+            payload = json.encodeToJsonElement(
+                FileV3ReadyPayload(
+                    sessionId = "s1",
+                    certFingerprint = "sha256:${"0".repeat(64)}",
+                ),
+            ),
+        )
+        val finish = BusinessEnvelope(
+            type = FILE_V3_FINISH_TYPE,
+            payload = json.encodeToJsonElement(FileFinishPayload(sessionId = "s1", totalChunks = 3)),
+        )
+
+        assertEquals(
+            """{"type":"file.v3.offer","payload":{"sessionId":"s1","fileName":"report.pdf","fileSize":10,"checksum":"blake3:abc"}}""",
+            json.encodeToString(offer),
+        )
+        assertEquals(
+            """{"type":"file.v3.accept","payload":{"sessionId":"s1"}}""",
+            json.encodeToString(accept),
+        )
+        assertEquals(
+            """{"type":"file.v3.ready","payload":{"sessionId":"s1","certFingerprint":"sha256:${"0".repeat(64)}"}}""",
+            json.encodeToString(ready),
+        )
+        assertEquals(
+            """{"type":"file.v3.finish","payload":{"sessionId":"s1","totalChunks":3}}""",
+            json.encodeToString(finish),
+        )
+    }
+
+    @Test
     fun serializesFilesystemUploadMessagesWithEmptyReadyPayload() {
         val request = BusinessEnvelope(
             type = FS_UPLOAD_TYPE,

@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.14.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.15.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val TEXT_MESSAGE_RECEIPT_TYPE = "message.v1.receipt"
@@ -19,6 +19,16 @@ const val FILE_CHUNK_TYPE = "file.v2.chunk"
 const val FILE_ACK_TYPE = "file.v2.ack"
 const val FILE_RETRANSMIT_TYPE = "file.v2.retransmit"
 const val FILE_DONE_TYPE = "file.v2.done"
+const val FILE_V3_OFFER_TYPE = "file.v3.offer"
+const val FILE_V3_ACCEPT_TYPE = "file.v3.accept"
+const val FILE_V3_REJECT_TYPE = "file.v3.reject"
+const val FILE_V3_CANCEL_TYPE = "file.v3.cancel"
+const val FILE_V3_READY_TYPE = "file.v3.ready"
+const val FILE_V3_CHUNK_TYPE = "file.v3.chunk"
+const val FILE_V3_ACK_TYPE = "file.v3.ack"
+const val FILE_V3_RETRANSMIT_TYPE = "file.v3.retransmit"
+const val FILE_V3_FINISH_TYPE = "file.v3.finish"
+const val FILE_V3_DONE_TYPE = "file.v3.done"
 const val MUSIC_TRACK_TYPE = "music.v1.track"
 const val MUSIC_LYRIC_TYPE = "music.v1.lyric"
 const val MUSIC_PROGRESS_TYPE = "music.v1.progress"
@@ -386,6 +396,32 @@ data class FsEntry(
 @Serializable
 data class FsStatPayload(
     val path: String,
+)
+
+@Serializable
+data class FileV3OfferPayload(
+    val sessionId: String,
+    val fileName: String,
+    val fileSize: Long,
+    val checksum: String,
+)
+
+@Serializable
+data class FileV3AcceptPayload(
+    val sessionId: String,
+    val transferToken: String? = null,
+)
+
+@Serializable
+data class FileV3ReadyPayload(
+    val sessionId: String,
+    val certFingerprint: String,
+)
+
+@Serializable
+data class FileFinishPayload(
+    val sessionId: String,
+    val totalChunks: Long,
 )
 
 @Serializable

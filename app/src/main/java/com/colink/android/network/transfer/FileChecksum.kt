@@ -58,6 +58,11 @@ fun File.fileChecksum(algorithm: String): String =
         }
     }
 
+fun File.matchesFileChecksum(expectedChecksum: String): Boolean {
+    val (algorithm, _) = expectedChecksum.splitChecksum()
+    return fileChecksum(algorithm).equals(expectedChecksum, ignoreCase = true)
+}
+
 private fun buildFileChecksum(input: InputStream, algorithm: String): String {
     val hasher = FileChecksumHasher.create(algorithm)
     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
