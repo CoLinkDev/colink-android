@@ -8,6 +8,12 @@ interface FileTransferRepository {
 
     suspend fun save(transfer: FileTransfer)
 
+    suspend fun updateActiveProgress(
+        sessionId: String,
+        transferredBytes: Long,
+        updatedAt: Long,
+    ): Boolean
+
     suspend fun get(sessionId: String): FileTransfer?
 
     suspend fun clearFinished()

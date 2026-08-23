@@ -764,7 +764,7 @@ private fun TransferBubble(
                         )
                     }
                 }
-                if (transfer.totalChunks > 0 && transfer.status in setOf("receiving", "sending", "verifying")) {
+                if (transfer.fileSize > 0 && transfer.status in setOf("receiving", "sending", "verifying")) {
                     val progress = (transfer.transferredBytes.toFloat() / transfer.fileSize.coerceAtLeast(1)).coerceIn(0f, 1f)
                     if (transfer.status == "verifying") {
                         LinearProgressIndicator(

@@ -20,6 +20,13 @@ class FileTransferRepositoryImpl @Inject constructor(
         fileTransferDao.upsert(transfer.toEntity())
     }
 
+    override suspend fun updateActiveProgress(
+        sessionId: String,
+        transferredBytes: Long,
+        updatedAt: Long,
+    ): Boolean =
+        fileTransferDao.updateActiveProgress(sessionId, transferredBytes, updatedAt) == 1
+
     override suspend fun get(sessionId: String): FileTransfer? =
         fileTransferDao.getTransfer(sessionId)?.toDomain()
 

@@ -82,6 +82,7 @@ import java.util.Date
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -124,6 +125,7 @@ private const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
 private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 private const val CAMERA_SEND_BUFFER_CAPACITY = 3
+private const val FILE_V3_PROGRESS_INTERVAL_MILLIS = 500L
 private const val TEMPORARY_CERTIFICATE_VALIDITY_MILLIS = 24L * 60L * 60L * 1_000L
 private val RANGE_HEADER = Regex("bytes=(\\d+)-")
 private val HTTP_MISDIRECTED_REQUEST = HttpStatusCode(421, "Misdirected Request")
@@ -302,7 +304,9 @@ class LanWebSocketServer @Inject constructor(
                 }
                 respondOutputStream(ContentType.Application.OctetStream, status) {
                     skipFully(input, start)
-                    copyRange(input, this, contentLength)
+                    copyRange(input, this, contentLength) { copiedBytes ->
+                        transfer.reportProgress(start + copiedBytes)
+                    }
                 }
             }
         } finally {
@@ -337,9 +341,15 @@ class LanWebSocketServer @Inject constructor(
         }
     }
 
-    private fun copyRange(input: InputStream, output: java.io.OutputStream, byteCount: Long) {
+    private fun copyRange(
+        input: InputStream,
+        output: java.io.OutputStream,
+        byteCount: Long,
+        onProgress: (Long) -> Unit,
+    ) {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         var remaining = byteCount
+        var copied = 0L
         while (remaining > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
             if (read < 0) {
@@ -347,6 +357,8 @@ class LanWebSocketServer @Inject constructor(
             }
             output.write(buffer, 0, read)
             remaining -= read
+            copied += read
+            onProgress(copied)
         }
     }
 
@@ -425,10 +437,16 @@ class LanWebSocketServer @Inject constructor(
         token: String,
         localUri: String,
         fileSize: Long,
+        onProgress: (Long) -> Unit,
     ): String {
         require(fileSize >= 0) { "file size must not be negative" }
         val certificate = checkNotNull(tlsCertificate) { "LAN server is not running" }
-        val transfer = FileV3Transfer(token = token, localUri = localUri, fileSize = fileSize)
+        val transfer = FileV3Transfer(
+            token = token,
+            localUri = localUri,
+            fileSize = fileSize,
+            onProgress = onProgress,
+        )
         check(fileV3Transfers.putIfAbsent(sessionId, transfer) == null) { "file transfer is already registered" }
         return certificate.fingerprint
     }
@@ -1426,9 +1444,33 @@ private data class FileV3Transfer(
     val token: String,
     val localUri: String,
     val fileSize: Long,
+    private val onProgress: (Long) -> Unit,
     val active: AtomicBoolean = AtomicBoolean(false),
     val started: AtomicBoolean = AtomicBoolean(false),
-)
+    private val lastProgressAt: AtomicLong = AtomicLong(0),
+    private val lastReportedBytes: AtomicLong = AtomicLong(0),
+) {
+    fun reportProgress(transferredBytes: Long) {
+        while (true) {
+            val previous = lastReportedBytes.get()
+            if (transferredBytes <= previous) {
+                return
+            }
+            val now = System.currentTimeMillis()
+            if (
+                transferredBytes < fileSize &&
+                    now - lastProgressAt.get() < FILE_V3_PROGRESS_INTERVAL_MILLIS
+            ) {
+                return
+            }
+            if (lastReportedBytes.compareAndSet(previous, transferredBytes)) {
+                lastProgressAt.set(now)
+                onProgress(transferredBytes)
+                return
+            }
+        }
+    }
+}
 
 private class TlsOrPlaintextHandler(
     private val sslContext: SslContext,

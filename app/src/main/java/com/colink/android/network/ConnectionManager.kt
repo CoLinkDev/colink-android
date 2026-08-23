@@ -236,6 +236,7 @@ private const val RELAY_SEND_WINDOW_CHUNKS = FILE_ACK_INTERVAL_CHUNKS
 private const val FILE_V3_RELAY_SEND_WINDOW_CHUNKS = 4L
 private const val FILE_V3_RELAY_ACK_INTERVAL_CHUNKS = 4L
 private const val FILE_V3_RELAY_ACK_INTERVAL_MILLIS = 500L
+private const val TRANSFER_PROGRESS_INTERVAL_MILLIS = 500L
 private const val FILE_V3_RELAY_RETRANSMIT_TIMEOUT_MILLIS = 2_000L
 private const val FILE_V3_RELAY_IDLE_TIMEOUT_MILLIS = 30 * 60 * 1_000L
 private const val SWIM_PERIOD_MILLIS = 5_000L
@@ -3274,6 +3275,11 @@ class ConnectionManager @Inject constructor(
                     token = token,
                     localUri = outgoing.localUri,
                     fileSize = transfer.fileSize,
+                    onProgress = { transferredBytes ->
+                        scope.launch {
+                            reportFileV3LanUploadProgress(payload.sessionId, transferredBytes)
+                        }
+                    },
                 )
             }.getOrElse { error ->
                 cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, error.message ?: "HTTPS endpoint could not start")
@@ -3515,6 +3521,9 @@ class ConnectionManager @Inject constructor(
                 certFingerprint = payload.certFingerprint,
                 destination = state.tempFile,
                 expectedFileSize = transfer.fileSize,
+                onProgress = { transferredBytes ->
+                    reportFileV3LanDownloadProgress(payload.sessionId, state, transferredBytes)
+                },
             )
             result.onSuccess {
                 finishIncomingTransfer(payload.sessionId, state, transfer)
@@ -4685,6 +4694,85 @@ class ConnectionManager @Inject constructor(
         }
     }
 
+    private suspend fun reportFileV3LanDownloadProgress(
+        sessionId: String,
+        state: IncomingTransferState,
+        transferredBytes: Long,
+    ) {
+        val now = System.currentTimeMillis()
+        val progress = state.frameMutex.withLock {
+            if (
+                incomingTransfers[sessionId] !== state ||
+                    state.protocol != FileTransferProtocol.V3 ||
+                    state.route != "lan"
+            ) {
+                return@withLock null
+            }
+            val transfer = fileTransferRepository.get(sessionId) ?: return@withLock null
+            if (
+                transfer.status != "receiving" ||
+                    transfer.route != "lan" ||
+                    transferredBytes <= transfer.transferredBytes
+            ) {
+                return@withLock null
+            }
+            require(transferredBytes <= transfer.fileSize) {
+                "LAN HTTPS download exceeds the offered file size"
+            }
+
+            state.receivedBytes = transferredBytes
+            state.lastActivityAt = now
+            if (
+                transferredBytes < transfer.fileSize &&
+                    now - state.lastProgressAt < TRANSFER_PROGRESS_INTERVAL_MILLIS
+            ) {
+                return@withLock null
+            }
+            transferredBytes to now
+        }
+        progress?.let { (bytes, updatedAt) ->
+            if (fileTransferRepository.updateActiveProgress(sessionId, bytes, updatedAt)) {
+                state.frameMutex.withLock {
+                    if (incomingTransfers[sessionId] === state) {
+                        state.lastProgressAt = updatedAt
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun reportFileV3LanUploadProgress(
+        sessionId: String,
+        transferredBytes: Long,
+    ) {
+        val outgoing = outgoingTransfers[sessionId]
+            ?.takeIf {
+                it.protocol == FileTransferProtocol.V3 && it.controlRoute == "lan"
+            }
+            ?: return
+        outgoing.progressMutex.withLock {
+            if (outgoingTransfers[sessionId] !== outgoing) {
+                return@withLock
+            }
+            val transfer = fileTransferRepository.get(sessionId) ?: return@withLock
+            if (
+                transfer.status != "sending" ||
+                    transfer.route != "lan" ||
+                    transferredBytes <= transfer.transferredBytes
+            ) {
+                return@withLock
+            }
+            require(transferredBytes <= transfer.fileSize) {
+                "LAN HTTPS upload exceeds the offered file size"
+            }
+            fileTransferRepository.updateActiveProgress(
+                sessionId = sessionId,
+                transferredBytes = transferredBytes,
+                updatedAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
     private fun scheduleFileV3ReadyTimeout(sessionId: String) {
         scope.launch {
             delay(FILE_V3_READY_TIMEOUT_MILLIS)
@@ -5514,6 +5602,7 @@ private data class IncomingTransferState(
     var lastAckAt: Long = System.currentTimeMillis(),
     var lastAcknowledgedChunks: Long = 0,
     var lastActivityAt: Long = System.currentTimeMillis(),
+    var lastProgressAt: Long = 0,
     val frameMutex: Mutex = Mutex(),
 ) {
     var output: FileOutputStream? =
@@ -5531,6 +5620,7 @@ private data class OutgoingTransferState(
     @Volatile var transferConnection: TransferConnection? = null,
     @Volatile var finishSent: Boolean = false,
     @Volatile var lastActivityAt: Long = System.currentTimeMillis(),
+    val progressMutex: Mutex = Mutex(),
 )
 
 private data class PendingLanSend(

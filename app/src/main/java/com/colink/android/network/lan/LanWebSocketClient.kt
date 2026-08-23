@@ -50,12 +50,14 @@ import javax.net.ssl.SSLSession
 import javax.net.ssl.X509TrustManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -85,6 +87,7 @@ class LanWebSocketClient @Inject constructor(
         const val HEARTBEAT_INTERVAL_MILLIS = 15_000L
         const val KEEPALIVE_TIMEOUT_MILLIS = 45_000L
         const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
+        const val FILE_V3_PROGRESS_INTERVAL_MILLIS = 500L
         const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
         const val REASON_PAIRING_IDENTITY_MISMATCH = "colink:pairing.identity_mismatch.v1"
         const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
@@ -936,7 +939,7 @@ class LanWebSocketClient @Inject constructor(
         )
     }
 
-    fun downloadFileV3(
+    suspend fun downloadFileV3(
         sessionId: String,
         token: String,
         ip: String,
@@ -944,9 +947,9 @@ class LanWebSocketClient @Inject constructor(
         certFingerprint: String,
         destination: File,
         expectedFileSize: Long,
-        onProgress: (Long) -> Unit = {},
-    ): Result<Unit> =
-        runCatching {
+        onProgress: suspend (Long) -> Unit = {},
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
             require(expectedFileSize >= 0) { "file size must not be negative" }
             val expectedFingerprint = parseCertificateFingerprint(certFingerprint)
             val offset = destination.takeIf(File::exists)?.length() ?: 0L
@@ -985,6 +988,7 @@ class LanWebSocketClient @Inject constructor(
                     body.byteStream().use { input ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                         var transferred = offset
+                        var lastProgressAt = 0L
                         while (true) {
                             val read = input.read(buffer)
                             if (read < 0) {
@@ -995,13 +999,26 @@ class LanWebSocketClient @Inject constructor(
                             }
                             output.write(buffer, 0, read)
                             transferred += read
-                            onProgress(transferred)
+                            val now = System.currentTimeMillis()
+                            if (
+                                transferred == expectedFileSize ||
+                                    now - lastProgressAt >= FILE_V3_PROGRESS_INTERVAL_MILLIS
+                            ) {
+                                lastProgressAt = now
+                                onProgress(transferred)
+                            }
                         }
                     }
                 }
             }
             require(destination.length() == expectedFileSize) { "file size does not match offer" }
+            Result.success(Unit)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            Result.failure(error)
         }
+    }
 
     fun connectCamera(sessionId: String, token: String, ip: String, port: Int, listener: CameraListener) {
         val request = Request.Builder().url("ws://$ip:$port/camera-stream/$sessionId?token=$token").build()

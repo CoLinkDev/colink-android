@@ -17,6 +17,22 @@ interface FileTransferDao {
     @Upsert
     suspend fun upsert(transfer: FileTransferEntity)
 
+    @Query(
+        """
+        UPDATE file_transfers
+        SET transferredBytes = :transferredBytes,
+            updatedAt = :updatedAt
+        WHERE sessionId = :sessionId
+          AND status IN ('sending', 'receiving')
+          AND transferredBytes < :transferredBytes
+        """,
+    )
+    suspend fun updateActiveProgress(
+        sessionId: String,
+        transferredBytes: Long,
+        updatedAt: Long,
+    ): Int
+
     @Query("DELETE FROM file_transfers WHERE status NOT IN ('offered', 'sending', 'receiving', 'verifying')")
     suspend fun clearFinished()
 
