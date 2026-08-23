@@ -295,14 +295,17 @@ class LanWebSocketServer @Inject constructor(
                     HttpStatusCode.PartialContent
                 }
                 response.headers.append(HttpHeaders.AcceptRanges, "bytes")
-                response.headers.append(HttpHeaders.ContentLength, contentLength.toString())
                 if (status == HttpStatusCode.PartialContent) {
                     response.headers.append(
                         HttpHeaders.ContentRange,
                         "bytes $start-${transfer.fileSize - 1}/${transfer.fileSize}",
                     )
                 }
-                respondOutputStream(ContentType.Application.OctetStream, status) {
+                respondOutputStream(
+                    contentType = ContentType.Application.OctetStream,
+                    status = status,
+                    contentLength = contentLength,
+                ) {
                     skipFully(input, start)
                     copyRange(input, this, contentLength) { copiedBytes ->
                         transfer.reportProgress(start + copiedBytes)
