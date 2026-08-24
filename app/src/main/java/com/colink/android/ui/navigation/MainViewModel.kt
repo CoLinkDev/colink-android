@@ -25,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -36,6 +37,8 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     private val _bootstrapping = MutableStateFlow(true)
     val bootstrapping: StateFlow<Boolean> = _bootstrapping.asStateFlow()
+    private val _onboardingCompleted = MutableStateFlow(false)
+    val onboardingCompleted: StateFlow<Boolean> = _onboardingCompleted.asStateFlow()
     private val _availableUpdate = MutableStateFlow<AppUpdate?>(null)
     val availableUpdate: StateFlow<AppUpdate?> = _availableUpdate.asStateFlow()
     private val _updateDownloadState = MutableStateFlow<UpdateDownloadState>(UpdateDownloadState.Idle)
@@ -75,8 +78,14 @@ class MainViewModel @Inject constructor(
         pairingCoordinator.pendingRequest
 
     init {
+        viewModelScope.launch {
+            settingsDataStore.onboardingCompleted.collect { completed ->
+                _onboardingCompleted.value = completed
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             authRepository.bootstrap()
+            _onboardingCompleted.value = settingsDataStore.onboardingCompleted.first()
             _bootstrapping.value = false
             launch { authRepository.refreshProfile() }
             if (!BuildConfig.DEBUG) {
@@ -113,6 +122,12 @@ class MainViewModel @Inject constructor(
             updateRepository.downloadAndInstall(update).collect { state ->
                 _updateDownloadState.value = state
             }
+        }
+    }
+
+    fun completeOnboarding() {
+        viewModelScope.launch(Dispatchers.IO) {
+            settingsDataStore.completeOnboarding()
         }
     }
 

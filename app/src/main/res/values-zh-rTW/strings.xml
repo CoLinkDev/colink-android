@@ -392,4 +392,24 @@
     <string name="device_warning_power_control">裝置電源控制：休眠/關機/鎖定</string>
     <string name="retry_btn">重試</string>
     <string name="dismiss_btn">關閉</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_intro_title">歡迎使用 CoLink</string>
+    <string name="onboarding_intro_body">連接你的所有裝置，無縫協作。</string>
+    <string name="onboarding_concept_lan_title">區域網路直連</string>
+    <string name="onboarding_concept_lan_body">裝置位於同一區域網路時，可透過 CoLink 相互配對及連線。</string>
+    <string name="onboarding_concept_cloud_title">隨時保持連線</string>
+    <string name="onboarding_concept_cloud_body">可使用雲端 CoLink 官方或自行託管的同步服務，登入帳號並連線。</string>
+    <string name="onboarding_concept_trust_title">裝置信任狀態</string>
+    <string name="onboarding_concept_trust_body">透過區域網路配對或雲端同步任何一台裝置後，即可相互互動。</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_permissions_title">設定權限</string>
+    <string name="onboarding_permissions_body">為了讓 CoLink 更好地運作，請授予它一些權限。</string>
+    <string name="onboarding_battery_title">允許背景運作</string>
+    <string name="onboarding_battery_body">將 CoLink 排除在電池最佳化之外，可保持更高的連線可用性。</string>
+    <string name="onboarding_notifications_title">允許通知</string>
+    <string name="onboarding_notifications_body">接收檔案傳輸、配對請求和連線狀態更新。</string>
+    <string name="onboarding_camera_title">允許相機</string>
+    <string name="onboarding_camera_body">使用本機相機，供遠端裝置存取相機功能。</string>
+    <string name="onboarding_start">開始使用 CoLink</string>
 </resources>

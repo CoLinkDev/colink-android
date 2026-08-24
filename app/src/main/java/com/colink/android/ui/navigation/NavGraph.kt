@@ -112,6 +112,7 @@ import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
 import com.colink.android.ui.messages.ConversationScreen
 import com.colink.android.ui.messages.MessagesViewModel
+import com.colink.android.ui.onboarding.OnboardingScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.components.AppUpdateDialog
 import com.colink.android.ui.components.LocalAccountAction
@@ -155,28 +156,26 @@ fun CoLinkNavGraph(
     pendingShareStore: PendingShareStore? = null,
     launchTarget: LaunchTarget? = null,
     onLaunchTargetConsumed: () -> Unit = {},
-    onRequestNotificationPermission: () -> Unit = {},
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     val bootstrapping by viewModel.bootstrapping.collectAsStateWithLifecycle()
+    val onboardingCompleted by viewModel.onboardingCompleted.collectAsStateWithLifecycle()
     val availableUpdate by viewModel.availableUpdate.collectAsStateWithLifecycle()
     val updateDownloadState by viewModel.updateDownloadState.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    LaunchedEffect(bootstrapping) {
-        if (!bootstrapping) {
+    LaunchedEffect(bootstrapping, onboardingCompleted) {
+        if (!bootstrapping && onboardingCompleted) {
             CoLinkRuntimeStarter.ensureStarted(context)
-        }
-    }
-
-    LaunchedEffect(bootstrapping) {
-        if (!bootstrapping) {
-            onRequestNotificationPermission()
         }
     }
 
     when {
         bootstrapping -> LoadingScreen(modifier)
+        !onboardingCompleted -> OnboardingScreen(
+            onComplete = viewModel::completeOnboarding,
+            modifier = modifier,
+        )
         else -> {
             MainScaffold(
                 cloudStatus = viewModel.cloudStatus,

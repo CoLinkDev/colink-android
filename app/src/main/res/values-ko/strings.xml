@@ -392,4 +392,24 @@
     <string name="device_warning_power_control">기기 전원 제어: 절전/종료/잠금</string>
     <string name="retry_btn">다시 시도</string>
     <string name="dismiss_btn">닫기</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_intro_title">CoLink 시작하기</string>
+    <string name="onboarding_intro_body">모든 기기를 연결해 끊김 없이 협업합니다.</string>
+    <string name="onboarding_concept_lan_title">로컬 네트워크에서 직접 연결</string>
+    <string name="onboarding_concept_lan_body">기기가 동일한 로컬 네트워크에 있으면 CoLink를 통해 서로 페어링하고 연결할 수 있습니다.</string>
+    <string name="onboarding_concept_cloud_title">어디서나 연결</string>
+    <string name="onboarding_concept_cloud_body">클라우드의 CoLink 공식 동기화 서비스 또는 자체 호스팅 서비스를 사용해 로그인하고 연결할 수 있습니다.</string>
+    <string name="onboarding_concept_trust_title">기기 신뢰 상태</string>
+    <string name="onboarding_concept_trust_body">로컬 네트워크에서 기기를 페어링하거나 클라우드로 동기화하면 기기끼리 서로 상호작용할 수 있습니다.</string>
+    <string name="onboarding_next">다음</string>
+    <string name="onboarding_permissions_title">권한 설정</string>
+    <string name="onboarding_permissions_body">CoLink가 더 잘 작동하도록 몇 가지 권한을 허용해 주세요.</string>
+    <string name="onboarding_battery_title">백그라운드 활동 허용</string>
+    <string name="onboarding_battery_body">CoLink를 배터리 최적화에서 제외하면 연결 가용성을 더 높게 유지할 수 있습니다.</string>
+    <string name="onboarding_notifications_title">알림 허용</string>
+    <string name="onboarding_notifications_body">파일 전송, 페어링 요청 및 연결 업데이트를 받습니다.</string>
+    <string name="onboarding_camera_title">카메라 허용</string>
+    <string name="onboarding_camera_body">원격 기기에서 카메라 기능에 액세스할 수 있도록 이 기기의 카메라를 사용합니다.</string>
+    <string name="onboarding_start">CoLink 시작하기</string>
 </resources>

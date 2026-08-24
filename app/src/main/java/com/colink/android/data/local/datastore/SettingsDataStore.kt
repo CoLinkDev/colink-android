@@ -95,6 +95,11 @@ class SettingsDataStore @Inject constructor(
             decodeRecentWakeOnLanMacs(preferences[RECENT_WAKE_ON_LAN_MACS])
         }
 
+    val onboardingCompleted: Flow<Boolean> =
+        dataStore.data.map { preferences ->
+            preferences[ONBOARDING_COMPLETED] ?: false
+        }
+
     suspend fun currentSettings(): AppSettings = settings.first()
 
     suspend fun currentSession(): Session? = session.first()
@@ -115,6 +120,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun saveServerUrl(serverUrl: String) {
         dataStore.edit { preferences ->
             preferences[SERVER_URL] = normalizeServerUrl(serverUrl)
+        }
+    }
+
+    suspend fun completeOnboarding() {
+        dataStore.edit { preferences ->
+            preferences[ONBOARDING_COMPLETED] = true
         }
     }
 
@@ -201,6 +212,7 @@ class SettingsDataStore @Inject constructor(
         private val LANGUAGE = stringPreferencesKey("language")
         private val ENABLE_CLIPBOARD_SYNC = booleanPreferencesKey("enable_clipboard_sync")
         private val AUTO_ACCEPT_FILE_OFFERS = booleanPreferencesKey("auto_accept_file_offers")
+        private val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         private val RECENT_WAKE_ON_LAN_MACS = stringPreferencesKey("recent_wake_on_lan_macs")
         private const val RECENT_WAKE_ON_LAN_MACS_SEPARATOR = ","
 

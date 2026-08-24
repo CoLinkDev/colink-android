@@ -1,22 +1,18 @@
 package com.colink.android
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -26,7 +22,6 @@ import com.colink.android.share.PendingShareStore
 import com.colink.android.ui.navigation.CoLinkNavGraph
 import com.colink.android.ui.navigation.LaunchTarget
 import com.colink.android.ui.theme.CoLinkTheme
-import com.colink.android.util.CoLinkLog
 import com.colink.android.util.LocaleHelper
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -39,16 +34,6 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var pendingShareStore: PendingShareStore
     @Inject lateinit var settingsDataStore: SettingsDataStore
     private var launchTarget by mutableStateOf<LaunchTarget?>(null)
-
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            CoLinkLog.i("Notification", "POST_NOTIFICATIONS permission granted=$granted")
-        }
-
-    private val cameraPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            CoLinkLog.i("Camera", "CAMERA permission granted=$granted")
-        }
 
     override fun attachBaseContext(newBase: Context) {
         val language = LocaleHelper.cachedLanguage(newBase)
@@ -69,7 +54,6 @@ class MainActivity : ComponentActivity() {
                         pendingShareStore = pendingShareStore,
                         launchTarget = launchTarget,
                         onLaunchTargetConsumed = { launchTarget = null },
-                        onRequestNotificationPermission = ::requestNotificationPermission,
                     )
                 }
             }
@@ -91,7 +75,6 @@ class MainActivity : ComponentActivity() {
             }
         }
         handleShareIntent(intent)
-        requestCameraPermission()
         if (savedInstanceState == null) {
             handleLaunchIntent(intent)
         }
@@ -102,29 +85,6 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleShareIntent(intent)
         handleLaunchIntent(intent)
-    }
-
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return
-        }
-        val granted = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            CoLinkLog.i("Notification", "requesting POST_NOTIFICATIONS permission")
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            CoLinkLog.d("Notification", "POST_NOTIFICATIONS permission already granted")
-        }
-    }
-
-    private fun requestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            CoLinkLog.i("Camera", "requesting CAMERA permission")
-            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-        }
     }
 
     private fun handleShareIntent(intent: Intent?) {

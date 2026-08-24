@@ -392,4 +392,24 @@
     <string name="device_warning_power_control">Geräteenergie steuern: Ruhezustand, Herunterfahren, Sperren</string>
     <string name="retry_btn">Erneut versuchen</string>
     <string name="dismiss_btn">Schließen</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_intro_title">Willkommen bei CoLink</string>
+    <string name="onboarding_intro_body">Verbinde alle deine Geräte und arbeite nahtlos zusammen.</string>
+    <string name="onboarding_concept_lan_title">Direkt in deinem Netzwerk</string>
+    <string name="onboarding_concept_lan_body">Befinden sich Geräte im selben lokalen Netzwerk, können sie sich über CoLink miteinander koppeln und verbinden.</string>
+    <string name="onboarding_concept_cloud_title">Überall verbunden</string>
+    <string name="onboarding_concept_cloud_body">Melde dich mit dem offiziellen CoLink-Synchronisierungsdienst in der Cloud oder einem selbst gehosteten Dienst an und verbinde dich.</string>
+    <string name="onboarding_concept_trust_title">Gerätevertrauen</string>
+    <string name="onboarding_concept_trust_body">Nachdem ein Gerät im lokalen Netzwerk gekoppelt oder über die Cloud synchronisiert wurde, können die Geräte miteinander interagieren.</string>
+    <string name="onboarding_next">Weiter</string>
+    <string name="onboarding_permissions_title">Berechtigungen einrichten</string>
+    <string name="onboarding_permissions_body">Damit CoLink besser funktioniert, gewähre ihm bitte einige Berechtigungen.</string>
+    <string name="onboarding_battery_title">Hintergrundaktivität erlauben</string>
+    <string name="onboarding_battery_body">Nimm CoLink von der Akkuoptimierung aus, damit Verbindungen zuverlässiger verfügbar bleiben.</string>
+    <string name="onboarding_notifications_title">Benachrichtigungen erlauben</string>
+    <string name="onboarding_notifications_body">Erhalte Dateiübertragungen, Kopplungsanfragen und Verbindungsupdates.</string>
+    <string name="onboarding_camera_title">Kamera erlauben</string>
+    <string name="onboarding_camera_body">Nutze die Kamera dieses Geräts, damit entfernte Geräte auf die Kamerafunktionen zugreifen können.</string>
+    <string name="onboarding_start">CoLink starten</string>
 </resources>

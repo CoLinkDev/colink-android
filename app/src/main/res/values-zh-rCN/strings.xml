@@ -392,4 +392,24 @@
     <string name="device_warning_power_control">设备电源控制：休眠/关机/锁定</string>
     <string name="retry_btn">重试</string>
     <string name="dismiss_btn">关闭</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_intro_title">欢迎使用 CoLink</string>
+    <string name="onboarding_intro_body">连接你的所有设备，无缝协作。</string>
+    <string name="onboarding_concept_lan_title">局域网直连</string>
+    <string name="onboarding_concept_lan_body">设备处于同一局域网时，CoLink之间可以彼此配对和连接。</string>
+    <string name="onboarding_concept_cloud_title">随时保持连接</string>
+    <string name="onboarding_concept_cloud_body">可以使用云端CoLink官方或自托管同步服务，登录账号并连接。</string>
+    <string name="onboarding_concept_trust_title">设备信任状态</string>
+    <string name="onboarding_concept_trust_body">通过局域网配对或云端同步任何一台设备后，即可互相交互。</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_permissions_title">设置权限</string>
+    <string name="onboarding_permissions_body">为了使CoLink更好地工作，请授予其一些权限。</string>
+    <string name="onboarding_battery_title">允许后台运行</string>
+    <string name="onboarding_battery_body">将CoLink排除在电池优化之外，可以保持更高的连接可用性。</string>
+    <string name="onboarding_notifications_title">允许通知</string>
+    <string name="onboarding_notifications_body">接收文件传输、配对请求和连接状态更新。</string>
+    <string name="onboarding_camera_title">允许摄像头</string>
+    <string name="onboarding_camera_body">使用本机摄像头以供远程设备摄像头功能访问。</string>
+    <string name="onboarding_start">开始使用 CoLink</string>
 </resources>
