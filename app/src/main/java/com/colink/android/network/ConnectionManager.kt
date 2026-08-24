@@ -2,6 +2,7 @@ package com.colink.android.network
 
 import android.content.ContentValues
 import android.content.Context
+import androidx.annotation.StringRes
 import com.colink.android.R
 import com.colink.android.domain.model.CloudConnectionState
 import com.colink.android.domain.model.CloudStatus
@@ -3060,7 +3061,7 @@ class ConnectionManager @Inject constructor(
                 fileTransferRepository.save(
                     transfer.copy(
                         status = "failed",
-                        error = error.message ?: "failed to send file offer",
+                        error = transferRecordError(REASON_TRANSFER_GENERIC, error.message),
                         updatedAt = System.currentTimeMillis(),
                     ),
                 )
@@ -3219,7 +3220,12 @@ class ConnectionManager @Inject constructor(
                                 return@launch
                             }
                             if (!opened || (transfer.status == "sending" && !outgoing.finishSent)) {
-                                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, "LAN data connection failed: $reason")
+                                val message = if (reason.isNotBlank()) {
+                                    localizedTransferError(R.string.err_transfer_lan_failed_format, reason)
+                                } else {
+                                    localizedTransferError(R.string.err_transfer_lan_failed)
+                                }
+                                cancelTransfer(payload.sessionId, REASON_TRANSFER_GENERIC, message)
                             }
                         }
                     }
@@ -3253,7 +3259,7 @@ class ConnectionManager @Inject constructor(
             cancelTransfer(
                 payload.sessionId,
                 REASON_TRANSFER_GENERIC,
-                "file.v3.accept arrived on a different control-plane route",
+                localizedTransferError(R.string.err_transfer_route_mismatch),
             )
             return
         }
@@ -3359,7 +3365,11 @@ class ConnectionManager @Inject constructor(
                     break
                 }
                 if (!waitForSendWindow(sessionId, index.toLong(), LAN_SEND_WINDOW_CHUNKS)) {
-                    cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Transfer timed out")
+                    cancelTransfer(
+                        sessionId,
+                        REASON_TRANSFER_GENERIC,
+                        localizedTransferError(R.string.err_transfer_timeout),
+                    )
                     return
                 }
                 val chunk = buffer.copyOf(read)
@@ -3399,7 +3409,11 @@ class ConnectionManager @Inject constructor(
                     RELAY_SEND_WINDOW_CHUNKS
                 }
                 if (!waitForSendWindow(sessionId, index, windowSize)) {
-                    cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "Transfer timed out")
+                    cancelTransfer(
+                        sessionId,
+                        REASON_TRANSFER_GENERIC,
+                        localizedTransferError(R.string.err_transfer_timeout),
+                    )
                     return
                 }
                 val data = encoder.encodeToString(buffer.copyOf(read))
@@ -3759,19 +3773,28 @@ class ConnectionManager @Inject constructor(
         )
     }
 
+    private fun localizedTransferError(@StringRes resId: Int, vararg args: Any): String =
+        LocaleHelper.localized(context).getString(resId, *args)
+
     private fun transferErrorMessage(reason: String): String =
         when (reason) {
-            REASON_TRANSFER_USER_CANCELLED -> "User cancelled the transfer"
-            REASON_TRANSFER_USER_REJECTED -> "User rejected the file"
-            REASON_TRANSFER_CHECKSUM_MISMATCH -> "File checksum verification failed"
-            REASON_TRANSFER_GENERIC -> "Generic transfer failure"
+            REASON_TRANSFER_USER_CANCELLED -> localizedTransferError(R.string.err_transfer_user_cancelled)
+            REASON_TRANSFER_USER_REJECTED -> localizedTransferError(R.string.err_transfer_user_rejected)
+            REASON_TRANSFER_CHECKSUM_MISMATCH -> localizedTransferError(R.string.err_transfer_checksum_mismatch)
+            REASON_TRANSFER_GENERIC -> localizedTransferError(R.string.err_transfer_generic)
             else -> reason
         }
 
     private fun transferRecordError(reason: String?, message: String?): String? =
         when {
             reason == null -> message
-            reason == REASON_TRANSFER_GENERIC -> message ?: reason
+            reason == REASON_TRANSFER_GENERIC -> {
+                if (message.isNullOrBlank()) {
+                    localizedTransferError(R.string.err_transfer_generic)
+                } else {
+                    localizedTransferError(R.string.err_transfer_generic_format, message)
+                }
+            }
             reason.startsWith("colink:") -> reason
             else -> message ?: reason
         }
@@ -4043,7 +4066,7 @@ class ConnectionManager @Inject constructor(
         }
         val message = when {
             success -> null
-            !dataComplete -> "Received file size does not match offer"
+            !dataComplete -> localizedTransferError(R.string.err_transfer_size_mismatch)
             else -> transferErrorMessage(REASON_TRANSFER_CHECKSUM_MISMATCH)
         }
         var commitError: String? = null
@@ -4163,7 +4186,7 @@ class ConnectionManager @Inject constructor(
                         fileTransferRepository.save(
                             transfer.copy(
                                 status = "failed",
-                                error = "LAN transfer closed",
+                                error = localizedTransferError(R.string.err_transfer_connection_closed),
                                 updatedAt = System.currentTimeMillis(),
                             ),
                         )
@@ -4687,7 +4710,7 @@ class ConnectionManager @Inject constructor(
             fileTransferRepository.save(
                 transfer.copy(
                     status = "failed",
-                    error = "offer expired",
+                    error = localizedTransferError(R.string.err_transfer_offer_expired),
                     updatedAt = System.currentTimeMillis(),
                 ),
             )
@@ -4781,7 +4804,11 @@ class ConnectionManager @Inject constructor(
                 ?: return@launch
             val transfer = fileTransferRepository.get(sessionId) ?: return@launch
             if (transfer.status == "sending" && !lanWebSocketServer.hasFileV3TransferStarted(sessionId)) {
-                cancelTransfer(sessionId, REASON_TRANSFER_GENERIC, "HTTPS transfer did not complete")
+                cancelTransfer(
+                    sessionId,
+                    REASON_TRANSFER_GENERIC,
+                    localizedTransferError(R.string.err_transfer_https_incomplete),
+                )
             }
         }
     }
@@ -4799,7 +4826,7 @@ class ConnectionManager @Inject constructor(
                     cancelTransfer(
                         sessionId,
                         REASON_TRANSFER_GENERIC,
-                        "Relay transfer timed out due to inactivity",
+                        localizedTransferError(R.string.err_transfer_relay_inactive),
                     )
                     return@launch
                 }
@@ -4840,7 +4867,7 @@ class ConnectionManager @Inject constructor(
                     cancelTransfer(
                         sessionId,
                         REASON_TRANSFER_GENERIC,
-                        "Relay transfer timed out due to inactivity",
+                        localizedTransferError(R.string.err_transfer_relay_inactive),
                     )
                     return@launch
                 }
