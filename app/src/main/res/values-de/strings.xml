@@ -238,6 +238,7 @@
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">Übertragung akzeptiert</string>
     <string name="toast_transfer_rejected">Übertragung abgelehnt</string>
+    <string name="toast_transfer_cancelled">Übertragung abgebrochen</string>
     <string name="toast_select_device_and_file">Wählen Sie ein Gerät und eine Datei</string>
     <string name="toast_file_offer_sent">Dateiangebot gesendet</string>
     <string name="toast_open_file_failed">Keine App kann diese Datei öffnen</string>

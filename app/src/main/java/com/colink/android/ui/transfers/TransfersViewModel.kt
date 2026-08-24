@@ -85,6 +85,19 @@ class TransfersViewModel @Inject constructor(
         }
     }
 
+    fun cancel(sessionId: String) {
+        val localizedContext = LocaleHelper.localized(context)
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.update { it.copy(message = null) }
+            val result = connectionManager.cancelTransfer(sessionId)
+            _uiState.update {
+                it.copy(
+                    message = result.exceptionOrNull()?.message ?: localizedContext.getString(R.string.toast_transfer_cancelled),
+                )
+            }
+        }
+    }
+
     fun send(contentResolver: ContentResolver, targetDeviceId: String?, uri: Uri?) {
         val localizedContext = LocaleHelper.localized(context)
         viewModelScope.launch(Dispatchers.IO) {

@@ -317,6 +317,7 @@ fun ConversationScreen(
                     },
                     onAcceptTransfer = transferViewModel::accept,
                     onRejectTransfer = transferViewModel::reject,
+                    onCancelTransfer = transferViewModel::cancel,
                     onTransferClick = { detailTransfer = it },
                     modifier = Modifier.padding(
                         top = innerPadding.calculateTopPadding(),
@@ -378,6 +379,7 @@ private fun ConversationContent(
     onPickFile: () -> Unit,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
+    onCancelTransfer: (String) -> Unit,
     onTransferClick: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -393,6 +395,7 @@ private fun ConversationContent(
             timelineItems = timelineItems,
             onAcceptTransfer = onAcceptTransfer,
             onRejectTransfer = onRejectTransfer,
+            onCancelTransfer = onCancelTransfer,
             onTransferClick = onTransferClick,
             modifier = Modifier
                 .weight(1f)
@@ -521,6 +524,7 @@ private fun ConversationThread(
     timelineItems: List<TimelineItem>,
     onAcceptTransfer: (String) -> Unit,
     onRejectTransfer: (String) -> Unit,
+    onCancelTransfer: (String) -> Unit,
     onTransferClick: (FileTransfer) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -560,6 +564,7 @@ private fun ConversationThread(
                             transfer = item.transfer,
                             onAccept = { onAcceptTransfer(item.transfer.sessionId) },
                             onReject = { onRejectTransfer(item.transfer.sessionId) },
+                            onCancel = { onCancelTransfer(item.transfer.sessionId) },
                             onClick = { onTransferClick(item.transfer) },
                         )
                     }
@@ -658,6 +663,7 @@ private fun TransferBubble(
     transfer: FileTransfer,
     onAccept: () -> Unit,
     onReject: () -> Unit,
+    onCancel: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -832,6 +838,19 @@ private fun TransferBubble(
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)
                         ) {
                             Text(stringResource(R.string.accept_btn))
+                        }
+                    }
+
+                    if (transfer.status in setOf("sending", "receiving", "verifying")) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(
+                            onClick = onCancel,
+                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                        ) {
+                            Text(stringResource(R.string.cancel_btn))
                         }
                     }
                 }

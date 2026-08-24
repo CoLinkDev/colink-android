@@ -238,6 +238,7 @@
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">Передача принята</string>
     <string name="toast_transfer_rejected">Передача отклонена</string>
+    <string name="toast_transfer_cancelled">Передача отменена</string>
     <string name="toast_select_device_and_file">Выберите устройство и файл</string>
     <string name="toast_file_offer_sent">Предложение файла отправлено</string>
     <string name="toast_open_file_failed">Нет приложения для открытия этого файла</string>

@@ -96,6 +96,7 @@
             <intent-filter>
                 <action android:name="com.colink.android.action.FILE_TRANSFER_ACCEPT" />
                 <action android:name="com.colink.android.action.FILE_TRANSFER_REJECT" />
+                <action android:name="com.colink.android.action.FILE_TRANSFER_CANCEL" />
             </intent-filter>
         </receiver>
 

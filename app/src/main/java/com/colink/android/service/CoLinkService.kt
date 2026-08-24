@@ -18,6 +18,8 @@ import com.colink.android.domain.model.CloudStatus
 import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.repository.FileTransferRepository
 import com.colink.android.network.ConnectionManager
+import com.colink.android.notification.ACTION_FILE_TRANSFER_CANCEL
+import com.colink.android.notification.EXTRA_FILE_SESSION_ID
 import com.colink.android.notification.EXTRA_TARGET_DEVICE_ID
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.LocaleHelper
@@ -161,6 +163,24 @@ class CoLinkService : Service() {
                     transferContent.indeterminateProgress -> setProgress(100, 0, true)
                     transferContent.progress != null -> setProgress(100, transferContent.progress, false)
                     else -> setProgress(0, 0, false)
+                }
+
+                if (isOngoing) {
+                    val cancelIntent = Intent(this@CoLinkService, FileTransferActionReceiver::class.java).apply {
+                        action = ACTION_FILE_TRANSFER_CANCEL
+                        putExtra(EXTRA_FILE_SESSION_ID, transfer.sessionId)
+                    }
+                    val cancelPendingIntent = PendingIntent.getBroadcast(
+                        this@CoLinkService,
+                        transfer.sessionId.hashCode(),
+                        cancelIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    addAction(
+                        android.R.drawable.ic_menu_close_clear_cancel,
+                        localizedContext.getString(R.string.cancel_btn),
+                        cancelPendingIntent,
+                    )
                 }
             }
             .build()

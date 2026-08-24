@@ -6,5 +6,6 @@ const val EXTRA_PAIRING_REQUEST_ID = "com.colink.android.extra.PAIRING_REQUEST_I
 
 const val ACTION_FILE_TRANSFER_ACCEPT = "com.colink.android.action.FILE_TRANSFER_ACCEPT"
 const val ACTION_FILE_TRANSFER_REJECT = "com.colink.android.action.FILE_TRANSFER_REJECT"
+const val ACTION_FILE_TRANSFER_CANCEL = "com.colink.android.action.FILE_TRANSFER_CANCEL"
 const val ACTION_LAN_PAIRING_ACCEPT = "com.colink.android.action.LAN_PAIRING_ACCEPT"
 const val ACTION_LAN_PAIRING_REJECT = "com.colink.android.action.LAN_PAIRING_REJECT"

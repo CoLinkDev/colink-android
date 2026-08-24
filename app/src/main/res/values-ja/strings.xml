@@ -238,6 +238,7 @@
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">転送が受け入れられました</string>
     <string name="toast_transfer_rejected">転送が拒否されました</string>
+    <string name="toast_transfer_cancelled">転送をキャンセルしました</string>
     <string name="toast_select_device_and_file">デバイスとファイルを選択してください</string>
     <string name="toast_file_offer_sent">ファイルの送信リクエストを送信しました</string>
     <string name="toast_open_file_failed">このファイルを開けるアプリがありません</string>

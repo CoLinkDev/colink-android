@@ -238,6 +238,7 @@
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">전송이 수락되었습니다</string>
     <string name="toast_transfer_rejected">전송이 거절되었습니다</string>
+    <string name="toast_transfer_cancelled">전송 취소됨</string>
     <string name="toast_select_device_and_file">기기와 파일을 선택하세요</string>
     <string name="toast_file_offer_sent">파일 전송 요청이 전송되었습니다</string>
     <string name="toast_open_file_failed">이 파일을 열 수 있는 앱이 없습니다</string>

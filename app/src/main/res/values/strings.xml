@@ -238,6 +238,7 @@
     <!-- Toasts & Protocol Errors -->
     <string name="toast_transfer_accepted">Transfer accepted</string>
     <string name="toast_transfer_rejected">Transfer rejected</string>
+    <string name="toast_transfer_cancelled">Transfer cancelled</string>
     <string name="toast_select_device_and_file">Select a device and file</string>
     <string name="toast_file_offer_sent">File offer sent</string>
     <string name="toast_open_file_failed">No app can open this file</string>

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.colink.android.notification.ACTION_FILE_TRANSFER_ACCEPT
+import com.colink.android.notification.ACTION_FILE_TRANSFER_CANCEL
 import com.colink.android.notification.ACTION_FILE_TRANSFER_REJECT
 import com.colink.android.notification.EXTRA_FILE_SESSION_ID
 import com.colink.android.notification.CoLinkNotifier
@@ -30,9 +31,12 @@ class FileTransferActionReceiver : BroadcastReceiver() {
                 val result = when (action) {
                     ACTION_FILE_TRANSFER_ACCEPT -> connectionManager.acceptFileOffer(sessionId)
                     ACTION_FILE_TRANSFER_REJECT -> connectionManager.rejectFileOffer(sessionId)
+                    ACTION_FILE_TRANSFER_CANCEL -> connectionManager.cancelTransfer(sessionId)
                     else -> null
                 }
-                notifier.cancelFileOffer(sessionId)
+                if (action != ACTION_FILE_TRANSFER_CANCEL) {
+                    notifier.cancelFileOffer(sessionId)
+                }
                 if (result?.isFailure == true) {
                     CoLinkLog.w(
                         "Notification",
