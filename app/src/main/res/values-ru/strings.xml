@@ -135,6 +135,7 @@
     <string name="update_download_failed">Не удалось скачать обновление. Повторите попытку.</string>
     <string name="update_later_btn">Позже</string>
     <string name="update_check_btn">Проверить обновления</string>
+    <string name="update_check_description">Проверить наличие новой версии</string>
     <string name="update_checking_btn">Проверка...</string>
     <string name="update_up_to_date">Установлена последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления</string>
@@ -302,11 +303,16 @@
     <!-- Settings -->
     <string name="settings_title">Настройки</string>
     <string name="settings_subtitle">Настройка параметров и поведения CoLink</string>
+    <string name="settings_section_connection">Подключение</string>
+    <string name="settings_section_behavior">Поведение</string>
+    <string name="settings_section_app">Приложение</string>
+    <string name="settings_section_about">О приложении</string>
     <string name="server_url_label">Адрес сервера</string>
     <string name="edit_server_url_title">Изменить адрес сервера</string>
     <string name="use_official_server">Использовать официальный адрес</string>
     <string name="device_name_label">Имя устройства</string>
     <string name="language_label">Язык (Language)</string>
+    <string name="language_system_default">Системный язык (System Default)</string>
     <string name="save_btn">Сохранить</string>
     
     <!-- Authentication -->

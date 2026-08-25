@@ -135,6 +135,7 @@
     <string name="update_download_failed">Unable to download the update. Try again.</string>
     <string name="update_later_btn">Later</string>
     <string name="update_check_btn">Check for Updates</string>
+    <string name="update_check_description">Check whether a newer version is available</string>
     <string name="update_checking_btn">Checking...</string>
     <string name="update_up_to_date">You are up to date</string>
     <string name="update_check_failed">Update check failed</string>
@@ -302,11 +303,16 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_subtitle">Configure CoLink parameters and behavior</string>
+    <string name="settings_section_connection">Connection</string>
+    <string name="settings_section_behavior">Behavior</string>
+    <string name="settings_section_app">App</string>
+    <string name="settings_section_about">About</string>
     <string name="server_url_label">Server address</string>
     <string name="edit_server_url_title">Edit Server Address</string>
     <string name="use_official_server">Use official address</string>
     <string name="device_name_label">Device name</string>
     <string name="language_label">Language (Language)</string>
+    <string name="language_system_default">System Default (System Default)</string>
     <string name="save_btn">Save</string>
     
     <!-- Authentication -->

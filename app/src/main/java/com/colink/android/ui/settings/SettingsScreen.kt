@@ -6,11 +6,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,33 +21,36 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,9 +64,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,7 +82,6 @@ import com.colink.android.util.CoLinkLog
 import com.colink.android.util.normalizeServerUrl
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -87,8 +91,20 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var language by rememberSaveable { mutableStateOf("system") }
     var showServerUrlDialog by rememberSaveable { mutableStateOf(false) }
+    var showLanguagePickerDialog by rememberSaveable { mutableStateOf(false) }
     var showDiagnosticExportDialog by rememberSaveable { mutableStateOf(false) }
     var diagnosticExportFromMillis by remember { mutableStateOf<Long?>(null) }
+    val languages = listOf(
+        "system" to stringResource(R.string.language_system_default),
+        "en" to "English (English)",
+        "zh-CN" to "简体中文 (Simplified Chinese)",
+        "zh-TW" to "繁體中文 (Traditional Chinese)",
+        "ja" to "日本語 (Japanese)",
+        "ko" to "한국어 (Korean)",
+        "es" to "Español (Spanish)",
+        "de" to "Deutsch (German)",
+        "ru" to "Русский (Russian)",
+    )
     val diagnosticExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain"),
     ) { uri ->
@@ -126,6 +142,18 @@ fun SettingsScreen(
             },
         )
     }
+    if (showLanguagePickerDialog) {
+        LanguagePickerDialog(
+            languages = languages,
+            currentCode = language,
+            onSelect = { code ->
+                language = code
+                viewModel.updateLanguage(code)
+                showLanguagePickerDialog = false
+            },
+            onDismiss = { showLanguagePickerDialog = false },
+        )
+    }
     if (showDiagnosticExportDialog) {
         DiagnosticExportDialog(
             onDismiss = { showDiagnosticExportDialog = false },
@@ -142,17 +170,6 @@ fun SettingsScreen(
         subtitle = stringResource(R.string.settings_subtitle),
         modifier = modifier,
     ) {
-        val languages = listOf(
-            "system" to "System Default",
-            "en" to "English (English)",
-            "zh-CN" to "简体中文 (Simplified Chinese)",
-            "zh-TW" to "繁體中文 (Traditional Chinese)",
-            "ja" to "日本語 (Japanese)",
-            "ko" to "한국어 (Korean)",
-            "es" to "Español (Spanish)",
-            "de" to "Deutsch (German)",
-            "ru" to "Русский (Russian)",
-        )
         val currentLanguageLabel = languages.find { it.first == language }?.second.orEmpty()
 
         Column(
@@ -161,144 +178,94 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { showServerUrlDialog = true },
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(Icons.Default.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.server_url_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            SettingsGroup(title = stringResource(R.string.settings_section_connection)) {
+                SettingsItem(
+                    icon = Icons.Default.Dns,
+                    title = stringResource(R.string.server_url_label),
+                    subtitle = settings.serverUrl,
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            text = settings.serverUrl,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            // Language Dropdown
-            var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                CoLinkTextField(
-                    value = currentLanguageLabel,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text(stringResource(R.string.language_label)) },
-                    leadingIcon = { Icon(Icons.Default.Translate, contentDescription = null) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    }
+                    },
+                    onClick = { showServerUrlDialog = true },
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    languages.forEach { (code, name) ->
-                        DropdownMenuItem(
-                            text = { Text(name) },
-                            onClick = {
-                                language = code
-                                expanded = false
-                                viewModel.updateLanguage(code)
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                        )
-                    }
-                }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { viewModel.updateClipboardSync(!settings.enableClipboardSync) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_clipboard_sync_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_clipboard_sync_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
+            SettingsGroup(title = stringResource(R.string.settings_section_behavior)) {
+                SettingsSwitchItem(
+                    icon = Icons.Default.ContentPaste,
+                    title = stringResource(R.string.settings_clipboard_sync_title),
+                    subtitle = stringResource(R.string.settings_clipboard_sync_desc),
                     checked = settings.enableClipboardSync,
-                    onCheckedChange = viewModel::updateClipboardSync
+                    onCheckedChange = viewModel::updateClipboardSync,
                 )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable { viewModel.updateAutoAcceptFileOffers(!settings.autoAcceptFileOffers) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_auto_accept_file_offers_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_auto_accept_file_offers_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsSwitchItem(
+                    icon = Icons.Default.DownloadForOffline,
+                    title = stringResource(R.string.settings_auto_accept_file_offers_title),
+                    subtitle = stringResource(R.string.settings_auto_accept_file_offers_desc),
                     checked = settings.autoAcceptFileOffers,
-                    onCheckedChange = viewModel::updateAutoAcceptFileOffers
+                    onCheckedChange = viewModel::updateAutoAcceptFileOffers,
                 )
             }
 
-            AboutCard(
-                checkingUpdate = uiState.checkingUpdate,
-                onCheckForUpdate = viewModel::checkForUpdate,
-                onExportDiagnostics = { showDiagnosticExportDialog = true },
-                onProjectClick = {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
-                    }.onFailure { error ->
-                        CoLinkLog.w("Settings", "open project url failed", error)
-                    }
-                }
-            )
+            SettingsGroup(title = stringResource(R.string.settings_section_app)) {
+                SettingsItem(
+                    icon = Icons.Default.Translate,
+                    title = stringResource(R.string.language_label),
+                    subtitle = currentLanguageLabel,
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { showLanguagePickerDialog = true },
+                )
+            }
+
+            SettingsGroup(title = stringResource(R.string.settings_section_about)) {
+                SettingsItem(
+                    icon = Icons.Default.Info,
+                    title = stringResource(R.string.settings_version),
+                    subtitle = BuildConfig.VERSION_NAME,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsItem(
+                    icon = Icons.Default.Refresh,
+                    title = if (uiState.checkingUpdate) {
+                        stringResource(R.string.update_checking_btn)
+                    } else {
+                        stringResource(R.string.update_check_btn)
+                    },
+                    subtitle = stringResource(R.string.update_check_description),
+                    onClick = if (uiState.checkingUpdate) null else viewModel::checkForUpdate,
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsItem(
+                    icon = Icons.Default.FileDownload,
+                    title = stringResource(R.string.diagnostics_export_title),
+                    subtitle = stringResource(R.string.diagnostics_export_description),
+                    onClick = { showDiagnosticExportDialog = true },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsItem(
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    title = stringResource(R.string.settings_open_project),
+                    subtitle = PROJECT_URL,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
+                        }.onFailure { error ->
+                            CoLinkLog.w("Settings", "open project url failed", error)
+                        }
+                    },
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
@@ -311,56 +278,67 @@ private fun DiagnosticExportDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Icon(
-                Icons.Default.FileDownload,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        },
         title = {
-            Text(
-                text = stringResource(R.string.diagnostics_export_title),
-                style = MaterialTheme.typography.titleLarge,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FileDownload,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(R.string.diagnostics_export_title),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     text = stringResource(R.string.diagnostics_export_range_prompt),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 4.dp),
                 )
-                OutlinedButton(
-                    onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(12.dp),
+                        ),
                 ) {
-                    Icon(Icons.Default.Schedule, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.diagnostics_export_last_day))
-                }
-                OutlinedButton(
-                    onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Default.DateRange, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.diagnostics_export_last_week))
-                }
-                OutlinedButton(
-                    onClick = { onExport(0L) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Icon(Icons.Default.History, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.diagnostics_export_all))
+                    DiagnosticRangeItem(
+                        icon = Icons.Default.Schedule,
+                        title = stringResource(R.string.diagnostics_export_last_day),
+                        onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 52.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    DiagnosticRangeItem(
+                        icon = Icons.Default.DateRange,
+                        title = stringResource(R.string.diagnostics_export_last_week),
+                        onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 52.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    DiagnosticRangeItem(
+                        icon = Icons.Default.History,
+                        title = stringResource(R.string.diagnostics_export_all),
+                        onClick = { onExport(0L) },
+                    )
                 }
             }
         },
@@ -371,6 +349,34 @@ private fun DiagnosticExportDialog(
             }
         },
     )
+}
+
+@Composable
+private fun DiagnosticRangeItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 private const val PROJECT_URL = "https://github.com/CoLinkDev/colink-android"
@@ -451,96 +457,163 @@ private fun ServerUrlDialog(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun AboutCard(
-    checkingUpdate: Boolean,
-    onCheckForUpdate: () -> Unit,
-    onExportDiagnostics: () -> Unit,
-    onProjectClick: () -> Unit,
+private fun SettingsGroup(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = stringResource(R.string.settings_about_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            InfoRow(label = stringResource(R.string.settings_project_url), value = PROJECT_URL)
-            InfoRow(label = stringResource(R.string.settings_version), value = BuildConfig.VERSION_NAME)
-            
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = onCheckForUpdate,
-                    enabled = !checkingUpdate,
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null)
-                    Text(
-                        text = if (checkingUpdate) {
-                            stringResource(R.string.update_checking_btn)
-                        } else {
-                            stringResource(R.string.update_check_btn)
-                        },
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-
-                Button(
-                    onClick = onExportDiagnostics,
-                ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.diagnostics_export_title),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-
-                Button(
-                    onClick = onProjectClick,
-                ) {
-                    Icon(Icons.Default.OpenInNew, contentDescription = null)
-                    Text(
-                        text = stringResource(R.string.settings_open_project),
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
+            Column(content = content)
         }
     }
 }
 
 @Composable
-private fun InfoRow(
-    label: String,
-    value: String,
+private fun SettingsItem(
+    icon: ImageVector,
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+    val interactionModifier = if (onClick != null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier
     }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(modifier)
+            .then(interactionModifier)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        trailing?.invoke()
+    }
+}
+
+@Composable
+private fun SettingsSwitchItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    SettingsItem(
+        icon = icon,
+        title = title,
+        modifier = Modifier.toggleable(
+            value = checked,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ),
+        subtitle = subtitle,
+        trailing = {
+            Switch(
+                checked = checked,
+                onCheckedChange = null,
+            )
+        },
+    )
+}
+
+@Composable
+private fun LanguagePickerDialog(
+    languages: List<Pair<String, String>>,
+    currentCode: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.language_label)) },
+        text = {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .selectableGroup(),
+            ) {
+                items(
+                    items = languages,
+                    key = { (code, _) -> code },
+                ) { (code, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = code == currentCode,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(code) },
+                            )
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        RadioButton(
+                            selected = code == currentCode,
+                            onClick = null,
+                        )
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel_btn))
+            }
+        },
+    )
 }

@@ -135,6 +135,7 @@
     <string name="update_download_failed">更新下载失败，请重试。</string>
     <string name="update_later_btn">稍后</string>
     <string name="update_check_btn">检查更新</string>
+    <string name="update_check_description">检查是否有新版本可用</string>
     <string name="update_checking_btn">正在检查...</string>
     <string name="update_up_to_date">当前已是最新版本</string>
     <string name="update_check_failed">检查更新失败</string>
@@ -302,11 +303,16 @@
     <!-- Settings -->
     <string name="settings_title">设置</string>
     <string name="settings_subtitle">配置CoLink的参数和行为</string>
+    <string name="settings_section_connection">连接</string>
+    <string name="settings_section_behavior">行为</string>
+    <string name="settings_section_app">应用</string>
+    <string name="settings_section_about">关于</string>
     <string name="server_url_label">服务器地址</string>
     <string name="edit_server_url_title">修改服务器地址</string>
     <string name="use_official_server">使用官方地址</string>
     <string name="device_name_label">设备名称</string>
     <string name="language_label">语言 (Language)</string>
+    <string name="language_system_default">系统默认 (System Default)</string>
     <string name="save_btn">保存</string>
     
     <!-- Authentication -->
