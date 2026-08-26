@@ -22,16 +22,17 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -45,12 +46,15 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -731,39 +735,11 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                         )
 
                         if (state.cameras.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                state.cameras.forEach { camera ->
-                                    val selected = camera == state.selected
-                                    FilterChip(
-                                        selected = selected,
-                                        onClick = { viewModel.select(camera) },
-                                        label = { Text(camera.label) },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            selectedLeadingIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = selected,
-                                            borderColor = MaterialTheme.colorScheme.outlineVariant,
-                                            selectedBorderColor = Color.Transparent,
-                                        ),
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = if (selected) Icons.Default.Check else Icons.Default.Videocam,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                            )
-                                        }
-                                    )
-                                }
-                            }
+                            CameraSelectionList(
+                                cameras = state.cameras,
+                                selectedCamera = state.selected,
+                                onSelect = viewModel::select,
+                            )
                         }
 
                         Button(
@@ -917,6 +893,63 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CameraSelectionList(
+    cameras: List<CameraEntry>,
+    selectedCamera: CameraEntry?,
+    onSelect: (CameraEntry) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .selectableGroup(),
+    ) {
+        cameras.forEachIndexed { index, camera ->
+            val selected = camera == selectedCamera
+            ListItem(
+                headlineContent = {
+                    Text(
+                        text = camera.label,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                modifier = Modifier.selectable(
+                    selected = selected,
+                    role = Role.RadioButton,
+                    onClick = { onSelect(camera) },
+                ),
+                leadingContent = {
+                    Icon(
+                        imageVector = Icons.Default.Videocam,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                },
+                trailingContent = {
+                    RadioButton(
+                        selected = selected,
+                        onClick = null,
+                    )
+                },
+                colors = ListItemDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+            )
+            if (index != cameras.lastIndex) {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(MaterialTheme.colorScheme.surface),
+                )
             }
         }
     }
