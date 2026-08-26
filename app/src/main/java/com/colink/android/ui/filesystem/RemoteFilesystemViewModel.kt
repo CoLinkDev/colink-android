@@ -48,6 +48,7 @@ data class RemoteFilesystemUiState(
     val loadingMore: Boolean = false,
     val roots: List<FsRootEntry> = emptyList(),
     val currentPath: String? = null,
+    val contentAnimationId: Long = 0L,
     val entries: List<FsEntry> = emptyList(),
     val total: Long = 0L,
     val hasMore: Boolean = false,
@@ -114,9 +115,9 @@ class RemoteFilesystemViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             val path = _uiState.value.currentPath
             if (path == null) {
-                loadRoots()
+                loadRoots(clearContent = false)
             } else {
-                loadDirectory(path)
+                loadDirectory(path, clearContent = false)
             }
         }
     }
@@ -262,16 +263,16 @@ class RemoteFilesystemViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
-    private suspend fun loadRoots() {
+    private suspend fun loadRoots(clearContent: Boolean = true) {
         val generation = contentGeneration.incrementAndGet()
         _uiState.update {
             it.copy(
                 loading = true,
                 loadingMore = false,
                 currentPath = null,
-                roots = emptyList(),
+                roots = if (clearContent) emptyList() else it.roots,
                 entries = emptyList(),
-                total = 0L,
+                total = if (clearContent) 0L else it.total,
                 hasMore = false,
                 unsupported = false,
                 error = null,
@@ -281,7 +282,17 @@ class RemoteFilesystemViewModel @Inject constructor(
             .onSuccess { result ->
                 _uiState.update {
                     if (contentGeneration.get() != generation) it
-                    else it.copy(loading = false, roots = result.roots)
+                    else {
+                        it.copy(
+                            loading = false,
+                            roots = result.roots,
+                            contentAnimationId = if (clearContent) {
+                                generation
+                            } else {
+                                it.contentAnimationId
+                            },
+                        )
+                    }
                 }
             }
             .onFailure { error ->
@@ -295,15 +306,15 @@ class RemoteFilesystemViewModel @Inject constructor(
             }
     }
 
-    private suspend fun loadDirectory(path: String) {
+    private suspend fun loadDirectory(path: String, clearContent: Boolean = true) {
         val generation = contentGeneration.incrementAndGet()
         _uiState.update {
             it.copy(
                 loading = true,
                 loadingMore = false,
                 currentPath = path,
-                entries = emptyList(),
-                total = 0L,
+                entries = if (clearContent) emptyList() else it.entries,
+                total = if (clearContent) 0L else it.total,
                 hasMore = false,
                 unsupported = false,
                 error = null,
@@ -320,6 +331,11 @@ class RemoteFilesystemViewModel @Inject constructor(
                             entries = result.entries,
                             total = result.total,
                             hasMore = result.hasMore,
+                            contentAnimationId = if (clearContent) {
+                                generation
+                            } else {
+                                it.contentAnimationId
+                            },
                         )
                     }
                 }
@@ -328,9 +344,18 @@ class RemoteFilesystemViewModel @Inject constructor(
                 _uiState.update {
                     if (contentGeneration.get() != generation) it
                     else if (error is RemoteFilesystemUnsupportedException) {
-                        it.copy(loading = false, unsupported = true, error = null)
+                        it.copy(
+                            loading = false,
+                            unsupported = true,
+                            error = null,
+                        )
                     }
-                    else it.copy(loading = false, error = error.userMessage())
+                    else {
+                        it.copy(
+                            loading = false,
+                            error = error.userMessage(),
+                        )
+                    }
                 }
             }
     }

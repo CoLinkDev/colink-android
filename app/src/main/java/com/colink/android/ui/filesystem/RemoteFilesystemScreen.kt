@@ -7,6 +7,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import java.text.DateFormat
 import java.util.Date
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +30,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,6 +77,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,6 +103,16 @@ import com.colink.android.network.message.FsRootEntry
 import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.WarningCard
 import com.colink.android.ui.transfers.openTransferFile
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+
+private const val FilesystemItemFadeDurationMillis = 400
+private const val FilesystemItemSlideDurationMillis = 500
+private const val FilesystemItemStaggerMillis = 20
+private const val FilesystemAnimatedItemLimit = 12
+private const val FilesystemItemAnimationWindowMillis =
+    FilesystemItemSlideDurationMillis + FilesystemItemStaggerMillis * (FilesystemAnimatedItemLimit - 1)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,11 +124,32 @@ fun RemoteFilesystemScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentPath = state.currentPath
+    val listState = rememberLazyListState()
+    var animateListItems by remember(state.contentAnimationId) {
+        mutableStateOf(state.contentAnimationId != 0L)
+    }
+    val shouldAnimateListItems = animateListItems && !listState.isScrollInProgress
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.upload(context.contentResolver, uris)
     }
 
     var showPathActionDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.contentAnimationId) {
+        if (state.contentAnimationId != 0L) {
+            delay(FilesystemItemAnimationWindowMillis.toLong())
+            animateListItems = false
+        }
+    }
+
+    LaunchedEffect(state.contentAnimationId, listState) {
+        if (state.contentAnimationId != 0L) {
+            snapshotFlow { listState.isScrollInProgress }
+                .filter { it }
+                .first()
+            animateListItems = false
+        }
+    }
 
     LaunchedEffect(state.toastMessage) {
         val msg = state.toastMessage
@@ -181,130 +221,176 @@ fun RemoteFilesystemScreen(
             )
         },
     ) { innerPadding ->
-        LazyColumn(
+        val uploads = if (currentPath != null) {
+            state.uploads.filterKeys { remoteParent(it) == currentPath }
+        } else {
+            emptyMap()
+        }
+        val pendingUploads = uploads.filterValues { it.transfer?.status != "completed" }
+        val hasVisibleContent = if (currentPath == null) {
+            state.roots.isNotEmpty()
+        } else {
+            state.entries.isNotEmpty() || pendingUploads.isNotEmpty()
+        }
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (currentPath != null) {
-                item {
-                    CurrentFolderHeader(
-                        path = currentPath,
-                        total = state.total,
-                        onNavigateUp = viewModel::navigateUp,
-                        onOpenPathActionDialog = { showPathActionDialog = true },
-                        onSegmentClick = { path -> viewModel.jumpToPath(path) },
-                    )
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 12.dp,
+                    bottom = 24.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (currentPath != null) {
+                    item(key = "header") {
+                        CurrentFolderHeader(
+                            path = currentPath,
+                            total = state.total,
+                            onNavigateUp = viewModel::navigateUp,
+                            onOpenPathActionDialog = { showPathActionDialog = true },
+                            onSegmentClick = { path -> viewModel.jumpToPath(path) },
+                        )
+                    }
                 }
-            }
 
-            state.error?.let { error ->
-                item {
-                    WarningCard(
-                        title = stringResource(R.string.remote_files_error_title),
-                        body = error,
-                        icon = Icons.Default.ErrorOutline,
-                        actionLabel = stringResource(R.string.remote_files_retry),
-                        onAction = viewModel::refresh,
-                    )
-                }
-            }
-
-            if (state.loading) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            } else if (state.unsupported) {
-                item {
-                    WarningCard(
-                        title = stringResource(R.string.remote_files_unsupported_title),
-                        body = stringResource(R.string.remote_files_unsupported_body),
-                        icon = Icons.Default.Info,
-                    )
-                }
-            } else if (currentPath == null) {
-                if (state.roots.isEmpty() && state.error == null) {
-                    item { FilesEmpty(stringResource(R.string.remote_files_locations_empty)) }
-                } else {
-                    items(state.roots, key = { it.path }) { root ->
-                        RootRow(
-                            root = root,
-                            onClick = { viewModel.openRoot(root.path) }
-                        )
-                    }
-                }
-            } else {
-                val uploads = state.uploads.filterKeys { remoteParent(it) == currentPath }
-                val pendingUploads = uploads.filterValues { it.transfer?.status != "completed" }
-                if (state.entries.isEmpty() && pendingUploads.isEmpty() && state.error == null) {
-                    item { FilesEmpty(stringResource(R.string.remote_files_directory_empty)) }
-                } else {
-                    items(state.entries, key = { entry -> "${entry.kind}:${entry.name}" }) { entry ->
-                        val download = state.downloads[remoteChild(currentPath, entry.name)]
-                        val upload = uploads[remoteChild(currentPath, entry.name)]
-                        FileEntryRow(
-                            entry = entry,
-                            download = download,
-                            upload = upload,
-                            onOpenDirectory = { viewModel.openDirectory(entry) },
-                            onDownload = { viewModel.download(entry) },
-                            onCancelUpload = viewModel::cancelUpload,
-                            onOpenDownload = {
-                                download?.transfer?.let { transfer -> openTransferFile(context, transfer) }
-                            },
-                        )
-                    }
-                    items(
-                        pendingUploads.filterKeys { path ->
-                            state.entries.none { entry -> remoteChild(currentPath, entry.name) == path }
-                        }.toList(),
-                        key = { (path, _) -> "upload:$path" },
-                    ) { (path, upload) ->
-                        FileEntryRow(
-                            entry = FsEntry(
-                                name = path.substringAfterLast('/', path.substringAfterLast('\\')),
-                                kind = "file",
-                                readonly = false,
-                                hidden = false,
-                            ),
-                            download = null,
-                            upload = upload,
-                            onOpenDirectory = {},
-                            onDownload = {},
-                            onCancelUpload = viewModel::cancelUpload,
-                            onOpenDownload = {},
-                        )
-                    }
-                }
-                if (state.hasMore) {
+                state.error?.let { error ->
                     item {
-                        LaunchedEffect(Unit) {
-                            if (!state.loadingMore) {
-                                viewModel.loadMore()
+                        WarningCard(
+                            title = stringResource(R.string.remote_files_error_title),
+                            body = error,
+                            icon = Icons.Default.ErrorOutline,
+                            actionLabel = stringResource(R.string.remote_files_retry),
+                            onAction = viewModel::refresh,
+                        )
+                    }
+                }
+
+                if (!state.loading && state.unsupported) {
+                    item {
+                        WarningCard(
+                            title = stringResource(R.string.remote_files_unsupported_title),
+                            body = stringResource(R.string.remote_files_unsupported_body),
+                            icon = Icons.Default.Info,
+                        )
+                    }
+                } else if (currentPath == null) {
+                    if (!state.loading && state.roots.isEmpty() && state.error == null) {
+                        item { FilesEmpty(stringResource(R.string.remote_files_locations_empty)) }
+                    } else {
+                        itemsIndexed(state.roots, key = { _, root -> root.path }) { index, root ->
+                            AnimatedFilesystemItem(
+                                shouldAnimate = shouldAnimateListItems,
+                                animationKey = state.contentAnimationId,
+                                index = index,
+                            ) {
+                                RootRow(
+                                    root = root,
+                                    onClick = { viewModel.openRoot(root.path) },
+                                )
                             }
                         }
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                            )
+                    }
+                } else {
+                    if (!state.loading && state.entries.isEmpty() && pendingUploads.isEmpty() && state.error == null) {
+                        item { FilesEmpty(stringResource(R.string.remote_files_directory_empty)) }
+                    } else {
+                        itemsIndexed(
+                            state.entries,
+                            key = { _, entry -> "${entry.kind}:${entry.name}" },
+                        ) { index, entry ->
+                            val download = state.downloads[remoteChild(currentPath, entry.name)]
+                            val upload = uploads[remoteChild(currentPath, entry.name)]
+                            AnimatedFilesystemItem(
+                                shouldAnimate = shouldAnimateListItems,
+                                animationKey = state.contentAnimationId,
+                                index = index,
+                            ) {
+                                FileEntryRow(
+                                    entry = entry,
+                                    download = download,
+                                    upload = upload,
+                                    onOpenDirectory = { viewModel.openDirectory(entry) },
+                                    onDownload = { viewModel.download(entry) },
+                                    onCancelUpload = viewModel::cancelUpload,
+                                    onOpenDownload = {
+                                        download?.transfer?.let { transfer ->
+                                            openTransferFile(context, transfer)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        val uploadsNotInEntries = pendingUploads.filterKeys { path ->
+                            state.entries.none { entry -> remoteChild(currentPath, entry.name) == path }
+                        }.toList()
+                        itemsIndexed(
+                            uploadsNotInEntries,
+                            key = { _, (path, _) -> "upload:$path" },
+                        ) { index, (path, upload) ->
+                            AnimatedFilesystemItem(
+                                shouldAnimate = shouldAnimateListItems,
+                                animationKey = state.contentAnimationId,
+                                index = state.entries.size + index,
+                            ) {
+                                FileEntryRow(
+                                    entry = FsEntry(
+                                        name = path.substringAfterLast(
+                                            '/',
+                                            path.substringAfterLast('\\'),
+                                        ),
+                                        kind = "file",
+                                        readonly = false,
+                                        hidden = false,
+                                    ),
+                                    download = null,
+                                    upload = upload,
+                                    onOpenDirectory = {},
+                                    onDownload = {},
+                                    onCancelUpload = viewModel::cancelUpload,
+                                    onOpenDownload = {},
+                                )
+                            }
+                        }
+                    }
+                    if (state.hasMore) {
+                        item {
+                            LaunchedEffect(Unit) {
+                                if (!state.loadingMore) {
+                                    viewModel.loadMore()
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
                         }
                     }
                 }
+            }
+
+            AnimatedVisibility(
+                visible = state.loading && !hasVisibleContent,
+                modifier = Modifier.align(Alignment.Center),
+                enter = fadeIn(),
+                exit = fadeOut(),
+                label = "filesystem_loading",
+            ) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -319,6 +405,48 @@ fun RemoteFilesystemScreen(
                 viewModel.jumpToPath(path)
             }
         )
+    }
+}
+
+@Composable
+private fun AnimatedFilesystemItem(
+    shouldAnimate: Boolean,
+    animationKey: Any,
+    index: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (!shouldAnimate || index >= FilesystemAnimatedItemLimit) {
+        Box(modifier = modifier.fillMaxWidth()) {
+            content()
+        }
+        return
+    }
+
+    val visibleState = remember(animationKey) {
+        MutableTransitionState(false).apply { targetState = true }
+    }
+    val delayMillis = index * FilesystemItemStaggerMillis
+    AnimatedVisibility(
+        visibleState = visibleState,
+        modifier = modifier.fillMaxWidth(),
+        enter = fadeIn(
+            animationSpec = tween(
+                durationMillis = FilesystemItemFadeDurationMillis,
+                delayMillis = delayMillis,
+                easing = LinearOutSlowInEasing,
+            ),
+        ) + slideInVertically(
+            animationSpec = tween(
+                durationMillis = FilesystemItemSlideDurationMillis,
+                delayMillis = delayMillis,
+                easing = LinearOutSlowInEasing,
+            ),
+            initialOffsetY = { height -> height / 4 },
+        ),
+        label = "filesystem_item",
+    ) {
+        content()
     }
 }
 
@@ -402,15 +530,6 @@ private fun CurrentFolderHeader(
     onOpenPathActionDialog: () -> Unit,
     onSegmentClick: (String) -> Unit,
 ) {
-    val segments = remember(path) { parsePathSegments(path) }
-    val lazyListState = rememberLazyListState()
-
-    LaunchedEffect(path) {
-        if (segments.isNotEmpty()) {
-            lazyListState.scrollToItem(segments.lastIndex)
-        }
-    }
-
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.large,
@@ -419,36 +538,10 @@ private fun CurrentFolderHeader(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // 最上方放大显示且带动态渐隐特效的面包屑Segment链
-            LazyRow(
-                state = lazyListState,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalFadingEdge(lazyListState, length = 24.dp)
-            ) {
-                items(segments) { (name, fullPath) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { onSegmentClick(fullPath) }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            BreadcrumbRow(
+                path = path,
+                onSegmentClick = onSegmentClick,
+            )
 
             // “共X项”与首个面包屑文字左对齐
             Text(
@@ -790,6 +883,70 @@ private fun remoteUploadStatus(upload: RemoteFilesystemUploadUi?): String? {
         "rejected" -> stringResource(R.string.status_rejected)
         "cancelled" -> stringResource(R.string.status_cancelled)
         else -> null
+    }
+}
+
+@Composable
+private fun BreadcrumbRow(
+    path: String,
+    onSegmentClick: (String) -> Unit,
+) {
+    val segments = remember(path) { parsePathSegments(path) }
+    val lazyListState = rememberLazyListState()
+    var isFirstScroll by remember { mutableStateOf(true) }
+
+    LaunchedEffect(path) {
+        if (segments.isNotEmpty()) {
+            snapshotFlow { lazyListState.layoutInfo.totalItemsCount }
+                .filter { it == segments.size }
+                .first()
+            withFrameNanos { }
+            if (isFirstScroll) {
+                lazyListState.scrollToItem(segments.lastIndex)
+                isFirstScroll = false
+            } else {
+                lazyListState.animateScrollToItem(segments.lastIndex)
+            }
+        }
+    }
+
+    LazyRow(
+        state = lazyListState,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalFadingEdge(lazyListState, length = 24.dp)
+    ) {
+        itemsIndexed(segments, key = { _, segment -> segment.fullPath }) { index, segment ->
+            val isActive = index == segments.lastIndex
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = segment.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isActive) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSegmentClick(segment.fullPath) }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+                if (!isActive) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
