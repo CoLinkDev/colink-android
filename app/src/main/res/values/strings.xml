@@ -149,6 +149,8 @@
     <string name="search_devices_action">Search devices</string>
     <string name="search_devices_hint">Search name or ID</string>
     <string name="search_no_results">No matching devices found</string>
+    <string name="devices_section_pairable">Available to pair</string>
+    <string name="devices_section_mine">My devices</string>
     <string name="no_devices_title">No devices yet</string>
     <string name="no_devices_body">Sign in on another device, then refresh this list.</string>
     <string name="pair_btn">Pair</string>

@@ -5,9 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -48,7 +46,6 @@ import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -65,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -204,7 +202,7 @@ fun SettingsScreen(
                     checked = settings.enableClipboardSync,
                     onCheckedChange = viewModel::updateClipboardSync,
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsGroupSeparator()
                 SettingsSwitchItem(
                     icon = Icons.Default.DownloadForOffline,
                     title = stringResource(R.string.settings_auto_accept_file_offers_title),
@@ -236,7 +234,7 @@ fun SettingsScreen(
                     title = stringResource(R.string.settings_version),
                     subtitle = BuildConfig.VERSION_NAME,
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsGroupSeparator()
                 SettingsItem(
                     icon = Icons.Default.Refresh,
                     title = if (uiState.checkingUpdate) {
@@ -247,14 +245,14 @@ fun SettingsScreen(
                     subtitle = stringResource(R.string.update_check_description),
                     onClick = if (uiState.checkingUpdate) null else viewModel::checkForUpdate,
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsGroupSeparator()
                 SettingsItem(
                     icon = Icons.Default.FileDownload,
                     title = stringResource(R.string.diagnostics_export_title),
                     subtitle = stringResource(R.string.diagnostics_export_description),
                     onClick = { showDiagnosticExportDialog = true },
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsGroupSeparator()
                 SettingsItem(
                     icon = Icons.AutoMirrored.Filled.OpenInNew,
                     title = stringResource(R.string.settings_open_project),
@@ -280,6 +278,7 @@ private fun DiagnosticExportDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -311,30 +310,23 @@ private fun DiagnosticExportDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant,
-                            shape = RoundedCornerShape(12.dp),
-                        ),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 ) {
                     DiagnosticRangeItem(
                         icon = Icons.Default.Schedule,
                         title = stringResource(R.string.diagnostics_export_last_day),
                         onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
                     )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 52.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
+                    SettingsGroupSeparator(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     )
                     DiagnosticRangeItem(
                         icon = Icons.Default.DateRange,
                         title = stringResource(R.string.diagnostics_export_last_week),
                         onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
                     )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 52.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant,
+                    SettingsGroupSeparator(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     )
                     DiagnosticRangeItem(
                         icon = Icons.Default.History,
@@ -477,14 +469,25 @@ private fun SettingsGroup(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
             ),
         ) {
             Column(content = content)
         }
     }
+}
+
+@Composable
+private fun SettingsGroupSeparator(
+    color: Color = MaterialTheme.colorScheme.surface,
+) {
+    Spacer(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(color),
+    )
 }
 
 @Composable

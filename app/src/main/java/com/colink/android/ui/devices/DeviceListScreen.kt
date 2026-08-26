@@ -10,12 +10,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,15 +30,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -61,9 +57,7 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -79,10 +73,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -101,7 +97,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
@@ -118,6 +117,7 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -532,94 +532,102 @@ private fun DeviceListContent(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val gridState = rememberLazyGridState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+    var keepTopAnchored by remember { mutableStateOf(true) }
+    var trackedScrollInProgress by remember { mutableStateOf(false) }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        if (maxWidth >= 600.dp) {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 320.dp),
-                state = gridState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                    item(
-                        span = { GridItemSpan(maxLineSpan) },
-                        contentType = "empty",
-                    ) {
-                        EmptyState(
-                            icon = Icons.Default.Devices,
-                            title = emptyTitle,
-                            body = emptyBody,
-                        )
-                    }
-                } else {
-                    gridItems(
-                        items = lanPairingCandidates,
-                        key = { "lan-pairing-${it.deviceId}" },
-                        contentType = { "lanPairingCandidate" },
-                    ) { candidate ->
-                        LanPairingCandidateCard(
-                            candidate = candidate,
-                            onPair = { onPairCandidate(candidate.deviceId) },
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                    gridItems(
-                        items = devices,
-                        key = { it.deviceId },
-                        contentType = { "device" },
-                    ) { device ->
-                        DeviceCard(
-                            name = device.name,
-                            type = device.type,
-                            lanAvailable = device.lanAvailable,
-                            lanState = device.lanState,
-                            online = device.online,
-                            cloudAvailable = device.cloudAvailable,
-                            isLocalDevice = device.deviceId == localDeviceId ||
-                                device.deviceSources.contains("local"),
-                            onClick = { onDeviceSelected(device.deviceId) },
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            trackedScrollInProgress = true
+            keepTopAnchored = false
+        } else if (trackedScrollInProgress) {
+            trackedScrollInProgress = false
+            keepTopAnchored = listState.firstVisibleItemIndex == 0 &&
+                listState.firstVisibleItemScrollOffset == 0
+        }
+    }
+
+    LaunchedEffect(devices, lanPairingCandidates) {
+        if (keepTopAnchored) {
+            listState.scrollToItem(0)
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, listState) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                keepTopAnchored = true
+                coroutineScope.launch {
+                    listState.scrollToItem(0)
                 }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 16.dp),
+    ) {
+        if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
+            item(contentType = "empty") {
+                EmptyState(
+                    icon = Icons.Default.Devices,
+                    title = emptyTitle,
+                    body = emptyBody,
+                )
             }
         } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
-                    item(contentType = "empty") {
-                        EmptyState(
-                            icon = Icons.Default.Devices,
-                            title = emptyTitle,
-                            body = emptyBody,
-                        )
-                    }
-                } else {
-                    items(
-                        items = lanPairingCandidates,
-                        key = { "lan-pairing-${it.deviceId}" },
-                        contentType = { "lanPairingCandidate" },
-                    ) { candidate ->
-                        LanPairingCandidateCard(
+            if (lanPairingCandidates.isNotEmpty()) {
+                item(
+                    key = "pairing-device-group-header",
+                    contentType = "deviceGroupHeader",
+                ) {
+                    DeviceGroupHeader(
+                        title = stringResource(R.string.devices_section_pairable),
+                    )
+                }
+                itemsIndexed(
+                    items = lanPairingCandidates,
+                    key = { _, candidate -> "pairing-device-${candidate.deviceId}" },
+                    contentType = { _, _ -> "pairingDevice" },
+                ) { index, candidate ->
+                    GroupedDeviceItem(
+                        isFirst = index == 0,
+                        isLast = index == lanPairingCandidates.lastIndex,
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        LanPairingCandidateItem(
                             candidate = candidate,
                             onPair = { onPairCandidate(candidate.deviceId) },
-                            modifier = Modifier.animateItem(),
                         )
                     }
-                    items(
-                        items = devices,
-                        key = { it.deviceId },
-                        contentType = { "device" },
-                    ) { device ->
-                        DeviceCard(
+                }
+            }
+            if (devices.isNotEmpty()) {
+                item(
+                    key = "device-group-header",
+                    contentType = "deviceGroupHeader",
+                ) {
+                    DeviceGroupHeader(
+                        title = stringResource(R.string.devices_section_mine),
+                        separated = lanPairingCandidates.isNotEmpty(),
+                    )
+                }
+                itemsIndexed(
+                    items = devices,
+                    key = { _, device -> "device-${device.deviceId}" },
+                    contentType = { _, _ -> "device" },
+                ) { index, device ->
+                    GroupedDeviceItem(
+                        isFirst = index == 0,
+                        isLast = index == devices.lastIndex,
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        DeviceItem(
                             name = device.name,
                             type = device.type,
                             lanAvailable = device.lanAvailable,
@@ -629,11 +637,59 @@ private fun DeviceListContent(
                             isLocalDevice = device.deviceId == localDeviceId ||
                                 device.deviceSources.contains("local"),
                             onClick = { onDeviceSelected(device.deviceId) },
-                            modifier = Modifier.animateItem(),
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DeviceGroupHeader(
+    title: String,
+    separated: Boolean = false,
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(
+            start = 16.dp,
+            top = if (separated) 14.dp else 0.dp,
+            end = 16.dp,
+            bottom = 8.dp,
+        ),
+    )
+}
+
+@Composable
+private fun GroupedDeviceItem(
+    isFirst: Boolean,
+    isLast: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = when {
+                isFirst && isLast -> RoundedCornerShape(16.dp)
+                isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+                else -> RoundedCornerShape(0.dp)
+            },
+        ) {
+            content()
+        }
+        if (!isLast) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(MaterialTheme.colorScheme.surface),
+            )
         }
     }
 }
@@ -667,97 +723,78 @@ private fun PairStringQrCode(value: String) {
 }
 
 @Composable
-private fun LanPairingCandidateCard(
+private fun LanPairingCandidateItem(
     candidate: LanPairingCandidate,
     onPair: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        shape = MaterialTheme.shapes.large,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .size(40.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = deviceTypeIcon(candidate.type),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(20.dp)
+            Icon(
+                imageVector = deviceTypeIcon(candidate.type),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = candidate.name.ifBlank { candidate.deviceId },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = candidate.deviceId,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (candidate.state == "suspect") {
+                BadgeChip(
+                    text = stringResource(R.string.device_tag_lan_suspect),
+                    modifier = Modifier.padding(top = 2.dp),
+                    icon = Icons.Default.Wifi,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = candidate.name.ifBlank { candidate.deviceId },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = candidate.deviceId,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 2.dp)
-                ) {
-                    if (candidate.state == "suspect") {
-                        BadgeChip(
-                            text = stringResource(R.string.device_tag_lan_suspect),
-                            icon = Icons.Default.Wifi,
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    } else {
-                        BadgeChip(
-                            text = stringResource(R.string.lan_pairing_title),
-                            icon = Icons.Default.SyncAlt,
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                    }
-                }
-            }
-            TextButton(
-                onClick = onPair,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Icon(Icons.Default.SyncAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.pair_btn), fontWeight = FontWeight.SemiBold)
-            }
+        }
+        TextButton(
+            onClick = onPair,
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(Icons.Default.SyncAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(stringResource(R.string.pair_btn), fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
 @Composable
-private fun DeviceCard(
+private fun DeviceItem(
     name: String,
     type: String,
     lanAvailable: Boolean,
@@ -768,109 +805,101 @@ private fun DeviceCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
-        shape = MaterialTheme.shapes.large,
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (lanAvailable || online) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = deviceTypeIcon(type),
-                    contentDescription = null,
-                    tint = if (lanAvailable || online) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                .size(40.dp)
+                .background(
+                    color = if (lanAvailable || online) {
+                        MaterialTheme.colorScheme.primaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.surfaceVariant
                     },
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = name.ifBlank { stringResource(R.string.unnamed_device) },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = deviceTypeIcon(type),
+                contentDescription = null,
+                tint = if (lanAvailable || online) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = name.ifBlank { stringResource(R.string.unnamed_device) },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 2.dp)
-                ) {
-                    if (isLocalDevice) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                if (isLocalDevice) {
+                    BadgeChip(
+                        text = stringResource(R.string.device_tag_local),
+                        icon = Icons.Default.Computer,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                } else if (lanAvailable || lanState == "suspect" || online) {
+                    if (lanState == "suspect") {
                         BadgeChip(
-                            text = stringResource(R.string.device_tag_local),
-                            icon = Icons.Default.Computer,
+                            text = stringResource(R.string.device_tag_lan_suspect),
+                            icon = Icons.Default.Wifi,
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    } else if (lanAvailable) {
+                        BadgeChip(
+                            text = stringResource(R.string.route_lan),
+                            icon = Icons.Default.Wifi,
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
-                    } else if (lanAvailable || lanState == "suspect" || online) {
-                        if (lanState == "suspect") {
-                            BadgeChip(
-                                text = stringResource(R.string.device_tag_lan_suspect),
-                                icon = Icons.Default.Wifi,
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                            )
-                        } else if (lanAvailable) {
-                            BadgeChip(
-                                text = stringResource(R.string.route_lan),
-                                icon = Icons.Default.Wifi,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                        if (cloudAvailable) {
-                            BadgeChip(
-                                text = stringResource(R.string.device_tag_cloud),
-                                icon = Icons.Default.Cloud,
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                            )
-                        }
-                    } else {
+                    }
+                    if (cloudAvailable) {
                         BadgeChip(
-                            text = stringResource(R.string.device_tag_offline),
-                            icon = Icons.Default.CloudOff,
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = stringResource(R.string.device_tag_cloud),
+                            icon = Icons.Default.Cloud,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         )
                     }
+                } else {
+                    BadgeChip(
+                        text = stringResource(R.string.device_tag_offline),
+                        icon = Icons.Default.CloudOff,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
         }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
     }
 }
 

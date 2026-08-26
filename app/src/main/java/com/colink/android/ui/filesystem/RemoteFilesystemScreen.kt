@@ -531,7 +531,7 @@ private fun CurrentFolderHeader(
     onSegmentClick: (String) -> Unit,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.large,
     ) {
         Column(

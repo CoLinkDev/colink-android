@@ -149,6 +149,8 @@
     <string name="search_devices_action">Buscar dispositivos</string>
     <string name="search_devices_hint">Buscar nombre o ID</string>
     <string name="search_no_results">No se encontraron dispositivos coincidentes</string>
+    <string name="devices_section_pairable">Disponibles para vincular</string>
+    <string name="devices_section_mine">Mis dispositivos</string>
     <string name="no_devices_title">No hay dispositivos</string>
     <string name="no_devices_body">Inicie sesión en otro dispositivo y luego actualice esta lista.</string>
     <string name="pair_btn">Emparejar</string>

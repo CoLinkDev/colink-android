@@ -149,6 +149,8 @@
     <string name="search_devices_action">搜尋裝置</string>
     <string name="search_devices_hint">搜尋裝置名稱或 ID</string>
     <string name="search_no_results">未找到符合的裝置</string>
+    <string name="devices_section_pairable">可配對裝置</string>
+    <string name="devices_section_mine">我的裝置</string>
     <string name="no_devices_title">還沒有裝置記錄</string>
     <string name="no_devices_body">在另一台裝置上登入，然後重新整理此列表。</string>
     <string name="pair_btn">配對</string>
