@@ -51,7 +51,6 @@ import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Wifi
@@ -731,6 +730,7 @@ private fun LanPairingCandidateItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .clickable(onClick = onPair)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -780,16 +780,12 @@ private fun LanPairingCandidateItem(
                 )
             }
         }
-        TextButton(
-            onClick = onPair,
-            colors = ButtonDefaults.textButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            Icon(Icons.Default.SyncAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(stringResource(R.string.pair_btn), fontWeight = FontWeight.SemiBold)
-        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = stringResource(R.string.pair_btn),
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        )
     }
 }
 
@@ -898,6 +894,7 @@ private fun DeviceItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
+            modifier = Modifier.size(24.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         )
     }
