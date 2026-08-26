@@ -775,26 +775,31 @@ private fun TransferBubble(
                     if (transfer.status == "verifying") {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth(),
-                            color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                            color = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
                             trackColor = if (outgoing) {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
                             },
-                            gapSize = 0.dp
                         )
                     } else {
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth(),
-                            color = if (outgoing) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+                            color = if (outgoing) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.primary
+                            },
                             trackColor = if (outgoing) {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                             } else {
                                 MaterialTheme.colorScheme.surfaceVariant
                             },
-                            gapSize = 0.dp,
-                            drawStopIndicator = {}
                         )
                     }
                 }
