@@ -1,5 +1,6 @@
 package com.colink.android.ui.devices
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -12,6 +13,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -21,9 +23,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -32,7 +37,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -57,10 +64,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,6 +94,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,8 +107,10 @@ import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
 import com.colink.android.ui.components.EmptyState
+import com.colink.android.ui.components.LocalAccountAction
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.ui.components.ScreenHeader
+import com.colink.android.ui.components.ScreenHeaderHeight
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -118,20 +132,20 @@ fun DeviceListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    val listState = rememberLazyListState()
-    val gridState = rememberLazyGridState()
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val accountAction = LocalAccountAction.current
 
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
+    var showPairingSheet by rememberSaveable { mutableStateOf(false) }
+    var pairStringRequestPending by remember { mutableStateOf(false) }
 
     fun closeSearch() {
         searchQuery = ""
         isSearchActive = false
     }
 
-    val availableDeviceCount = remember(devices) {
-        devices.count { device -> device.online || device.lanAvailable }
-    }
     val pairStringScanner = remember(context) {
         GmsBarcodeScanning.getClient(
             context,
@@ -140,6 +154,36 @@ fun DeviceListScreen(
                 .enableAutoZoom()
                 .build(),
         )
+    }
+
+    fun startPairStringScan() {
+        pairStringScanner.startScan()
+            .addOnSuccessListener { barcode ->
+                barcode.rawValue?.let { pairString ->
+                    showPairingSheet = false
+                    pairStringRequestPending = false
+                    viewModel.dismissPairString()
+                    viewModel.startPairStringPairing(pairString)
+                } ?: Toast.makeText(
+                    context,
+                    R.string.err_pair_qr_invalid,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            .addOnCanceledListener {
+                // Returning from the scanner is a normal user cancellation.
+            }
+            .addOnFailureListener(
+                OnFailureListener { error ->
+                    if (!isCodeScannerCancellation(error)) {
+                        Toast.makeText(
+                            context,
+                            R.string.pair_qr_scanner_unavailable,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
+            )
     }
     val sortedDevices = remember(devices, uiState.localDeviceId) {
         devices.sortedWith(
@@ -183,8 +227,28 @@ fun DeviceListScreen(
     LaunchedEffect(uiState.message) {
         val msg = uiState.message
         if (!msg.isNullOrBlank()) {
+            if (showPairingSheet && uiState.pairString == null) {
+                showPairingSheet = false
+                pairStringRequestPending = false
+            }
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             viewModel.clearMessage()
+        }
+    }
+
+    LaunchedEffect(
+        showPairingSheet,
+        pairStringRequestPending,
+        uiState.pairString,
+        uiState.pairStringLoading,
+    ) {
+        when {
+            uiState.pairStringLoading || uiState.pairString != null -> {
+                pairStringRequestPending = false
+            }
+            showPairingSheet && !pairStringRequestPending -> {
+                showPairingSheet = false
+            }
         }
     }
 
@@ -207,17 +271,12 @@ fun DeviceListScreen(
 
     ScreenColumn(
         title = stringResource(R.string.nav_devices),
-        subtitle = stringResource(
-            R.string.devices_subtitle,
-            availableDeviceCount,
-            devices.size
-        ),
         modifier = modifier,
         headerOverride = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(ScreenHeaderHeight),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 AnimatedVisibility(
@@ -227,11 +286,7 @@ fun DeviceListScreen(
                 ) {
                     ScreenHeader(
                         title = stringResource(R.string.nav_devices),
-                        subtitle = stringResource(
-                            R.string.devices_subtitle,
-                            availableDeviceCount,
-                            devices.size
-                        ),
+                        icon = Icons.Default.Devices,
                         action = {
                             Row {
                                 IconButton(onClick = { isSearchActive = true }) {
@@ -242,41 +297,18 @@ fun DeviceListScreen(
                                 }
                                 IconButton(
                                     onClick = {
-                                        pairStringScanner.startScan()
-                                            .addOnSuccessListener { barcode ->
-                                                barcode.rawValue?.let(viewModel::startPairStringPairing)
-                                                    ?: Toast.makeText(
-                                                        context,
-                                                        R.string.err_pair_qr_invalid,
-                                                        Toast.LENGTH_SHORT,
-                                                    ).show()
-                                            }
-                                            .addOnCanceledListener {
-                                                // Returning from the scanner is a normal user cancellation.
-                                            }
-                                            .addOnFailureListener(
-                                                OnFailureListener { error ->
-                                                    if (!isCodeScannerCancellation(error)) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            R.string.pair_qr_scanner_unavailable,
-                                                            Toast.LENGTH_SHORT,
-                                                        ).show()
-                                                    }
-                                                },
-                                            )
+                                        pairStringRequestPending = true
+                                        viewModel.createPairString()
+                                        showPairingSheet = true
                                     },
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.QrCodeScanner,
-                                        contentDescription = stringResource(R.string.pair_qr_scan),
+                                        imageVector = Icons.Default.QrCode,
+                                        contentDescription = stringResource(R.string.pair_qr_action),
                                     )
                                 }
-                                IconButton(onClick = viewModel::createPairString) {
-                                    Icon(
-                                        imageVector = Icons.Default.QrCode,
-                                        contentDescription = stringResource(R.string.pair_qr_show),
-                                    )
+                                if (!isLandscape) {
+                                    accountAction?.invoke()
                                 }
                             }
                         },
@@ -340,35 +372,81 @@ fun DeviceListScreen(
         }
     }
 
-    uiState.pairString?.let { pairString ->
-        AlertDialog(
-            onDismissRequest = viewModel::dismissPairString,
-            title = { Text(stringResource(R.string.pair_qr_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(stringResource(R.string.pair_qr_description))
+    if (showPairingSheet) {
+        val pairingSheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = !isLandscape,
+        )
+        ModalBottomSheet(
+            onDismissRequest = {
+                showPairingSheet = false
+                pairStringRequestPending = false
+                viewModel.dismissPairString()
+            },
+            sheetState = pairingSheetState,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                val pairString = uiState.pairString
+                Text(
+                    text = stringResource(R.string.pair_qr_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.pair_qr_description),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (uiState.pairStringLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(256.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (pairString != null) {
                     PairStringQrCode(pairString)
                 }
-            },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = { viewModel.createPairString(!uiState.legacyPairString) }) {
-                        Text(
-                            stringResource(
-                                if (uiState.legacyPairString) {
-                                    R.string.pair_qr_switch_to_new
-                                } else {
-                                    R.string.pair_qr_switch_to_legacy
-                                },
-                            ),
-                        )
-                    }
-                    TextButton(onClick = viewModel::dismissPairString) {
-                        Text(stringResource(R.string.lan_pairing_close))
-                    }
+                TextButton(
+                    onClick = {
+                        pairStringRequestPending = true
+                        viewModel.createPairString(!uiState.legacyPairString)
+                    },
+                    enabled = pairString != null && !uiState.pairStringLoading,
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(
+                        stringResource(
+                            if (uiState.legacyPairString) {
+                                R.string.pair_qr_switch_to_new
+                            } else {
+                                R.string.pair_qr_switch_to_legacy
+                            },
+                        ),
+                    )
                 }
-            },
-        )
+                FilledTonalButton(
+                    onClick = ::startPairStringScan,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.width(ButtonDefaults.IconSpacing))
+                    Text(stringResource(R.string.pair_qr_scan))
+                }
+            }
+        }
     }
 }
 
@@ -466,13 +544,6 @@ private fun DeviceListContent(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item(
-                    key = "device_list_header_anchor",
-                    span = { GridItemSpan(maxLineSpan) },
-                    contentType = "anchor",
-                ) {
-                    Spacer(modifier = Modifier.size(0.dp))
-                }
                 if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                     item(
                         span = { GridItemSpan(maxLineSpan) },
@@ -523,12 +594,6 @@ private fun DeviceListContent(
                 contentPadding = PaddingValues(bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item(
-                    key = "device_list_header_anchor",
-                    contentType = "anchor",
-                ) {
-                    Spacer(modifier = Modifier.size(0.dp))
-                }
                 if (devices.isEmpty() && lanPairingCandidates.isEmpty()) {
                     item(contentType = "empty") {
                         EmptyState(
@@ -585,12 +650,20 @@ private fun PairStringQrCode(value: String) {
             }
         }.asImageBitmap()
     }
-    Image(
-        bitmap = image,
-        contentDescription = stringResource(R.string.pair_qr_title),
-        contentScale = ContentScale.Fit,
-        modifier = Modifier.fillMaxWidth().size(256.dp),
-    )
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            bitmap = image,
+            contentDescription = stringResource(R.string.pair_qr_title),
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .widthIn(max = 256.dp)
+                .fillMaxWidth()
+                .aspectRatio(1f),
+        )
+    }
 }
 
 @Composable

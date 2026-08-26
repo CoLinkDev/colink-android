@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">Нет</string>
     <string name="pair_qr_scan">Сканировать QR-код сопряжения</string>
     <string name="pair_qr_show">Показать QR-код сопряжения</string>
+    <string name="pair_qr_action">Сопряжение устройств по QR-коду</string>
     <string name="pair_qr_title">QR-код сопряжения</string>
     <string name="pair_qr_description">Используйте другое устройство, чтобы отсканировать этот QR-код и выполнить сопряжение.</string>
     <string name="pair_qr_switch_to_legacy">Переключиться на старый QR-код</string>

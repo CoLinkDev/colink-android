@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -167,8 +168,9 @@ fun SettingsScreen(
 
     ScreenColumn(
         title = stringResource(R.string.settings_title),
-        subtitle = stringResource(R.string.settings_subtitle),
+        icon = Icons.Default.Settings,
         modifier = modifier,
+        showLandscapeAccountAction = false,
     ) {
         val currentLanguageLabel = languages.find { it.first == language }?.second.orEmpty()
 

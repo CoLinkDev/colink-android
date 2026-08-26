@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">Ninguno</string>
     <string name="pair_qr_scan">Escanear código QR de emparejamiento</string>
     <string name="pair_qr_show">Mostrar código QR de emparejamiento</string>
+    <string name="pair_qr_action">Emparejar dispositivos con código QR</string>
     <string name="pair_qr_title">Código QR de emparejamiento</string>
     <string name="pair_qr_description">Usa otro dispositivo para escanear este código QR y emparejarlo.</string>
     <string name="pair_qr_switch_to_legacy">Cambiar al código QR antiguo</string>

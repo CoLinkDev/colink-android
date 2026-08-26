@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">없음</string>
     <string name="pair_qr_scan">페어링 QR 코드 스캔</string>
     <string name="pair_qr_show">페어링 QR 코드 표시</string>
+    <string name="pair_qr_action">QR 코드로 기기 페어링</string>
     <string name="pair_qr_title">페어링 QR 코드</string>
     <string name="pair_qr_description">다른 기기로 이 QR 코드를 스캔하여 페어링합니다.</string>
     <string name="pair_qr_switch_to_legacy">이전 QR 코드로 전환</string>

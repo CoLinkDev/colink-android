@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">なし</string>
     <string name="pair_qr_scan">ペアリング QR コードを読み取る</string>
     <string name="pair_qr_show">ペアリング QR コードを表示</string>
+    <string name="pair_qr_action">QR コードでデバイスをペアリング</string>
     <string name="pair_qr_title">ペアリング QR コード</string>
     <string name="pair_qr_description">別のデバイスでこの QR コードを読み取ってペアリングします。</string>
     <string name="pair_qr_switch_to_legacy">旧版 QR コードに切り替え</string>

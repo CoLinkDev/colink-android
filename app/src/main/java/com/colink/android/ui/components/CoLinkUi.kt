@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -29,19 +31,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 val LocalAccountAction = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
+val ScreenHeaderHeight = 52.dp
 
 @Composable
 fun ScreenColumn(
     title: String,
+    icon: ImageVector? = null,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
+    showLandscapeAccountAction: Boolean = true,
     headerOverride: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -56,12 +62,18 @@ fun ScreenColumn(
                 end = 16.dp,
                 top = if (isLandscape) 8.dp else 12.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (isLandscape) 6.dp else 8.dp),
     ) {
         if (headerOverride != null) {
             headerOverride()
         } else {
-            ScreenHeader(title = title, subtitle = subtitle, action = action)
+            ScreenHeader(
+                title = title,
+                icon = icon,
+                subtitle = subtitle,
+                action = action,
+                showLandscapeAccountAction = showLandscapeAccountAction,
+            )
         }
         content()
     }
@@ -70,47 +82,43 @@ fun ScreenColumn(
 @Composable
 fun ScreenHeader(
     title: String,
+    icon: ImageVector? = null,
     subtitle: String? = null,
     action: (@Composable () -> Unit)? = null,
+    showLandscapeAccountAction: Boolean = true,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val localAccountAction = LocalAccountAction.current
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(ScreenHeaderHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isLandscape) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.headlineSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary,
                 )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
             }
-        } else {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontSize = 20.sp,
+                        lineHeight = 24.sp,
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -119,15 +127,18 @@ fun ScreenHeader(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        maxLines = if (isLandscape) 1 else 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.offset(x = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             action?.invoke()
-            if (isLandscape) {
+            if (isLandscape && showLandscapeAccountAction) {
                 localAccountAction?.invoke()
             }
         }

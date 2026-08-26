@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">无</string>
     <string name="pair_qr_scan">扫描配对二维码</string>
     <string name="pair_qr_show">显示配对二维码</string>
+    <string name="pair_qr_action">通过二维码配对设备</string>
     <string name="pair_qr_title">配对二维码</string>
     <string name="pair_qr_description">使用另一台设备扫描此二维码以配对。</string>
     <string name="pair_qr_switch_to_legacy">切换到旧版二维码</string>

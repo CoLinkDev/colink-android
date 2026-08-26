@@ -61,8 +61,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -475,13 +473,6 @@ private fun MainScaffold(
                     } else {
                         Scaffold(
                             contentWindowInsets = WindowInsets(0.dp),
-                            topBar = {
-                                MainTopBar(
-                                    cloudStatus = cloudStatus,
-                                    authenticated = authenticated,
-                                    onAccountClick = { showAccountDialog = true },
-                                )
-                            },
                             bottomBar = {
                                 MainBottomBar(navController = nestedNavController)
                             },
@@ -490,7 +481,9 @@ private fun MainScaffold(
                                 navController = nestedNavController,
                                 devicesViewModel = devicesViewModel,
                                 requestSecondaryPage = ::requestSecondaryPage,
-                                modifier = Modifier.padding(innerPadding),
+                                modifier = Modifier
+                                    .statusBarsPadding()
+                                    .padding(innerPadding),
                             )
                         }
                     }
@@ -705,47 +698,6 @@ private fun AccountDialog(
             }
         }
     }
-}
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun MainTopBar(
-    cloudStatus: StateFlow<CloudStatus>,
-    authenticated: StateFlow<Boolean>,
-    onAccountClick: () -> Unit,
-) {
-    val status by cloudStatus.collectAsStateWithLifecycle()
-    val isAuthenticated by authenticated.collectAsStateWithLifecycle()
-    val accountIcon = if (isAuthenticated) {
-        Icons.Default.AccountCircle
-    } else {
-        Icons.AutoMirrored.Filled.Login
-    }
-    val accountTint = when {
-        !isAuthenticated -> MaterialTheme.colorScheme.onSurfaceVariant
-        status == CloudStatus.Connected -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.error
-    }
-
-    TopAppBar(
-        modifier = Modifier.statusBarsPadding(),
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        title = {
-            Text("CoLink", fontWeight = FontWeight.Bold)
-        },
-        actions = {
-            IconButton(onClick = onAccountClick) {
-                Icon(
-                    imageVector = accountIcon,
-                    contentDescription = stringResource(R.string.account_desc),
-                    tint = accountTint,
-                )
-            }
-        },
-    )
 }
 
 @Composable

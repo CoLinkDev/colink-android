@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">無</string>
     <string name="pair_qr_scan">掃描配對 QR Code</string>
     <string name="pair_qr_show">顯示配對 QR Code</string>
+    <string name="pair_qr_action">透過 QR Code 配對裝置</string>
     <string name="pair_qr_title">配對 QR Code</string>
     <string name="pair_qr_description">使用另一台裝置掃描此 QR Code 以配對。</string>
     <string name="pair_qr_switch_to_legacy">切換到舊版 QR Code</string>

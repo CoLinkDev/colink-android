@@ -378,6 +378,7 @@
     <string name="transfer_hash_none">Keine</string>
     <string name="pair_qr_scan">Kopplungs-QR-Code scannen</string>
     <string name="pair_qr_show">Kopplungs-QR-Code anzeigen</string>
+    <string name="pair_qr_action">Geräte per QR-Code koppeln</string>
     <string name="pair_qr_title">Kopplungs-QR-Code</string>
     <string name="pair_qr_description">Scanne diesen QR-Code mit einem anderen Gerät, um es zu koppeln.</string>
     <string name="pair_qr_switch_to_legacy">Zum alten QR-Code wechseln</string>
