@@ -1,11 +1,7 @@
 package com.colink.android.ui.devices
 
 import android.util.Base64
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -83,8 +79,12 @@ import com.colink.android.ui.camera.CameraControlCard
 import com.colink.android.ui.castboard.CastBoardControlCard
 import com.colink.android.ui.castboard.CastBoardViewModel
 import com.colink.android.ui.components.CoLinkTextField
+import com.colink.android.ui.components.ContentGroup
+import com.colink.android.ui.components.ContentGroupHeader
+import com.colink.android.ui.components.ContentGroupSpacing
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.WarningCard
+import com.colink.android.ui.components.contentGroupShape
 import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.devicecontrol.DeviceMediaControlCard
 import com.colink.android.ui.devicecontrol.DeviceMediaControlViewModel
@@ -333,13 +333,10 @@ fun DeviceScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
                     ) {
-                        AnimatedVisibility(
-                            visible = !isWarningDismissed && disabledFeatures.isNotEmpty(),
-                            enter = fadeIn() + expandVertically(),
-                            exit = fadeOut() + shrinkVertically(),
-                        ) {
+                        // 仅在需要显示时才进入组合，避免隐藏的条目在 spacedBy 布局中产生额外间距。
+                        if (!isWarningDismissed && disabledFeatures.isNotEmpty()) {
                             WarningCard(
                                 title = stringResource(R.string.device_version_old_warning_title),
                                 body = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
@@ -358,13 +355,14 @@ fun DeviceScreen(
                                     .weight(1f)
                                     .fillMaxHeight(),
                                 contentPadding = contentPadding,
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
                             ) {
                                 deviceControlItems(
                                     device = device,
                                     isRemoteDevice = isRemoteDevice,
                                     isReachable = isReachable,
                                     isComputer = isComputer,
+                                    isLocalDevice = isLocalDevice,
                                     capabilities = deviceCapabilities,
                                     onOpenChat = onOpenChat,
                                     onStartCamera = onStartCamera,
@@ -380,15 +378,12 @@ fun DeviceScreen(
                                     .weight(1f)
                                     .fillMaxHeight(),
                                 contentPadding = contentPadding,
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
                             ) {
                                 deviceManagementItems(
                                     device = device,
-                                    isRemoteDevice = isRemoteDevice,
-                                    isReachable = isReachable,
                                     isLocalDevice = isLocalDevice,
                                     actionsEnabled = runningAction == null,
-                                    wakeOnLanSupport = deviceCapabilities.wakeOnLanSupport,
                                     protocolVersions = deviceProtocolVersions,
                                     onRotateKey = {
                                         confirmAction = DeviceAction.RotateKey(device.deviceId, device.name)
@@ -412,14 +407,11 @@ fun DeviceScreen(
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
                         contentPadding = contentPadding,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
                     ) {
-                        item(contentType = "version-warning") {
-                            AnimatedVisibility(
-                                visible = !isWarningDismissed && disabledFeatures.isNotEmpty(),
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically(),
-                            ) {
+                        // 仅在需要显示时才进入组合，避免隐藏的条目在 spacedBy 布局中产生额外间距。
+                        if (!isWarningDismissed && disabledFeatures.isNotEmpty()) {
+                            item(contentType = "version-warning") {
                                 WarningCard(
                                     title = stringResource(R.string.device_version_old_warning_title),
                                     body = disabledFeatures.joinToString(stringResource(R.string.detail_list_separator)),
@@ -433,6 +425,7 @@ fun DeviceScreen(
                             isRemoteDevice = isRemoteDevice,
                             isReachable = isReachable,
                             isComputer = isComputer,
+                            isLocalDevice = isLocalDevice,
                             capabilities = deviceCapabilities,
                             onOpenChat = onOpenChat,
                             onStartCamera = onStartCamera,
@@ -444,11 +437,8 @@ fun DeviceScreen(
                         )
                         deviceManagementItems(
                             device = device,
-                            isRemoteDevice = isRemoteDevice,
-                            isReachable = isReachable,
                             isLocalDevice = isLocalDevice,
                             actionsEnabled = runningAction == null,
-                            wakeOnLanSupport = deviceCapabilities.wakeOnLanSupport,
                             protocolVersions = deviceProtocolVersions,
                             onRotateKey = {
                                 confirmAction = DeviceAction.RotateKey(device.deviceId, device.name)
@@ -579,6 +569,7 @@ private fun LazyListScope.deviceControlItems(
     isRemoteDevice: Boolean,
     isReachable: Boolean,
     isComputer: Boolean,
+    isLocalDevice: Boolean,
     capabilities: DeviceCapabilities,
     onOpenChat: (String) -> Unit,
     onStartCamera: (String) -> Unit,
@@ -589,52 +580,130 @@ private fun LazyListScope.deviceControlItems(
     powerControlViewModel: DevicePowerControlViewModel,
 ) {
     if (isRemoteDevice && isReachable) {
-        item(contentType = "chat") {
-            ChatEntryCard(onClick = { onOpenChat(device.deviceId) })
-        }
-        if (capabilities.cameraSupport == RemoteCameraSupport.SUPPORTED) {
-            item(contentType = "camera") {
-                CameraControlCard(
-                    deviceId = device.deviceId,
-                    onOpen = onStartCamera,
-                    support = capabilities.cameraSupport,
+        item(contentType = "control-entries") {
+            Column {
+                ContentGroupHeader(title = stringResource(R.string.device_section_features))
+                val showCamera = capabilities.cameraSupport == RemoteCameraSupport.SUPPORTED
+                val showTerminal = isComputer &&
+                    capabilities.terminalSupport == SystemControlSupport.SUPPORTED
+                val showCastBoard = isComputer
+                val entryCount = 1 + listOf(showCamera, showTerminal, showCastBoard).count { it }
+                var entryIndex = 0
+                fun nextEntryShape(): Shape {
+                    val shape = contentGroupShape(
+                        isFirst = entryIndex == 0,
+                        isLast = entryIndex == entryCount - 1,
+                    )
+                    entryIndex += 1
+                    return shape
+                }
+                @Composable fun entryGap() {
+                    if (entryIndex > 0) {
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .background(MaterialTheme.colorScheme.surface),
+                        )
+                    }
+                }
+                entryGap()
+                ChatEntryCard(
+                    onClick = { onOpenChat(device.deviceId) },
+                    shape = nextEntryShape(),
                 )
+                if (showCamera) {
+                    entryGap()
+                    CameraControlCard(
+                        deviceId = device.deviceId,
+                        onOpen = onStartCamera,
+                        support = capabilities.cameraSupport,
+                        shape = nextEntryShape(),
+                    )
+                }
+                if (showTerminal) {
+                    entryGap()
+                    TerminalControlCard(
+                        deviceId = device.deviceId,
+                        onOpen = onStartTerminal,
+                        support = capabilities.terminalSupport,
+                        shape = nextEntryShape(),
+                    )
+                }
+                if (showCastBoard) {
+                    entryGap()
+                    CastBoardControlCard(
+                        onStartFullscreen = onStartCastBoard,
+                        viewModel = castBoardViewModel,
+                        shape = nextEntryShape(),
+                    )
+                }
             }
         }
     }
-    if (isRemoteDevice && isReachable && isComputer) {
-        if (capabilities.terminalSupport == SystemControlSupport.SUPPORTED) {
-            item(contentType = "terminal") {
-                TerminalControlCard(
-                    deviceId = device.deviceId,
-                    onOpen = onStartTerminal,
-                    support = capabilities.terminalSupport,
-                )
-            }
-        }
-        item(contentType = "castboard") {
-            CastBoardControlCard(
-                onStartFullscreen = onStartCastBoard,
-                viewModel = castBoardViewModel,
-            )
-        }
-        if (capabilities.mediaSupport == SystemControlSupport.SUPPORTED) {
-            item(contentType = "media") {
-                DeviceMediaControlCard(
-                    hasAvailableDevice = true,
-                    support = capabilities.mediaSupport,
-                    querySupport = capabilities.systemControlQuerySupport,
-                    viewModel = mediaControlViewModel,
-                )
-            }
-        }
-        if (capabilities.powerSupport == SystemControlSupport.SUPPORTED) {
-            item(contentType = "power") {
-                DevicePowerControlCard(
-                    support = capabilities.powerSupport,
-                    pendingPowerQuerySupport = capabilities.pendingPowerQuerySupport,
-                    viewModel = powerControlViewModel,
-                )
+    val showMedia = isRemoteDevice && isReachable && isComputer &&
+        capabilities.mediaSupport == SystemControlSupport.SUPPORTED
+    val showPower = isRemoteDevice && isReachable && isComputer &&
+        capabilities.powerSupport == SystemControlSupport.SUPPORTED
+    val showWakeOnLan = isLocalDevice ||
+        (isRemoteDevice && isReachable &&
+            capabilities.wakeOnLanSupport == SystemControlSupport.SUPPORTED)
+    if (showMedia || showPower || showWakeOnLan) {
+        item(contentType = "control-group") {
+            Column {
+                ContentGroupHeader(title = stringResource(R.string.device_section_controls))
+                val blockCount = listOf(showMedia, showPower, showWakeOnLan).count { it }
+                var blockIndex = 0
+                fun nextBlockShape(): Shape {
+                    val shape = contentGroupShape(
+                        isFirst = blockIndex == 0,
+                        isLast = blockIndex == blockCount - 1,
+                    )
+                    blockIndex += 1
+                    return shape
+                }
+                @Composable fun blockGap() {
+                    if (blockIndex > 0) {
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .background(MaterialTheme.colorScheme.surface),
+                        )
+                    }
+                }
+                if (showMedia) {
+                    blockGap()
+                    DeviceMediaControlCard(
+                        hasAvailableDevice = true,
+                        support = capabilities.mediaSupport,
+                        querySupport = capabilities.systemControlQuerySupport,
+                        viewModel = mediaControlViewModel,
+                        shape = nextBlockShape(),
+                    )
+                }
+                if (showPower) {
+                    blockGap()
+                    DevicePowerControlCard(
+                        support = capabilities.powerSupport,
+                        pendingPowerQuerySupport = capabilities.pendingPowerQuerySupport,
+                        viewModel = powerControlViewModel,
+                        shape = nextBlockShape(),
+                    )
+                }
+                if (showWakeOnLan) {
+                    blockGap()
+                    WakeOnLanControlCard(
+                        selectedDevice = device,
+                        support = if (isLocalDevice) {
+                            SystemControlSupport.SUPPORTED
+                        } else {
+                            capabilities.wakeOnLanSupport
+                        },
+                        sendFromLocal = isLocalDevice,
+                        shape = nextBlockShape(),
+                    )
+                }
             }
         }
     }
@@ -642,28 +711,14 @@ private fun LazyListScope.deviceControlItems(
 
 private fun LazyListScope.deviceManagementItems(
     device: Device,
-    isRemoteDevice: Boolean,
-    isReachable: Boolean,
     isLocalDevice: Boolean,
     actionsEnabled: Boolean,
-    wakeOnLanSupport: SystemControlSupport,
     protocolVersions: PeerProtocolVersions?,
     onRotateKey: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
     onForgetTrust: () -> Unit,
 ) {
-    val showWakeOnLan = isLocalDevice ||
-        (isRemoteDevice && isReachable && wakeOnLanSupport == SystemControlSupport.SUPPORTED)
-    if (showWakeOnLan) {
-        item(contentType = "wol") {
-            WakeOnLanControlCard(
-                selectedDevice = device,
-                support = if (isLocalDevice) SystemControlSupport.SUPPORTED else wakeOnLanSupport,
-                sendFromLocal = isLocalDevice,
-            )
-        }
-    }
     item(contentType = "info") {
         DeviceInformationCard(
             device = device,
@@ -682,6 +737,7 @@ private fun LazyListScope.deviceManagementItems(
 private fun ChatEntryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     Card(
         onClick = onClick,
@@ -689,7 +745,7 @@ private fun ChatEntryCard(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Row(
             modifier = Modifier
@@ -813,24 +869,15 @@ private fun DeviceInformationCard(
         DetailRowData(stringResource(R.string.label_public_key), device.publicKey.ifBlank { stringResource(R.string.value_none) }, mono = true, maxLines = 6),
     )
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        shape = MaterialTheme.shapes.large,
+    ContentGroup(
+        title = stringResource(R.string.info_title),
+        modifier = modifier,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.info_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
             rows.forEach { row ->
                 DetailRow(row = row)
             }

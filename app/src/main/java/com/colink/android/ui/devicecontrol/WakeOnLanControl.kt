@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -146,6 +147,7 @@ fun WakeOnLanControlCard(
     support: SystemControlSupport? = null,
     sendFromLocal: Boolean = false,
     viewModel: WakeOnLanViewModel = hiltViewModel(),
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val recentMacs by viewModel.recentMacs.collectAsStateWithLifecycle()
@@ -169,16 +171,12 @@ fun WakeOnLanControlCard(
                 MaterialTheme.colorScheme.surfaceContainer
             },
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.device_wake_on_lan_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
             Text(
                 text = stringResource(
                     if (sendFromLocal) {

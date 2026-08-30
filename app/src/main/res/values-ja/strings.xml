@@ -151,6 +151,8 @@
     <string name="search_no_results">一致するデバイスが見つかりません</string>
     <string name="devices_section_pairable">ペアリング可能なデバイス</string>
     <string name="devices_section_mine">マイデバイス</string>
+    <string name="device_section_controls">操作</string>
+    <string name="device_section_features">機能</string>
     <string name="no_devices_title">デバイスが見つかりません</string>
     <string name="no_devices_body">他のデバイスでログインしてから、この一覧を更新してください。</string>
     <string name="pair_btn">ペアリング</string>

@@ -34,7 +34,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -104,6 +103,9 @@ import com.colink.android.R
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.model.LanPairingCandidate
 import com.colink.android.ui.components.BadgeChip
+import com.colink.android.ui.components.ContentGroupHeader
+import com.colink.android.ui.components.ContentGroupItem
+import com.colink.android.ui.components.ContentGroupSpacing
 import com.colink.android.ui.components.EmptyState
 import com.colink.android.ui.components.LocalAccountAction
 import com.colink.android.ui.components.ScreenColumn
@@ -585,7 +587,7 @@ private fun DeviceListContent(
                     key = "pairing-device-group-header",
                     contentType = "deviceGroupHeader",
                 ) {
-                    DeviceGroupHeader(
+                    ContentGroupHeader(
                         title = stringResource(R.string.devices_section_pairable),
                     )
                 }
@@ -594,7 +596,7 @@ private fun DeviceListContent(
                     key = { _, candidate -> "pairing-device-${candidate.deviceId}" },
                     contentType = { _, _ -> "pairingDevice" },
                 ) { index, candidate ->
-                    GroupedDeviceItem(
+                    ContentGroupItem(
                         isFirst = index == 0,
                         isLast = index == lanPairingCandidates.lastIndex,
                         modifier = Modifier.animateItem(),
@@ -607,21 +609,30 @@ private fun DeviceListContent(
                 }
             }
             if (devices.isNotEmpty()) {
+                if (lanPairingCandidates.isNotEmpty()) {
+                    item(
+                        key = "device-group-gap",
+                        contentType = "deviceGroupGap",
+                    ) {
+                        Spacer(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(ContentGroupSpacing),
+                        )
+                    }
+                }
                 item(
                     key = "device-group-header",
                     contentType = "deviceGroupHeader",
                 ) {
-                    DeviceGroupHeader(
-                        title = stringResource(R.string.devices_section_mine),
-                        separated = lanPairingCandidates.isNotEmpty(),
-                    )
+                    ContentGroupHeader(title = stringResource(R.string.devices_section_mine))
                 }
                 itemsIndexed(
                     items = devices,
                     key = { _, device -> "device-${device.deviceId}" },
                     contentType = { _, _ -> "device" },
                 ) { index, device ->
-                    GroupedDeviceItem(
+                    ContentGroupItem(
                         isFirst = index == 0,
                         isLast = index == devices.lastIndex,
                         modifier = Modifier.animateItem(),
@@ -640,55 +651,6 @@ private fun DeviceListContent(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun DeviceGroupHeader(
-    title: String,
-    separated: Boolean = false,
-) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(
-            start = 16.dp,
-            top = if (separated) 14.dp else 0.dp,
-            end = 16.dp,
-            bottom = 8.dp,
-        ),
-    )
-}
-
-@Composable
-private fun GroupedDeviceItem(
-    isFirst: Boolean,
-    isLast: Boolean,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = when {
-                isFirst && isLast -> RoundedCornerShape(16.dp)
-                isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-                else -> RoundedCornerShape(0.dp)
-            },
-        ) {
-            content()
-        }
-        if (!isLast) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp)
-                    .background(MaterialTheme.colorScheme.surface),
-            )
         }
     }
 }

@@ -22,9 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,6 +42,7 @@ fun DeviceMediaControlCard(
     support: SystemControlSupport? = null,
     querySupport: SystemControlSupport? = null,
     viewModel: DeviceMediaControlViewModel = hiltViewModel(),
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,17 +65,12 @@ fun DeviceMediaControlCard(
                 MaterialTheme.colorScheme.surfaceContainer
             },
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.device_media_control_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
             Text(
                 text = stringResource(R.string.device_media_control_subtitle),
                 style = MaterialTheme.typography.bodyMedium,

@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -54,6 +55,7 @@ fun DevicePowerControlCard(
     support: SystemControlSupport? = null,
     pendingPowerQuerySupport: SystemControlSupport? = null,
     viewModel: DevicePowerControlViewModel = hiltViewModel(),
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val localDeviceId by viewModel.localDeviceId.collectAsStateWithLifecycle()
@@ -84,17 +86,12 @@ fun DevicePowerControlCard(
                 MaterialTheme.colorScheme.surfaceContainer
             },
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.device_power_control_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
             Text(
                 text = stringResource(R.string.device_power_control_subtitle),
                 style = MaterialTheme.typography.bodyMedium,

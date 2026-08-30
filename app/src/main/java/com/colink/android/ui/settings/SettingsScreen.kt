@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,8 +43,6 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -76,6 +73,8 @@ import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.ui.components.AppUpdateDialog
 import com.colink.android.ui.components.CoLinkTextField
+import com.colink.android.ui.components.ContentGroup
+import com.colink.android.ui.components.ContentGroupSpacing
 import com.colink.android.ui.components.ScreenColumn
 import com.colink.android.util.CoLinkLog
 import com.colink.android.util.normalizeServerUrl
@@ -176,9 +175,9 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
         ) {
-            SettingsGroup(title = stringResource(R.string.settings_section_connection)) {
+            ContentGroup(title = stringResource(R.string.settings_section_connection)) {
                 SettingsItem(
                     icon = Icons.Default.Dns,
                     title = stringResource(R.string.server_url_label),
@@ -194,7 +193,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(title = stringResource(R.string.settings_section_behavior)) {
+            ContentGroup(title = stringResource(R.string.settings_section_behavior)) {
                 SettingsSwitchItem(
                     icon = Icons.Default.ContentPaste,
                     title = stringResource(R.string.settings_clipboard_sync_title),
@@ -212,7 +211,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(title = stringResource(R.string.settings_section_app)) {
+            ContentGroup(title = stringResource(R.string.settings_section_app)) {
                 SettingsItem(
                     icon = Icons.Default.Translate,
                     title = stringResource(R.string.language_label),
@@ -228,7 +227,7 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsGroup(title = stringResource(R.string.settings_section_about)) {
+            ContentGroup(title = stringResource(R.string.settings_section_about)) {
                 SettingsItem(
                     icon = Icons.Default.Info,
                     title = stringResource(R.string.settings_version),
@@ -449,33 +448,6 @@ private fun ServerUrlDialog(
             }
         },
     )
-}
-
-@Composable
-private fun SettingsGroup(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            ),
-        ) {
-            Column(content = content)
-        }
-    }
 }
 
 @Composable

@@ -151,6 +151,8 @@
     <string name="search_no_results">Совпадающие устройства не найдены</string>
     <string name="devices_section_pairable">Доступны для сопряжения</string>
     <string name="devices_section_mine">Мои устройства</string>
+    <string name="device_section_controls">Управление</string>
+    <string name="device_section_features">Функции</string>
     <string name="no_devices_title">Устройства не найдены</string>
     <string name="no_devices_body">Войдите на другом устройстве, а затем обновите этот список.</string>
     <string name="pair_btn">Сопрячь</string>

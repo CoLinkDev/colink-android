@@ -151,6 +151,8 @@
     <string name="search_no_results">未找到符合的裝置</string>
     <string name="devices_section_pairable">可配對裝置</string>
     <string name="devices_section_mine">我的裝置</string>
+    <string name="device_section_controls">控制</string>
+    <string name="device_section_features">功能</string>
     <string name="no_devices_title">還沒有裝置記錄</string>
     <string name="no_devices_body">在另一台裝置上登入，然後重新整理此列表。</string>
     <string name="pair_btn">配對</string>

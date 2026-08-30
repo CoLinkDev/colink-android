@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -146,6 +147,7 @@ fun CastBoardControlCard(
     onStartFullscreen: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CastBoardViewModel = hiltViewModel(),
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     val devices by viewModel.devices.collectAsStateWithLifecycle()
     val localDeviceId by viewModel.localDeviceId.collectAsStateWithLifecycle()
@@ -169,7 +171,7 @@ fun CastBoardControlCard(
             },
             disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Row(
             modifier = Modifier

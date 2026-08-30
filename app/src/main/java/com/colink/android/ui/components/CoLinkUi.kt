@@ -3,11 +3,13 @@ package com.colink.android.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,12 +24,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +44,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 
 val LocalAccountAction = staticCompositionLocalOf<(@Composable () -> Unit)?> { null }
 val ScreenHeaderHeight = 52.dp
+
+/** 内容组之间的统一间距：设备列表页的组后间隔条目、设置页与设备详情页的父容器排列间距均使用此值。 */
+val ContentGroupSpacing = 20.dp
 
 @Composable
 fun ScreenColumn(
@@ -255,6 +263,85 @@ fun BadgeChip(
                 text = text,
                 style = MaterialTheme.typography.labelMedium,
             )
+        }
+    }
+}
+
+/**
+ * 内容组风格共享组件：与设备列表、设置页一致的"分组标题 + 圆角容器"外观。
+ * - 组标题：labelLarge、onSurfaceVariant，水平 16dp 内边距，距容器 8dp。
+ * - 容器：surfaceContainer 背景、16dp 圆角。
+ */
+
+fun contentGroupShape(isFirst: Boolean, isLast: Boolean): Shape =
+    when {
+        isFirst && isLast -> RoundedCornerShape(16.dp)
+        isFirst -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        isLast -> RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
+        else -> RoundedCornerShape(0.dp)
+    }
+
+/** 内容组上方的分组标题。组与组之间的间距由上一个组的底部提供，不在此处添加顶距。 */
+@Composable
+fun ContentGroupHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(
+            start = 16.dp,
+            end = 16.dp,
+            bottom = 8.dp,
+        ),
+    )
+}
+
+/** 内容组中按位置圆角的分段条目；相邻条目之间保留 4dp 的页面底色间隔。 */
+@Composable
+fun ContentGroupItem(
+    isFirst: Boolean,
+    isLast: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = contentGroupShape(isFirst, isLast),
+        ) {
+            content()
+        }
+        if (!isLast) {
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .background(MaterialTheme.colorScheme.surface),
+            )
+        }
+    }
+}
+
+/** 带分组标题的独立内容组容器。 */
+@Composable
+fun ContentGroup(
+    title: String,
+    modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        ContentGroupHeader(title = title)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = containerColor,
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Column(content = content)
         }
     }
 }

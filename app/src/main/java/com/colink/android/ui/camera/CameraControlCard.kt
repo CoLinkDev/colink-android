@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ fun CameraControlCard(
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
     support: RemoteCameraSupport = RemoteCameraSupport.SUPPORTED,
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
     val isSupported = support != RemoteCameraSupport.TOO_OLD
 
@@ -44,7 +46,7 @@ fun CameraControlCard(
             },
             disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
-        shape = MaterialTheme.shapes.large,
+        shape = shape,
     ) {
         Row(
             modifier = Modifier

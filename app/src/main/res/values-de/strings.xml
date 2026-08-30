@@ -151,6 +151,8 @@
     <string name="search_no_results">Keine passenden Geräte gefunden</string>
     <string name="devices_section_pairable">Zum Koppeln verfügbar</string>
     <string name="devices_section_mine">Meine Geräte</string>
+    <string name="device_section_controls">Steuerung</string>
+    <string name="device_section_features">Funktionen</string>
     <string name="no_devices_title">Noch keine Geräte</string>
     <string name="no_devices_body">Melden Sie sich auf einem anderen Gerät an und aktualisieren Sie dann diese Liste.</string>
     <string name="pair_btn">Koppeln</string>
