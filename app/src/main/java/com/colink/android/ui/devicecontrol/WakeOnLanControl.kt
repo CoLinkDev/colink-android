@@ -13,7 +13,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -30,11 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -177,17 +181,36 @@ fun WakeOnLanControlCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(
-                    if (sendFromLocal) {
-                        R.string.device_wake_on_lan_local_subtitle
-                    } else {
-                        R.string.device_wake_on_lan_subtitle
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WifiTethering,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.device_wake_on_lan_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(
+                            if (sendFromLocal) {
+                                R.string.device_wake_on_lan_local_subtitle
+                            } else {
+                                R.string.device_wake_on_lan_subtitle
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             if (selectedDevice == null) {
                 Text(
                     text = stringResource(R.string.device_wake_on_lan_no_proxies),
@@ -236,12 +259,13 @@ fun WakeOnLanControlCard(
                     StateMessage(text = stringResource(R.string.device_wake_on_lan_invalid_mac))
                 }
                 Button(
+                    modifier = Modifier.fillMaxWidth(),
                     enabled = validMac &&
                         !state.submitting &&
                         activeSupport != SystemControlSupport.TOO_OLD,
                     onClick = { pendingMac = normalizedMac },
                 ) {
-                    Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(stringResource(R.string.device_wake_on_lan_send))
                 }

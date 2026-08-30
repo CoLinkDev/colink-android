@@ -10,18 +10,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,16 +94,36 @@ fun DevicePowerControlCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.device_power_control_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PowerSettingsNew,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.device_power_control_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.device_power_control_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             if (activePendingPowerQuerySupport == SystemControlSupport.SUPPORTED) {
                 state.pendingPower?.let { pendingPower ->
                     val remainingMs = state.pendingPowerRemainingMs ?: pendingPower.remainingMs
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         shape = RoundedCornerShape(12.dp),
                     ) {
                         Row(
@@ -113,7 +135,6 @@ fun DevicePowerControlCard(
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp),
                             )
                             Column(
@@ -135,7 +156,7 @@ fun DevicePowerControlCard(
                                         (remainingMs + 999) / 1_000,
                                     ),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                                 )
                             }
                         }
@@ -183,8 +204,9 @@ fun DevicePowerControlCard(
                     if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
                         PowerActionButton(
                             label = stringResource(R.string.device_power_cancel_scheduled),
-                            icon = Icons.Default.PowerSettingsNew,
+                            icon = Icons.Default.Cancel,
                             enabled = selectedDevice != null && !state.submitting,
+                            outlined = true,
                             onClick = { pendingAction = SystemControlAction.CancelPower },
                         )
                     }
@@ -254,27 +276,42 @@ private fun PowerActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     enabled: Boolean,
     destructive: Boolean = false,
+    outlined: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Button(
-        modifier = modifier,
-        enabled = enabled,
-        onClick = onClick,
-        colors = if (destructive) {
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
+    if (outlined) {
+        OutlinedButton(
+            modifier = modifier,
+            enabled = enabled,
+            onClick = onClick,
+        ) {
+            Icon(imageVector = icon, contentDescription = null)
+            Text(
+                text = label,
+                modifier = Modifier.padding(start = 8.dp),
             )
-        } else {
-            ButtonDefaults.buttonColors()
-        },
-    ) {
-        Icon(imageVector = icon, contentDescription = null)
-        Text(
-            text = label,
-            modifier = Modifier.padding(start = 8.dp),
-        )
+        }
+    } else {
+        FilledTonalButton(
+            modifier = modifier,
+            enabled = enabled,
+            onClick = onClick,
+            colors = if (destructive) {
+                ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            } else {
+                ButtonDefaults.filledTonalButtonColors()
+            },
+        ) {
+            Icon(imageVector = icon, contentDescription = null)
+            Text(
+                text = label,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
     }
 }
 
