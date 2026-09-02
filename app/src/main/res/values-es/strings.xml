@@ -60,6 +60,8 @@
     <string name="device_power_sleep">Suspender</string>
     <string name="device_power_lock">Bloquear pantalla</string>
     <string name="device_power_shutdown">Apagar</string>
+    <string name="device_display_off">Apagar pantalla</string>
+    <string name="device_display_on">Encender pantalla</string>
     <string name="device_power_delay_seconds">Retraso (segundos)</string>
     <string name="device_power_cancel_scheduled">Cancelar acción programada</string>
     <string name="device_power_scheduled_action">Acción programada: %1$s</string>
@@ -401,6 +403,7 @@
     <string name="device_warning_pending_power">Cuenta atrás de energía pendiente</string>
     <string name="device_warning_state_query">Consultas de estado de medios y energía</string>
     <string name="device_warning_power_control">Control de energía del dispositivo: suspender, apagar, bloquear</string>
+    <string name="device_warning_display_control">Control de pantalla: apagar, encender</string>
     <string name="retry_btn">Reintentar</string>
     <string name="dismiss_btn">Cerrar</string>
 

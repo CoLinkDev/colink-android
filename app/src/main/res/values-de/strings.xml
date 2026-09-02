@@ -60,6 +60,8 @@
     <string name="device_power_sleep">Ruhezustand</string>
     <string name="device_power_lock">Bildschirm sperren</string>
     <string name="device_power_shutdown">Herunterfahren</string>
+    <string name="device_display_off">Bildschirm ausschalten</string>
+    <string name="device_display_on">Bildschirm einschalten</string>
     <string name="device_power_delay_seconds">Verzögerung (Sekunden)</string>
     <string name="device_power_cancel_scheduled">Geplante Aktion abbrechen</string>
     <string name="device_power_scheduled_action">Geplante Aktion: %1$s</string>
@@ -401,6 +403,7 @@
     <string name="device_warning_pending_power">Anstehender Strom-Countdown</string>
     <string name="device_warning_state_query">Medien- und Stromstatusabfragen</string>
     <string name="device_warning_power_control">Geräteenergie steuern: Ruhezustand, Herunterfahren, Sperren</string>
+    <string name="device_warning_display_control">Bildschirm steuern: ausschalten, einschalten</string>
     <string name="retry_btn">Erneut versuchen</string>
     <string name="dismiss_btn">Schließen</string>
 

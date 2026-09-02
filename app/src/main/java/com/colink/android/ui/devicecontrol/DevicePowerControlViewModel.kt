@@ -106,6 +106,10 @@ class DevicePowerControlViewModel @Inject constructor(
         deviceId?.let(connectionManager::delayedPowerControlSupport)
             ?: SystemControlSupport.UNKNOWN
 
+    fun displayControlSupport(deviceId: String?): SystemControlSupport =
+        deviceId?.let(connectionManager::displayControlSupport)
+            ?: SystemControlSupport.UNKNOWN
+
     fun pendingPowerQuerySupport(deviceId: String?): SystemControlSupport =
         deviceId?.let(connectionManager::pendingPowerQuerySupport)
             ?: SystemControlSupport.UNKNOWN
@@ -125,6 +129,8 @@ class DevicePowerControlViewModel @Inject constructor(
                             SystemControlAction.Shutdown -> R.string.device_power_shutdown
                             SystemControlAction.Lock -> R.string.device_power_lock
                             SystemControlAction.CancelPower -> R.string.device_power_cancel_scheduled
+                            SystemControlAction.DisplayOff -> R.string.device_display_off
+                            SystemControlAction.DisplayOn -> R.string.device_display_on
                             else -> error("Not a power control action")
                         }
                         val label = localizedContext().getString(labelRes)

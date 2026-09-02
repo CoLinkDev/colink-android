@@ -60,6 +60,8 @@
     <string name="device_power_sleep">Сон</string>
     <string name="device_power_lock">Заблокировать экран</string>
     <string name="device_power_shutdown">Выключить</string>
+    <string name="device_display_off">Выключить экран</string>
+    <string name="device_display_on">Включить экран</string>
     <string name="device_power_delay_seconds">Задержка (секунды)</string>
     <string name="device_power_cancel_scheduled">Отменить запланированное действие</string>
     <string name="device_power_scheduled_action">Запланированное действие: %1$s</string>
@@ -401,6 +403,7 @@
     <string name="device_warning_pending_power">Обратный отсчёт ожидающего действия питания</string>
     <string name="device_warning_state_query">Запросы состояния медиа и питания</string>
     <string name="device_warning_power_control">Управление питанием устройства: сон, выключение, блокировка</string>
+    <string name="device_warning_display_control">Управление экраном: выключение, включение</string>
     <string name="retry_btn">Повторить</string>
     <string name="dismiss_btn">Закрыть</string>
 

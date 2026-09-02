@@ -60,6 +60,8 @@
     <string name="device_power_sleep">睡眠</string>
     <string name="device_power_lock">锁定屏幕</string>
     <string name="device_power_shutdown">关机</string>
+    <string name="device_display_off">关闭显示器</string>
+    <string name="device_display_on">点亮显示器</string>
     <string name="device_power_delay_seconds">延迟（秒）</string>
     <string name="device_power_cancel_scheduled">取消已计划的操作</string>
     <string name="device_power_scheduled_action">已计划操作：%1$s</string>
@@ -401,6 +403,7 @@
     <string name="device_warning_pending_power">待执行电源倒计时</string>
     <string name="device_warning_state_query">媒体/电源状态查询</string>
     <string name="device_warning_power_control">设备电源控制：休眠/关机/锁定</string>
+    <string name="device_warning_display_control">显示器控制：关闭/点亮</string>
     <string name="retry_btn">重试</string>
     <string name="dismiss_btn">关闭</string>
 

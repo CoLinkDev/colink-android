@@ -60,6 +60,8 @@
     <string name="device_power_sleep">スリープ</string>
     <string name="device_power_lock">画面ロック</string>
     <string name="device_power_shutdown">シャットダウン</string>
+    <string name="device_display_off">画面をオフ</string>
+    <string name="device_display_on">画面を点灯</string>
     <string name="device_power_delay_seconds">遅延（秒）</string>
     <string name="device_power_cancel_scheduled">予約済みの操作を取り消す</string>
     <string name="device_power_scheduled_action">予定された操作：%1$s</string>
@@ -401,6 +403,7 @@
     <string name="device_warning_pending_power">実行待ちの電源操作の残り時間</string>
     <string name="device_warning_state_query">メディア/電源状態の照会</string>
     <string name="device_warning_power_control">デバイス電源制御：スリープ/シャットダウン/ロック</string>
+    <string name="device_warning_display_control">画面制御：オフ/点灯</string>
     <string name="retry_btn">再試行</string>
     <string name="dismiss_btn">閉じる</string>
 

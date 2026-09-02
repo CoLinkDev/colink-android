@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -55,6 +57,7 @@ import com.colink.android.ui.components.isComputerDevice
 fun DevicePowerControlCard(
     modifier: Modifier = Modifier,
     support: SystemControlSupport? = null,
+    displayControlSupport: SystemControlSupport? = null,
     pendingPowerQuerySupport: SystemControlSupport? = null,
     viewModel: DevicePowerControlViewModel = hiltViewModel(),
     shape: Shape = MaterialTheme.shapes.large,
@@ -71,6 +74,8 @@ fun DevicePowerControlCard(
         availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
     }
     val activeSupport = support ?: viewModel.systemControlSupport(selectedDeviceId)
+    val activeDisplayControlSupport = displayControlSupport
+        ?: viewModel.displayControlSupport(selectedDeviceId)
     val activePendingPowerQuerySupport = pendingPowerQuerySupport
         ?: viewModel.pendingPowerQuerySupport(selectedDeviceId)
     var pendingAction by remember { mutableStateOf<SystemControlAction?>(null) }
@@ -201,6 +206,20 @@ fun DevicePowerControlCard(
                         destructive = true,
                         onClick = { pendingAction = SystemControlAction.Shutdown },
                     )
+                    if (activeDisplayControlSupport == SystemControlSupport.SUPPORTED) {
+                        PowerActionButton(
+                            label = stringResource(R.string.device_display_off),
+                            icon = Icons.Default.VisibilityOff,
+                            enabled = selectedDevice != null && !state.submitting,
+                            onClick = { pendingAction = SystemControlAction.DisplayOff },
+                        )
+                        PowerActionButton(
+                            label = stringResource(R.string.device_display_on),
+                            icon = Icons.Default.Visibility,
+                            enabled = selectedDevice != null && !state.submitting,
+                            onClick = { pendingAction = SystemControlAction.DisplayOn },
+                        )
+                    }
                     if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
                         PowerActionButton(
                             label = stringResource(R.string.device_power_cancel_scheduled),
@@ -217,7 +236,8 @@ fun DevicePowerControlCard(
 
     val action = pendingAction
     if (action != null && selectedDevice != null) {
-        val showDelayInput = action != SystemControlAction.CancelPower && delayedPowerSupport == SystemControlSupport.SUPPORTED
+        val showDelayInput = action.supportsDelay &&
+            delayedPowerSupport == SystemControlSupport.SUPPORTED
         AlertDialog(
             onDismissRequest = { pendingAction = null },
             title = {
@@ -323,6 +343,8 @@ private fun SystemControlAction.label(): String =
             SystemControlAction.Shutdown -> R.string.device_power_shutdown
             SystemControlAction.Lock -> R.string.device_power_lock
             SystemControlAction.CancelPower -> R.string.device_power_cancel_scheduled
+            SystemControlAction.DisplayOff -> R.string.device_display_off
+            SystemControlAction.DisplayOn -> R.string.device_display_on
             else -> error("Not a power control action")
         },
     )

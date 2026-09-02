@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.15.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.16.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val TEXT_MESSAGE_RECEIPT_TYPE = "message.v1.receipt"
@@ -468,6 +468,8 @@ enum class SystemControlAction(val wireValue: String) {
     SetVolume("set-volume"),
     Mute("mute"),
     WakeOnLan("wake-on-lan"),
+    DisplayOff("display-off"),
+    DisplayOn("display-on"),
     ;
 
     val minimumBusinessProtocolMinor: Int
@@ -488,6 +490,10 @@ enum class SystemControlAction(val wireValue: String) {
             -> 6
 
             WakeOnLan -> 8
+
+            DisplayOff,
+            DisplayOn,
+            -> 16
         }
 
     val requiresVolume: Boolean
@@ -497,7 +503,7 @@ enum class SystemControlAction(val wireValue: String) {
         get() = this == WakeOnLan
 
     val supportsDelay: Boolean
-        get() = this in setOf(Sleep, Shutdown, Lock)
+        get() = this in setOf(Sleep, Shutdown, Lock, DisplayOff, DisplayOn)
 
     fun minimumBusinessProtocolMinor(delay: Int?): Int =
         maxOf(minimumBusinessProtocolMinor, if (delay != null) 11 else 0)

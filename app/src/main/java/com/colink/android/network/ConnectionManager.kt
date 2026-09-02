@@ -1152,6 +1152,10 @@ class ConnectionManager @Inject constructor(
         return systemControlSupport(deviceId, SystemControlAction.CancelPower)
     }
 
+    fun displayControlSupport(deviceId: String): SystemControlSupport {
+        return systemControlSupport(deviceId, SystemControlAction.DisplayOff)
+    }
+
     fun remoteCameraSupport(deviceId: String): RemoteCameraSupport {
         val peerVersion = peerBusinessVersion(deviceId) ?: return RemoteCameraSupport.UNKNOWN
         return if (supportsBusinessProtocolAtLeast(peerVersion, major = 1, minor = 10)) {

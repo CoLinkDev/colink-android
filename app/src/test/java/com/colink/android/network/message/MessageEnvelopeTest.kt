@@ -362,6 +362,39 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesDisplayControlCommands() {
+        assertEquals(
+            """{"action":"display-off"}""",
+            json.encodeToString(
+                SystemControlCommandPayload(
+                    action = SystemControlAction.DisplayOff.wireValue,
+                ),
+            ),
+        )
+        assertEquals(
+            """{"action":"display-on"}""",
+            json.encodeToString(
+                SystemControlCommandPayload(
+                    action = SystemControlAction.DisplayOn.wireValue,
+                ),
+            ),
+        )
+        assertEquals(
+            """{"action":"display-off","delay":5}""",
+            json.encodeToString(
+                SystemControlCommandPayload(
+                    action = SystemControlAction.DisplayOff.wireValue,
+                    delay = 5,
+                ),
+            ),
+        )
+        assertEquals(16, SystemControlAction.DisplayOff.minimumBusinessProtocolMinor)
+        assertEquals(16, SystemControlAction.DisplayOn.minimumBusinessProtocolMinor)
+        assertEquals(true, SystemControlAction.DisplayOff.supportsDelay)
+        assertEquals(true, SystemControlAction.DisplayOn.supportsDelay)
+    }
+
+    @Test
     fun serializesVolumeSystemControlCommand() {
         val envelope = BusinessEnvelope(
             type = SYSTEM_CONTROL_COMMAND_TYPE,

@@ -136,6 +136,7 @@ fun DeviceScreen(
             terminalSupport = powerControlViewModel.terminalSupport(deviceId),
             wakeOnLanSupport = powerControlViewModel.wakeOnLanSupport(deviceId),
             delayedPowerSupport = powerControlViewModel.delayedPowerControlSupport(deviceId),
+            displayControlSupport = powerControlViewModel.displayControlSupport(deviceId),
             systemControlQuerySupport = mediaControlViewModel.systemControlQuerySupport(deviceId),
             pendingPowerQuerySupport = powerControlViewModel.pendingPowerQuerySupport(deviceId),
         )
@@ -530,6 +531,7 @@ private data class DeviceCapabilities(
     val terminalSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
     val wakeOnLanSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
     val delayedPowerSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
+    val displayControlSupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
     val systemControlQuerySupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
     val pendingPowerQuerySupport: SystemControlSupport = SystemControlSupport.UNKNOWN,
 )
@@ -554,6 +556,9 @@ private fun disabledFeatureNames(capabilities: DeviceCapabilities): List<String>
     }
     if (capabilities.delayedPowerSupport == SystemControlSupport.TOO_OLD) {
         names += stringResource(R.string.device_warning_scheduled_power)
+    }
+    if (capabilities.displayControlSupport == SystemControlSupport.TOO_OLD) {
+        names += stringResource(R.string.device_warning_display_control)
     }
     if (capabilities.pendingPowerQuerySupport == SystemControlSupport.TOO_OLD) {
         names += stringResource(R.string.device_warning_pending_power)
@@ -686,6 +691,7 @@ private fun LazyListScope.deviceControlItems(
                     blockGap()
                     DevicePowerControlCard(
                         support = capabilities.powerSupport,
+                        displayControlSupport = capabilities.displayControlSupport,
                         pendingPowerQuerySupport = capabilities.pendingPowerQuerySupport,
                         viewModel = powerControlViewModel,
                         shape = nextBlockShape(),
