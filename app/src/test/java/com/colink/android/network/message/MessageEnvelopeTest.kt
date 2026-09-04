@@ -342,6 +342,19 @@ class MessageEnvelopeTest {
     }
 
     @Test
+    fun serializesSystemControlAcknowledgement() {
+        val envelope = BusinessEnvelope(
+            type = SYSTEM_CONTROL_ACK_TYPE,
+            payload = json.encodeToJsonElement(SystemControlAckPayload()),
+        )
+
+        assertEquals(
+            """{"type":"system-control.v1.ack","payload":{}}""",
+            json.encodeToString(envelope),
+        )
+    }
+
+    @Test
     fun serializesDelayedAndCancelledPowerCommands() {
         val delayed = SystemControlCommandPayload(
             action = SystemControlAction.Shutdown.wireValue,

@@ -16,7 +16,7 @@ internal object WakeOnLan {
             ?: throw IllegalArgumentException("invalid Wake-on-LAN MAC address")
         val destinations = broadcastAddresses()
         if (destinations.isEmpty()) {
-            throw IOException("no active IPv4 broadcast interface")
+            throw WakeOnLanUnavailableException("no active IPv4 broadcast interface")
         }
         var sent = 0
         var lastError: Throwable? = null
@@ -69,3 +69,5 @@ internal object WakeOnLan {
         }
     }
 }
+
+internal class WakeOnLanUnavailableException(message: String) : IOException(message)

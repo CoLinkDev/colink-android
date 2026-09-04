@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.16.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.17.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val TEXT_MESSAGE_RECEIPT_TYPE = "message.v1.receipt"
@@ -47,6 +47,7 @@ const val FS_UPLOAD_TYPE = "fs.v1.upload"
 const val FS_UPLOAD_READY_TYPE = "fs.v1.upload-ready"
 const val FS_ERROR_TYPE = "fs.v1.error"
 const val SYSTEM_CONTROL_COMMAND_TYPE = "system-control.v1.command"
+const val SYSTEM_CONTROL_ACK_TYPE = "system-control.v1.ack"
 const val SYSTEM_CONTROL_QUERY_TYPE = "system-control.v1.query"
 const val SYSTEM_CONTROL_RESULT_TYPE = "system-control.v1.result"
 const val SYSTEM_CONTROL_ERROR_TYPE = "system-control.v1.error"
@@ -554,6 +555,9 @@ data class SystemControlErrorPayload(
     val message: String,
     val details: JsonElement? = null,
 )
+
+@Serializable
+class SystemControlAckPayload
 
 @Serializable
 data class TerminalOpenPayload(

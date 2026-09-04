@@ -80,6 +80,7 @@ import com.colink.android.network.message.MusicRequestPayload
 import com.colink.android.network.message.MusicTrackPayload
 import com.colink.android.network.message.SYSINFO_ALIVE_TYPE
 import com.colink.android.network.message.SYSINFO_STATS_TYPE
+import com.colink.android.network.message.SYSTEM_CONTROL_ACK_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_COMMAND_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_ERROR_TYPE
 import com.colink.android.network.message.SYSTEM_CONTROL_QUERY_TYPE
@@ -102,6 +103,7 @@ import com.colink.android.network.message.CAMERA_READY_TYPE
 import com.colink.android.network.message.SysInfoAlivePayload
 import com.colink.android.network.message.SysInfoStatsPayload
 import com.colink.android.network.message.SystemControlAction
+import com.colink.android.network.message.SystemControlAckPayload
 import com.colink.android.network.message.SystemControlCommandPayload
 import com.colink.android.network.message.SystemControlErrorPayload
 import com.colink.android.network.message.SystemControlQueryPayload
@@ -1564,7 +1566,9 @@ class ConnectionManager @Inject constructor(
             SYSINFO_STATS_TYPE -> runCatching {
                 json.decodeFromJsonElement(SysInfoStatsPayload.serializer(), business.payload)
             }.getOrNull()?.let { sysInfoSyncManager.acceptStats(fromDeviceId, it) }
-            SYSTEM_CONTROL_COMMAND_TYPE -> handleSystemControlCommand(business)
+            SYSTEM_CONTROL_COMMAND_TYPE ->
+                handleSystemControlCommand(fromDeviceId, envelopeId, route, business)
+            SYSTEM_CONTROL_ACK_TYPE -> Unit
             SYSTEM_CONTROL_RESULT_TYPE, SYSTEM_CONTROL_ERROR_TYPE ->
                 completeSystemControlQuery(fromDeviceId, correlationId, business)
             TERMINAL_OPEN_TYPE -> rejectTerminalOpen(fromDeviceId, envelopeId, business)
@@ -2391,26 +2395,130 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun handleSystemControlCommand(business: BusinessEnvelope) {
+    private suspend fun handleSystemControlCommand(
+        fromDeviceId: String,
+        envelopeId: String?,
+        route: String,
+        business: BusinessEnvelope,
+    ) {
+        val requestId = envelopeId
+            ?.takeIf { supportsSystemControlCommandAck(fromDeviceId, route) }
         val payload = runCatching {
             json.decodeFromJsonElement(SystemControlCommandPayload.serializer(), business.payload)
-        }.getOrNull() ?: return
-        val targetMac = payload.targetMac ?: return
-        if (
-            SystemControlAction.fromWireValue(payload.action) != SystemControlAction.WakeOnLan ||
-            payload.volume != null ||
-            !isValidWakeOnLanMac(targetMac)
-        ) {
+        }.getOrNull() ?: run {
+            requestId?.let {
+                sendSystemControlCommandError(
+                    fromDeviceId,
+                    it,
+                    "colink:system-control.invalid_request.v1",
+                    "Invalid system control command",
+                )
+            }
             return
         }
-        scope.launch {
-            runCatching { WakeOnLan.send(targetMac) }
-                .onSuccess { destinations ->
-                    CoLinkLog.i("WakeOnLan", "sent magic packet to $destinations broadcast interface(s)")
+
+        val action = SystemControlAction.fromWireValue(payload.action) ?: return
+        if (action == SystemControlAction.CancelPower) {
+            return
+        }
+        if (action != SystemControlAction.WakeOnLan) {
+            if (requestId != null) {
+                val validVolume = when (action) {
+                    SystemControlAction.SetVolume -> payload.volume?.let { it in 0..100 } == true
+                    SystemControlAction.DisplayOff, SystemControlAction.DisplayOn -> true
+                    else -> payload.volume == null
                 }
-                .onFailure { error ->
-                    CoLinkLog.w("WakeOnLan", "failed to send magic packet", error)
+                val validTargetMac = when (action) {
+                    SystemControlAction.DisplayOff, SystemControlAction.DisplayOn -> true
+                    else -> payload.targetMac == null
                 }
+                if (!validVolume || !validTargetMac) {
+                    sendSystemControlCommandError(
+                        fromDeviceId,
+                        requestId,
+                        "colink:system-control.invalid_request.v1",
+                        "Invalid system control command",
+                    )
+                } else {
+                    sendSystemControlCommandError(
+                        fromDeviceId,
+                        requestId,
+                        "colink:system-control.command_rejected.v1",
+                        "System control command is unavailable",
+                    )
+                }
+            }
+            return
+        }
+
+        val targetMac = payload.targetMac ?: return
+        if (payload.volume != null || !isValidWakeOnLanMac(targetMac)) {
+            return
+        }
+        runCatching { WakeOnLan.send(targetMac) }
+            .onSuccess { destinations ->
+                CoLinkLog.i("WakeOnLan", "sent magic packet to $destinations broadcast interface(s)")
+                requestId?.let { sendSystemControlCommandAck(fromDeviceId, it) }
+            }
+            .onFailure { error ->
+                CoLinkLog.w("WakeOnLan", "failed to send magic packet", error)
+                requestId?.let {
+                    sendSystemControlCommandError(
+                        fromDeviceId,
+                        it,
+                        if (error is WakeOnLanUnavailableException) {
+                            "colink:system-control.command_rejected.v1"
+                        } else {
+                            "colink:system-control.command_failed.v1"
+                        },
+                        "System control command failed",
+                    )
+                }
+            }
+    }
+
+    private fun supportsSystemControlCommandAck(deviceId: String, route: String): Boolean {
+        val peerVersion = when (route) {
+            "lan" -> lanWebSocketServer.peerBusinessVersion(deviceId)
+                ?: lanWebSocketClient.peerBusinessVersion(deviceId)
+            "cloud" -> cloudBusinessVersions[deviceId]
+            else -> null
+        }
+        return peerVersion?.let {
+            supportsBusinessProtocolAtLeast(it, major = 1, minor = 17)
+        } == true
+    }
+
+    private suspend fun sendSystemControlCommandAck(deviceId: String, requestId: String) {
+        sendBusinessMessage(
+            deviceId,
+            BusinessEnvelope(
+                SYSTEM_CONTROL_ACK_TYPE,
+                json.encodeToJsonElement(SystemControlAckPayload()),
+            ),
+            correlationId = requestId,
+        ).onFailure { error ->
+            CoLinkLog.w("SystemControl", "failed to send command acknowledgement", error)
+        }
+    }
+
+    private suspend fun sendSystemControlCommandError(
+        deviceId: String,
+        requestId: String,
+        reason: String,
+        message: String,
+    ) {
+        sendBusinessMessage(
+            deviceId,
+            BusinessEnvelope(
+                SYSTEM_CONTROL_ERROR_TYPE,
+                json.encodeToJsonElement(
+                    SystemControlErrorPayload(reason = reason, message = message),
+                ),
+            ),
+            correlationId = requestId,
+        ).onFailure { error ->
+            CoLinkLog.w("SystemControl", "failed to send command error", error)
         }
     }
 
