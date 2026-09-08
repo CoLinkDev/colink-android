@@ -61,7 +61,14 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          # Generate versionCode from tag: major*10000 + minor*100 + patch
+
+          # Android versionCode algorithm: major*10000 + minor*100 + patch
+          # This ensures monotonically increasing integer version codes.
+          # Examples:
+          #   v1.25.0  -> 1*10000 + 25*100 + 0  = 12500
+          #   v1.26.0  -> 1*10000 + 26*100 + 0  = 12600
+          #   v2.0.0   -> 2*10000 + 0*100  + 0  = 20000
+          # Maximum supported version: 214.74.83 (versionCode = 2147483647, Int.MAX_VALUE)
           IFS='.' read -r major minor patch <<< "$VERSION"
           CODE=$((major * 10000 + minor * 100 + ${patch:-0}))
           echo "VERSION_CODE=$CODE" >> "$GITHUB_OUTPUT"
