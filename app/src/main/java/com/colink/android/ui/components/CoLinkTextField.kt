@@ -63,6 +63,8 @@ fun CoLinkTextField(
             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            errorContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
     )
 }

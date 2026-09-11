@@ -161,6 +161,9 @@ fun WakeOnLanControlCard(
     var pendingMac by remember { mutableStateOf<String?>(null) }
     val normalizedMac = viewModel.normalizedMac(targetMac)
     val validMac = isValidWakeOnLanMac(normalizedMac)
+    val hasInvalidChars = targetMac.any { it !in '0'..'9' && it !in 'a'..'f' && it !in 'A'..'F' && it != ':' && it != '-' }
+    val isMalformed = targetMac.length >= 17 && !validMac
+    val isMacError = hasInvalidChars || isMalformed
 
     LaunchedEffect(selectedDevice?.deviceId, sendFromLocal) {
         viewModel.resetState()
@@ -230,7 +233,7 @@ fun WakeOnLanControlCard(
                     placeholder = { Text(stringResource(R.string.device_wake_on_lan_mac_placeholder)) },
                     singleLine = true,
                     enabled = activeSupport != SystemControlSupport.TOO_OLD,
-                    isError = targetMac.isNotBlank() && !validMac,
+                    isError = isMacError,
                 )
                 if (recentMacs.isNotEmpty()) {
                     Row(
@@ -255,7 +258,7 @@ fun WakeOnLanControlCard(
                         }
                     }
                 }
-                if (targetMac.isNotBlank() && !validMac) {
+                if (isMacError) {
                     StateMessage(text = stringResource(R.string.device_wake_on_lan_invalid_mac))
                 }
                 Button(
