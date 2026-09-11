@@ -307,22 +307,18 @@ private fun DiagnosticExportDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.FileDownload,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FileDownload,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = stringResource(R.string.diagnostics_export_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
+            Text(
+                text = stringResource(R.string.diagnostics_export_title),
+                style = MaterialTheme.typography.headlineSmall,
+            )
         },
         text = {
             Column(

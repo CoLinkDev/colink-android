@@ -277,6 +277,13 @@ fun WakeOnLanControlCard(
     if (mac != null && selectedDevice != null) {
         AlertDialog(
             onDismissRequest = { pendingMac = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.WifiTethering,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
             title = { Text(stringResource(R.string.device_wake_on_lan_confirm_title)) },
             text = {
                 Text(
