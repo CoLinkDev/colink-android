@@ -790,7 +790,9 @@ private fun MainBottomBar(navController: NavHostController) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentDestination = backStack?.destination
 
-    NavigationBar {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
         topLevelRoutes.forEach { item ->
             val selected = currentDestination?.isTopLevelSelected(item.route) == true
             NavigationBarItem(
