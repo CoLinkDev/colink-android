@@ -1,10 +1,6 @@
 package com.colink.android.ui.onboarding
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,9 +8,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-
-private val OnboardingPageEasing = CubicBezierEasing(0.5f, 0f, 0f, 1f)
-private const val OnboardingPageTransitionDurationMillis = 420
+import com.colink.android.ui.motion.sharedAxisPageEnterTransition
+import com.colink.android.ui.motion.sharedAxisPageExitTransition
 
 @Composable
 fun OnboardingScreen(
@@ -26,35 +21,9 @@ fun OnboardingScreen(
     AnimatedContent(
         targetState = page,
         transitionSpec = {
-            if (targetState > initialState) {
-                slideInHorizontally(
-                    initialOffsetX = { fullWidth -> fullWidth },
-                    animationSpec = tween(
-                        durationMillis = OnboardingPageTransitionDurationMillis,
-                        easing = OnboardingPageEasing,
-                    ),
-                ) togetherWith slideOutHorizontally(
-                    targetOffsetX = { fullWidth -> -fullWidth },
-                    animationSpec = tween(
-                        durationMillis = OnboardingPageTransitionDurationMillis,
-                        easing = OnboardingPageEasing,
-                    ),
-                )
-            } else {
-                slideInHorizontally(
-                    initialOffsetX = { fullWidth -> -fullWidth },
-                    animationSpec = tween(
-                        durationMillis = OnboardingPageTransitionDurationMillis,
-                        easing = OnboardingPageEasing,
-                    ),
-                ) togetherWith slideOutHorizontally(
-                    targetOffsetX = { fullWidth -> fullWidth },
-                    animationSpec = tween(
-                        durationMillis = OnboardingPageTransitionDurationMillis,
-                        easing = OnboardingPageEasing,
-                    ),
-                )
-            }
+            val forward = targetState > initialState
+            sharedAxisPageEnterTransition(forward) togetherWith
+                sharedAxisPageExitTransition(forward)
         },
         modifier = modifier,
         label = "onboarding_page",

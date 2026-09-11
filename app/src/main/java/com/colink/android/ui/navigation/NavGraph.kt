@@ -2,18 +2,6 @@ package com.colink.android.ui.navigation
 
 import android.content.res.Configuration
 import android.net.Uri
-import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -71,13 +59,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -110,31 +95,14 @@ import com.colink.android.ui.devices.DeviceListScreen
 import com.colink.android.ui.filesystem.RemoteFilesystemScreen
 import com.colink.android.ui.messages.ConversationScreen
 import com.colink.android.ui.messages.MessagesViewModel
+import com.colink.android.ui.motion.sharedAxisPageEnterTransition
+import com.colink.android.ui.motion.sharedAxisPageExitTransition
 import com.colink.android.ui.onboarding.OnboardingScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.components.AppUpdateDialog
 import com.colink.android.ui.components.LocalAccountAction
 import com.colink.android.ui.transfers.TransfersViewModel
 import kotlinx.coroutines.flow.StateFlow
-
-private val PageTransitionEasing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)
-private val SecondaryPageTransitionEasing = CubicBezierEasing(0.5f, 0f, 0f, 1f)
-private const val SecondaryPageTransitionDurationMillis = 500
-private val secondaryPageRoutes =
-    setOf(
-        "device/{deviceId}",
-        "conversation/{deviceId}",
-        "filesystem/{deviceId}",
-        "terminal/{deviceId}",
-        "camera/{deviceId}",
-    )
-private val deviceChildPageRoutes =
-    setOf(
-        "conversation/{deviceId}",
-        "filesystem/{deviceId}",
-        "terminal/{deviceId}",
-        "camera/{deviceId}",
-    )
 
 private data class TopLevelRoute(
     val route: String,
@@ -248,16 +216,6 @@ private fun SystemShareDialogHost(
 }
 
 @Composable
-private fun InterruptibleSecondaryPage(
-    interrupted: Boolean,
-    content: @Composable () -> Unit,
-) {
-    Box(modifier = if (interrupted) Modifier.alpha(0f) else Modifier) {
-        content()
-    }
-}
-
-@Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun MainScaffold(
     cloudStatus: StateFlow<CloudStatus>,
@@ -274,58 +232,6 @@ private fun MainScaffold(
     val rootNavController = rememberNavController()
     val nestedNavController = rememberNavController()
     var handledLaunchTargetToken by remember { mutableStateOf<Long?>(null) }
-    var previousRootEntryId by remember { mutableStateOf<String?>(null) }
-    var previousRootRoute by remember { mutableStateOf<String?>(null) }
-    var seenRootEntryIds by remember { mutableStateOf(emptySet<String>()) }
-    var exitingSecondaryPageEntryId by remember { mutableStateOf<String?>(null) }
-    var interruptedSecondaryPageEntryId by remember { mutableStateOf<String?>(null) }
-    var pendingSecondaryPageRoute by remember { mutableStateOf<String?>(null) }
-    val rootBackStackEntry by rootNavController.currentBackStackEntryAsState()
-    val secondaryPageScrimAlpha by animateFloatAsState(
-        targetValue = if (rootBackStackEntry?.destination?.route in secondaryPageRoutes) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = SecondaryPageTransitionDurationMillis,
-            easing = SecondaryPageTransitionEasing,
-        ),
-        label = "secondary page scrim",
-    )
-    val conversationScrimAlpha by animateFloatAsState(
-        targetValue = if (rootBackStackEntry?.destination?.route == "filesystem/{deviceId}") 1f else 0f,
-        animationSpec = tween(
-            durationMillis = SecondaryPageTransitionDurationMillis,
-            easing = SecondaryPageTransitionEasing,
-        ),
-        label = "conversation scrim",
-    )
-    val deviceScrimAlpha by animateFloatAsState(
-        targetValue = if (rootBackStackEntry?.destination?.route in deviceChildPageRoutes) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = SecondaryPageTransitionDurationMillis,
-            easing = SecondaryPageTransitionEasing,
-        ),
-        label = "device scrim",
-    )
-    LaunchedEffect(rootBackStackEntry?.id) {
-        val currentEntry = rootBackStackEntry ?: return@LaunchedEffect
-        if (
-            currentEntry.id in seenRootEntryIds &&
-                previousRootRoute in secondaryPageRoutes
-        ) {
-            exitingSecondaryPageEntryId = previousRootEntryId
-        }
-        seenRootEntryIds = seenRootEntryIds + currentEntry.id
-        previousRootEntryId = currentEntry.id
-        previousRootRoute = currentEntry.destination.route
-    }
-
-    LaunchedEffect(pendingSecondaryPageRoute) {
-        val route = pendingSecondaryPageRoute ?: return@LaunchedEffect
-        withFrameNanos { }
-        pendingSecondaryPageRoute = null
-        rootNavController.navigate(route) {
-            launchSingleTop = true
-        }
-    }
 
     fun requestSecondaryPage(route: String) {
         val currentEntry = rootNavController.currentBackStackEntry
@@ -333,12 +239,6 @@ private fun MainScaffold(
             rootNavController.navigate(route) {
                 launchSingleTop = true
             }
-        } else if (
-            currentEntry?.destination?.route in setOf("main", "device/{deviceId}", "conversation/{deviceId}") &&
-                exitingSecondaryPageEntryId != null
-        ) {
-            interruptedSecondaryPageEntryId = exitingSecondaryPageEntryId
-            pendingSecondaryPageRoute = route
         }
     }
 
@@ -364,66 +264,12 @@ private fun MainScaffold(
         navController = rootNavController,
         startDestination = "main",
         modifier = modifier,
-        enterTransition = {
-            slideIntoContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                animationSpec = tween(
-                    durationMillis = SecondaryPageTransitionDurationMillis,
-                    easing = SecondaryPageTransitionEasing,
-                ),
-            )
-        },
-        exitTransition = {
-            if (
-                (initialState.destination.route == "device/{deviceId}" &&
-                    targetState.destination.route in secondaryPageRoutes) ||
-                    (initialState.destination.route == "conversation/{deviceId}" &&
-                        targetState.destination.route == "filesystem/{deviceId}")
-            ) {
-                ExitTransition.None
-            } else {
-                slideOutOfContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Left,
-                    animationSpec = tween(
-                        durationMillis = SecondaryPageTransitionDurationMillis,
-                        easing = SecondaryPageTransitionEasing,
-                    ),
-                )
-            }
-        },
-        popEnterTransition = {
-            if (
-                (initialState.destination.route in secondaryPageRoutes &&
-                    targetState.destination.route == "device/{deviceId}") ||
-                    (initialState.destination.route == "filesystem/{deviceId}" &&
-                        targetState.destination.route == "conversation/{deviceId}")
-            ) {
-                EnterTransition.None
-            } else {
-                slideIntoContainer(
-                    towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                    animationSpec = tween(
-                        durationMillis = SecondaryPageTransitionDurationMillis,
-                        easing = SecondaryPageTransitionEasing,
-                    ),
-                )
-            }
-        },
-        popExitTransition = {
-            slideOutOfContainer(
-                towards = AnimatedContentTransitionScope.SlideDirection.Right,
-                animationSpec = tween(
-                    durationMillis = SecondaryPageTransitionDurationMillis,
-                    easing = SecondaryPageTransitionEasing,
-                ),
-            )
-        },
+        enterTransition = { sharedAxisPageEnterTransition(forward = true) },
+        exitTransition = { sharedAxisPageExitTransition(forward = true) },
+        popEnterTransition = { sharedAxisPageEnterTransition(forward = false) },
+        popExitTransition = { sharedAxisPageExitTransition(forward = false) },
     ) {
-        composable(
-            route = "main",
-            exitTransition = { ExitTransition.None },
-            popEnterTransition = { EnterTransition.None }
-        ) {
+        composable(route = "main") {
             val devicesViewModel: DevicesViewModel = hiltViewModel()
             val isAuthenticated by authenticated.collectAsStateWithLifecycle()
             val accountName by accountName.collectAsStateWithLifecycle()
@@ -488,12 +334,6 @@ private fun MainScaffold(
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .alpha(secondaryPageScrimAlpha)
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
-                    )
                 }
             }
 
@@ -515,75 +355,47 @@ private fun MainScaffold(
         }
 
         composable(route = "device/{deviceId}") { entry ->
-            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                Box {
-                    DeviceScreen(
-                        deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                        onBack = { rootNavController.popBackStack() },
-                        onOpenChat = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
-                        onStartCastBoard = { deviceId ->
-                            context.startActivity(CastBoardActivity.createIntent(context, deviceId))
-                        },
-                        onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
-                        onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .alpha(deviceScrimAlpha)
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
-                    )
-                }
-            }
+            DeviceScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
+                onOpenChat = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
+                onStartCastBoard = { deviceId ->
+                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                },
+                onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
+                onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
+            )
         }
 
         composable(route = "conversation/{deviceId}") { entry ->
-            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                Box {
-                    ConversationScreen(
-                        deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                        onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
-                        onBack = { rootNavController.popBackStack() },
-                        modifier = Modifier,
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .alpha(conversationScrimAlpha)
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f)),
-                    )
-                }
-            }
+            ConversationScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
+                onBack = { rootNavController.popBackStack() },
+                modifier = Modifier,
+            )
         }
 
-        composable(route = "filesystem/{deviceId}") { entry ->
-            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                RemoteFilesystemScreen(
-                    onBack = { rootNavController.popBackStack() },
-                    modifier = Modifier,
-                )
-            }
+        composable(route = "filesystem/{deviceId}") {
+            RemoteFilesystemScreen(
+                onBack = { rootNavController.popBackStack() },
+                modifier = Modifier,
+            )
         }
 
         composable(route = "terminal/{deviceId}") { entry ->
-            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                TerminalScreen(
-                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                    onBack = { rootNavController.popBackStack() },
-                    viewModel = hiltViewModel(),
-                )
-            }
+            TerminalScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
+                viewModel = hiltViewModel(),
+            )
         }
         composable(route = "camera/{deviceId}") { entry ->
-            InterruptibleSecondaryPage(entry.id == interruptedSecondaryPageEntryId) {
-                CameraScreen(
-                    deviceId = entry.arguments?.getString("deviceId").orEmpty(),
-                    onBack = { rootNavController.popBackStack() },
-                    viewModel = hiltViewModel(),
-                )
-            }
+            CameraScreen(
+                deviceId = entry.arguments?.getString("deviceId").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
+                viewModel = hiltViewModel(),
+            )
         }
 
     }
@@ -823,10 +635,10 @@ private fun MainTopLevelNavHost(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        enterTransition = { EnterTransition.None },
-        exitTransition = { ExitTransition.None },
-        popEnterTransition = { EnterTransition.None },
-        popExitTransition = { ExitTransition.None },
+        enterTransition = { sharedAxisPageEnterTransition(forward = true) },
+        exitTransition = { sharedAxisPageExitTransition(forward = true) },
+        popEnterTransition = { sharedAxisPageEnterTransition(forward = false) },
+        popExitTransition = { sharedAxisPageExitTransition(forward = false) },
     ) {
         composable("devices") {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

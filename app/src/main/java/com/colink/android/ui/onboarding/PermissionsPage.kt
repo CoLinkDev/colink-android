@@ -9,6 +9,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +25,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.BatteryAlert
@@ -32,8 +33,6 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -55,6 +54,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.colink.android.R
+import com.colink.android.ui.components.ContentGroupItem
 
 @Composable
 internal fun PermissionsPage(
@@ -159,7 +159,6 @@ internal fun PermissionsPage(
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 Column(
@@ -182,11 +181,14 @@ internal fun PermissionsPage(
                     )
                 }
             }
-            items(permissionItems) { item ->
-                PermissionCard(
-                    item = item,
+            itemsIndexed(permissionItems) { index, item ->
+                ContentGroupItem(
+                    isFirst = index == 0,
+                    isLast = index == permissionItems.lastIndex,
                     modifier = Modifier.padding(horizontal = 24.dp),
-                )
+                ) {
+                    PermissionItemRow(item = item)
+                }
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
         }
@@ -208,66 +210,60 @@ private data class PermissionItem(
 )
 
 @Composable
-private fun PermissionCard(
+private fun PermissionItemRow(
     item: PermissionItem,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = {
-            if (!item.granted) {
-                item.onRequest()
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable {
+                if (!item.granted) {
+                    item.onRequest()
+                }
             }
-        },
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        shape = MaterialTheme.shapes.large,
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.Top,
+        Icon(
+            imageVector = item.icon,
+            contentDescription = null,
+            modifier = Modifier
+                .size(24.dp)
+                .align(Alignment.CenterVertically),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(24.dp)
-                    .align(Alignment.CenterVertically),
-                tint = MaterialTheme.colorScheme.primary,
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleMedium,
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = item.body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Icon(
-                imageVector = if (item.granted) {
-                    Icons.Default.CheckCircle
-                } else {
-                    Icons.AutoMirrored.Filled.KeyboardArrowRight
-                },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(24.dp)
-                    .align(Alignment.CenterVertically),
-                tint = if (item.granted) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+            Text(
+                text = item.body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(modifier = Modifier.width(12.dp))
+        Icon(
+            imageVector = if (item.granted) {
+                Icons.Default.CheckCircle
+            } else {
+                Icons.AutoMirrored.Filled.KeyboardArrowRight
+            },
+            contentDescription = null,
+            modifier = Modifier
+                .size(24.dp)
+                .align(Alignment.CenterVertically),
+            tint = if (item.granted) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
