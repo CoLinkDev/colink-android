@@ -237,10 +237,33 @@ fun DevicePowerControlCard(
 
     val action = pendingAction
     if (action != null && selectedDevice != null) {
+        val isDestructive = action == SystemControlAction.Shutdown
+        val actionIcon = when (action) {
+            SystemControlAction.Sleep -> Icons.Default.Bedtime
+            SystemControlAction.Shutdown -> Icons.Default.PowerSettingsNew
+            SystemControlAction.Lock -> Icons.Default.Lock
+            SystemControlAction.CancelPower -> Icons.Default.Cancel
+            SystemControlAction.DisplayOff -> Icons.Default.VisibilityOff
+            SystemControlAction.DisplayOn -> Icons.Default.Visibility
+            else -> null
+        }
         val showDelayInput = action.supportsDelay &&
             delayedPowerSupport == SystemControlSupport.SUPPORTED
         AlertDialog(
             onDismissRequest = { pendingAction = null },
+            icon = actionIcon?.let { iconVector ->
+                {
+                    Icon(
+                        imageVector = iconVector,
+                        contentDescription = null,
+                        tint = if (isDestructive) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
+            },
             title = {
                 Text(stringResource(R.string.device_power_confirm_title, action.label()))
             },
@@ -277,6 +300,14 @@ fun DevicePowerControlCard(
                         val currentDelay = if (showDelayInput) delay else null
                         pendingAction = null
                         viewModel.send(currentAction, currentDelay)
+                    },
+                    colors = if (isDestructive) {
+                        ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError,
+                        )
+                    } else {
+                        ButtonDefaults.buttonColors()
                     },
                 ) {
                     Text(action.label())

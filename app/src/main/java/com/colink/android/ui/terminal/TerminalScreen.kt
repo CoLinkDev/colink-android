@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -306,6 +308,13 @@ fun TerminalScreen(deviceId: String, onBack: () -> Unit, viewModel: TerminalView
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
             title = { Text(stringResource(com.colink.android.R.string.terminal_exit_confirm_title)) },
             text = { Text(stringResource(com.colink.android.R.string.terminal_exit_confirm_body)) },
             confirmButton = {
@@ -314,6 +323,10 @@ fun TerminalScreen(deviceId: String, onBack: () -> Unit, viewModel: TerminalView
                         showExitDialog = false
                         onBack()
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
                 ) {
                     Text(stringResource(com.colink.android.R.string.terminal_exit_confirm_btn))
                 }

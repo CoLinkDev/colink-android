@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,6 +61,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -469,6 +471,8 @@ fun DeviceScreen(
                 title = stringResource(R.string.delete_device_title),
                 body = stringResource(R.string.delete_device_body, devName),
                 confirmText = stringResource(R.string.delete_btn),
+                icon = Icons.Default.Delete,
+                destructive = true,
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.deleteDevice(action.deviceId)
@@ -484,6 +488,8 @@ fun DeviceScreen(
                 title = stringResource(R.string.rotate_key_title),
                 body = stringResource(R.string.rotate_key_body, devName),
                 confirmText = stringResource(R.string.rotate_btn),
+                icon = Icons.Default.VpnKey,
+                destructive = false,
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.rotateKey(action.deviceId)
@@ -511,6 +517,8 @@ fun DeviceScreen(
                 title = stringResource(R.string.forget_lan_trust_title),
                 body = stringResource(R.string.forget_lan_trust_body, devName),
                 confirmText = stringResource(R.string.forget_btn),
+                icon = Icons.Default.LinkOff,
+                destructive = true,
                 onDismiss = { confirmAction = null },
                 onConfirm = {
                     viewModel.forgetLanTrust(action.deviceId)
@@ -982,15 +990,40 @@ private fun ConfirmDeviceActionDialog(
     title: String,
     body: String,
     confirmText: String,
+    icon: ImageVector? = null,
+    destructive: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        icon = icon?.let {
+            {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    tint = if (destructive) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+            }
+        },
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            Button(onClick = onConfirm) {
+            Button(
+                onClick = onConfirm,
+                colors = if (destructive) {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    )
+                } else {
+                    ButtonDefaults.buttonColors()
+                },
+            ) {
                 Text(confirmText)
             }
         },
