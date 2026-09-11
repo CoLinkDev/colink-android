@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -308,7 +309,7 @@ fun TerminalScreen(deviceId: String, onBack: () -> Unit, viewModel: TerminalView
             title = { Text(stringResource(com.colink.android.R.string.terminal_exit_confirm_title)) },
             text = { Text(stringResource(com.colink.android.R.string.terminal_exit_confirm_body)) },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showExitDialog = false
                         onBack()

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -156,7 +157,7 @@ fun AppUpdateDialog(
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (!required && !downloadingInProgress) {
@@ -165,7 +166,7 @@ fun AppUpdateDialog(
                         }
                     }
                     if (asset != null && !downloadingInProgress && !installing) {
-                        TextButton(
+                        Button(
                             onClick = onUpdate,
                         ) {
                             Text(stringResource(R.string.update_download_btn))

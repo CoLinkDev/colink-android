@@ -738,7 +738,7 @@ private fun PairingRequestDialogHost(
             if (current.initiatedLocally && current.error == null) {
                 null
             } else {
-                TextButton(
+                Button(
                     enabled = !current.waiting,
                     onClick = {
                         if (current.error != null) {

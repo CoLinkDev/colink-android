@@ -292,7 +292,7 @@ fun WakeOnLanControlCard(
                 )
             },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         pendingMac = null
                         viewModel.send(selectedDevice.deviceId, mac, sendFromLocal)

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -269,7 +270,7 @@ fun DevicePowerControlCard(
                 }
             },
             confirmButton = {
-                TextButton(
+                Button(
                     enabled = !showDelayInput || delayInputValid,
                     onClick = {
                         val currentAction = action

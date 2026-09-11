@@ -956,7 +956,7 @@ private fun RenameDeviceDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = {
                     val trimmed = name.trim()
                     if (trimmed.isBlank()) {
@@ -990,7 +990,7 @@ private fun ConfirmDeviceActionDialog(
         title = { Text(title) },
         text = { Text(body) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            Button(onClick = onConfirm) {
                 Text(confirmText)
             }
         },
