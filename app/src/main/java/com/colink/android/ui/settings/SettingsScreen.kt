@@ -5,9 +5,11 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,10 +22,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -47,6 +51,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -61,10 +66,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +80,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.colink.android.BuildConfig
 import com.colink.android.R
 import com.colink.android.ui.components.AppUpdateDialog
+import com.colink.android.ui.components.contentGroupShape
 import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.ContentGroup
 import com.colink.android.ui.components.ContentGroupSpacing
@@ -276,6 +284,26 @@ private fun DiagnosticExportDialog(
     onDismiss: () -> Unit,
     onExport: (Long) -> Unit,
 ) {
+    val ranges = remember {
+        listOf(
+            Triple(
+                Icons.Default.Schedule,
+                R.string.diagnostics_export_last_day,
+                24 * 60 * 60 * 1000L,
+            ),
+            Triple(
+                Icons.Default.DateRange,
+                R.string.diagnostics_export_last_week,
+                7 * 24 * 60 * 60 * 1000L,
+            ),
+            Triple(
+                Icons.Default.History,
+                R.string.diagnostics_export_all,
+                0L,
+            ),
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -307,32 +335,21 @@ private fun DiagnosticExportDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    DiagnosticRangeItem(
-                        icon = Icons.Default.Schedule,
-                        title = stringResource(R.string.diagnostics_export_last_day),
-                        onClick = { onExport(System.currentTimeMillis() - 24 * 60 * 60 * 1000L) },
-                    )
-                    SettingsGroupSeparator(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                    DiagnosticRangeItem(
-                        icon = Icons.Default.DateRange,
-                        title = stringResource(R.string.diagnostics_export_last_week),
-                        onClick = { onExport(System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L) },
-                    )
-                    SettingsGroupSeparator(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    )
-                    DiagnosticRangeItem(
-                        icon = Icons.Default.History,
-                        title = stringResource(R.string.diagnostics_export_all),
-                        onClick = { onExport(0L) },
-                    )
+                    ranges.forEachIndexed { index, (icon, titleRes, duration) ->
+                        val isFirst = index == 0
+                        val isLast = index == ranges.lastIndex
+                        DiagnosticRangeItem(
+                            icon = icon,
+                            title = stringResource(titleRes),
+                            shape = contentGroupShape(isFirst = isFirst, isLast = isLast),
+                            onClick = {
+                                onExport(if (duration == 0L) 0L else System.currentTimeMillis() - duration)
+                            },
+                        )
+                    }
                 }
             }
         },
@@ -349,27 +366,52 @@ private fun DiagnosticExportDialog(
 private fun DiagnosticRangeItem(
     icon: ImageVector,
     title: String,
+    shape: Shape,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceBright,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
     }
 }
 
@@ -549,45 +591,92 @@ private fun LanguagePickerDialog(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var selectedCode by rememberSaveable(currentCode) { mutableStateOf(currentCode) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.language_label)) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Translate,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.language_label),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+        },
         text = {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 480.dp)
-                    .selectableGroup(),
+                    .heightIn(max = 380.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                items(
+                itemsIndexed(
                     items = languages,
-                    key = { (code, _) -> code },
-                ) { (code, name) ->
-                    Row(
+                    key = { _, (code, _) -> code },
+                ) { index, (code, name) ->
+                    val isFirst = index == 0
+                    val isLast = index == languages.lastIndex
+                    val isSelected = selectedCode == code
+                    val itemShape = contentGroupShape(isFirst = isFirst, isLast = isLast)
+
+                    val containerColor by animateColorAsState(
+                        targetValue = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceBright
+                        },
+                        label = "languageItemContainerColor",
+                    )
+
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .selectable(
-                                selected = code == currentCode,
-                                role = Role.RadioButton,
-                                onClick = { onSelect(code) },
-                            )
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            .heightIn(min = 48.dp)
+                            .clip(itemShape)
+                            .clickable { selectedCode = code },
+                        shape = itemShape,
+                        color = containerColor,
                     ) {
-                        RadioButton(
-                            selected = code == currentCode,
-                            onClick = null,
-                        )
-                        Text(
-                            text = name,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = name,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { selectedCode = code },
+                            )
+                        }
                     }
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            Button(
+                onClick = { onSelect(selectedCode) },
+            ) {
+                Text(stringResource(R.string.save_btn))
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(stringResource(R.string.cancel_btn))

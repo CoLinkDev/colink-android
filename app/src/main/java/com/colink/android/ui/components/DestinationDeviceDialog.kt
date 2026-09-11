@@ -73,6 +73,7 @@ fun DestinationDeviceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Send,
@@ -136,9 +137,9 @@ fun DestinationDeviceDialog(
 
                         val containerColor by animateColorAsState(
                             targetValue = if (isSelected) {
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                MaterialTheme.colorScheme.primaryContainer
                             } else {
-                                MaterialTheme.colorScheme.surfaceContainer
+                                MaterialTheme.colorScheme.surfaceBright
                             },
                             label = "deviceItemContainerColor",
                         )
@@ -174,7 +175,11 @@ fun DestinationDeviceDialog(
                                         text = device.name.ifBlank { stringResource(R.string.unnamed_device) },
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                     )
