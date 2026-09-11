@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -948,7 +949,10 @@ private fun TransferDetailSheet(
     }
     val deviceText = deviceName?.takeIf { it.isNotBlank() } ?: transfer.deviceId
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
