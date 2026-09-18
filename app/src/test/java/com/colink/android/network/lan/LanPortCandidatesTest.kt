@@ -1,20 +1,44 @@
 package com.colink.android.network.lan
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.random.Random
 
 class LanPortCandidatesTest {
     @Test
-    fun choosesTheNearestHigherPortOnTies() {
+    fun startsWithPreferredThenCoversRandomRangeWithoutDuplicates() {
+        val candidates = lanPortCandidates(random = Random(0)).toList()
+
+        assertEquals(LAN_PORT, candidates.first())
         assertEquals(
-            listOf(27_777, 27_778, 27_776, 27_779, 27_775),
-            lanPortCandidates().take(5).toList(),
+            (20_000..65_535).filter { it != LAN_PORT },
+            candidates.drop(1).sorted(),
         )
     }
 
     @Test
-    fun staysWithinTheUnprivilegedRange() {
-        assertEquals(listOf(1_024, 1_025, 1_026), lanPortCandidates(1_024).take(3).toList())
-        assertEquals(listOf(65_535, 65_534, 65_533), lanPortCandidates(65_535).take(3).toList())
+    fun keepsPreferredPortOutsideTheRandomFallbackRange() {
+        val candidates = lanPortCandidates(preferredPort = 1_024, random = Random(1)).toList()
+
+        assertEquals(1_024, candidates.first())
+        assertEquals((20_000..65_535).toList(), candidates.drop(1).sorted())
+    }
+
+    @Test
+    fun doesNotGenerateRandomFallbacksWhenPreferredPortSucceeds() {
+        val failingRandom = object : Random() {
+            override fun nextBits(bitCount: Int): Int = error("fallback ports should remain lazy")
+        }
+
+        assertEquals(LAN_PORT, lanPortCandidates(random = failingRandom).first())
+    }
+
+    @Test
+    fun randomFallbacksStayWithinTheConfiguredRange() {
+        val fallbackPorts = lanPortCandidates(random = Random(2)).drop(1).take(1_000).toList()
+
+        assertTrue(fallbackPorts.all { it in 20_000..65_535 && it != LAN_PORT })
+        assertEquals(fallbackPorts.size, fallbackPorts.distinct().size)
     }
 }

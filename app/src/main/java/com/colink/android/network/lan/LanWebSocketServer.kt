@@ -126,6 +126,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
 const val LAN_PORT = 27_777
 private const val MIN_LAN_PORT = 1_024
+private const val RANDOM_LAN_PORT_MIN = 20_000
 private const val MAX_LAN_PORT = 65_535
 private const val HANDSHAKE_TIMEOUT_MILLIS = 10_000L
 private const val PAIRING_TIMEOUT_MILLIS = 240_000L
@@ -1778,19 +1779,16 @@ private fun Throwable.isExpectedSwimProbeFailure(): Boolean =
 private fun Throwable.isLanPortInUse(): Boolean =
     this is BindException || cause?.isLanPortInUse() == true
 
-internal fun lanPortCandidates(preferredPort: Int = LAN_PORT): Sequence<Int> = sequence {
+internal fun lanPortCandidates(
+    preferredPort: Int = LAN_PORT,
+    random: kotlin.random.Random = kotlin.random.Random.Default,
+): Sequence<Int> = sequence {
     require(preferredPort in MIN_LAN_PORT..MAX_LAN_PORT)
     yield(preferredPort)
-    for (distance in 1..maxOf(preferredPort - MIN_LAN_PORT, MAX_LAN_PORT - preferredPort)) {
-        val higherPort = preferredPort + distance
-        if (higherPort <= MAX_LAN_PORT) {
-            yield(higherPort)
-        }
-        val lowerPort = preferredPort - distance
-        if (lowerPort >= MIN_LAN_PORT) {
-            yield(lowerPort)
-        }
-    }
+    val fallbackPorts = (RANDOM_LAN_PORT_MIN..MAX_LAN_PORT)
+        .filter { it != preferredPort }
+        .shuffled(random)
+    yieldAll(fallbackPorts)
 }
 
 private fun elapsedSince(startedAt: Long): Long =
