@@ -515,6 +515,11 @@ class ConnectionManager @Inject constructor(
     private val discoveryRefreshAt = ConcurrentHashMap<String, Long>()
     private val peersMissingMdnsEndpoint = ConcurrentHashMap.newKeySet<String>()
     private val started = AtomicBoolean(false)
+    private val lanLifecycle = LanLifecycleController(
+        isManagerStarted = started::get,
+        startServices = ::startLanServices,
+        stopServices = ::stopLanServices,
+    )
     private var swimSeq = 0L
     private val probeQueue = ArrayDeque<String>()
     private var probeRoundCandidates = emptyList<String>()
@@ -537,16 +542,17 @@ class ConnectionManager @Inject constructor(
             CoLinkLog.d("Connection", "connection manager already started")
             return
         }
+        lanLifecycle.resetForManagerStart()
         notifier.ensureEventChannel()
         CoLinkLog.i("Connection", "starting connection manager")
         lanNetworkMonitor.start(
             onLanLost = {
                 CoLinkLog.i("Connection", "network lost, stopping LAN services")
-                scope.launch { stopLan() }
+                scheduleLanAvailability(available = false)
             },
             onLanAvailable = {
                 CoLinkLog.i("Connection", "network available, restarting LAN services")
-                scope.launch { restartLan() }
+                scheduleLanAvailability(available = true)
             },
             onNetworkLost = {
                 CoLinkLog.i("Connection", "network lost, stopping cloud websocket")
@@ -564,7 +570,7 @@ class ConnectionManager @Inject constructor(
                 return@launch
             }
             fileTransferRepository.failUnfinished("app restarted")
-            startLan()
+            lanLifecycle.startIfDesired()
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
             } else if (settingsDataStore.currentSession() == null) {
@@ -595,7 +601,7 @@ class ConnectionManager @Inject constructor(
         suspectJob = null
         clipboardSyncHandler.stop()
         broadcastLeft()
-        stopLan()
+        lanLifecycle.stopAndInvalidate()
         musicSyncManager.reset()
         incomingTransfers.clear()
         cameraStreamHost.closeAll()
@@ -668,7 +674,7 @@ class ConnectionManager @Inject constructor(
 
     fun applySettings(settings: AppSettings) {
         CoLinkLog.i("Settings", "applying settings")
-        startLan()
+        lanLifecycle.startIfDesired()
         scope.launch {
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
@@ -902,30 +908,38 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun startLan() {
-        CoLinkLog.i("LAN", "starting LAN services")
+    private fun scheduleLanAvailability(available: Boolean) {
+        val generation = lanLifecycle.requestAvailability(available)
+        scope.launch {
+            CoLinkLog.i(
+                "LAN",
+                "applying LAN availability available=$available generation=$generation",
+            )
+            lanLifecycle.applyAvailability(generation, available)
+        }
+    }
+
+    private fun startLanServices(generation: Long) {
+        CoLinkLog.i("LAN", "starting LAN services generation=$generation")
         val port = lanWebSocketServer.start(lanListener) ?: return
         scope.launch {
             val identity = deviceRepository.localDeviceIdentity() ?: run {
                 CoLinkLog.w("LAN", "LAN discovery skipped because local identity is missing")
                 return@launch
             }
-            swimMembership.ensureLocalStarted(identity.deviceId)
-            startLanDiscovery(identity, port)
+            lanLifecycle.runIfCurrent(generation) {
+                swimMembership.ensureLocalStarted(identity.deviceId)
+                startLanDiscovery(identity, port)
+            }
         }
         startSwimLoops()
     }
 
-    private fun restartLan() {
-        stopLan()
-        startLan()
-    }
-
     fun restartLanAfterKeyRotation() {
-        restartLan()
+        lanLifecycle.restartIfDesired()
     }
 
-    private fun stopLan() {
+    private fun stopLanServices() {
         CoLinkLog.i("LAN", "stopping LAN services")
         highPrioritySwimRefresh.set(false)
         swimJob?.cancel()

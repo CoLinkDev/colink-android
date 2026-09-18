@@ -44,9 +44,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.application.install
-import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.application.serverConfig
+import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.EngineConnectorBuilder
+import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.netty.NettyApplicationEngine
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
@@ -57,6 +61,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
@@ -92,9 +97,13 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
@@ -126,6 +135,7 @@ private const val KEY_EXCHANGE_TIMESTAMP_WINDOW_MILLIS = 30_000L
 private const val SWIM_MAX_BODY_BYTES = 16 * 1024
 private const val CAMERA_SEND_BUFFER_CAPACITY = 3
 private const val FILE_V3_PROGRESS_INTERVAL_MILLIS = 500L
+private const val WEBSOCKET_SHUTDOWN_TIMEOUT_MILLIS = 1_000L
 private const val TEMPORARY_CERTIFICATE_VALIDITY_MILLIS = 24L * 60L * 60L * 1_000L
 private val RANGE_HEADER = Regex("bytes=(\\d+)-")
 private val HTTP_MISDIRECTED_REQUEST = HttpStatusCode(421, "Misdirected Request")
@@ -134,6 +144,7 @@ private const val REASON_AUTH_KEY_CHANGED = "colink:auth.key_changed.v1"
 private const val REASON_KEY_EXCHANGE_SIGNATURE_INVALID = "colink:key_exchange.signature_invalid.v1"
 private const val REASON_KEY_EXCHANGE_TIMESTAMP_EXPIRED = "colink:key_exchange.timestamp_expired.v1"
 private const val REASON_KEY_EXCHANGE_GENERIC = "colink:key_exchange.generic.v1"
+private val SERVER_STOPPING_CLOSE_REASON = CloseReason(CloseReason.Codes.GOING_AWAY, "LAN server stopping")
 private const val MESSAGE_AUTH_UNKNOWN_DEVICE = "No trust record for this device"
 private const val MESSAGE_AUTH_KEY_CHANGED = "Peer public key differs from stored trust record"
 private const val MESSAGE_KEY_EXCHANGE_SIGNATURE_INVALID = "Ephemeral key signature verification failed"
@@ -159,7 +170,10 @@ class LanWebSocketServer @Inject constructor(
     private val cameraTokens = ConcurrentHashMap<String, String>()
     private val cameraConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
     private val cameraSenders = ConcurrentHashMap<String, Channel<CameraDataFrame>>()
-    private var engine: ApplicationEngine? = null
+    private val activeSessions = ConcurrentHashMap.newKeySet<DefaultWebSocketServerSession>()
+    private val activeSessionJobs = ConcurrentHashMap.newKeySet<Job>()
+    private val stopping = AtomicBoolean(true)
+    private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
     private var port: Int? = null
     private var tlsCertificate: TemporaryTlsCertificate? = null
     private var listener: Listener? = null
@@ -170,10 +184,12 @@ class LanWebSocketServer @Inject constructor(
             this.listener = listener
             return port
         }
+        stopping.set(false)
         this.listener = listener
         val temporaryTlsCertificate = runCatching { createTemporaryTlsCertificate() }
             .getOrElse { error ->
                 CoLinkLog.w("LAN", "failed to create TLS certificate", error)
+                stopping.set(true)
                 this.listener = null
                 return null
             }
@@ -197,30 +213,41 @@ class LanWebSocketServer @Inject constructor(
             val error = requireNotNull(startResult.exceptionOrNull())
             if (!error.isLanPortInUse()) {
                 CoLinkLog.w("LAN", "LAN server failed to start port=$candidatePort", error)
+                stopping.set(true)
                 this.listener = null
                 return null
             }
         }
         CoLinkLog.w("LAN", "no available LAN port")
+        stopping.set(true)
         this.listener = null
         return null
     }
 
     @Synchronized
     fun stop() {
-        engine?.stop(gracePeriodMillis = 500, timeoutMillis = 1_000)
-        engine = null
-        port = null
-        peers.clear()
-        transferTokens.clear()
-        transferConnections.clear()
-        fileV3Transfers.clear()
-        tlsCertificate = null
-        cameraTokens.clear()
-        cameraConnections.clear()
+        stopping.set(true)
         cameraSenders.values.forEach { it.close() }
-        cameraSenders.clear()
-        pairStringStore.clear()
+        closeActiveSessions()
+        val runningEngine = engine
+        try {
+            runningEngine?.stop(gracePeriodMillis = 500, timeoutMillis = 1_000)
+        } finally {
+            engine = null
+            port = null
+            peers.clear()
+            transferTokens.clear()
+            transferConnections.clear()
+            fileV3Transfers.clear()
+            tlsCertificate = null
+            cameraTokens.clear()
+            cameraConnections.clear()
+            cameraSenders.clear()
+            activeSessions.clear()
+            activeSessionJobs.clear()
+            pairStringStore.clear()
+            listener = null
+        }
         CoLinkLog.i("LAN", "LAN server stopped")
     }
 
@@ -230,27 +257,81 @@ class LanWebSocketServer @Inject constructor(
     fun createPairString(identity: DeviceIdentity, legacy: Boolean = false): String =
         pairStringStore.issue(identity, legacy)
 
-    private fun createEngine(port: Int, certificate: TemporaryTlsCertificate): ApplicationEngine =
-        embeddedServer(
-            Netty,
+    private fun createEngine(
+        port: Int,
+        certificate: TemporaryTlsCertificate,
+    ): EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration> {
+        val rootConfig = serverConfig(applicationEnvironment()) {
+            watchPaths = emptyList()
+            module {
+                install(WebSockets)
+                routing {
+                    post("/peer/swim/v1") { call.handleSwimPing() }
+                    webSocket("/peer") { trackSession(this, ::handlePeer) }
+                    webSocket("/transfer/{sessionId}") { trackSession(this, ::handleTransfer) }
+                    webSocket("/camera-stream/{sessionId}") { trackSession(this, ::handleCamera) }
+                    get("/transfer/v3/{sessionId}") { call.handleFileV3Transfer() }
+                }
+            }
+        }
+        return embeddedServer(
+            factory = Netty,
+            rootConfig = rootConfig,
             configure = {
+                connectors.add(EngineConnectorBuilder().apply {
+                    host = "0.0.0.0"
+                    this.port = port
+                })
                 requestReadTimeoutSeconds = 10
                 channelPipelineConfig = {
                     addFirst("colink-tls-multiplexer", TlsOrPlaintextHandler(certificate.sslContext))
                 }
             },
-            host = "0.0.0.0",
-            port = port,
-        ) {
-            install(WebSockets)
-            routing {
-                post("/peer/swim/v1") { call.handleSwimPing() }
-                webSocket("/peer") { handlePeer(this) }
-                webSocket("/transfer/{sessionId}") { handleTransfer(this) }
-                webSocket("/camera-stream/{sessionId}") { handleCamera(this) }
-                get("/transfer/v3/{sessionId}") { call.handleFileV3Transfer() }
+        )
+    }
+
+    private suspend fun trackSession(
+        session: DefaultWebSocketServerSession,
+        handler: suspend (DefaultWebSocketServerSession) -> Unit,
+    ) {
+        val job = currentCoroutineContext()[Job]
+        activeSessions.add(session)
+        job?.let(activeSessionJobs::add)
+        try {
+            if (stopping.get()) {
+                session.close(SERVER_STOPPING_CLOSE_REASON)
+                return
             }
+            handler(session)
+        } finally {
+            activeSessions.remove(session)
+            job?.let(activeSessionJobs::remove)
         }
+    }
+
+    private fun closeActiveSessions() {
+        if (activeSessions.isEmpty()) return
+        val completed = runBlocking {
+            withTimeoutOrNull(WEBSOCKET_SHUTDOWN_TIMEOUT_MILLIS) {
+                activeSessions.toList()
+                    .map { session ->
+                        launch {
+                            runCatching { session.close(SERVER_STOPPING_CLOSE_REASON) }
+                                .onFailure { error -> CoLinkLog.w("LAN", "failed to close WebSocket session", error) }
+                        }
+                    }
+                    .joinAll()
+                activeSessionJobs.toList().joinAll()
+                true
+            }
+        } == true
+        if (!completed) {
+            CoLinkLog.w(
+                "LAN",
+                "timed out waiting for WebSocket shutdown sessions=${activeSessions.size} jobs=${activeSessionJobs.size}",
+            )
+        }
+    }
 
     private suspend fun ApplicationCall.handleFileV3Transfer() {
         if (request.local.scheme != "https") {
@@ -540,7 +621,7 @@ class LanWebSocketServer @Inject constructor(
             }
         } finally {
             state.pairStringToken?.let(pairStringStore::cancel)
-            keepaliveJob?.cancel()
+            keepaliveJob?.cancelAndJoin()
             val peerId = connectedPeerId
             val disconnectedConnection = connection
             if (peerId != null && disconnectedConnection != null && peers.remove(peerId, disconnectedConnection)) {
@@ -1223,7 +1304,7 @@ class LanWebSocketServer @Inject constructor(
         } finally {
             cameraSenders.remove(sessionId, sender)
             sender.close()
-            writer.cancel()
+            writer.cancelAndJoin()
             cameraConnections.remove(sessionId)
             CoLinkLog.i("CameraLAN", "data stream detached session=${CoLinkLog.shortId(sessionId)}")
             listener?.onCameraClosed(sessionId)
@@ -1408,7 +1489,7 @@ class LanWebSocketServer @Inject constructor(
                 if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isMulticastAddress) {
                     continue
                 }
-                addresses += address.hostAddress.substringBefore('%')
+                address.hostAddress?.substringBefore('%')?.let(addresses::add)
             }
         }
         return addresses.toList()
