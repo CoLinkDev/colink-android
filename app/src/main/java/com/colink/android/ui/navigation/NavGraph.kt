@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.EditNote
 
 import androidx.compose.material.icons.filled.Settings
 import com.colink.android.ui.components.BadgeChip
@@ -72,10 +73,12 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.colink.android.R
 import com.colink.android.domain.model.AppUpdate
 import com.colink.android.domain.model.CloudStatus
@@ -97,6 +100,9 @@ import com.colink.android.ui.messages.ConversationScreen
 import com.colink.android.ui.messages.MessagesViewModel
 import com.colink.android.ui.motion.sharedAxisPageEnterTransition
 import com.colink.android.ui.motion.sharedAxisPageExitTransition
+import com.colink.android.ui.notes.NoteEditScreen
+import com.colink.android.ui.notes.NoteImagePreviewScreen
+import com.colink.android.ui.notes.NotesScreen
 import com.colink.android.ui.onboarding.OnboardingScreen
 import com.colink.android.ui.settings.SettingsScreen
 import com.colink.android.ui.components.AppUpdateDialog
@@ -113,6 +119,7 @@ private data class TopLevelRoute(
 private val topLevelRoutes =
     listOf(
         TopLevelRoute("devices", R.string.nav_devices, Icons.Default.Devices),
+        TopLevelRoute("notes", R.string.nav_notes, Icons.Default.EditNote),
         TopLevelRoute("settings", R.string.settings_title, Icons.Default.Settings),
     )
 
@@ -364,6 +371,32 @@ private fun MainScaffold(
                 },
                 onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
                 onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
+            )
+        }
+
+        composable(route = "notes/{noteId}") { entry ->
+            NoteEditScreen(
+                noteId = entry.arguments?.getString("noteId").orEmpty(),
+                onDone = { rootNavController.popBackStack() },
+                onPreviewImage = { path, name ->
+                    requestSecondaryPage(
+                        "notes/image-preview?path=${Uri.encode(path)}&name=${Uri.encode(name)}",
+                    )
+                },
+            )
+        }
+
+        composable(
+            route = "notes/image-preview?path={path}&name={name}",
+            arguments = listOf(
+                navArgument("path") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { entry ->
+            NoteImagePreviewScreen(
+                path = entry.arguments?.getString("path").orEmpty(),
+                name = entry.arguments?.getString("name").orEmpty(),
+                onBack = { rootNavController.popBackStack() },
             )
         }
 
@@ -651,6 +684,14 @@ private fun MainTopLevelNavHost(
         composable("settings") {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 SettingsScreen()
+            }
+        }
+        composable("notes") {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                NotesScreen(
+                    onNoteSelected = { noteId -> requestSecondaryPage("notes/${Uri.encode(noteId)}") },
+                    onNoteCreated = { noteId -> requestSecondaryPage("notes/${Uri.encode(noteId)}") },
+                )
             }
         }
     }

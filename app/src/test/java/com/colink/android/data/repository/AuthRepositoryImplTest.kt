@@ -10,6 +10,7 @@ import com.colink.android.domain.model.Session
 import com.colink.android.domain.repository.DeviceRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -28,6 +29,7 @@ class AuthRepositoryImplTest {
     private val authApi = mockk<AuthApi>()
     private val settingsDataStore = mockk<SettingsDataStore>()
     private val deviceRepository = mockk<DeviceRepository>(relaxed = true)
+    private val notesScopeManager = mockk<NotesScopeManager>(relaxed = true)
 
     @Test
     fun concurrentSessionRequestsShareSingleTokenRefresh() = runTest {
@@ -50,7 +52,12 @@ class AuthRepositoryImplTest {
                 message = "ok",
             )
         }
-        val repository = AuthRepositoryImpl(authApi, settingsDataStore, deviceRepository)
+        val repository = AuthRepositoryImpl(
+            authApi,
+            settingsDataStore,
+            deviceRepository,
+            notesScopeManager,
+        )
 
         val sessions = List(8) { async { repository.currentSession().getOrThrow() } }.awaitAll()
 
@@ -66,7 +73,12 @@ class AuthRepositoryImplTest {
         )
         every { settingsDataStore.session } returns MutableStateFlow(session)
         coEvery { settingsDataStore.currentSession() } returns session
-        val repository = AuthRepositoryImpl(authApi, settingsDataStore, deviceRepository)
+        val repository = AuthRepositoryImpl(
+            authApi,
+            settingsDataStore,
+            deviceRepository,
+            notesScopeManager,
+        )
 
         val result = repository.currentSession().getOrThrow()
 
@@ -90,7 +102,12 @@ class AuthRepositoryImplTest {
             delay(10_000)
             ApiEnvelope(code = 0, data = JsonNull, message = "ok")
         }
-        val repository = AuthRepositoryImpl(authApi, settingsDataStore, deviceRepository)
+        val repository = AuthRepositoryImpl(
+            authApi,
+            settingsDataStore,
+            deviceRepository,
+            notesScopeManager,
+        )
 
         val logout = async { repository.logout() }
         testScheduler.runCurrent()
@@ -98,6 +115,10 @@ class AuthRepositoryImplTest {
         assertNull(storedSession)
         assertTrue(logout.await().isSuccess)
         coVerify(exactly = 1) { settingsDataStore.clearSession() }
+        coVerifyOrder {
+            notesScopeManager.releaseAccount("https://example.test", "user-1")
+            settingsDataStore.clearSession()
+        }
     }
 
     @Test
@@ -121,7 +142,12 @@ class AuthRepositoryImplTest {
             data = JsonNull,
             message = "ok",
         )
-        val repository = AuthRepositoryImpl(authApi, settingsDataStore, deviceRepository)
+        val repository = AuthRepositoryImpl(
+            authApi,
+            settingsDataStore,
+            deviceRepository,
+            notesScopeManager,
+        )
 
         val refresh = async { repository.refreshProfile() }
         testScheduler.runCurrent()

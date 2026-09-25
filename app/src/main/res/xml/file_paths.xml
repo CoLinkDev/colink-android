@@ -3,6 +3,9 @@
     <cache-path
         name="cache"
         path="." />
+    <files-path
+        name="note_attachments"
+        path="notes-attachments/" />
     <external-path
         name="external"
         path="." />

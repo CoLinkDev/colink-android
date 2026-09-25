@@ -305,12 +305,14 @@ fun ContentGroupItem(
     isFirst: Boolean,
     isLast: Boolean,
     modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    dividerColor: Color = Color.Transparent,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceContainer,
+            color = containerColor,
             shape = contentGroupShape(isFirst, isLast),
         ) {
             content()
@@ -320,7 +322,13 @@ fun ContentGroupItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
-                    .background(MaterialTheme.colorScheme.surface),
+                    .then(
+                        if (dividerColor != Color.Transparent) {
+                            Modifier.background(dividerColor)
+                        } else {
+                            Modifier
+                        },
+                    ),
             )
         }
     }

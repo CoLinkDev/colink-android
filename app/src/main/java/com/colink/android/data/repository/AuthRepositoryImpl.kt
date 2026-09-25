@@ -31,6 +31,7 @@ class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
     private val settingsDataStore: SettingsDataStore,
     private val deviceRepository: DeviceRepository,
+    private val notesScopeManager: NotesScopeManager,
 ) : AuthRepository {
     private val refreshMutex = Mutex()
     private val sessionMutex = Mutex()
@@ -85,7 +86,13 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout(): Result<Unit> =
         runCatching {
             val session = sessionMutex.withLock {
-                settingsDataStore.currentSession().also { settingsDataStore.clearSession() }
+                val current = settingsDataStore.currentSession()
+                if (current != null) {
+                    val serverUrl = settingsDataStore.currentSettings().serverUrl
+                    notesScopeManager.releaseAccount(serverUrl, current.userId)
+                    settingsDataStore.clearSession()
+                }
+                current
             }
             deviceRepository.clearCloudTrust().getOrThrow()
             if (session != null) {
@@ -159,6 +166,11 @@ class AuthRepositoryImpl @Inject constructor(
 
     private suspend fun clearCloudSession() {
         sessionMutex.withLock {
+            val session = settingsDataStore.currentSession()
+            if (session != null) {
+                val serverUrl = settingsDataStore.currentSettings().serverUrl
+                notesScopeManager.releaseAccount(serverUrl, session.userId)
+            }
             settingsDataStore.clearSession()
         }
         deviceRepository.clearCloudTrust().getOrThrow()

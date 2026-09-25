@@ -7,6 +7,10 @@ import com.colink.android.data.local.db.dao.DeviceDao
 import com.colink.android.data.local.db.dao.DiagnosticLogDao
 import com.colink.android.data.local.db.dao.FileTransferDao
 import com.colink.android.data.local.db.dao.MessageDao
+import com.colink.android.data.local.db.dao.NoteAttachmentDao
+import com.colink.android.data.local.db.dao.NoteDao
+import com.colink.android.data.local.db.dao.NoteSyncKvDao
+import com.colink.android.data.local.db.dao.NoteTagDao
 import com.colink.android.data.local.db.dao.TrustedPeerKeyDao
 import dagger.Module
 import dagger.Provides
@@ -33,6 +37,11 @@ object DatabaseModule {
                 CoLinkDatabase.MIGRATION_8_9,
                 CoLinkDatabase.MIGRATION_9_10,
                 CoLinkDatabase.MIGRATION_10_11,
+                CoLinkDatabase.MIGRATION_11_12,
+                CoLinkDatabase.MIGRATION_12_13,
+                CoLinkDatabase.MIGRATION_13_14,
+                CoLinkDatabase.MIGRATION_14_15,
+                CoLinkDatabase.MIGRATION_15_16,
             )
             .build()
 
@@ -55,4 +64,20 @@ object DatabaseModule {
     @Provides
     fun provideTrustedPeerKeyDao(database: CoLinkDatabase): TrustedPeerKeyDao =
         database.trustedPeerKeyDao()
+
+    @Provides
+    fun provideNoteDao(database: CoLinkDatabase): NoteDao =
+        database.noteDao()
+
+    @Provides
+    fun provideNoteTagDao(database: CoLinkDatabase): NoteTagDao =
+        database.noteTagDao()
+
+    @Provides
+    fun provideNoteAttachmentDao(database: CoLinkDatabase): NoteAttachmentDao =
+        database.noteAttachmentDao()
+
+    @Provides
+    fun provideNoteSyncKvDao(database: CoLinkDatabase): NoteSyncKvDao =
+        database.noteSyncKvDao()
 }

@@ -1,6 +1,7 @@
 package com.colink.android.di
 
 import com.colink.android.data.remote.api.AuthApi
+import com.colink.android.data.remote.api.NotesApi
 import com.colink.android.data.remote.api.DeviceApi
 import com.colink.android.data.remote.api.UpdateApi
 import com.colink.android.data.remote.api.WsApi
@@ -70,4 +71,9 @@ object NetworkModule {
     @Singleton
     fun provideWsApi(retrofit: Retrofit): WsApi =
         retrofit.create(WsApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNotesApi(retrofit: Retrofit): NotesApi =
+        retrofit.create(NotesApi::class.java)
 }
