@@ -90,13 +90,23 @@ class DeviceMediaControlViewModel @Inject constructor(
         if (_uiState.value.submitting) {
             return
         }
+        val targetVolume = if (action == SystemControlAction.SetVolume) {
+            (volume ?: _uiState.value.volume).coerceIn(0, 100)
+        } else {
+            volume
+        }
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.update { it.copy(submitting = true, error = null) }
-            connectionManager.sendSystemControl(targetDeviceId, action, volume)
+            connectionManager.sendSystemControl(targetDeviceId, action, targetVolume)
                 .onSuccess {
                     _uiState.update {
                         it.copy(
                             submitting = false,
+                            volume = if (action == SystemControlAction.SetVolume) {
+                                targetVolume ?: it.volume
+                            } else {
+                                it.volume
+                            },
                             playback = when (action) {
                                 SystemControlAction.Play -> "playing"
                                 SystemControlAction.Pause -> "paused"

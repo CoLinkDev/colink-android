@@ -14,6 +14,19 @@
 
 Unless specified otherwise by the user, build and run actions use the debug variant.
 
+## Dialog Design & Visual Standards
+
+- Use Material 3 `AlertDialog` for confirmation dialogs.
+- Put the dialog icon in the centered `icon` slot. Tint destructive actions with
+  `MaterialTheme.colorScheme.error`; tint regular actions with
+  `MaterialTheme.colorScheme.primary`.
+- Use a filled `Button` for `confirmButton` and a `TextButton` for `dismissButton`.
+  For destructive confirmation buttons, use `error` as the container color and
+  `onError` as the content color.
+- Keep titles concise and render them directly as `Text(title)`. Do not embed icons
+  or extra layout containers in the title slot.
+
+
 ## Release Tags
 
 Release tags MUST be annotated tags (`git tag -a v1.25.0 -m "Release v1.25.0"`), not lightweight tags.

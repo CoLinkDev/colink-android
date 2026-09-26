@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Schedule
@@ -25,8 +27,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -165,6 +167,18 @@ fun DevicePowerControlCard(
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                                 )
                             }
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                enabled = selectedDevice != null && !state.submitting,
+                                onClick = { pendingAction = SystemControlAction.CancelPower },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(
+                                        R.string.device_power_cancel_scheduled,
+                                    ),
+                                )
+                            }
                         }
                     }
                 }
@@ -219,15 +233,6 @@ fun DevicePowerControlCard(
                             icon = Icons.Default.Visibility,
                             enabled = selectedDevice != null && !state.submitting,
                             onClick = { pendingAction = SystemControlAction.DisplayOn },
-                        )
-                    }
-                    if (delayedPowerSupport == SystemControlSupport.SUPPORTED) {
-                        PowerActionButton(
-                            label = stringResource(R.string.device_power_cancel_scheduled),
-                            icon = Icons.Default.Cancel,
-                            enabled = selectedDevice != null && !state.submitting,
-                            outlined = true,
-                            onClick = { pendingAction = SystemControlAction.CancelPower },
                         )
                     }
                 }
@@ -328,42 +333,27 @@ private fun PowerActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     enabled: Boolean,
     destructive: Boolean = false,
-    outlined: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    if (outlined) {
-        OutlinedButton(
-            modifier = modifier,
-            enabled = enabled,
-            onClick = onClick,
-        ) {
-            Icon(imageVector = icon, contentDescription = null)
-            Text(
-                text = label,
-                modifier = Modifier.padding(start = 8.dp),
+    FilledTonalButton(
+        modifier = modifier,
+        enabled = enabled,
+        onClick = onClick,
+        colors = if (destructive) {
+            ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
             )
-        }
-    } else {
-        FilledTonalButton(
-            modifier = modifier,
-            enabled = enabled,
-            onClick = onClick,
-            colors = if (destructive) {
-                ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                )
-            } else {
-                ButtonDefaults.filledTonalButtonColors()
-            },
-        ) {
-            Icon(imageVector = icon, contentDescription = null)
-            Text(
-                text = label,
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
+        } else {
+            ButtonDefaults.filledTonalButtonColors()
+        },
+    ) {
+        Icon(imageVector = icon, contentDescription = null)
+        Text(
+            text = label,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 

@@ -2,6 +2,7 @@ package com.colink.android.ui.navigation
 
 import android.content.res.Configuration
 import android.net.Uri
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +73,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -643,7 +645,7 @@ private fun MainBottomBar(navController: NavHostController) {
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    if (!selected && navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                    if (!selected) {
                         navController.navigateTopLevel(item.route)
                     }
                 },
@@ -668,10 +670,10 @@ private fun MainTopLevelNavHost(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        enterTransition = { sharedAxisPageEnterTransition(forward = true) },
-        exitTransition = { sharedAxisPageExitTransition(forward = true) },
-        popEnterTransition = { sharedAxisPageEnterTransition(forward = false) },
-        popExitTransition = { sharedAxisPageExitTransition(forward = false) },
+        enterTransition = { sharedAxisPageEnterTransition(forward = isForwardTopLevelNavigation()) },
+        exitTransition = { sharedAxisPageExitTransition(forward = isForwardTopLevelNavigation()) },
+        popEnterTransition = { sharedAxisPageEnterTransition(forward = isForwardTopLevelNavigation()) },
+        popExitTransition = { sharedAxisPageExitTransition(forward = isForwardTopLevelNavigation()) },
     ) {
         composable("devices") {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -754,7 +756,7 @@ private fun MainNavigationRail(
                 NavigationRailItem(
                     selected = selected,
                     onClick = {
-                        if (!selected && navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                        if (!selected) {
                             navController.navigateTopLevel(item.route)
                         }
                     },
@@ -770,6 +772,12 @@ private fun MainNavigationRail(
 
 private fun androidx.navigation.NavDestination.isTopLevelSelected(route: String): Boolean {
     return hierarchy.any { it.route == route }
+}
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isForwardTopLevelNavigation(): Boolean {
+    val fromIndex = topLevelRoutes.indexOfFirst { it.route == initialState.destination.route }
+    val toIndex = topLevelRoutes.indexOfFirst { it.route == targetState.destination.route }
+    return toIndex >= fromIndex
 }
 
 private fun androidx.navigation.NavController.navigateTopLevel(route: String) {
