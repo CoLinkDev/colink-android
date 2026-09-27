@@ -16,7 +16,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,10 +24,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val HEARTBEAT_INTERVAL_MILLIS = 5_000L
 private const val SOURCE_DEVICE_ID_ARG = "sourceDeviceId"
 
 enum class CastBoardConnectionStatus {
@@ -47,7 +44,7 @@ class CastBoardViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private var sourceDeviceId: String? = null
-    private var heartbeatJob: Job? = null
+    private var connectionStatusJob: Job? = null
     private val _selectedDeviceId = MutableStateFlow<String?>(null)
 
     val devices: StateFlow<List<Device>> =
@@ -108,9 +105,10 @@ class CastBoardViewModel @Inject constructor(
         if (normalized == sourceDeviceId) {
             return
         }
-        heartbeatJob?.cancel()
+        connectionStatusJob?.cancel()
         if (sourceDeviceId != null) {
             musicSyncManager.endSession()
+            sysInfoSyncManager.endSession()
         }
         sourceDeviceId = normalized
         _selectedDeviceId.value = normalized
@@ -118,7 +116,7 @@ class CastBoardViewModel @Inject constructor(
         connectionManager.requestPeerProtocolVersions(normalized)
         musicSyncManager.beginSession(normalized)
         sysInfoSyncManager.beginSession(normalized)
-        heartbeatJob = viewModelScope.launch(Dispatchers.IO) {
+        connectionStatusJob = viewModelScope.launch(Dispatchers.IO) {
             var wasWaitingForDevice = false
             connectionStatus.collectLatest { status ->
                 CoLinkLog.i(
@@ -136,20 +134,24 @@ class CastBoardViewModel @Inject constructor(
                     screenWaker.wakeForReconnect()
                     wasWaitingForDevice = false
                 }
-                connectionManager.sendMusicAlive(normalized)
-                connectionManager.sendMusicRequest(normalized)
-                while (isActive) {
-                    delay(HEARTBEAT_INTERVAL_MILLIS)
-                    connectionManager.sendMusicAlive(normalized)
-                    if (musicSyncManager.state.value.track == null) {
-                        connectionManager.sendMusicRequest(normalized)
-                    }
-                }
             }
         }
     }
 
-    fun sendSingleSysInfoAlive() {
+    fun onFrontendMusicAlive() {
+        val targetDeviceId = sourceDeviceId ?: return
+        if (connectionStatus.value != CastBoardConnectionStatus.Connected) {
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            connectionManager.sendMusicAlive(targetDeviceId)
+            if (musicSyncManager.state.value.track == null) {
+                connectionManager.sendMusicRequest(targetDeviceId)
+            }
+        }
+    }
+
+    fun onFrontendSysInfoAlive() {
         val targetDeviceId = sourceDeviceId ?: return
         if (connectionStatus.value != CastBoardConnectionStatus.Connected) {
             return
@@ -195,7 +197,7 @@ class CastBoardViewModel @Inject constructor(
         devices.value.firstOrNull { it.deviceId == selectedDeviceId.value }
 
     override fun onCleared() {
-        heartbeatJob?.cancel()
+        connectionStatusJob?.cancel()
         if (sourceDeviceId != null) {
             CoLinkLog.i("CastBoard", "source session ended")
             musicSyncManager.endSession()

@@ -69,13 +69,10 @@ import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.put
 
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -90,37 +87,17 @@ private val castBoardMediaControlActions = setOf("play", "pause", "next", "previ
 
 private val castBoardIpcScript = """
     window.castboardIPC = (() => {
-      let nextId = 1;
-      const pending = new Map();
       const listeners = new Set();
 
-      function request({ type, payload }) {
-        const id = String(nextId++);
-        return new Promise((resolve, reject) => {
-          pending.set(id, { resolve, reject });
-          window.castboardPort.postMessage(JSON.stringify({
-            channel: "castboard",
-            kind: "request",
-            id,
-            type,
-            payload: payload || {},
-          }));
-        });
+      function send(event) {
+        window.castboardPort.postMessage(JSON.stringify(event));
       }
 
       window.castboardPort.onmessage = function(event) {
         const message = JSON.parse(event.data);
         if (message.channel !== "castboard") return;
-        if (message.kind === "response") {
-          const pendingRequest = pending.get(message.id);
-          if (pendingRequest) {
-            pending.delete(message.id);
-            message.ok ? pendingRequest.resolve(message.result) : pendingRequest.reject(message.error);
-          }
-        } else if (message.kind === "event") {
-          for (const listener of listeners) {
-            listener(message);
-          }
+        for (const listener of listeners) {
+          listener(message);
         }
       };
 
@@ -129,15 +106,14 @@ private val castBoardIpcScript = """
         return () => listeners.delete(listener);
       }
 
-      return { request, subscribe };
+      return { send, subscribe };
     })();
 """.trimIndent()
 
 @Serializable
-private data class CastBoardRequest(
+private data class CastBoardEvent(
     val channel: String,
-    val kind: String,
-    val id: String,
+    val id: String? = null,
     val type: String,
     val payload: JsonObject = JsonObject(emptyMap()),
 )
@@ -361,7 +337,9 @@ fun CastBoardFullScreen(
                         webView = this,
                         allowedOrigins = allowedOrigins,
                         bridge = bridge,
-                        onSysInfoAlive = viewModel::sendSingleSysInfoAlive,
+                        onClose = onClose,
+                        onMusicAlive = viewModel::onFrontendMusicAlive,
+                        onSysInfoAlive = viewModel::onFrontendSysInfoAlive,
                         onMediaControl = viewModel::sendMediaControl,
                     )
                     webViewClient = object : WebViewClient() {
@@ -501,6 +479,8 @@ private fun configureCastBoardIpc(
     webView: WebView,
     allowedOrigins: Set<String>,
     bridge: MusicBridge,
+    onClose: () -> Unit,
+    onMusicAlive: () -> Unit,
     onSysInfoAlive: () -> Unit,
     onMediaControl: (String) -> Unit,
 ) {
@@ -517,10 +497,12 @@ private fun configureCastBoardIpc(
         allowedOrigins,
         WebViewCompat.WebMessageListener { _, message, _, isMainFrame, replyProxy ->
             if (isMainFrame) {
-                handleCastBoardRequest(
+                handleCastBoardEvent(
                     data = message.data,
                     replyProxy = replyProxy,
                     bridge = bridge,
+                    onClose = onClose,
+                    onMusicAlive = onMusicAlive,
                     onSysInfoAlive = onSysInfoAlive,
                     onMediaControl = onMediaControl,
                 )
@@ -530,68 +512,48 @@ private fun configureCastBoardIpc(
     WebViewCompat.addDocumentStartJavaScript(webView, castBoardIpcScript, allowedOrigins)
 }
 
-private fun handleCastBoardRequest(
+private fun handleCastBoardEvent(
     data: String?,
     replyProxy: JavaScriptReplyProxy,
     bridge: MusicBridge,
+    onClose: () -> Unit,
+    onMusicAlive: () -> Unit,
     onSysInfoAlive: () -> Unit,
     onMediaControl: (String) -> Unit,
 ) {
-    val request = data?.let {
-        runCatching { castBoardIpcJson.decodeFromString<CastBoardRequest>(it) }.getOrNull()
+    val event = data?.let {
+        runCatching { castBoardIpcJson.decodeFromString<CastBoardEvent>(it) }.getOrNull()
     } ?: return
-    if (request.channel != "castboard" || request.kind != "request") {
+    if (event.channel != "castboard") {
         return
     }
 
-    when (request.type) {
-        "castboard.close",
-        "castboard.openDevTools" -> replyProxy.postMessage(castBoardResponse(request.id, ok = true))
-        "castboard.ready" -> {
-            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+    when (event.type) {
+        "app.close" -> onClose()
+        "app.openDevTools" -> Unit
+        "page.ready" -> {
+            val id = event.id?.takeIf { it.isNotBlank() } ?: return
             bridge.markPageReady(replyProxy)
-            bridge.dispatchHostReady()
+            bridge.dispatchHostReady(id)
         }
-        "castboard.sysinfo.alive" -> {
-            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+        "music.alive" -> {
+            onMusicAlive()
+        }
+        "sysinfo.alive" -> {
             onSysInfoAlive()
         }
-        "castboard.media.control" -> {
-            val action = request.mediaControlAction()
-            if (action == null) {
-                replyProxy.postMessage(
-                    castBoardResponse(request.id, ok = false, error = "Unsupported CastBoard media control action"),
-                )
-                return
-            }
-            replyProxy.postMessage(castBoardResponse(request.id, ok = true))
+        "media.control" -> {
+            val action = event.mediaControlAction() ?: return
             onMediaControl(action)
         }
-        else -> replyProxy.postMessage(
-            castBoardResponse(request.id, ok = false, error = "Unknown CastBoard request type"),
-        )
+        else -> Unit
     }
 }
 
-private fun CastBoardRequest.mediaControlAction(): String? =
+private fun CastBoardEvent.mediaControlAction(): String? =
     (payload["action"] as? JsonPrimitive)
         ?.contentOrNull
         ?.takeIf(castBoardMediaControlActions::contains)
-
-private fun castBoardResponse(id: String, ok: Boolean, error: String? = null): String =
-    castBoardIpcJson.encodeToString(
-        buildJsonObject {
-            put("channel", "castboard")
-            put("kind", "response")
-            put("id", id)
-            put("ok", ok)
-            if (ok) {
-                put("result", buildJsonObject {})
-            } else {
-                put("error", error.orEmpty())
-            }
-        },
-    )
 
 private tailrec fun Context.findActivity(): Activity {
     return when (this) {

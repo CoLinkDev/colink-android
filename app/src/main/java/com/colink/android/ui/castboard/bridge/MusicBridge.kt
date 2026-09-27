@@ -49,16 +49,18 @@ class MusicBridge {
         flushSysInfo()
     }
 
-    fun dispatchHostReady() {
+    fun dispatchHostReady(id: String) {
         if (!pageReady) {
             return
         }
         val proxy = replyProxy ?: return
         val message = buildJsonObject {
             put("channel", "castboard")
-            put("kind", "event")
             put("type", "host.ready")
-            put("payload", buildJsonObject {})
+            put("id", id)
+            put("payload", buildJsonObject {
+                put("ok", true)
+            })
         }
         proxy.postMessage(json.encodeToString(message))
     }
@@ -91,17 +93,17 @@ class MusicBridge {
         val progress = state.progress ?: MusicProgressPayload(trackId = trackId, progress = 0L, paused = true)
 
         if (forceSync || track != lastTrack) {
-            dispatchBusiness(MUSIC_TRACK_TYPE, track)
+            dispatchProtocolEvent(MUSIC_TRACK_TYPE, track)
             lastTrack = track
         }
 
         if (forceSync || lyric != lastLyric) {
-            dispatchBusiness(MUSIC_LYRIC_TYPE, lyric)
+            dispatchProtocolEvent(MUSIC_LYRIC_TYPE, lyric)
             lastLyric = lyric
         }
 
         if (forceSync || progress != lastProgress) {
-            dispatchBusiness(MUSIC_PROGRESS_TYPE, progress)
+            dispatchProtocolEvent(MUSIC_PROGRESS_TYPE, progress)
             lastProgress = progress
         }
 
@@ -113,19 +115,22 @@ class MusicBridge {
             return
         }
         val stats = lastSysInfoState.stats ?: return
-        dispatchBusiness(SYSINFO_STATS_TYPE, stats)
+        dispatchProtocolEvent(SYSINFO_STATS_TYPE, stats)
     }
 
-    private inline fun <reified T> dispatchBusiness(type: String, payload: T) {
+    private inline fun <reified T> dispatchProtocolEvent(type: String, payload: T) {
         val proxy = replyProxy ?: return
+        val eventType = when (type) {
+            MUSIC_TRACK_TYPE -> "music.track"
+            MUSIC_LYRIC_TYPE -> "music.lyric"
+            MUSIC_PROGRESS_TYPE -> "music.progress"
+            SYSINFO_STATS_TYPE -> "sysinfo.stats"
+            else -> return
+        }
         val message = buildJsonObject {
             put("channel", "castboard")
-            put("kind", "event")
-            put("type", "business")
-            put("payload", buildJsonObject {
-                put("type", type)
-                put("payload", json.encodeToJsonElement(payload))
-            })
+            put("type", eventType)
+            put("payload", json.encodeToJsonElement(payload))
         }
         proxy.postMessage(json.encodeToString(message))
     }
