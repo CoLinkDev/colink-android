@@ -61,10 +61,8 @@ import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.colink.android.R
-import com.colink.android.domain.model.Device
-import com.colink.android.ui.components.devicesWithoutLocalDevice
-import com.colink.android.ui.components.isComputerDevice
 import com.colink.android.ui.castboard.bridge.MusicBridge
+import com.colink.android.ui.castboard.bridge.PluginBridge
 import com.colink.android.util.CoLinkLog
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
@@ -120,32 +118,16 @@ private data class CastBoardEvent(
 
 @Composable
 fun CastBoardControlCard(
-    onStartFullscreen: (String) -> Unit,
+    deviceId: String,
+    onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: CastBoardViewModel = hiltViewModel(),
     shape: Shape = MaterialTheme.shapes.large,
 ) {
-    val devices by viewModel.devices.collectAsStateWithLifecycle()
-    val localDeviceId by viewModel.localDeviceId.collectAsStateWithLifecycle()
-    val selectedDeviceId by viewModel.selectedDeviceId.collectAsStateWithLifecycle()
-    val availableDevices = remember(devices, localDeviceId) {
-        devicesWithoutLocalDevice(devices, localDeviceId)
-            .filter { (it.online || it.lanAvailable) && isComputerDevice(it) }
-    }
-    val canStart = selectedDeviceId != null &&
-        availableDevices.any { it.deviceId == selectedDeviceId }
-
     Card(
-        onClick = { selectedDeviceId?.let(onStartFullscreen) },
-        enabled = canStart,
+        onClick = { onOpen(deviceId) },
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (canStart) {
-                MaterialTheme.colorScheme.surfaceContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
-            },
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         shape = shape,
     ) {
@@ -159,7 +141,7 @@ fun CastBoardControlCard(
             Icon(
                 painter = painterResource(R.drawable.ic_cast_connected),
                 contentDescription = null,
-                tint = if (canStart) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -169,11 +151,7 @@ fun CastBoardControlCard(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (availableDevices.isEmpty()) {
-                        stringResource(R.string.device_control_no_devices_message)
-                    } else {
-                        stringResource(R.string.castboard_subtitle)
-                    },
+                    text = stringResource(R.string.castboard_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -204,6 +182,7 @@ fun CastBoardFullScreen(
         devices.firstOrNull { it.deviceId == sourceDeviceId }
     }
     val bridge = remember { MusicBridge() }
+    val pluginBridge = remember { PluginBridge() }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var controlsVisible by remember { mutableStateOf(true) }
     var controlsRevealTick by remember { mutableStateOf(0) }
@@ -213,8 +192,17 @@ fun CastBoardFullScreen(
         castBoardUrl(context, peerBusinessVersion)
     }
     val assetLoader = remember(context) {
+        val pluginPathHandler = WebViewAssetLoader.InternalStoragePathHandler(
+            context,
+            viewModel.pluginsDirectory(),
+        )
         WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            .addPathHandler("/plugins/") { path ->
+                pluginPathHandler.handle(path)?.apply {
+                    responseHeaders = responseHeaders.orEmpty() + ("Access-Control-Allow-Origin" to "*")
+                }
+            }
             .build()
     }
     val allowedOrigins = remember { castBoardAllowedOrigins() }
@@ -337,6 +325,8 @@ fun CastBoardFullScreen(
                         webView = this,
                         allowedOrigins = allowedOrigins,
                         bridge = bridge,
+                        pluginBridge = pluginBridge,
+                        enabledPlugins = viewModel::enabledPlugins,
                         onClose = onClose,
                         onMusicAlive = viewModel::onFrontendMusicAlive,
                         onSysInfoAlive = viewModel::onFrontendSysInfoAlive,
@@ -479,6 +469,8 @@ private fun configureCastBoardIpc(
     webView: WebView,
     allowedOrigins: Set<String>,
     bridge: MusicBridge,
+    pluginBridge: PluginBridge,
+    enabledPlugins: () -> List<CastBoardPluginItem>,
     onClose: () -> Unit,
     onMusicAlive: () -> Unit,
     onSysInfoAlive: () -> Unit,
@@ -501,6 +493,8 @@ private fun configureCastBoardIpc(
                     data = message.data,
                     replyProxy = replyProxy,
                     bridge = bridge,
+                    pluginBridge = pluginBridge,
+                    enabledPlugins = enabledPlugins,
                     onClose = onClose,
                     onMusicAlive = onMusicAlive,
                     onSysInfoAlive = onSysInfoAlive,
@@ -516,6 +510,8 @@ private fun handleCastBoardEvent(
     data: String?,
     replyProxy: JavaScriptReplyProxy,
     bridge: MusicBridge,
+    pluginBridge: PluginBridge,
+    enabledPlugins: () -> List<CastBoardPluginItem>,
     onClose: () -> Unit,
     onMusicAlive: () -> Unit,
     onSysInfoAlive: () -> Unit,
@@ -535,6 +531,7 @@ private fun handleCastBoardEvent(
             val id = event.id?.takeIf { it.isNotBlank() } ?: return
             bridge.markPageReady(replyProxy)
             bridge.dispatchHostReady(id)
+            pluginBridge.dispatchPlugins(replyProxy, enabledPlugins())
         }
         "music.alive" -> {
             onMusicAlive()

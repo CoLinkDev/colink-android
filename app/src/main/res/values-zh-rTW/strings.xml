@@ -92,7 +92,24 @@
     <string name="device_media_volume">音量：%1$d%%</string>
     <string name="castboard_start">啟動</string>
     <string name="castboard_subtitle">將指定裝置的多項狀態投射到本機</string>
+    <string name="castboard_launch_subtitle">啟動 CastBoard</string>
     <string name="castboard_status_waiting">等待裝置連接...</string>
+    <string name="castboard_section_launch">啟動</string>
+    <string name="castboard_section_plugins">外掛管理</string>
+    <string name="castboard_plugin_import">匯入外掛</string>
+    <string name="castboard_plugin_importing">正在匯入外掛...</string>
+    <string name="castboard_plugin_import_description">選擇 ZIP 套件以匯入 CastBoard 外掛，並將其以受信任程式碼執行。請確認外掛來源安全。</string>
+    <string name="castboard_plugin_imported">已匯入 %1$s</string>
+    <string name="castboard_plugin_deleted">外掛已刪除</string>
+    <string name="castboard_plugin_type_navigable">可導覽</string>
+    <string name="castboard_plugin_type_transient">暫時顯示</string>
+    <string name="castboard_plugin_delete_title">刪除外掛？</string>
+    <string name="castboard_plugin_delete_description">這會永久刪除「%1$s」及其本機檔案。</string>
+    <string name="castboard_plugin_error_invalid_archive">所選檔案不是有效的外掛壓縮檔。</string>
+    <string name="castboard_plugin_error_invalid_manifest">外掛資訊清單無效或缺少進入點檔案。</string>
+    <string name="castboard_plugin_error_incompatible">此外掛需要較新版本的 CastBoard。</string>
+    <string name="castboard_plugin_error_storage">無法儲存外掛，請檢查儲存空間後再試一次。</string>
+    <string name="castboard_plugin_error_not_found">找不到此外掛，它可能已被刪除。</string>
     <string name="device_control_no_devices_message">還沒有可用裝置。透過區域網路或雲端連線一台電腦裝置來使用此功能。</string>
 
     <!-- Notifications -->

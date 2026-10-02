@@ -92,7 +92,24 @@
     <string name="device_media_volume">Громкость: %1$d%%</string>
     <string name="castboard_start">Запуск</string>
     <string name="castboard_subtitle">Проецирует несколько состояний выбранного устройства на это устройство</string>
+    <string name="castboard_launch_subtitle">Запустить CastBoard</string>
     <string name="castboard_status_waiting">Ожидание подключения устройства...</string>
+    <string name="castboard_section_launch">Запуск</string>
+    <string name="castboard_section_plugins">Управление плагинами</string>
+    <string name="castboard_plugin_import">Импортировать плагин</string>
+    <string name="castboard_plugin_importing">Импорт плагина...</string>
+    <string name="castboard_plugin_import_description">Выберите ZIP-пакет, чтобы импортировать плагин CastBoard и запустить его как доверенный код. Убедитесь, что плагин получен из безопасного источника.</string>
+    <string name="castboard_plugin_imported">Импортирован %1$s</string>
+    <string name="castboard_plugin_deleted">Плагин удалён</string>
+    <string name="castboard_plugin_type_navigable">Навигационный</string>
+    <string name="castboard_plugin_type_transient">Временный</string>
+    <string name="castboard_plugin_delete_title">Удалить плагин?</string>
+    <string name="castboard_plugin_delete_description">Плагин «%1$s» и его локальные файлы будут удалены безвозвратно.</string>
+    <string name="castboard_plugin_error_invalid_archive">Выбранный файл не является допустимым архивом плагина.</string>
+    <string name="castboard_plugin_error_invalid_manifest">Манифест плагина недействителен или отсутствует входной файл.</string>
+    <string name="castboard_plugin_error_incompatible">Для этого плагина требуется более новая версия CastBoard.</string>
+    <string name="castboard_plugin_error_storage">Не удалось сохранить плагин. Проверьте свободное место и повторите попытку.</string>
+    <string name="castboard_plugin_error_not_found">Плагин не найден. Возможно, он уже удалён.</string>
     <string name="device_control_no_devices_message">Нет доступных устройств. Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию.</string>
 
     <!-- Notifications -->

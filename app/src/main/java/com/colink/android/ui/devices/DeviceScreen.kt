@@ -79,7 +79,6 @@ import com.colink.android.network.PeerProtocolVersions
 import com.colink.android.network.SystemControlSupport
 import com.colink.android.ui.camera.CameraControlCard
 import com.colink.android.ui.castboard.CastBoardControlCard
-import com.colink.android.ui.castboard.CastBoardViewModel
 import com.colink.android.ui.components.CoLinkTextField
 import com.colink.android.ui.components.ContentGroup
 import com.colink.android.ui.components.ContentGroupHeader
@@ -108,7 +107,6 @@ fun DeviceScreen(
     onStartCamera: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: DevicesViewModel = hiltViewModel(),
-    castBoardViewModel: CastBoardViewModel = hiltViewModel(),
     powerControlViewModel: DevicePowerControlViewModel = hiltViewModel(),
     mediaControlViewModel: DeviceMediaControlViewModel = hiltViewModel(),
 ) {
@@ -157,7 +155,6 @@ fun DeviceScreen(
     LaunchedEffect(isRemoteDevice, isReachable, isComputer) {
         if (isRemoteDevice && isReachable && isComputer) {
             powerControlViewModel.selectDevice(deviceId)
-            castBoardViewModel.selectDevice(deviceId)
             mediaControlViewModel.selectDevice(deviceId)
             mediaControlViewModel.startSystemStatePolling()
         } else {
@@ -371,7 +368,6 @@ fun DeviceScreen(
                                     onStartCamera = onStartCamera,
                                     onStartTerminal = onStartTerminal,
                                     onStartCastBoard = onStartCastBoard,
-                                    castBoardViewModel = castBoardViewModel,
                                     mediaControlViewModel = mediaControlViewModel,
                                     powerControlViewModel = powerControlViewModel,
                                 )
@@ -434,7 +430,6 @@ fun DeviceScreen(
                             onStartCamera = onStartCamera,
                             onStartTerminal = onStartTerminal,
                             onStartCastBoard = onStartCastBoard,
-                            castBoardViewModel = castBoardViewModel,
                             mediaControlViewModel = mediaControlViewModel,
                             powerControlViewModel = powerControlViewModel,
                         )
@@ -588,7 +583,6 @@ private fun LazyListScope.deviceControlItems(
     onStartCamera: (String) -> Unit,
     onStartTerminal: (String) -> Unit,
     onStartCastBoard: (String) -> Unit,
-    castBoardViewModel: CastBoardViewModel,
     mediaControlViewModel: DeviceMediaControlViewModel,
     powerControlViewModel: DevicePowerControlViewModel,
 ) {
@@ -646,8 +640,8 @@ private fun LazyListScope.deviceControlItems(
                 if (showCastBoard) {
                     entryGap()
                     CastBoardControlCard(
-                        onStartFullscreen = onStartCastBoard,
-                        viewModel = castBoardViewModel,
+                        deviceId = device.deviceId,
+                        onOpen = onStartCastBoard,
                         shape = nextEntryShape(),
                     )
                 }

@@ -92,7 +92,24 @@
     <string name="device_media_volume">Lautstärke: %1$d%%</string>
     <string name="castboard_start">Starten</string>
     <string name="castboard_subtitle">Projiziert mehrere Zustände eines ausgewählten Geräts auf dieses Gerät</string>
+    <string name="castboard_launch_subtitle">CastBoard starten</string>
     <string name="castboard_status_waiting">Warten auf Geräteverbindung...</string>
+    <string name="castboard_section_launch">Start</string>
+    <string name="castboard_section_plugins">Plugin-Verwaltung</string>
+    <string name="castboard_plugin_import">Plugin importieren</string>
+    <string name="castboard_plugin_importing">Plugin wird importiert...</string>
+    <string name="castboard_plugin_import_description">Wählen Sie ein ZIP-Paket aus, um ein CastBoard-Plugin zu importieren und als vertrauenswürdigen Code auszuführen. Stellen Sie sicher, dass das Plugin aus einer sicheren Quelle stammt.</string>
+    <string name="castboard_plugin_imported">%1$s wurde importiert</string>
+    <string name="castboard_plugin_deleted">Plugin gelöscht</string>
+    <string name="castboard_plugin_type_navigable">Navigierbar</string>
+    <string name="castboard_plugin_type_transient">Temporär</string>
+    <string name="castboard_plugin_delete_title">Plugin löschen?</string>
+    <string name="castboard_plugin_delete_description">„%1$s“ und die lokalen Dateien werden dauerhaft gelöscht.</string>
+    <string name="castboard_plugin_error_invalid_archive">Die ausgewählte Datei ist kein gültiges Plugin-Archiv.</string>
+    <string name="castboard_plugin_error_invalid_manifest">Das Plugin-Manifest ist ungültig oder die Einstiegsdatei fehlt.</string>
+    <string name="castboard_plugin_error_incompatible">Dieses Plugin benötigt eine neuere CastBoard-Version.</string>
+    <string name="castboard_plugin_error_storage">Das Plugin konnte nicht gespeichert werden. Prüfen Sie den Speicherplatz und versuchen Sie es erneut.</string>
+    <string name="castboard_plugin_error_not_found">Das Plugin wurde nicht gefunden. Es wurde möglicherweise bereits gelöscht.</string>
     <string name="device_control_no_devices_message">Keine verfügbaren Geräte. Verbinden Sie ein Computergerät über LAN oder Cloud, um diese Funktion zu nutzen.</string>
 
     <!-- Notifications -->

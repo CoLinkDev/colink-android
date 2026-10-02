@@ -92,7 +92,24 @@
     <string name="device_media_volume">Volume: %1$d%%</string>
     <string name="castboard_start">Start</string>
     <string name="castboard_subtitle">Cast multiple states from a selected device to this device</string>
+    <string name="castboard_launch_subtitle">Start CastBoard</string>
     <string name="castboard_status_waiting">Waiting for device to connect...</string>
+    <string name="castboard_section_launch">Launch</string>
+    <string name="castboard_section_plugins">Plugin management</string>
+    <string name="castboard_plugin_import">Import plugin</string>
+    <string name="castboard_plugin_importing">Importing plugin...</string>
+    <string name="castboard_plugin_import_description">Select a ZIP package to import a CastBoard plugin and run it as trusted code. Make sure the plugin comes from a safe source.</string>
+    <string name="castboard_plugin_imported">Imported %1$s</string>
+    <string name="castboard_plugin_deleted">Plugin deleted</string>
+    <string name="castboard_plugin_type_navigable">Navigable</string>
+    <string name="castboard_plugin_type_transient">Transient</string>
+    <string name="castboard_plugin_delete_title">Delete plugin?</string>
+    <string name="castboard_plugin_delete_description">This permanently deletes “%1$s” and its local files.</string>
+    <string name="castboard_plugin_error_invalid_archive">The selected file is not a valid plugin archive.</string>
+    <string name="castboard_plugin_error_invalid_manifest">The plugin manifest is invalid or its entry file is missing.</string>
+    <string name="castboard_plugin_error_incompatible">This plugin requires a newer CastBoard version.</string>
+    <string name="castboard_plugin_error_storage">The plugin could not be saved. Check available storage and try again.</string>
+    <string name="castboard_plugin_error_not_found">The plugin was not found. It may already have been deleted.</string>
     <string name="device_control_no_devices_message">No available devices. Connect a computer device over LAN or Cloud to use this feature.</string>
 
     <!-- Notifications -->

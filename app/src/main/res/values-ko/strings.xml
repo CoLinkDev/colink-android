@@ -92,7 +92,24 @@
     <string name="device_media_volume">볼륨: %1$d%%</string>
     <string name="castboard_start">시작</string>
     <string name="castboard_subtitle">선택한 디바이스의 여러 상태를 이 디바이스에 투사합니다</string>
+    <string name="castboard_launch_subtitle">CastBoard 시작</string>
     <string name="castboard_status_waiting">디바이스 연결 대기 중...</string>
+    <string name="castboard_section_launch">시작</string>
+    <string name="castboard_section_plugins">플러그인 관리</string>
+    <string name="castboard_plugin_import">플러그인 가져오기</string>
+    <string name="castboard_plugin_importing">플러그인 가져오는 중...</string>
+    <string name="castboard_plugin_import_description">ZIP 패키지를 선택하여 CastBoard 플러그인을 가져오고 신뢰할 수 있는 코드로 실행하세요. 플러그인의 출처가 안전한지 확인하세요.</string>
+    <string name="castboard_plugin_imported">%1$s 가져옴</string>
+    <string name="castboard_plugin_deleted">플러그인이 삭제되었습니다</string>
+    <string name="castboard_plugin_type_navigable">탐색 가능</string>
+    <string name="castboard_plugin_type_transient">일시적</string>
+    <string name="castboard_plugin_delete_title">플러그인을 삭제할까요?</string>
+    <string name="castboard_plugin_delete_description">“%1$s” 및 로컬 파일을 영구적으로 삭제합니다.</string>
+    <string name="castboard_plugin_error_invalid_archive">선택한 파일은 올바른 플러그인 압축 파일이 아닙니다.</string>
+    <string name="castboard_plugin_error_invalid_manifest">플러그인 매니페스트가 잘못되었거나 진입 파일이 없습니다.</string>
+    <string name="castboard_plugin_error_incompatible">이 플러그인에는 최신 CastBoard 버전이 필요합니다.</string>
+    <string name="castboard_plugin_error_storage">플러그인을 저장하지 못했습니다. 저장 공간을 확인하고 다시 시도하세요.</string>
+    <string name="castboard_plugin_error_not_found">플러그인을 찾을 수 없습니다. 이미 삭제되었을 수 있습니다.</string>
     <string name="device_control_no_devices_message">사용 가능한 디바이스가 없습니다. 이 기능을 사용하려면 LAN 또는 Cloud로 컴퓨터 디바이스를 연결하세요.</string>
 
     <!-- Notifications -->

@@ -189,6 +189,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "SERVER_BASE_URL", "\"$serverBaseUrl\"")
         buildConfigField("String", "CASTBOARD_DEV_URL", "\"$castBoardDevUrl\"")
+        buildConfigField("String", "CASTBOARD_VERSION", "\"$castBoardReleaseVersion\"")
         manifestPlaceholders["appName"] = "CoLink"
     }
 

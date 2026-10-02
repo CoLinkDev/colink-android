@@ -3,6 +3,7 @@ package com.colink.android.ui.castboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import java.io.File
 import com.colink.android.domain.model.Device
 import com.colink.android.domain.repository.DeviceRepository
 import com.colink.android.network.ConnectionManager
@@ -41,6 +42,7 @@ class CastBoardViewModel @Inject constructor(
     private val musicSyncManager: MusicSyncManager,
     private val sysInfoSyncManager: SysInfoSyncManager,
     private val screenWaker: CastBoardScreenWaker,
+    private val pluginManager: CastBoardPluginManager,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     private var sourceDeviceId: String? = null
@@ -195,6 +197,10 @@ class CastBoardViewModel @Inject constructor(
 
     fun selectedDevice(): Device? =
         devices.value.firstOrNull { it.deviceId == selectedDeviceId.value }
+
+    fun enabledPlugins(): List<CastBoardPluginItem> = pluginManager.enabledPlugins()
+
+    fun pluginsDirectory(): File = pluginManager.pluginsDirectory
 
     override fun onCleared() {
         connectionStatusJob?.cancel()

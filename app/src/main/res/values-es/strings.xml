@@ -92,7 +92,24 @@
     <string name="device_media_volume">Volumen: %1$d%%</string>
     <string name="castboard_start">Iniciar</string>
     <string name="castboard_subtitle">Proyecta varios estados de un dispositivo seleccionado a este dispositivo</string>
+    <string name="castboard_launch_subtitle">Iniciar CastBoard</string>
     <string name="castboard_status_waiting">Esperando a que el dispositivo se conecte...</string>
+    <string name="castboard_section_launch">Inicio</string>
+    <string name="castboard_section_plugins">Gestión de complementos</string>
+    <string name="castboard_plugin_import">Importar complemento</string>
+    <string name="castboard_plugin_importing">Importando complemento...</string>
+    <string name="castboard_plugin_import_description">Seleccione un paquete ZIP para importar un complemento de CastBoard y ejecutarlo como código de confianza. Asegúrese de que proceda de una fuente segura.</string>
+    <string name="castboard_plugin_imported">Se importó %1$s</string>
+    <string name="castboard_plugin_deleted">Complemento eliminado</string>
+    <string name="castboard_plugin_type_navigable">Navegable</string>
+    <string name="castboard_plugin_type_transient">Transitorio</string>
+    <string name="castboard_plugin_delete_title">¿Eliminar complemento?</string>
+    <string name="castboard_plugin_delete_description">Esto eliminará permanentemente “%1$s” y sus archivos locales.</string>
+    <string name="castboard_plugin_error_invalid_archive">El archivo seleccionado no es un paquete de complemento válido.</string>
+    <string name="castboard_plugin_error_invalid_manifest">El manifiesto del complemento no es válido o falta el archivo de entrada.</string>
+    <string name="castboard_plugin_error_incompatible">Este complemento requiere una versión más reciente de CastBoard.</string>
+    <string name="castboard_plugin_error_storage">No se pudo guardar el complemento. Compruebe el almacenamiento e inténtelo de nuevo.</string>
+    <string name="castboard_plugin_error_not_found">No se encontró el complemento. Puede que ya se haya eliminado.</string>
     <string name="device_control_no_devices_message">No hay dispositivos disponibles. Conecte un equipo por LAN o Cloud para usar esta función.</string>
 
     <!-- Notifications -->

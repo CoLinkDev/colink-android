@@ -91,6 +91,7 @@ import com.colink.android.service.CoLinkRuntimeStarter
 import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.terminal.TerminalScreen
 import com.colink.android.ui.castboard.CastBoardActivity
+import com.colink.android.ui.castboard.CastBoardHostScreen
 import com.colink.android.ui.camera.CameraScreen
 import com.colink.android.ui.devices.DeviceScreen
 import com.colink.android.ui.devices.DevicesViewModel
@@ -369,7 +370,7 @@ private fun MainScaffold(
                 onBack = { rootNavController.popBackStack() },
                 onOpenChat = { deviceId -> requestSecondaryPage("conversation/${Uri.encode(deviceId)}") },
                 onStartCastBoard = { deviceId ->
-                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                    requestSecondaryPage("castboard/${Uri.encode(deviceId)}")
                 },
                 onStartTerminal = { deviceId -> requestSecondaryPage("terminal/${Uri.encode(deviceId)}") },
                 onStartCamera = { deviceId -> requestSecondaryPage("camera/${Uri.encode(deviceId)}") },
@@ -408,6 +409,15 @@ private fun MainScaffold(
                 onBrowseDeviceFiles = { deviceId -> requestSecondaryPage("filesystem/${Uri.encode(deviceId)}") },
                 onBack = { rootNavController.popBackStack() },
                 modifier = Modifier,
+            )
+        }
+
+        composable(route = "castboard/{deviceId}") {
+            CastBoardHostScreen(
+                onBack = { rootNavController.popBackStack() },
+                onLaunch = { deviceId ->
+                    context.startActivity(CastBoardActivity.createIntent(context, deviceId))
+                },
             )
         }
 

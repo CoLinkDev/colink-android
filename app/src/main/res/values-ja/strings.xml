@@ -92,7 +92,24 @@
     <string name="device_media_volume">音量: %1$d%%</string>
     <string name="castboard_start">開始</string>
     <string name="castboard_subtitle">指定したデバイスの複数の状態をこのデバイスに投影します</string>
+    <string name="castboard_launch_subtitle">CastBoard を開始</string>
     <string name="castboard_status_waiting">デバイスの接続を待機中...</string>
+    <string name="castboard_section_launch">起動</string>
+    <string name="castboard_section_plugins">プラグイン管理</string>
+    <string name="castboard_plugin_import">プラグインをインポート</string>
+    <string name="castboard_plugin_importing">プラグインをインポート中...</string>
+    <string name="castboard_plugin_import_description">ZIP パッケージを選択して CastBoard プラグインをインポートし、信頼済みコードとして実行します。プラグインの入手元が安全であることを確認してください。</string>
+    <string name="castboard_plugin_imported">%1$s をインポートしました</string>
+    <string name="castboard_plugin_deleted">プラグインを削除しました</string>
+    <string name="castboard_plugin_type_navigable">ナビゲーション</string>
+    <string name="castboard_plugin_type_transient">一時表示</string>
+    <string name="castboard_plugin_delete_title">プラグインを削除しますか？</string>
+    <string name="castboard_plugin_delete_description">「%1$s」とそのローカルファイルを完全に削除します。</string>
+    <string name="castboard_plugin_error_invalid_archive">選択したファイルは有効なプラグインアーカイブではありません。</string>
+    <string name="castboard_plugin_error_invalid_manifest">プラグインマニフェストが無効か、エントリーファイルがありません。</string>
+    <string name="castboard_plugin_error_incompatible">このプラグインには新しいバージョンの CastBoard が必要です。</string>
+    <string name="castboard_plugin_error_storage">プラグインを保存できませんでした。空き容量を確認してもう一度お試しください。</string>
+    <string name="castboard_plugin_error_not_found">プラグインが見つかりません。すでに削除されている可能性があります。</string>
     <string name="device_control_no_devices_message">利用可能なデバイスがありません。この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください。</string>
 
     <!-- Notifications -->

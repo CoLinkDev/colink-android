@@ -92,7 +92,24 @@
     <string name="device_media_volume">音量：%1$d%%</string>
     <string name="castboard_start">启动</string>
     <string name="castboard_subtitle">将指定设备的多项状态投射到本机</string>
+    <string name="castboard_launch_subtitle">启动 CastBoard</string>
     <string name="castboard_status_waiting">等待设备连接...</string>
+    <string name="castboard_section_launch">启动</string>
+    <string name="castboard_section_plugins">插件管理</string>
+    <string name="castboard_plugin_import">导入插件</string>
+    <string name="castboard_plugin_importing">正在导入插件...</string>
+    <string name="castboard_plugin_import_description">选择 ZIP 包以导入 CastBoard 插件，并将其作为受信任代码运行。请确保插件的来源安全。</string>
+    <string name="castboard_plugin_imported">已导入 %1$s</string>
+    <string name="castboard_plugin_deleted">插件已删除</string>
+    <string name="castboard_plugin_type_navigable">可导航</string>
+    <string name="castboard_plugin_type_transient">瞬态</string>
+    <string name="castboard_plugin_delete_title">删除插件？</string>
+    <string name="castboard_plugin_delete_description">这会永久删除“%1$s”及其本地文件。</string>
+    <string name="castboard_plugin_error_invalid_archive">所选文件不是有效的插件压缩包。</string>
+    <string name="castboard_plugin_error_invalid_manifest">插件清单无效或缺少入口文件。</string>
+    <string name="castboard_plugin_error_incompatible">此插件需要更高版本的 CastBoard。</string>
+    <string name="castboard_plugin_error_storage">无法保存插件，请检查存储空间后重试。</string>
+    <string name="castboard_plugin_error_not_found">找不到该插件，它可能已被删除。</string>
     <string name="device_control_no_devices_message">还没有可用设备。通过局域网或云端连接一台电脑设备来使用此功能。</string>
 
     <!-- Notifications -->
