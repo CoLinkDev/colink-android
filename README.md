@@ -12,20 +12,14 @@ Android client for CoLink — clipboard sync, file transfer, text messaging, and
 
 ## Setup
 
-Clone with submodules:
-
-```sh
-git clone --recurse-submodules <repo-url>
-# or, if already cloned:
-git submodule update --init
-```
-
 Create `local.properties` in the project root:
 
 ```properties
 SERVER_BASE_URL=https://sync.colink.evative7.host
 # Optional: point to a local CastBoard dev server
 # CASTBOARD_DEV_URL=http://10.0.2.2:5173
+# Optional: use an unreleased local CastBoard project or dist directory
+# CASTBOARD_LOCAL_PATH=../colink-castboard
 ```
 
 ## Build
@@ -39,7 +33,7 @@ SERVER_BASE_URL=https://sync.colink.evative7.host
 ./gradlew assembleRelease
 ```
 
-Release builds require Node.js 20+ and pnpm (for the CastBoard asset build) plus signing config in `local.properties`:
+Builds download the immutable CastBoard release declared by `castboard.version` in `gradle.properties` and cache it under `.gradle/castboard-cache/`. `CASTBOARD_DEV_URL` skips bundled assets for debug builds, while `CASTBOARD_LOCAL_PATH` replaces the download with an existing local build.
 
 ```properties
 KEYSTORE_FILE=release.jks
@@ -54,4 +48,4 @@ The app runs a persistent foreground service (`CoLinkService`) that maintains bo
 
 - **LAN discovery**: Android NSD (mDNS)
 - **LAN crypto**: Ed25519 identity, X25519 ECDH + HKDF-SHA256 session key, AES-256-GCM / ChaCha20-Poly1305
-- **CastBoard**: embedded WebView loading bundled assets from the `castboard` submodule build output (debug with `CASTBOARD_DEV_URL` connects to external dev server instead)
+- **CastBoard**: embedded WebView loading a pinned CastBoard release artifact (debug with `CASTBOARD_DEV_URL` connects to an external development server instead)
