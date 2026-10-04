@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -131,6 +132,31 @@ class CastBoardPluginPackageTest {
             }.exceptionOrNull()
             assertTrue(incompatible is CastBoardPluginException)
             assertEquals(CastBoardPluginFailure.Incompatible, (incompatible as CastBoardPluginException).failure)
+        } finally {
+            destination.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun acceptsManifestsWithOptionalDeprecatedSchemaVersion() {
+        val destination = Files.createTempDirectory("castboard-plugin-test").toFile()
+        try {
+            destination.resolve("index.js").writeText("export default { mount() {} }")
+            val manifest = Json.decodeFromString(
+                CastBoardPluginManifest.serializer(),
+                """{
+                    "id": "com.example.schema-version",
+                    "name": { "en": "Test" },
+                    "version": "1.0.0",
+                    "minCastBoardVersion": "2.2.0",
+                    "type": "navigable",
+                    "entry": "index.js"
+                }""".trimIndent(),
+            )
+
+            assertEquals(null, manifest.schemaVersion)
+            validateCastBoardPluginManifest(manifest, destination)
+            validateCastBoardPluginManifest(manifest.copy(schemaVersion = "legacy"), destination)
         } finally {
             destination.deleteRecursively()
         }

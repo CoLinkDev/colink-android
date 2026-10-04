@@ -58,7 +58,7 @@ class CastBoardPluginException(
 
 @Serializable
 data class CastBoardPluginManifest(
-    @SerialName("schemaVersion") val schemaVersion: String,
+    @SerialName("schemaVersion") val schemaVersion: String? = null,
     val id: String,
     val name: Map<String, String>,
     val description: Map<String, String>? = null,
@@ -468,8 +468,7 @@ internal fun extractCastBoardPluginArchive(input: InputStream, destination: File
 }
 
 internal fun validateCastBoardPluginManifest(manifest: CastBoardPluginManifest, directory: File) {
-    if (manifest.schemaVersion != "1.0.0" ||
-        manifest.id.isBlank() ||
+    if (manifest.id.isBlank() ||
         !validLocalizedStrings(manifest.name) ||
         manifest.description?.let(::validLocalizedStrings) == false ||
         parseVersion(manifest.version) == null ||
