@@ -496,4 +496,26 @@ class MessageEnvelopeTest {
             encoded,
         )
     }
+
+    @Test
+    fun serializesCameraV2ConfigurationBoundary() {
+        val envelope = BusinessEnvelope(
+            type = CAMERA_V2_CONFIG_ACK_TYPE,
+            payload = json.encodeToJsonElement(
+                CameraV2ConfigAckPayload(
+                    sessionId = "camera-session",
+                    applied = true,
+                    width = 1280,
+                    height = 720,
+                    fps = 30,
+                    effectiveFromSequence = 1832,
+                ),
+            ),
+        )
+
+        assertEquals(
+            """{"type":"camera.v2.config-ack","payload":{"sessionId":"camera-session","applied":true,"width":1280,"height":720,"fps":30,"effectiveFromSequence":1832}}""",
+            json.encodeToString(envelope),
+        )
+    }
 }

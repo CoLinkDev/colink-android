@@ -51,12 +51,14 @@ import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.netty.NettyApplicationEngine
+import io.ktor.server.netty.NettyApplicationCall
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.RoutingCall
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.server.websocket.WebSockets
@@ -71,6 +73,7 @@ import io.netty.handler.codec.ByteToMessageDecoder
 import io.netty.handler.ssl.SslContext
 import io.netty.handler.ssl.SslContextBuilder
 import io.netty.handler.ssl.SslHandler
+import io.netty.handler.timeout.ReadTimeoutHandler
 import java.io.InputStream
 import java.io.InterruptedIOException
 import java.math.BigInteger
@@ -169,6 +172,7 @@ class LanWebSocketServer @Inject constructor(
     private val transferConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
     private val fileV3Transfers = ConcurrentHashMap<String, FileV3Transfer>()
     private val cameraTokens = ConcurrentHashMap<String, String>()
+    private val cameraV2Tokens = ConcurrentHashMap<String, String>()
     private val cameraConnections = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
     private val cameraSenders = ConcurrentHashMap<String, Channel<CameraDataFrame>>()
     private val activeSessions = ConcurrentHashMap.newKeySet<DefaultWebSocketServerSession>()
@@ -178,6 +182,7 @@ class LanWebSocketServer @Inject constructor(
     private var port: Int? = null
     private var tlsCertificate: TemporaryTlsCertificate? = null
     private var listener: Listener? = null
+    internal var requestReadTimeoutSeconds: Int = (HANDSHAKE_TIMEOUT_MILLIS / 1_000L).toInt()
 
     @Synchronized
     fun start(listener: Listener): Int? {
@@ -242,6 +247,7 @@ class LanWebSocketServer @Inject constructor(
             fileV3Transfers.clear()
             tlsCertificate = null
             cameraTokens.clear()
+            cameraV2Tokens.clear()
             cameraConnections.clear()
             cameraSenders.clear()
             activeSessions.clear()
@@ -272,6 +278,7 @@ class LanWebSocketServer @Inject constructor(
                     webSocket("/transfer/{sessionId}") { trackSession(this, ::handleTransfer) }
                     webSocket("/camera-stream/{sessionId}") { trackSession(this, ::handleCamera) }
                     get("/transfer/v3/{sessionId}") { call.handleFileV3Transfer() }
+                    get("/camera/v2/{sessionId}") { call.handleCameraV2Stream() }
                 }
             }
         }
@@ -283,7 +290,7 @@ class LanWebSocketServer @Inject constructor(
                     host = "0.0.0.0"
                     this.port = port
                 })
-                requestReadTimeoutSeconds = 10
+                requestReadTimeoutSeconds = this@LanWebSocketServer.requestReadTimeoutSeconds
                 channelPipelineConfig = {
                     addFirst("colink-tls-multiplexer", TlsOrPlaintextHandler(certificate.sslContext))
                 }
@@ -396,6 +403,78 @@ class LanWebSocketServer @Inject constructor(
             }
         } finally {
             transfer.active.set(false)
+        }
+    }
+
+    private suspend fun ApplicationCall.handleCameraV2Stream() {
+        if (request.local.scheme != "https") {
+            respond(HTTP_MISDIRECTED_REQUEST)
+            return
+        }
+        val sessionId = parameters["sessionId"]?.takeIf { it.isNotBlank() } ?: run {
+            respond(HttpStatusCode.NotFound)
+            return
+        }
+        val expected = cameraV2Tokens[sessionId] ?: run {
+            respond(HttpStatusCode.NotFound)
+            return
+        }
+        val token = request.headers[HttpHeaders.Authorization]
+            ?.takeIf { it.startsWith("Bearer ") }
+            ?.removePrefix("Bearer ")
+            ?.takeIf { it.isNotEmpty() }
+        if (token == null || !constantTimeEquals(token, expected)) {
+            respond(HttpStatusCode.Unauthorized)
+            return
+        }
+        if (!cameraV2Tokens.remove(sessionId, expected)) {
+            respond(HttpStatusCode.Unauthorized)
+            return
+        }
+        val sender = Channel<CameraDataFrame>(CAMERA_SEND_BUFFER_CAPACITY)
+        val previous = cameraSenders.putIfAbsent(sessionId, sender)
+        if (previous != null) {
+            sender.close()
+            respond(HttpStatusCode.Conflict)
+            return
+        }
+        response.headers.append(HttpHeaders.CacheControl, "no-store")
+        val engineCall = (this as? RoutingCall)?.pipelineCall?.engineCall ?: this
+        val nettyContext = checkNotNull((engineCall as? NettyApplicationCall)?.context) {
+            "camera v2 streaming requires the Netty engine"
+        }
+        // Ktor's request read timeout remains active after the GET has been parsed. Camera V2 is
+        // a server-to-controller stream, so no further request bytes arrive and that handler would
+        // otherwise close a healthy stream after the global request timeout.
+        nettyContext.pipeline().get(ReadTimeoutHandler::class.java)?.let { timeoutHandler ->
+            nettyContext.pipeline().remove(timeoutHandler)
+        }
+        var connected = false
+        try {
+            respondOutputStream(ContentType.Application.OctetStream, HttpStatusCode.OK) {
+                // Commit the status and headers before waiting for camera.v2.ready. The controller
+                // cannot send ready until it has received this response, and the host cannot emit
+                // frames until ready and alive have both arrived.
+                flush()
+                nettyContext.executor().execute(nettyContext::flush)
+                connected = true
+                CoLinkLog.i(
+                    "CameraLAN",
+                    "v2 data stream attached session=${CoLinkLog.shortId(sessionId)} sendCapacity=$CAMERA_SEND_BUFFER_CAPACITY",
+                )
+                listener?.onCameraConnected(sessionId)
+                for (frame in sender) {
+                    write(frame.encode())
+                    flush()
+                }
+            }
+        } finally {
+            cameraSenders.remove(sessionId, sender)
+            sender.close()
+            if (connected) {
+                CoLinkLog.i("CameraLAN", "v2 data stream detached session=${CoLinkLog.shortId(sessionId)}")
+                listener?.onCameraClosed(sessionId)
+            }
         }
     }
 
@@ -547,8 +626,15 @@ class LanWebSocketServer @Inject constructor(
         cameraTokens[sessionId] = token
     }
 
+    fun registerCameraV2(sessionId: String, token: String): String {
+        val certificate = checkNotNull(tlsCertificate) { "LAN server is not running" }
+        check(cameraV2Tokens.putIfAbsent(sessionId, token) == null) { "camera stream is already registered" }
+        return certificate.fingerprint
+    }
+
     suspend fun unregisterCamera(sessionId: String) {
         cameraTokens.remove(sessionId)
+        cameraV2Tokens.remove(sessionId)
         cameraSenders.remove(sessionId)?.close()
         cameraConnections.remove(sessionId)?.let { runCatching { it.close() } }
     }

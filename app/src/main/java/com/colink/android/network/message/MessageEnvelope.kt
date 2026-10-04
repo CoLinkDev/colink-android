@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 const val LAN_PROTOCOL_VERSION = "1.4.0"
-const val BUSINESS_PROTOCOL_VERSION = "1.17.0"
+const val BUSINESS_PROTOCOL_VERSION = "1.18.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val TEXT_MESSAGE_RECEIPT_TYPE = "message.v1.receipt"
@@ -66,6 +66,16 @@ const val CAMERA_CONFIG_TYPE = "camera.v1.config"
 const val CAMERA_CONFIG_ACK_TYPE = "camera.v1.config-ack"
 const val CAMERA_CLOSE_TYPE = "camera.v1.close"
 const val CAMERA_FRAME_TYPE = "camera.v1.frame"
+const val CAMERA_V2_LIST_TYPE = "camera.v2.list"
+const val CAMERA_V2_LIST_RESULT_TYPE = "camera.v2.list-result"
+const val CAMERA_V2_OPEN_TYPE = "camera.v2.open"
+const val CAMERA_V2_OPEN_ACK_TYPE = "camera.v2.open-ack"
+const val CAMERA_V2_READY_TYPE = "camera.v2.ready"
+const val CAMERA_V2_ALIVE_TYPE = "camera.v2.alive"
+const val CAMERA_V2_CONFIG_TYPE = "camera.v2.config"
+const val CAMERA_V2_CONFIG_ACK_TYPE = "camera.v2.config-ack"
+const val CAMERA_V2_CLOSE_TYPE = "camera.v2.close"
+const val CAMERA_V2_FRAME_TYPE = "camera.v2.frame"
 
 @Serializable
 data class BusinessEnvelope(
@@ -607,10 +617,17 @@ data class CameraEntry(
 )
 
 @Serializable
-data class CameraCapabilities(val resolutions: List<CameraResolution>, val fpsRange: CameraFpsRange)
+data class CameraCapabilities(
+    val resolutions: List<CameraResolution>,
+    val fpsRange: CameraFpsRange? = null,
+)
 
 @Serializable
-data class CameraResolution(val width: Int, val height: Int)
+data class CameraResolution(
+    val width: Int,
+    val height: Int,
+    val fps: List<CameraFpsRange> = emptyList(),
+)
 
 @Serializable
 data class CameraFpsRange(val min: Int, val max: Int)
@@ -623,6 +640,16 @@ data class CameraOpenPayload(
     val preferredWidth: Int? = null,
     val preferredHeight: Int? = null,
     val preferredFps: Int? = null,
+)
+
+@Serializable
+data class CameraV2OpenPayload(
+    val sessionId: String,
+    val cameraId: String,
+    val preferredCodecs: List<String>,
+    val width: Int,
+    val height: Int,
+    val fps: Int,
 )
 
 @Serializable
@@ -639,6 +666,20 @@ data class CameraOpenAckPayload(
 )
 
 @Serializable
+data class CameraV2OpenAckPayload(
+    val sessionId: String,
+    val accepted: Boolean,
+    val negotiatedCodec: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Int? = null,
+    val streamToken: String? = null,
+    val certFingerprint: String? = null,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
 data class CameraReadyPayload(val sessionId: String, val transport: String)
 
 @Serializable
@@ -648,12 +689,27 @@ data class CameraAlivePayload(val sessionId: String)
 data class CameraConfigPayload(val sessionId: String, val width: Int? = null, val height: Int? = null, val fps: Int? = null)
 
 @Serializable
+data class CameraV2ConfigPayload(val sessionId: String, val width: Int, val height: Int, val fps: Int)
+
+@Serializable
 data class CameraConfigAckPayload(
     val sessionId: String,
     val applied: Boolean,
     val width: Int? = null,
     val height: Int? = null,
     val fps: Int? = null,
+    val reason: String? = null,
+    val message: String? = null,
+)
+
+@Serializable
+data class CameraV2ConfigAckPayload(
+    val sessionId: String,
+    val applied: Boolean,
+    val width: Int? = null,
+    val height: Int? = null,
+    val fps: Int? = null,
+    val effectiveFromSequence: Long? = null,
     val reason: String? = null,
     val message: String? = null,
 )

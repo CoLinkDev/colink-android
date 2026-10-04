@@ -21,6 +21,9 @@
     <string name="camera_select_placeholder">Выбрать камеру</string>
     <string name="camera_connecting">Подключение...</string>
     <string name="camera_waiting_video">Ожидание видеопотока...</string>
+    <string name="camera_quality">Качество</string>
+    <string name="camera_quality_auto">Авто</string>
+    <string name="camera_quality_switch_failed">Не удалось изменить качество видео. Попробуйте ещё раз.</string>
     <string name="camera_close">Закрыть</string>
     <string name="camera_snapshot">Снимок</string>
     <string name="camera_snapshot_saved">Снимок сохранен в галерею</string>
