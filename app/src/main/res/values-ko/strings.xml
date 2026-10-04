@@ -21,6 +21,9 @@
     <string name="camera_select_placeholder">카메라 선택</string>
     <string name="camera_connecting">연결 중...</string>
     <string name="camera_waiting_video">비디오 대기 중...</string>
+    <string name="camera_quality">화질</string>
+    <string name="camera_quality_auto">자동</string>
+    <string name="camera_quality_switch_failed">화질을 변경할 수 없습니다. 다시 시도해 주세요.</string>
     <string name="camera_close">닫기</string>
     <string name="camera_snapshot">캡처</string>
     <string name="camera_snapshot_saved">갤러리에 저장되었습니다</string>

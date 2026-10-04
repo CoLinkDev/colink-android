@@ -21,6 +21,9 @@
     <string name="camera_select_placeholder">Seleccionar cámara</string>
     <string name="camera_connecting">Conectando...</string>
     <string name="camera_waiting_video">Esperando señal de video...</string>
+    <string name="camera_quality">Calidad</string>
+    <string name="camera_quality_auto">Automática</string>
+    <string name="camera_quality_switch_failed">No se pudo cambiar la calidad de vídeo. Inténtalo de nuevo.</string>
     <string name="camera_close">Cerrar</string>
     <string name="camera_snapshot">Captura</string>
     <string name="camera_snapshot_saved">Captura guardada en la galería</string>

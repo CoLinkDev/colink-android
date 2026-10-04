@@ -36,6 +36,8 @@ import com.colink.android.util.CoLinkLog
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
@@ -64,6 +66,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import okhttp3.OkHttpClient
+import okhttp3.Call
 import okhttp3.CipherSuite
 import okhttp3.ConnectionSpec
 import okhttp3.HttpUrl
@@ -72,6 +75,9 @@ import okhttp3.Response
 import okhttp3.TlsVersion
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+
+private const val CAMERA_V2_MAX_FRAME_BYTES = 16 * 1024 * 1024
+internal const val CAMERA_TLS_PIN_MISMATCH = "colink:camera.tls_pin_mismatch.v1"
 
 @Singleton
 class LanWebSocketClient @Inject constructor(
@@ -105,6 +111,7 @@ class LanWebSocketClient @Inject constructor(
     private val connectionAttempts = ConcurrentHashMap<String, String>()
     private val connectingWebSockets = ConcurrentHashMap<String, WebSocket>()
     private val cameraConnections = ConcurrentHashMap<String, WebSocket>()
+    private val cameraV2Calls = ConcurrentHashMap<String, Call>()
     private val peerConnectionLock = Any()
 
     fun connect(
@@ -1060,8 +1067,84 @@ class LanWebSocketClient @Inject constructor(
         )
     }
 
+    fun connectCameraV2(
+        sessionId: String,
+        token: String,
+        ip: String,
+        port: Int,
+        certFingerprint: String,
+        listener: CameraListener,
+    ) {
+        scope.launch {
+            var opened = false
+            try {
+                val expectedFingerprint = parseCertificateFingerprint(certFingerprint)
+                val trustManager = PinnedCertificateTrustManager(expectedFingerprint)
+                val sslContext = SSLContext.getInstance("TLS").apply {
+                    init(null, arrayOf(trustManager), null)
+                }
+                val client = okHttpClient.newBuilder()
+                    .sslSocketFactory(sslContext.socketFactory, trustManager)
+                    .hostnameVerifier(PinnedCertificateHostnameVerifier(expectedFingerprint))
+                    .connectionSpecs(listOf(FILE_V3_TLS_SPEC))
+                    .build()
+                val url = HttpUrl.Builder()
+                    .scheme("https")
+                    .host(ip)
+                    .port(port)
+                    .addPathSegment("camera")
+                    .addPathSegment("v2")
+                    .addPathSegment(sessionId)
+                    .build()
+                val request = Request.Builder()
+                    .url(url)
+                    .header("Authorization", "Bearer $token")
+                    .build()
+                val call = client.newCall(request)
+                cameraV2Calls.put(sessionId, call)?.cancel()
+                call.execute().use { response ->
+                    require(response.code == 200) { "camera stream returned HTTP ${response.code}" }
+                    val body = response.body ?: throw IOException("camera stream response has no body")
+                    opened = true
+                    listener.onOpen()
+                    body.byteStream().use { input ->
+                        while (true) {
+                            val header = input.readExactlyOrNull(CameraDataFrame.HEADER_SIZE) ?: break
+                            val payloadSize = ByteBuffer.wrap(header, 12, 4).int
+                            require(payloadSize in 0..CAMERA_V2_MAX_FRAME_BYTES) {
+                                "camera frame payload is too large"
+                            }
+                            val payload = input.readExactlyOrNull(payloadSize)
+                                ?: throw IOException("camera stream ended inside a frame")
+                            val encoded = ByteArray(header.size + payload.size)
+                            header.copyInto(encoded)
+                            payload.copyInto(encoded, header.size)
+                            val frame = CameraDataFrame.decode(encoded)
+                                ?: throw IOException("camera stream contained an invalid frame")
+                            listener.onFrame(frame)
+                        }
+                    }
+                }
+                listener.onClosed("camera data plane closed")
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                val reason = if (error.hasCertificateFingerprintFailure()) {
+                    CAMERA_TLS_PIN_MISMATCH
+                } else {
+                    error.message ?: "camera connection failed"
+                }
+                if (opened || cameraV2Calls.containsKey(sessionId)) {
+                    listener.onClosed(reason)
+                }
+            } finally {
+                cameraV2Calls.remove(sessionId)
+            }
+        }
+    }
+
     fun disconnectCamera(sessionId: String) {
         cameraConnections.remove(sessionId)?.close(1000, "camera session closed")
+        cameraV2Calls.remove(sessionId)?.cancel()
     }
 
     private fun sendHello(
@@ -1285,6 +1368,30 @@ private fun requireP256(certificate: X509Certificate) {
     if (publicKey.params.curve.field.fieldSize != 256) {
         throw CertificateException("server certificate must use ECDSA P-256")
     }
+}
+
+private fun InputStream.readExactlyOrNull(size: Int): ByteArray? {
+    if (size == 0) return ByteArray(0)
+    val output = ByteArray(size)
+    var offset = 0
+    while (offset < size) {
+        val read = read(output, offset, size - offset)
+        if (read < 0) {
+            return if (offset == 0) null else throw IOException("stream ended before the requested bytes were read")
+        }
+        if (read == 0) continue
+        offset += read
+    }
+    return output
+}
+
+private fun Throwable.hasCertificateFingerprintFailure(): Boolean {
+    var current: Throwable? = this
+    while (current != null) {
+        if (current.message?.contains("fingerprint", ignoreCase = true) == true) return true
+        current = current.cause
+    }
+    return false
 }
 
 private class ClientPeerState(

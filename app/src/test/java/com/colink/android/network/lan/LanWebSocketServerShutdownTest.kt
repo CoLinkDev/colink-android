@@ -10,26 +10,94 @@ import com.colink.android.network.message.SwimEnvelope
 import com.colink.android.network.message.SwimGossip
 import com.colink.android.network.transfer.FileDataFrame
 import com.colink.android.util.CoLinkLog
+import io.ktor.http.HttpStatusCode
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import java.io.DataInputStream
+import java.net.URL
+import java.security.cert.X509Certificate
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertArrayEquals
 import org.junit.Test
 
 class LanWebSocketServerShutdownTest {
+    @Test
+    fun `camera v2 sends headers and survives the request read timeout`() {
+        mockkObject(CoLinkLog)
+        every { CoLinkLog.i(any(), any()) } returns Unit
+        every { CoLinkLog.w(any(), any(), any()) } returns Unit
+        val server = createServer().apply { requestReadTimeoutSeconds = 1 }
+        val connected = CountDownLatch(1)
+        val listener = object : LanWebSocketServer.Listener by NoOpLanListener {
+            override fun onCameraConnected(sessionId: String) {
+                connected.countDown()
+            }
+        }
+        var connection: HttpsURLConnection? = null
+
+        try {
+            val port = checkNotNull(server.start(listener))
+            server.registerCameraV2("camera-session", "camera-token")
+            val trustManager = object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            }
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf(trustManager), null)
+            }
+            connection = (URL("https://127.0.0.1:$port/camera/v2/camera-session").openConnection()
+                as HttpsURLConnection).apply {
+                sslSocketFactory = sslContext.socketFactory
+                hostnameVerifier = HostnameVerifier { _, _ -> true }
+                connectTimeout = 3_000
+                readTimeout = 3_000
+                setRequestProperty("Authorization", "Bearer camera-token")
+            }
+
+            val activeConnection = checkNotNull(connection)
+            val responseCode = CompletableFuture.supplyAsync { activeConnection.responseCode }
+            assertTrue("server did not attach the camera stream", connected.await(3, TimeUnit.SECONDS))
+            assertEquals(HttpStatusCode.OK.value, responseCode.get(3, TimeUnit.SECONDS))
+            Thread.sleep(1_500)
+            val frame = CameraDataFrame(
+                codec = "h264",
+                keyframe = true,
+                sequence = 7,
+                timestampMs = 11,
+                payload = byteArrayOf(1, 2, 3, 4),
+            )
+            assertTrue("camera stream closed at the request read timeout", server.sendCameraFrame("camera-session", frame))
+            val received = ByteArray(frame.encode().size)
+            DataInputStream(activeConnection.inputStream).readFully(received)
+            assertArrayEquals(frame.encode(), received)
+        } finally {
+            connection?.disconnect()
+            if (server.isRunning()) server.stop()
+            unmockkObject(CoLinkLog)
+        }
+    }
+
     @Test
     fun `stops and restarts with an active websocket`() {
         mockkObject(CoLinkLog)

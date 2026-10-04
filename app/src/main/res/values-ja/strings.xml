@@ -21,6 +21,9 @@
     <string name="camera_select_placeholder">カメラを選択</string>
     <string name="camera_connecting">接続中...</string>
     <string name="camera_waiting_video">映像を待機中...</string>
+    <string name="camera_quality">画質</string>
+    <string name="camera_quality_auto">自動</string>
+    <string name="camera_quality_switch_failed">画質を変更できません。もう一度お試しください。</string>
     <string name="camera_close">閉じる</string>
     <string name="camera_snapshot">スクリーンショット</string>
     <string name="camera_snapshot_saved">ギャラリーに保存しました</string>

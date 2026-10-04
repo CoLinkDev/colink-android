@@ -31,7 +31,12 @@ import com.colink.android.network.message.CameraOpenAckPayload
 import com.colink.android.network.message.CameraOpenPayload
 import com.colink.android.network.message.CameraReadyPayload
 import com.colink.android.network.message.CameraResolution
+import com.colink.android.network.message.CameraV2ConfigPayload
+import com.colink.android.network.message.CameraV2OpenAckPayload
+import com.colink.android.network.message.CameraV2OpenPayload
 import com.colink.android.util.CoLinkLog
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
@@ -39,19 +44,26 @@ import java.util.concurrent.ConcurrentHashMap
 private const val CAMERA_ALIVE_TIMEOUT_MILLIS = 15_000L
 private const val CAMERA_DEBUG_REPORT_MILLIS = 2_000L
 private const val AVC_MIME = MediaFormat.MIMETYPE_VIDEO_AVC
+private const val CAMERA_CONFIG_TIMEOUT_MILLIS = 10_000L
+private const val MAX_RESOLUTION_TIERS = 5
 
 class CameraStreamHost(
     private val context: Context,
     private val onFrame: (String, EncodedCameraFrame) -> Boolean,
-    private val onClosed: (String, String, String) -> Unit,
+    private val onClosed: (String, String, String, Boolean) -> Unit,
 ) {
     private val cameraManager = context.getSystemService(CameraManager::class.java)
     private val thread = HandlerThread("colink-camera-stream").apply { start() }
     private val handler = Handler(thread.looper)
     private val sessions = ConcurrentHashMap<String, CameraSession>()
-    private val h264Available = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
-        info.isEncoder && info.supportedTypes.any { it.equals(AVC_MIME, ignoreCase = true) }
+    private val avcEncoderInfo = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
+        info.isEncoder && info.supportedTypes.any { it.equals(AVC_MIME, ignoreCase = true) } &&
+            runCatching {
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface in
+                    info.getCapabilitiesForType(AVC_MIME).colorFormats
+            }.getOrDefault(false)
     }
+    private val h264Available = avcEncoderInfo != null
 
     fun list(): List<CameraEntry> = cameraManager.cameraIdList.mapNotNull { cameraId ->
         runCatching {
@@ -74,9 +86,45 @@ class CameraStreamHost(
         }.getOrNull()
     }
 
+    fun listV2(): List<CameraEntry> {
+        if (!h264Available) return emptyList()
+        return cameraManager.cameraIdList.mapNotNull { cameraId ->
+            runCatching {
+                val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+                val configurations = promisedConfigurations(cameraId)
+                if (configurations.isEmpty()) return@runCatching null
+                val grouped = configurations.groupBy { it.width to it.height }
+                val resolutions = grouped.entries
+                    .sortedByDescending { (size, _) -> size.first.toLong() * size.second }
+                    .map { (size, modes) ->
+                        CameraResolution(
+                            width = size.first,
+                            height = size.second,
+                            fps = modes.map { CameraFpsRange(it.fps, it.fps) }.distinct(),
+                        )
+                    }
+                val position = when (characteristics.get(CameraCharacteristics.LENS_FACING)) {
+                    CameraCharacteristics.LENS_FACING_FRONT -> "front"
+                    CameraCharacteristics.LENS_FACING_BACK -> "back"
+                    CameraCharacteristics.LENS_FACING_EXTERNAL -> "external"
+                    else -> null
+                }
+                CameraEntry(
+                    cameraId = cameraId,
+                    label = "Camera $cameraId",
+                    position = position,
+                    capabilities = CameraCapabilities(resolutions),
+                )
+            }.getOrNull()
+        }
+    }
+
     fun open(controllerId: String, payload: CameraOpenPayload): CameraOpenAckPayload {
         if (sessions.containsKey(payload.sessionId)) {
             return reject(payload.sessionId, "colink:camera.session_conflict.v1", "Camera session already exists")
+        }
+        if (sessions.values.any { it.cameraId == payload.cameraId }) {
+            return reject(payload.sessionId, "colink:camera.busy.v1", "Camera is already in use")
         }
         val supportedCodecs = if (h264Available) setOf("h264", "webp", "jpeg") else setOf("webp", "jpeg")
         val codec = payload.preferredCodecs.firstOrNull { it in supportedCodecs }
@@ -96,6 +144,7 @@ class CameraStreamHost(
             configuration.height,
             configuration.fps,
             configuration.fpsRange,
+            v2 = false,
         )
         sessions[payload.sessionId] = session
         CoLinkLog.i(
@@ -120,9 +169,63 @@ class CameraStreamHost(
         )
     }
 
-    fun ready(controllerId: String, payload: CameraReadyPayload) {
+    fun openV2(controllerId: String, payload: CameraV2OpenPayload): CameraV2OpenAckPayload {
+        if (sessions.containsKey(payload.sessionId)) {
+            return rejectV2(payload.sessionId, "colink:camera.session_conflict.v1", "Camera session already exists")
+        }
+        if (sessions.values.any { it.cameraId == payload.cameraId }) {
+            return rejectV2(payload.sessionId, "colink:camera.busy.v1", "Camera is already in use")
+        }
+        if ("h264" !in payload.preferredCodecs || !h264Available) {
+            return rejectV2(payload.sessionId, "colink:camera.no_common_codec.v1", "No supported H.264 camera codec was offered")
+        }
+        if (context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return rejectV2(payload.sessionId, "colink:camera.rejected.v1", "Camera permission has not been granted")
+        }
+        val configuration = runCatching {
+            promisedConfigurations(payload.cameraId).firstOrNull {
+                it.width == payload.width && it.height == payload.height && it.fps == payload.fps
+            }
+        }.getOrNull() ?: return rejectV2(
+            payload.sessionId,
+            "colink:camera.unsupported_params.v1",
+            "Requested camera mode was not promised",
+        )
+        val session = CameraSession(
+            controllerId = controllerId,
+            sessionId = payload.sessionId,
+            cameraId = payload.cameraId,
+            codec = "h264",
+            width = configuration.width,
+            height = configuration.height,
+            fps = configuration.fps,
+            fpsRange = configuration.fpsRange,
+            v2 = true,
+        )
+        sessions[payload.sessionId] = session
+        scheduleAliveTimeout(session)
+        runCatching { startCapture(session) }.getOrElse { error ->
+            sessions.remove(payload.sessionId)
+            session.close(handler)
+            return rejectV2(
+                payload.sessionId,
+                "colink:camera.rejected.v1",
+                error.message ?: "Camera access was denied",
+            )
+        }
+        return CameraV2OpenAckPayload(
+            sessionId = payload.sessionId,
+            accepted = true,
+            negotiatedCodec = "h264",
+            width = configuration.width,
+            height = configuration.height,
+            fps = configuration.fps,
+        )
+    }
+
+    fun ready(controllerId: String, payload: CameraReadyPayload, v2: Boolean = false) {
         if (payload.transport != "lan" && payload.transport != "relay") return
-        sessions[payload.sessionId]?.takeIf { it.controllerId == controllerId }?.apply {
+        sessions[payload.sessionId]?.takeIf { it.controllerId == controllerId && it.v2 == v2 }?.apply {
             ready = true
             transport = payload.transport
             CoLinkLog.i(
@@ -133,21 +236,131 @@ class CameraStreamHost(
         }
     }
 
-    fun alive(controllerId: String, payload: CameraAlivePayload) {
-        sessions[payload.sessionId]?.takeIf { it.controllerId == controllerId }?.apply {
+    fun alive(controllerId: String, payload: CameraAlivePayload, v2: Boolean = false) {
+        sessions[payload.sessionId]?.takeIf { it.controllerId == controllerId && it.v2 == v2 }?.apply {
             lastAliveAt = System.currentTimeMillis()
             scheduleAliveTimeout(this)
             requestKeyframeIfStreaming()
         }
     }
 
-    fun close(controllerId: String, sessionId: String) {
-        sessions[sessionId]?.takeIf { it.controllerId == controllerId }?.let { session ->
+    fun close(controllerId: String, sessionId: String, v2: Boolean = false) {
+        sessions[sessionId]?.takeIf { it.controllerId == controllerId && it.v2 == v2 }?.let { session ->
             if (sessions.remove(sessionId, session)) {
                 session.logClose("remote_close")
                 session.close(handler)
             }
         }
+    }
+
+    suspend fun configureV2(controllerId: String, payload: CameraV2ConfigPayload): CameraModeChange {
+        val session = sessions[payload.sessionId]
+            ?.takeIf { it.controllerId == controllerId && it.v2 }
+            ?: throw CameraConfigException(
+                "colink:camera.session_not_found.v1",
+                "Camera session does not exist",
+            )
+        val configuration = runCatching {
+            promisedConfigurations(session.cameraId).firstOrNull {
+                it.width == payload.width && it.height == payload.height && it.fps == payload.fps
+            }
+        }.getOrNull() ?: throw CameraConfigException(
+            "colink:camera.unsupported_params.v1",
+            "Requested camera mode was not promised",
+        )
+        val pending = synchronized(session) {
+            if (session.pendingConfig != null) {
+                throw CameraConfigException(
+                    "colink:camera.config_rejected.v1",
+                    "Camera reconfiguration is already in progress",
+                )
+            }
+            PendingCameraConfig(
+                width = configuration.width,
+                height = configuration.height,
+                fps = configuration.fps,
+            ).also { next ->
+                session.pendingConfig = next
+                session.width = configuration.width
+                session.height = configuration.height
+                session.fps = configuration.fps
+                session.fpsRange = configuration.fpsRange
+                session.markNeedsKeyframe()
+            }
+        }
+        handler.post {
+            if (sessions[payload.sessionId] !== session) {
+                pending.result.completeExceptionally(
+                    CameraConfigException(
+                        "colink:camera.session_not_found.v1",
+                        "Camera session was closed",
+                    ),
+                )
+                return@post
+            }
+            session.closePipeline(handler) {
+                if (sessions[payload.sessionId] !== session) return@closePipeline
+                runCatching { startCapture(session) }.onFailure { error ->
+                    pending.result.completeExceptionally(error)
+                    failSession(session)
+                }
+            }
+        }
+        return try {
+            withTimeout(CAMERA_CONFIG_TIMEOUT_MILLIS) { pending.result.await() }
+        } catch (error: Throwable) {
+            if (sessions.remove(payload.sessionId, session)) {
+                session.close(handler)
+                onClosed(
+                    session.controllerId,
+                    session.sessionId,
+                    "colink:camera.config_failed.v1",
+                    true,
+                )
+            }
+            throw error
+        }
+    }
+
+    fun commitV2Configuration(
+        controllerId: String,
+        sessionId: String,
+        effectiveFromSequence: Long,
+    ): Boolean {
+        val session = sessions[sessionId]
+            ?.takeIf { it.controllerId == controllerId && it.v2 }
+            ?: return false
+        val pending = synchronized(session) {
+            val pending = session.pendingConfig ?: return false
+            val held = pending.heldFrame
+                ?.takeIf { it.sequence == effectiveFromSequence }
+                ?: return false
+            pending to held
+        }
+        return try {
+            deliverFrame(session, pending.second)
+            true
+        } finally {
+            synchronized(session) {
+                if (session.pendingConfig === pending.first) session.pendingConfig = null
+            }
+        }
+    }
+
+    fun abortV2Configuration(controllerId: String, sessionId: String) {
+        sessions[sessionId]
+            ?.takeIf { it.controllerId == controllerId && it.v2 }
+            ?.let { session ->
+                if (sessions.remove(sessionId, session)) {
+                    session.close(handler)
+                    onClosed(
+                        session.controllerId,
+                        session.sessionId,
+                        "colink:camera.config_failed.v1",
+                        true,
+                    )
+                }
+            }
     }
 
     fun closeForDevice(controllerId: String) {
@@ -194,13 +407,69 @@ class CameraStreamHost(
         return CameraConfiguration(size.width, size.height, fps, fpsRange)
     }
 
+    private fun promisedConfigurations(cameraId: String): List<CameraConfiguration> {
+        val encoderInfo = avcEncoderInfo ?: return emptyList()
+        val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+        val streamMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            ?: return emptyList()
+        val sizes = streamMap.getOutputSizes(MediaCodec::class.java).orEmpty()
+        val fixedFpsRanges = characteristics
+            .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+            .orEmpty()
+            .filter { it.lower == it.upper && it.lower in 1..60 }
+            .distinctBy { it.lower }
+        if (fixedFpsRanges.isEmpty()) return emptyList()
+        val videoCapabilities = encoderInfo.getCapabilitiesForType(AVC_MIME).videoCapabilities
+            ?: return emptyList()
+        val candidates = sizes.flatMap { size ->
+            fixedFpsRanges.mapNotNull { range ->
+                val supported = runCatching {
+                    videoCapabilities.areSizeAndRateSupported(
+                        size.width,
+                        size.height,
+                        range.lower.toDouble(),
+                    )
+                }.getOrDefault(false)
+                if (supported) {
+                    CameraConfiguration(size.width, size.height, range.lower, range)
+                } else {
+                    null
+                }
+            }
+        }
+        val selectedSizes = selectRepresentativeCameraSizes(
+            candidates.map { it.width to it.height }.distinct(),
+            MAX_RESOLUTION_TIERS,
+        ).toSet()
+        return candidates
+            .filter { (it.width to it.height) in selectedSizes }
+            .distinctBy { Triple(it.width, it.height, it.fps) }
+            .sortedWith(
+                compareByDescending<CameraConfiguration> { it.width.toLong() * it.height }
+                    .thenBy { it.fps },
+            )
+    }
+
     private fun startCapture(session: CameraSession) {
-        val surface = if (session.codec == "h264") startH264Encoder(session) else startImageReader(session)
+        val generation = session.beginPipeline()
+        val surface = if (session.codec == "h264") {
+            startH264Encoder(session, generation)
+        } else {
+            startImageReader(session, generation)
+        }
         cameraManager.openCamera(session.cameraId, object : CameraDevice.StateCallback() {
             override fun onOpened(device: CameraDevice) {
+                if (!session.isCurrentPipeline(generation) || sessions[session.sessionId] !== session) {
+                    device.close()
+                    return
+                }
                 session.device = device
                 device.createCaptureSession(listOf(surface), object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(captureSession: CameraCaptureSession) {
+                        if (!session.isCurrentPipeline(generation) || sessions[session.sessionId] !== session) {
+                            captureSession.close()
+                            return
+                        }
                         session.captureSession = captureSession
                         val request = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD).apply {
                             addTarget(surface)
@@ -219,7 +488,7 @@ class CameraStreamHost(
                             "CameraHost",
                             "session=${CoLinkLog.shortId(session.sessionId)} capture configuration failed",
                         )
-                        failSession(session)
+                        if (session.isCurrentPipeline(generation)) failSession(session)
                     }
                 }, handler)
             }
@@ -228,32 +497,36 @@ class CameraStreamHost(
                     "CameraHost",
                     "session=${CoLinkLog.shortId(session.sessionId)} camera disconnected",
                 )
-                failSession(session)
+                if (session.isCurrentPipeline(generation)) failSession(session)
             }
             override fun onError(device: CameraDevice, error: Int) {
                 CoLinkLog.e(
                     "CameraHost",
                     "session=${CoLinkLog.shortId(session.sessionId)} camera error=$error",
                 )
-                failSession(session)
+                if (session.isCurrentPipeline(generation)) failSession(session)
+            }
+            override fun onClosed(device: CameraDevice) {
+                session.handleDeviceClosed(device)?.invoke()
             }
         }, handler)
     }
 
-    private fun startImageReader(session: CameraSession): Surface {
+    private fun startImageReader(session: CameraSession, generation: Long): Surface {
         // Keep only the latest capture; older JPEG frames are useless for live preview.
         val reader = ImageReader.newInstance(session.width, session.height, ImageFormat.JPEG, 2)
         session.reader = reader
         reader.setOnImageAvailableListener({ source ->
             val image = source.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
+                if (!session.isCurrentPipeline(generation)) return@setOnImageAvailableListener
                 if (!session.canSend() || !session.shouldCaptureImage()) return@setOnImageAvailableListener
                 val buffer = image.planes.firstOrNull()?.buffer ?: return@setOnImageAvailableListener
                 val jpeg = ByteArray(buffer.remaining()).also(buffer::get)
                 // Avoid JPEG→Bitmap→WebP re-encode on the capture thread; it tanks FPS.
                 // Prefer native JPEG when the negotiated codec is jpeg, and only convert for webp.
                 val bytes = if (session.codec == "webp") jpegToWebp(jpeg) else jpeg
-                sendFrame(session, bytes, true)
+                sendFrame(session, generation, bytes, true)
             } finally {
                 image.close()
             }
@@ -261,21 +534,25 @@ class CameraStreamHost(
         return reader.surface
     }
 
-    private fun startH264Encoder(session: CameraSession): Surface {
-        val encoder = MediaCodec.createEncoderByType(AVC_MIME)
+    private fun startH264Encoder(session: CameraSession, generation: Long): Surface {
+        val encoderInfo = requireNotNull(avcEncoderInfo) { "No surface-input H.264 encoder is available" }
+        val encoder = MediaCodec.createByCodecName(encoderInfo.name)
         session.encoder = encoder
-        val pixels = session.width * session.height
-        val bitrate = (pixels * session.fps * 0.07).toInt().coerceIn(250_000, 1_500_000)
-        val encoderCapabilities = encoder.codecInfo
-            .getCapabilitiesForType(AVC_MIME)
-            .encoderCapabilities
+        val codecCapabilities = encoder.codecInfo.getCapabilitiesForType(AVC_MIME)
+        val encoderCapabilities = codecCapabilities.encoderCapabilities
+        val videoCapabilities = requireNotNull(codecCapabilities.videoCapabilities)
+        val targetBitrate = (session.width.toLong() * session.height * session.fps / 7)
+            .coerceIn(400_000L, 12_000_000L)
+            .toInt()
+        val bitrate = targetBitrate.coerceIn(
+            videoCapabilities.bitrateRange.lower,
+            videoCapabilities.bitrateRange.upper,
+        )
         val format = MediaFormat.createVideoFormat(AVC_MIME, session.width, session.height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, session.fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline)
-            setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel31)
             if (
                 encoderCapabilities?.isBitrateModeSupported(
                     MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR,
@@ -297,15 +574,16 @@ class CameraStreamHost(
         }
         CoLinkLog.i(
             "CameraHost",
-            "session=${CoLinkLog.shortId(session.sessionId)} encoder=${encoder.name} " +
-                "stream=${session.width}x${session.height}@${session.fps} bitrate=${bitrate / 1_000}kbps " +
-                "profile=baseline level=3.1 cbr=${encoderCapabilities?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true}",
+                "session=${CoLinkLog.shortId(session.sessionId)} encoder=${encoder.name} " +
+                    "stream=${session.width}x${session.height}@${session.fps} bitrate=${bitrate / 1_000}kbps " +
+                    "cbr=${encoderCapabilities?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true}",
         )
         encoder.setCallback(object : MediaCodec.Callback() {
             override fun onInputBufferAvailable(codec: MediaCodec, index: Int) = Unit
 
             override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
                 try {
+                    if (!session.isCurrentPipeline(generation)) return
                     if (info.size <= 0) return
                     val codecConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val keyframe = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
@@ -339,6 +617,16 @@ class CameraStreamHost(
                     } else {
                         accessUnit
                     }
+                    if (keyframe && !containsRequiredAnnexBParameterSets(payload)) {
+                        CoLinkLog.e(
+                            "CameraHost",
+                            "session=${CoLinkLog.shortId(session.sessionId)} encoder produced a keyframe without SPS/PPS",
+                        )
+                        handler.post {
+                            if (session.isCurrentPipeline(generation)) failSession(session)
+                        }
+                        return
+                    }
                     if (keyframe) session.keyframeProduced()
                     session.waitingForKeyframe = false
                     if (keyframe && BuildConfig.DEBUG) {
@@ -348,7 +636,7 @@ class CameraStreamHost(
                                 "nal=${annexBNalTypeNames(payload)} params=${containsRequiredAnnexBParameterSets(payload)}",
                         )
                     }
-                    sendFrame(session, payload, keyframe)
+                    sendFrame(session, generation, payload, keyframe)
                 } finally {
                     codec.releaseOutputBuffer(index, false)
                 }
@@ -360,10 +648,11 @@ class CameraStreamHost(
                     "session=${CoLinkLog.shortId(session.sessionId)} encoder error=${error.diagnosticInfo}",
                     error,
                 )
-                failSession(session)
+                if (session.isCurrentPipeline(generation)) failSession(session)
             }
 
             override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+                if (!session.isCurrentPipeline(generation)) return
                 session.parameterSets = listOf("csd-0", "csd-1").mapNotNull { key ->
                     format.getByteBuffer(key)?.let(::readBuffer)?.let(::normalizeAnnexB)
                 }.fold(ByteArray(0)) { result, bytes -> result + bytes }
@@ -380,23 +669,35 @@ class CameraStreamHost(
         return surface
     }
 
-    private fun sendFrame(session: CameraSession, bytes: ByteArray, keyframe: Boolean) {
-        val sequence = session.sequence++
-        val accepted = onFrame(session.controllerId, EncodedCameraFrame(
-            sessionId = session.sessionId,
-            codec = session.codec,
-            keyframe = keyframe,
-            sequence = sequence,
-            timestampMs = System.currentTimeMillis() - session.startedAt,
-            bytes = bytes,
-        ))
-        session.recordFrame(bytes.size, keyframe, accepted)
+    private fun sendFrame(session: CameraSession, generation: Long, bytes: ByteArray, keyframe: Boolean) {
+        val (frame, heldForConfig) = synchronized(session) {
+            val pending = session.pendingConfig
+            if (pending != null && !pending.accepts(generation)) return
+            if (pending?.heldFrame != null) return
+            if (pending != null && !keyframe) return
+            EncodedCameraFrame(
+                sessionId = session.sessionId,
+                codec = session.codec,
+                keyframe = keyframe,
+                sequence = session.sequence++,
+                timestampMs = System.currentTimeMillis() - session.startedAt,
+                bytes = bytes,
+                v2 = session.v2,
+            ).let { encoded -> encoded to (pending?.hold(generation, encoded) != null) }
+        }
+        if (heldForConfig) return
+        deliverFrame(session, frame)
+    }
+
+    private fun deliverFrame(session: CameraSession, frame: EncodedCameraFrame) {
+        val accepted = onFrame(session.controllerId, frame)
+        session.recordFrame(frame.bytes.size, frame.keyframe, accepted)
         session.debugSummary()?.let { CoLinkLog.d("CameraHost", it) }
         if (!accepted && session.codec == "h264") {
-            if (keyframe) {
+            if (frame.keyframe) {
                 CoLinkLog.w(
                     "CameraHost",
-                    "session=${CoLinkLog.shortId(session.sessionId)} keyframe rejected sequence=$sequence transport=${session.transport}",
+                    "session=${CoLinkLog.shortId(session.sessionId)} keyframe rejected sequence=${frame.sequence} transport=${session.transport}",
                 )
             }
             session.markNeedsKeyframe()
@@ -419,7 +720,7 @@ class CameraStreamHost(
                 )
                 session.logClose("alive_timeout")
                 session.close(handler)
-                onClosed(session.controllerId, session.sessionId, "colink:camera.alive_timeout.v1")
+                onClosed(session.controllerId, session.sessionId, "colink:camera.alive_timeout.v1", session.v2)
             }
         }
         session.timeoutRunnable = task
@@ -430,7 +731,7 @@ class CameraStreamHost(
         if (sessions.remove(session.sessionId, session)) {
             session.logClose("device_lost")
             session.close(handler)
-            onClosed(session.controllerId, session.sessionId, "colink:camera.device_lost.v1")
+            onClosed(session.controllerId, session.sessionId, "colink:camera.device_lost.v1", session.v2)
         }
     }
 
@@ -460,6 +761,10 @@ class CameraStreamHost(
         sessionId = sessionId, accepted = false, reason = reason, message = message,
     )
 
+    private fun rejectV2(sessionId: String, reason: String, message: String) = CameraV2OpenAckPayload(
+        sessionId = sessionId, accepted = false, reason = reason, message = message,
+    )
+
     private data class CameraConfiguration(
         val width: Int,
         val height: Int,
@@ -472,10 +777,11 @@ class CameraStreamHost(
         val sessionId: String,
         val cameraId: String,
         val codec: String,
-        val width: Int,
-        val height: Int,
-        val fps: Int,
-        val fpsRange: Range<Int>?,
+        var width: Int,
+        var height: Int,
+        var fps: Int,
+        var fpsRange: Range<Int>?,
+        val v2: Boolean,
         var ready: Boolean = false,
         var lastAliveAt: Long = 0L,
         var sequence: Long = 0L,
@@ -500,8 +806,31 @@ class CameraStreamHost(
         private var totalSent = 0L
         private var totalDrops = 0L
         var timeoutRunnable: Runnable? = null
+        var pendingConfig: PendingCameraConfig? = null
+        private var pipelineGeneration = 0L
+        private var pipelineClosedAction: (() -> Unit)? = null
 
         fun canSend() = ready && System.currentTimeMillis() - lastAliveAt <= CAMERA_ALIVE_TIMEOUT_MILLIS
+
+        @Synchronized
+        fun beginPipeline(): Long {
+            pipelineGeneration += 1
+            pendingConfig?.expectGeneration(pipelineGeneration)
+            parameterSets = ByteArray(0)
+            waitingForKeyframe = true
+            keyframeRequested = false
+            lastImageFrameAt = 0L
+            return pipelineGeneration
+        }
+
+        @Synchronized
+        fun isCurrentPipeline(generation: Long) = pipelineGeneration == generation
+
+        @Synchronized
+        fun handleDeviceClosed(closedDevice: CameraDevice): (() -> Unit)? {
+            if (device === closedDevice) device = null
+            return pipelineClosedAction.also { pipelineClosedAction = null }
+        }
 
         fun shouldCaptureImage(): Boolean {
             val now = System.currentTimeMillis()
@@ -566,16 +895,120 @@ class CameraStreamHost(
             )
         }
 
+        fun closePipeline(handler: Handler, onClosed: (() -> Unit)? = null) {
+            synchronized(this) {
+                pipelineGeneration += 1
+                pipelineClosedAction = onClosed
+            }
+            val oldCaptureSession = captureSession.also { captureSession = null }
+            val oldDevice = device
+            val oldReader = reader.also { reader = null }
+            val oldEncoder = encoder.also { encoder = null }
+            runCatching { oldCaptureSession?.close() }
+            runCatching { oldReader?.close() }
+            runCatching { oldEncoder?.stop() }
+            runCatching { oldEncoder?.release() }
+            if (oldDevice != null) {
+                runCatching { oldDevice.close() }.onFailure {
+                    handleDeviceClosed(oldDevice)?.let { action -> handler.post { action() } }
+                }
+            } else {
+                onClosed?.let { action -> handler.post { action() } }
+            }
+        }
+
         fun close(handler: Handler) {
             timeoutRunnable?.let(handler::removeCallbacks)
             timeoutRunnable = null
-            captureSession?.close()
-            device?.close()
-            reader?.close()
-            runCatching { encoder?.stop() }
-            encoder?.release()
+            synchronized(this) {
+                pendingConfig?.result?.completeExceptionally(
+                    CameraConfigException(
+                        "colink:camera.session_not_found.v1",
+                        "Camera session was closed",
+                    ),
+                )
+                pendingConfig = null
+                pipelineClosedAction = null
+            }
+            closePipeline(handler)
         }
     }
+}
+
+class CameraConfigException(val reason: String, message: String) : IllegalStateException(message)
+
+data class CameraModeChange(
+    val sessionId: String,
+    val width: Int,
+    val height: Int,
+    val fps: Int,
+    val effectiveFromSequence: Long,
+)
+
+internal class PendingCameraConfig(
+    val width: Int,
+    val height: Int,
+    val fps: Int,
+    val result: CompletableDeferred<CameraModeChange> = CompletableDeferred(),
+) {
+    var heldFrame: EncodedCameraFrame? = null
+        private set
+    private var expectedGeneration: Long? = null
+
+    fun expectGeneration(generation: Long) {
+        expectedGeneration = generation
+    }
+
+    fun accepts(generation: Long): Boolean = expectedGeneration == generation
+
+    fun hold(generation: Long, frame: EncodedCameraFrame): CameraModeChange? {
+        if (!accepts(generation) || !frame.keyframe || heldFrame != null) return null
+        heldFrame = frame
+        return CameraModeChange(
+            sessionId = frame.sessionId,
+            width = width,
+            height = height,
+            fps = fps,
+            effectiveFromSequence = frame.sequence,
+        ).also { result.complete(it) }
+    }
+}
+
+internal fun selectRepresentativeCameraSizes(
+    sizes: List<Pair<Int, Int>>,
+    limit: Int = MAX_RESOLUTION_TIERS,
+): List<Pair<Int, Int>> {
+    if (limit <= 0) return emptyList()
+    val ordered = sizes
+        .filter { (width, height) -> width > 0 && height > 0 }
+        .distinct()
+        .sortedWith(compareBy<Pair<Int, Int>> { it.first.toLong() * it.second }.thenBy { it.first }.thenBy { it.second })
+    if (ordered.size <= limit) return ordered.asReversed()
+    if (limit == 1) return listOf(ordered.last())
+    val selected = mutableListOf(0, ordered.lastIndex)
+    val logArea = { index: Int ->
+        kotlin.math.ln(ordered[index].first.toDouble() * ordered[index].second)
+    }
+    val minimum = logArea(0)
+    val maximum = logArea(ordered.lastIndex)
+    for (tier in 1 until limit - 1) {
+        val target = minimum + (maximum - minimum) * tier / (limit - 1)
+        val nearest = ordered.indices.minWithOrNull(
+            compareBy<Int> { kotlin.math.abs(logArea(it) - target) }.thenBy { it },
+        )
+        if (nearest != null && nearest !in selected) selected += nearest
+    }
+    while (selected.size < limit) {
+        val next = ordered.indices
+            .filterNot(selected::contains)
+            .maxByOrNull { index ->
+                selected.minOf { selectedIndex ->
+                    kotlin.math.abs(logArea(index) - logArea(selectedIndex))
+                }
+            } ?: break
+        selected += next
+    }
+    return selected.sorted().map(ordered::get).asReversed()
 }
 
 private fun annexBNalTypeNames(bytes: ByteArray): String {
@@ -616,6 +1049,7 @@ data class EncodedCameraFrame(
     val sequence: Long,
     val timestampMs: Long,
     val bytes: ByteArray,
+    val v2: Boolean,
 )
 
 private fun readBuffer(buffer: ByteBuffer): ByteArray {

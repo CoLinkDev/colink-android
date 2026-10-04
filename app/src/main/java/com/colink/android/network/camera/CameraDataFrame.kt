@@ -1,6 +1,6 @@
 package com.colink.android.network.camera
 
-private const val CAMERA_FRAME_HEADER_SIZE = 16
+internal const val CAMERA_FRAME_HEADER_SIZE = 16
 
 data class CameraDataFrame(
     val codec: String,
@@ -40,6 +40,8 @@ data class CameraDataFrame(
     }
 
     companion object {
+        const val HEADER_SIZE = CAMERA_FRAME_HEADER_SIZE
+
         fun decode(bytes: ByteArray): CameraDataFrame? {
             if (bytes.size < CAMERA_FRAME_HEADER_SIZE || bytes[0] != 0x01.toByte() || bytes[1] != 0x01.toByte()) {
                 return null

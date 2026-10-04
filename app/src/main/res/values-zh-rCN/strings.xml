@@ -21,6 +21,9 @@
     <string name="camera_select_placeholder">选择摄像头</string>
     <string name="camera_connecting">正在连接...</string>
     <string name="camera_waiting_video">正在等待视频...</string>
+    <string name="camera_quality">画质</string>
+    <string name="camera_quality_auto">自动</string>
+    <string name="camera_quality_switch_failed">画质切换失败，请重试。</string>
     <string name="camera_close">关闭</string>
     <string name="camera_snapshot">截图</string>
     <string name="camera_snapshot_saved">截图已保存到相册</string>

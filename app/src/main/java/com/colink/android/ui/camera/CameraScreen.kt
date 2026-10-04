@@ -12,6 +12,7 @@ import android.os.Looper
 import android.view.PixelCopy
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.Surface
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -34,8 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.PlayArrow
@@ -54,6 +53,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -70,6 +70,11 @@ import com.colink.android.network.RemoteCameraProtocolException
 import com.colink.android.network.RemoteCameraTimeoutException
 import com.colink.android.network.RemoteCameraUnsupportedException
 import com.colink.android.network.message.CameraEntry
+import com.colink.android.network.message.CameraResolution
+import com.colink.android.ui.components.ContentGroup
+import com.colink.android.ui.components.ContentGroupHeader
+import com.colink.android.ui.components.ContentGroupItem
+import com.colink.android.ui.components.ContentGroupSpacing
 import com.colink.android.ui.components.WarningCard
 import com.colink.android.util.CoLinkLog
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -102,6 +107,9 @@ data class CameraUiState(
     val pendingSessionId: String? = null,
     val loading: Boolean = false,
     val error: CameraUiError? = null,
+    val qualitySelection: String = "auto",
+    val configuring: Boolean = false,
+    val decoderGeneration: Long = 0L,
 )
 
 enum class CameraUiError(val messageRes: Int) {
@@ -122,6 +130,7 @@ enum class CameraUiError(val messageRes: Int) {
 
 sealed interface CameraUiEvent {
     data object SnapshotSaved : CameraUiEvent
+    data object QualitySwitchFailed : CameraUiEvent
 }
 
 private const val CAMERA_OPEN_TIMEOUT_MILLIS = 20_000L
@@ -132,6 +141,60 @@ private const val CAMERA_REASON_SESSION_CONFLICT = "colink:camera.session_confli
 private const val CAMERA_REASON_ALIVE_TIMEOUT = "colink:camera.alive_timeout.v1"
 private const val CAMERA_REASON_DEVICE_LOST = "colink:camera.device_lost.v1"
 private const val CAMERA_REASON_LIST_FAILED = "colink:camera.list_failed.v1"
+private const val CAMERA_ADAPTIVE_WINDOW_MILLIS = 5_000L
+private const val CAMERA_ADAPTIVE_STABLE_UPGRADE_MILLIS = 30_000L
+private const val CAMERA_ADAPTIVE_PROBE_MILLIS = 10_000L
+private const val CAMERA_ADAPTIVE_UPGRADE_COOLDOWN_MILLIS = 60_000L
+private const val CAMERA_ADAPTIVE_STALL_MILLIS = 1_800L
+private const val CAMERA_SWITCH_MAX_FRAMES = 120
+private const val CAMERA_SWITCH_MAX_BYTES = 24 * 1024 * 1024
+
+data class CameraModeOption(val width: Int, val height: Int, val fps: Int)
+
+private fun CameraModeOption.key() = "${width}x${height}@$fps"
+private fun CameraResolution.key() = "${width}x$height"
+
+private fun CameraResolution.fpsCandidates(): List<Int> = buildSet {
+    fps.forEach { range ->
+        if (range.min <= 0 || range.max < range.min) return@forEach
+        add(range.min)
+        add(range.max)
+        listOf(15, 24, 30, 60).filterTo(this) { it in range.min..range.max }
+    }
+}.sorted()
+
+private fun CameraEntry.modeLadder(): List<CameraModeOption> =
+    capabilities?.resolutions.orEmpty()
+        .flatMap { resolution ->
+            resolution.fpsCandidates().map { fps ->
+                CameraModeOption(resolution.width, resolution.height, fps)
+            }
+        }
+        .distinctBy(CameraModeOption::key)
+        .sortedWith(
+            compareBy<CameraModeOption> { it.width.toLong() * it.height * it.fps }
+                .thenBy { it.width.toLong() * it.height }
+                .thenBy { it.fps },
+        )
+
+private fun CameraResolution.manualMode(): CameraModeOption? {
+    val rates = fpsCandidates()
+    if (rates.isEmpty()) return null
+    val fps = when {
+        30 in rates -> 30
+        rates.any { it < 30 } -> rates.last { it < 30 }
+        else -> rates.first()
+    }
+    return CameraModeOption(width, height, fps)
+}
+
+private fun initialCameraMode(modes: List<CameraModeOption>, transport: String): CameraModeOption? {
+    if (modes.isEmpty()) return null
+    val targetPixels = if (transport == "lan") 1280L * 720 else 640L * 360
+    val targetFps = if (transport == "lan") 30 else 15
+    return modes.lastOrNull { it.width.toLong() * it.height <= targetPixels && it.fps <= targetFps }
+        ?: modes.first()
+}
 
 data class CameraDebugUiState(
     val sessionId: String = "",
@@ -168,6 +231,35 @@ data class RemoteCameraFrame(
     val keyframe: Boolean,
     val timestampUs: Long,
     val bytes: ByteArray,
+    val width: Int,
+    val height: Int,
+    val modeGeneration: Long,
+)
+
+private data class PendingModeSwitch(
+    val mode: CameraModeOption,
+    val frames: ArrayDeque<CameraEvent.Frame> = ArrayDeque(),
+    var bytes: Int = 0,
+)
+
+private data class ModeSwitchRequest(
+    val mode: CameraModeOption,
+    val automatic: Boolean,
+    val probeFromIndex: Int? = null,
+)
+
+private data class AdaptiveCameraState(
+    var windowStartedAt: Long = SystemClock.elapsedRealtime(),
+    var windowReceived: Int = 0,
+    var windowMissing: Long = 0,
+    var windowStartDrift: Long = 0,
+    var lastDrift: Long = 0,
+    var lastFrameAt: Long = SystemClock.elapsedRealtime(),
+    var lastSequence: Long? = null,
+    var badWindows: Int = 0,
+    var stableSince: Long = SystemClock.elapsedRealtime(),
+    var cooldownUntil: Long = 0,
+    var probe: Pair<Int, Long>? = null,
 )
 
 @HiltViewModel
@@ -189,6 +281,13 @@ class CameraViewModel @Inject constructor(
     private var deviceId: String? = null
     private var aliveJob: Job? = null
     private var openTimeoutJob: Job? = null
+    private var modeSwitchJob: Job? = null
+    private var modeLadder: List<CameraModeOption> = emptyList()
+    private var currentMode: CameraModeOption? = null
+    private var automaticQuality = true
+    private var pendingModeSwitch: PendingModeSwitch? = null
+    private var queuedModeSwitch: ModeSwitchRequest? = null
+    private var adaptive = AdaptiveCameraState()
     private var debugStartedAt = SystemClock.elapsedRealtime()
     private var debugWindowStartedAt = debugStartedAt
     private var debugReceivedFrames = 0
@@ -223,6 +322,8 @@ class CameraViewModel @Inject constructor(
                             bitmap = null,
                             loading = false,
                         )
+                        currentMode = CameraModeOption(event.width, event.height, event.fps)
+                        adaptive = AdaptiveCameraState()
                         resetDebug(event)
                         startAlive(event.sessionId)
                     }
@@ -245,29 +346,20 @@ class CameraViewModel @Inject constructor(
         viewModelScope.launch {
             connection.cameraFrames.collectLatest { event ->
                 if (event.sessionId != _state.value.sessionId) return@collectLatest
-                val bytes = event.data
                 recordDebugFrame(event)
-                if (event.codec == "h264") {
-                    _h264Frames.tryEmit(
-                        RemoteCameraFrame(
-                            event.sequence,
-                            event.keyframe,
-                            event.timestampMs * 1_000L,
-                            bytes,
-                        ),
-                    )
-                } else {
-                    val bitmap = runCatching {
-                        withContext(Dispatchers.Default) {
-                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        }
-                    }.getOrNull()
-                    if (bitmap == null) {
-                        failSession(event.sessionId, CameraUiError.PLAYBACK_FAILED)
-                        return@collectLatest
+                recordAdaptiveFrame(event)
+                val pending = pendingModeSwitch
+                if (pending != null) {
+                    pending.frames.addLast(event)
+                    pending.bytes += event.data.size
+                    while (
+                        pending.frames.size > CAMERA_SWITCH_MAX_FRAMES ||
+                        pending.bytes > CAMERA_SWITCH_MAX_BYTES
+                    ) {
+                        pending.bytes -= pending.frames.removeFirst().data.size
                     }
-                    debugDecodedImages += 1
-                    _state.value = _state.value.copy(bitmap = bitmap)
+                } else {
+                    consumeRemoteFrame(event)
                 }
             }
         }
@@ -275,6 +367,7 @@ class CameraViewModel @Inject constructor(
             while (true) {
                 delay(1_000)
                 publishDebug()
+                evaluateAdaptiveQuality()
             }
         }
     }
@@ -297,21 +390,35 @@ class CameraViewModel @Inject constructor(
     }
 
     fun select(camera: CameraEntry) {
-        _state.value = _state.value.copy(selected = camera)
+        _state.value = _state.value.copy(selected = camera, qualitySelection = "auto")
     }
 
     fun open() {
         val id = deviceId ?: return
         val camera = _state.value.selected ?: return
         val sessionId = UUID.randomUUID().toString()
+        modeLadder = camera.modeLadder()
+        val initialMode = initialCameraMode(modeLadder, connection.cameraTransportHint(id))
+        currentMode = initialMode
+        automaticQuality = true
+        adaptive = AdaptiveCameraState()
         _state.value = _state.value.copy(
             pendingSessionId = sessionId,
             loading = true,
             error = null,
+            qualitySelection = "auto",
+            configuring = false,
         )
         startOpenTimeout(sessionId)
         viewModelScope.launch {
-            connection.openRemoteCamera(id, camera.cameraId, sessionId)
+            connection.openRemoteCamera(
+                id,
+                camera.cameraId,
+                sessionId,
+                initialMode?.width ?: 0,
+                initialMode?.height ?: 0,
+                initialMode?.fps ?: 0,
+            )
                 .onFailure { error ->
                     if (_state.value.pendingSessionId == sessionId) {
                         clear(cameraOpenError(error))
@@ -331,6 +438,240 @@ class CameraViewModel @Inject constructor(
             }
         }
         clear(null)
+    }
+
+    fun setQuality(selection: String) {
+        _state.value = _state.value.copy(qualitySelection = selection)
+        if (selection == "auto") {
+            automaticQuality = true
+            queuedModeSwitch = null
+            adaptive = AdaptiveCameraState()
+            return
+        }
+        automaticQuality = false
+        val resolution = _state.value.selected?.capabilities?.resolutions
+            ?.firstOrNull { it.key() == selection }
+        resolution?.manualMode()?.let { mode ->
+            requestModeSwitch(ModeSwitchRequest(mode, automatic = false))
+        }
+    }
+
+    private fun requestModeSwitch(request: ModeSwitchRequest) {
+        queuedModeSwitch = request
+        if (modeSwitchJob?.isActive == true) return
+        _state.value = _state.value.copy(configuring = true)
+        modeSwitchJob = viewModelScope.launch {
+            while (true) {
+                val next = queuedModeSwitch ?: break
+                queuedModeSwitch = null
+                val id = deviceId ?: break
+                val sessionId = _state.value.sessionId ?: break
+                if (currentMode?.key() == next.mode.key()) continue
+                val pending = PendingModeSwitch(next.mode)
+                pendingModeSwitch = pending
+                runCatching {
+                    connection.configureRemoteCamera(
+                        id,
+                        sessionId,
+                        next.mode.width,
+                        next.mode.height,
+                        next.mode.fps,
+                    ).getOrThrow()
+                }.mapCatching { ack ->
+                    if (
+                        !ack.applied ||
+                        ack.width != next.mode.width ||
+                        ack.height != next.mode.height ||
+                        ack.fps != next.mode.fps ||
+                        ack.effectiveFromSequence == null
+                    ) {
+                        throw RemoteCameraProtocolException(message = "Camera mode response did not match the request")
+                    }
+                    ack
+                }.onSuccess { ack ->
+                    if (_state.value.sessionId != sessionId) return@onSuccess
+                    val effectiveFromSequence = requireNotNull(ack.effectiveFromSequence)
+                    currentMode = next.mode
+                    _state.value = _state.value.copy(
+                        width = next.mode.width,
+                        height = next.mode.height,
+                        fps = next.mode.fps,
+                        decoderGeneration = _state.value.decoderGeneration + 1,
+                    )
+                    _debugState.value = _debugState.value.copy(
+                        width = next.mode.width,
+                        height = next.mode.height,
+                        fps = next.mode.fps,
+                    )
+                    debugExpectedSequence = null
+                    debugBaseArrivalMs = null
+                    debugBaseTimestampMs = null
+                    debugDelayDriftMs = 0
+                    adaptive = AdaptiveCameraState().apply {
+                        if (next.automatic) {
+                            cooldownUntil = SystemClock.elapsedRealtime() + CAMERA_ADAPTIVE_UPGRADE_COOLDOWN_MILLIS
+                            next.probeFromIndex?.let { index ->
+                                probe = index to (SystemClock.elapsedRealtime() + CAMERA_ADAPTIVE_PROBE_MILLIS)
+                            }
+                        }
+                    }
+                    drainPendingFrames(pending, effectiveFromSequence, trackAdaptive = true)
+                }.onFailure {
+                    if (_state.value.sessionId != sessionId) return@onFailure
+                    val recoverySequence = pending.frames.lastOrNull { it.keyframe }?.sequence
+                    if (recoverySequence != null) {
+                        _state.value = _state.value.copy(
+                            decoderGeneration = _state.value.decoderGeneration + 1,
+                        )
+                    }
+                    drainPendingFrames(pending, recoverySequence ?: Long.MIN_VALUE)
+                    if (!next.automatic) {
+                        val selectedResolution = currentMode?.let { mode ->
+                            _state.value.selected?.capabilities?.resolutions
+                                ?.firstOrNull { it.width == mode.width && it.height == mode.height }
+                                ?.key()
+                        } ?: "auto"
+                        _state.value = _state.value.copy(qualitySelection = selectedResolution)
+                    }
+                    _events.tryEmit(CameraUiEvent.QualitySwitchFailed)
+                }
+            }
+            if (_state.value.sessionId != null) {
+                _state.value = _state.value.copy(configuring = false)
+            }
+        }
+    }
+
+    private suspend fun drainPendingFrames(
+        pending: PendingModeSwitch,
+        minimumSequence: Long,
+        trackAdaptive: Boolean = false,
+    ) {
+        while (pendingModeSwitch === pending) {
+            val frame = pending.frames.firstOrNull()
+            if (frame == null) {
+                pendingModeSwitch = null
+                return
+            }
+            pending.frames.removeFirst()
+            pending.bytes = (pending.bytes - frame.data.size).coerceAtLeast(0)
+            if (frame.sequence >= minimumSequence) {
+                if (trackAdaptive) recordAdaptiveFrame(frame)
+                consumeRemoteFrame(frame)
+            }
+        }
+    }
+
+    private suspend fun consumeRemoteFrame(event: CameraEvent.Frame) {
+        val bytes = event.data
+        if (event.codec == "h264") {
+            val state = _state.value
+            _h264Frames.emit(
+                RemoteCameraFrame(
+                    event.sequence,
+                    event.keyframe,
+                    event.timestampMs * 1_000L,
+                    bytes,
+                    state.width,
+                    state.height,
+                    state.decoderGeneration,
+                ),
+            )
+        } else {
+            val bitmap = runCatching {
+                withContext(Dispatchers.Default) {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                }
+            }.getOrNull()
+            if (bitmap == null) {
+                failSession(event.sessionId, CameraUiError.PLAYBACK_FAILED)
+                return
+            }
+            debugDecodedImages += 1
+            _state.value = _state.value.copy(bitmap = bitmap)
+        }
+    }
+
+    private fun recordAdaptiveFrame(event: CameraEvent.Frame) {
+        val now = SystemClock.elapsedRealtime()
+        adaptive.windowReceived += 1
+        adaptive.lastFrameAt = now
+        adaptive.lastSequence?.let { previous ->
+            if (event.sequence > previous + 1) {
+                adaptive.windowMissing += event.sequence - previous - 1
+            }
+        }
+        adaptive.lastSequence = event.sequence
+        adaptive.lastDrift = debugDelayDriftMs
+    }
+
+    private fun evaluateAdaptiveQuality() {
+        if (!automaticQuality || _state.value.sessionId == null || _state.value.configuring) return
+        val mode = currentMode ?: return
+        if (modeLadder.size < 2) return
+        val currentIndex = modeLadder.indexOfFirst { it.key() == mode.key() }
+        if (currentIndex < 0) return
+        val now = SystemClock.elapsedRealtime()
+        if (
+            adaptive.lastSequence != null &&
+            now - adaptive.lastFrameAt >= CAMERA_ADAPTIVE_STALL_MILLIS &&
+            currentIndex > 0
+        ) {
+            adaptive.badWindows = 0
+            requestModeSwitch(ModeSwitchRequest(modeLadder[currentIndex - 1], automatic = true))
+            return
+        }
+        val elapsed = now - adaptive.windowStartedAt
+        if (elapsed < CAMERA_ADAPTIVE_WINDOW_MILLIS) return
+        val expectedFrames = mode.fps * elapsed / 1_000.0
+        val deliveryRatio = if (expectedFrames > 0) adaptive.windowReceived / expectedFrames else 1.0
+        val observedFrames = adaptive.windowReceived + adaptive.windowMissing
+        val gapRatio = if (observedFrames > 0) adaptive.windowMissing.toDouble() / observedFrames else 0.0
+        val driftGrowth = adaptive.lastDrift - adaptive.windowStartDrift
+        val badWindow = deliveryRatio < 0.75 || gapRatio > 0.05 || driftGrowth > 400
+        adaptive.windowStartedAt = now
+        adaptive.windowReceived = 0
+        adaptive.windowMissing = 0
+        adaptive.windowStartDrift = adaptive.lastDrift
+
+        adaptive.probe?.let { (fallbackIndex, deadline) ->
+            if (badWindow) {
+                adaptive.probe = null
+                modeLadder.getOrNull(fallbackIndex)?.let {
+                    requestModeSwitch(ModeSwitchRequest(it, automatic = true))
+                }
+                return
+            }
+            if (now >= deadline) {
+                adaptive.probe = null
+                adaptive.stableSince = now
+            }
+        }
+        if (badWindow) {
+            adaptive.badWindows += 1
+            adaptive.stableSince = now
+            if (adaptive.badWindows >= 2 && currentIndex > 0) {
+                adaptive.badWindows = 0
+                requestModeSwitch(ModeSwitchRequest(modeLadder[currentIndex - 1], automatic = true))
+            }
+            return
+        }
+        adaptive.badWindows = 0
+        if (
+            adaptive.probe == null &&
+            currentIndex < modeLadder.lastIndex &&
+            now - adaptive.stableSince >= CAMERA_ADAPTIVE_STABLE_UPGRADE_MILLIS &&
+            now >= adaptive.cooldownUntil
+        ) {
+            adaptive.cooldownUntil = now + CAMERA_ADAPTIVE_UPGRADE_COOLDOWN_MILLIS
+            requestModeSwitch(
+                ModeSwitchRequest(
+                    modeLadder[currentIndex + 1],
+                    automatic = true,
+                    probeFromIndex = currentIndex,
+                ),
+            )
+        }
     }
 
     fun saveSnapshot(bitmap: Bitmap, recycleWhenSaved: Boolean = false) {
@@ -445,15 +786,28 @@ class CameraViewModel @Inject constructor(
     private fun clear(error: CameraUiError?) {
         aliveJob?.cancel()
         openTimeoutJob?.cancel()
+        modeSwitchJob?.cancel()
+        modeSwitchJob = null
+        pendingModeSwitch = null
+        queuedModeSwitch = null
+        modeLadder = emptyList()
+        currentMode = null
+        automaticQuality = true
+        adaptive = AdaptiveCameraState()
         _state.value = _state.value.copy(
             sessionId = null,
             pendingSessionId = null,
             codec = null,
+            width = 0,
+            height = 0,
             fps = 0,
             transport = null,
             bitmap = null,
             loading = false,
             error = error,
+            qualitySelection = "auto",
+            configuring = false,
+            decoderGeneration = _state.value.decoderGeneration + 1,
         )
         _debugState.value = CameraDebugUiState()
         resetDebugCounters()
@@ -597,6 +951,7 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
     var surfaceViewRef by remember { mutableStateOf<SurfaceView?>(null) }
 
     val snapshotSavedMsg = stringResource(R.string.camera_snapshot_saved)
+    val qualitySwitchFailedMsg = stringResource(R.string.camera_quality_switch_failed)
 
     fun takeSnapshot() {
         val bitmap = state.bitmap
@@ -623,6 +978,9 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
             when (event) {
                 CameraUiEvent.SnapshotSaved -> {
                     Toast.makeText(context, snapshotSavedMsg, Toast.LENGTH_SHORT).show()
+                }
+                CameraUiEvent.QualitySwitchFailed -> {
+                    Toast.makeText(context, qualitySwitchFailedMsg, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -841,7 +1199,13 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                             )
                         }
 
-                        CameraDebugPanel(debugState)
+                        CameraStreamControls(
+                            resolutions = state.selected?.capabilities?.resolutions.orEmpty(),
+                            selection = state.qualitySelection,
+                            configuring = state.configuring,
+                            onSelect = viewModel::setQuality,
+                            debugState = debugState,
+                        )
 
                         errorMessage?.let { message ->
                             WarningCard(
@@ -892,6 +1256,96 @@ fun CameraScreen(deviceId: String, onBack: () -> Unit, viewModel: CameraViewMode
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CameraStreamControls(
+    resolutions: List<CameraResolution>,
+    selection: String,
+    configuring: Boolean,
+    onSelect: (String) -> Unit,
+    debugState: CameraDebugUiState,
+) {
+    val choices = resolutions.filter { it.manualMode() != null }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(ContentGroupSpacing),
+    ) {
+        CameraQualitySelector(
+            choices = choices,
+            selection = selection,
+            configuring = configuring,
+            onSelect = onSelect,
+        )
+        CameraDebugPanel(state = debugState)
+    }
+}
+
+@Composable
+private fun CameraQualitySelector(
+    choices: List<CameraResolution>,
+    selection: String,
+    configuring: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    val options = listOf("auto" to stringResource(R.string.camera_quality_auto)) +
+        choices.map { it.key() to "${it.width} × ${it.height}" }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectableGroup(),
+    ) {
+        ContentGroupHeader(title = stringResource(R.string.camera_quality))
+        options.forEachIndexed { index, (key, label) ->
+            val selected = selection == key
+            ContentGroupItem(
+                isFirst = index == 0,
+                isLast = index == options.lastIndex,
+                containerColor = if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainer
+                },
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = selected,
+                            role = Role.RadioButton,
+                            onClick = { if (!selected) onSelect(key) },
+                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = label,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                    )
+                    if (configuring && selected) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    RadioButton(
+                        selected = selected,
+                        onClick = null,
+                    )
                 }
             }
         }
@@ -1010,6 +1464,7 @@ private fun CameraVideoContent(
             state.width,
             state.height,
             requireNotNull(state.sessionId),
+            state.decoderGeneration,
             h264Frames,
             onDecoderDebug,
             onDecoderFailure,
@@ -1080,6 +1535,7 @@ private fun H264VideoSurface(
     width: Int,
     height: Int,
     sessionId: String,
+    decoderGeneration: Long,
     frames: Flow<RemoteCameraFrame>,
     onDebugStats: (H264DecoderDebugStats) -> Unit,
     onDecoderFailure: () -> Unit,
@@ -1097,9 +1553,17 @@ private fun H264VideoSurface(
     }
     val frameWidth = width.coerceAtLeast(16)
     val frameHeight = height.coerceAtLeast(16)
+    var outputSurface by remember(sessionId) { mutableStateOf<Surface?>(null) }
     DisposableEffect(decoder) { onDispose(decoder::close) }
     LaunchedEffect(decoder, frames) {
+        var activeGeneration = decoderGeneration
         frames.collect { frame ->
+            if (frame.modeGeneration != activeGeneration) {
+                outputSurface?.takeIf { it.isValid }?.let { surface ->
+                    decoder.configure(surface, frame.width, frame.height)
+                }
+                activeGeneration = frame.modeGeneration
+            }
             decoder.queue(frame.bytes, frame.sequence, frame.keyframe, frame.timestampUs)
         }
     }
@@ -1110,17 +1574,20 @@ private fun H264VideoSurface(
                 holder.setFixedSize(frameWidth, frameHeight)
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
+                        outputSurface = holder.surface
                         decoder.configure(holder.surface, frameWidth, frameHeight)
                         onSurfaceViewCreated(this@apply)
                     }
                     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
+                        outputSurface = null
                         onSurfaceViewCreated(null)
                         decoder.release()
                     }
                 })
             }
         },
+        update = { view -> view.holder.setFixedSize(frameWidth, frameHeight) },
         modifier = modifier
             .then(
                 if (isFullScreen) {
@@ -1134,105 +1601,65 @@ private fun H264VideoSurface(
 
 @Composable
 private fun CameraDebugPanel(state: CameraDebugUiState) {
-    var isExpanded by remember { mutableStateOf(false) }
+    val streamSummary = stringResource(
+        R.string.camera_debug_stream_value,
+        state.codec.uppercase(),
+        state.transport.uppercase(),
+        state.width,
+        state.height,
+        state.fps,
+    )
+    val details = listOf(
+        stringResource(R.string.camera_debug_session) to
+            if (state.sessionId.isBlank()) {
+                stringResource(R.string.camera_debug_unknown)
+            } else {
+                "${CoLinkLog.shortId(state.sessionId)} · ${state.elapsedSeconds}s"
+            },
+        stringResource(R.string.camera_debug_stream) to streamSummary,
+        stringResource(R.string.camera_debug_receive) to stringResource(
+            R.string.camera_debug_receive_value,
+            state.receiveFps,
+            state.receiveKbps,
+            state.lastFrameBytes,
+        ),
+        stringResource(R.string.camera_debug_decoder) to stringResource(
+            R.string.camera_debug_decoder_value,
+            state.decoderName.ifBlank { "—" },
+            state.decoderOutputFps,
+            state.decoderQueue,
+            stringResource(
+                if (state.waitingForKeyframe) R.string.camera_debug_waiting_keyframe
+                else R.string.camera_debug_synced,
+            ),
+        ),
+        stringResource(R.string.camera_debug_integrity) to stringResource(
+            R.string.camera_debug_integrity_value,
+            state.sequenceGaps,
+            state.missingFrames,
+            state.decoderGaps,
+            state.decoderMissingFrames,
+            state.decoderDrops,
+            state.decoderErrors,
+            state.decoderRestarts,
+        ),
+        stringResource(R.string.camera_debug_frame) to stringResource(
+            R.string.camera_debug_frame_value,
+            state.lastSequence?.toString() ?: "—",
+            state.keyframes,
+            state.delayDriftMs,
+            state.lastNalTypes.ifBlank { "—" },
+        ),
+    )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    ContentGroup(title = stringResource(R.string.camera_debug_title)) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.camera_debug_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Icon(
-                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (isExpanded) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 14.dp, end = 14.dp, bottom = 14.dp, top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_session),
-                        if (state.sessionId.isBlank()) {
-                            stringResource(R.string.camera_debug_unknown)
-                        } else {
-                            "${CoLinkLog.shortId(state.sessionId)} · ${state.elapsedSeconds}s"
-                        },
-                    )
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_stream),
-                        stringResource(
-                            R.string.camera_debug_stream_value,
-                            state.codec,
-                            state.transport,
-                            state.width,
-                            state.height,
-                            state.fps,
-                        ),
-                    )
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_receive),
-                        stringResource(
-                            R.string.camera_debug_receive_value,
-                            state.receiveFps,
-                            state.receiveKbps,
-                            state.lastFrameBytes,
-                        ),
-                    )
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_decoder),
-                        stringResource(
-                            R.string.camera_debug_decoder_value,
-                            state.decoderName.ifBlank { "—" },
-                            state.decoderOutputFps,
-                            state.decoderQueue,
-                            stringResource(
-                                if (state.waitingForKeyframe) R.string.camera_debug_waiting_keyframe
-                                else R.string.camera_debug_synced,
-                            ),
-                        ),
-                    )
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_integrity),
-                        stringResource(
-                            R.string.camera_debug_integrity_value,
-                            state.sequenceGaps,
-                            state.missingFrames,
-                            state.decoderGaps,
-                            state.decoderMissingFrames,
-                            state.decoderDrops,
-                            state.decoderErrors,
-                            state.decoderRestarts,
-                        ),
-                    )
-                    CameraDebugRow(
-                        stringResource(R.string.camera_debug_frame),
-                        stringResource(
-                            R.string.camera_debug_frame_value,
-                            state.lastSequence?.toString() ?: "—",
-                            state.keyframes,
-                            state.delayDriftMs,
-                            state.lastNalTypes.ifBlank { "—" },
-                        ),
-                    )
-                }
+            details.forEach { (label, value) ->
+                CameraDebugRow(label = label, value = value)
             }
         }
     }
@@ -1262,21 +1689,20 @@ private fun captureSurfaceViewBitmap(surfaceView: SurfaceView, onResult: (Bitmap
 
 @Composable
 private fun CameraDebugRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.width(12.dp))
         Text(
             text = value,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
