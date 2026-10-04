@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,12 +21,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -140,6 +144,7 @@ class CastBoardHostViewModel @Inject constructor(
             }
         }
     }
+
 }
 
 @Composable
@@ -147,6 +152,7 @@ class CastBoardHostViewModel @Inject constructor(
 fun CastBoardHostScreen(
     onBack: () -> Unit,
     onLaunch: (String) -> Unit,
+    onConfigurePlugin: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CastBoardHostViewModel = hiltViewModel(),
 ) {
@@ -271,6 +277,7 @@ fun CastBoardHostScreen(
                                 locale = locale,
                                 enabled = !uiState.importing && uiState.actingPluginId == null,
                                 onEnabledChange = { enabled -> viewModel.setPluginEnabled(plugin, enabled) },
+                                onConfigure = { onConfigurePlugin(plugin.manifest.id) },
                                 onDelete = { pendingDelete = plugin },
                             )
                         }
@@ -351,77 +358,115 @@ private fun LaunchItem(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun PluginItem(
     plugin: CastBoardPluginItem,
     locale: String,
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
+    onConfigure: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val name = localizedPluginText(plugin.manifest.name, locale)
     val description = localizedPluginText(plugin.manifest.description, locale)
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            Icons.Default.Extension,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                Icons.Default.Extension,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
             )
-            Text(
-                text = buildString {
-                    append(stringResource(
-                        if (plugin.manifest.type == "navigable") {
-                            R.string.castboard_plugin_type_navigable
-                        } else {
-                            R.string.castboard_plugin_type_transient
-                        },
-                    ))
-                    append(" · v")
-                    append(plugin.manifest.version)
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            if (description.isNotBlank()) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    text = name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    text = buildString {
+                        append(stringResource(
+                            if (plugin.manifest.type == "navigable") {
+                                R.string.castboard_plugin_type_navigable
+                            } else {
+                                R.string.castboard_plugin_type_transient
+                            },
+                        ))
+                        append(" · v")
+                        append(plugin.manifest.version)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (description.isNotBlank()) {
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
-        }
-        Switch(
-            checked = plugin.enabled,
-            enabled = enabled,
-            onCheckedChange = onEnabledChange,
-        )
-        IconButton(onClick = onDelete, enabled = enabled) {
-            Icon(
-                Icons.Default.Delete,
-                contentDescription = stringResource(R.string.delete_btn),
-                tint = MaterialTheme.colorScheme.error,
+            Switch(
+                checked = plugin.enabled,
+                enabled = enabled,
+                onCheckedChange = onEnabledChange,
             )
+        }
+        FlowRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (plugin.manifest.configSchema != null) {
+                FilledTonalButton(onClick = onConfigure, enabled = enabled) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.castboard_plugin_configure),
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+            FilledTonalButton(
+                onClick = onDelete,
+                enabled = enabled,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                ),
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = stringResource(R.string.delete_btn),
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
         }
     }
 }
 
-private fun localizedPluginText(values: Map<String, String>?, locale: String): String {
+internal fun localizedPluginText(values: Map<String, String>?, locale: String): String {
     if (values.isNullOrEmpty()) return ""
     val normalized = locale.lowercase(Locale.ROOT)
     values.entries.firstOrNull { it.key.lowercase(Locale.ROOT) == normalized }?.value?.let { return it }
@@ -430,10 +475,11 @@ private fun localizedPluginText(values: Map<String, String>?, locale: String): S
     return values["en"] ?: values.values.first()
 }
 
-private fun CastBoardPluginFailure.messageResource(): Int = when (this) {
+internal fun CastBoardPluginFailure.messageResource(): Int = when (this) {
     CastBoardPluginFailure.InvalidArchive -> R.string.castboard_plugin_error_invalid_archive
     CastBoardPluginFailure.InvalidManifest -> R.string.castboard_plugin_error_invalid_manifest
     CastBoardPluginFailure.Incompatible -> R.string.castboard_plugin_error_incompatible
     CastBoardPluginFailure.Storage -> R.string.castboard_plugin_error_storage
     CastBoardPluginFailure.NotFound -> R.string.castboard_plugin_error_not_found
+    CastBoardPluginFailure.InvalidConfig -> R.string.castboard_plugin_error_invalid_config
 }

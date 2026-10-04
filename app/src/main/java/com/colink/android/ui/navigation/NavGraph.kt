@@ -92,6 +92,7 @@ import com.colink.android.ui.auth.AuthDialogContent
 import com.colink.android.ui.terminal.TerminalScreen
 import com.colink.android.ui.castboard.CastBoardActivity
 import com.colink.android.ui.castboard.CastBoardHostScreen
+import com.colink.android.ui.castboard.CastBoardPluginConfigScreen
 import com.colink.android.ui.camera.CameraScreen
 import com.colink.android.ui.devices.DeviceScreen
 import com.colink.android.ui.devices.DevicesViewModel
@@ -418,6 +419,15 @@ private fun MainScaffold(
                 onLaunch = { deviceId ->
                     context.startActivity(CastBoardActivity.createIntent(context, deviceId))
                 },
+                onConfigurePlugin = { pluginId ->
+                    requestSecondaryPage("castboard/plugin-config/${Uri.encode(pluginId)}")
+                },
+            )
+        }
+
+        composable(route = "castboard/plugin-config/{pluginId}") {
+            CastBoardPluginConfigScreen(
+                onBack = { rootNavController.popBackStack() },
             )
         }
 

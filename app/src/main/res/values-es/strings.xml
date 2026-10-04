@@ -108,11 +108,17 @@
     <string name="castboard_plugin_type_transient">Transitorio</string>
     <string name="castboard_plugin_delete_title">¿Eliminar complemento?</string>
     <string name="castboard_plugin_delete_description">Esto eliminará permanentemente “%1$s” y sus archivos locales.</string>
+    <string name="castboard_plugin_configure">Configurar complemento</string>
+    <string name="castboard_plugin_config_title">Configurar %1$s</string>
+    <string name="castboard_plugin_config_saved">Configuración del complemento guardada</string>
+    <string name="castboard_plugin_restore_defaults">Restaurar valores</string>
+    <string name="castboard_plugin_config_saving">Guardando...</string>
     <string name="castboard_plugin_error_invalid_archive">El archivo seleccionado no es un paquete de complemento válido.</string>
     <string name="castboard_plugin_error_invalid_manifest">El manifiesto del complemento no es válido o falta el archivo de entrada.</string>
     <string name="castboard_plugin_error_incompatible">Este complemento requiere una versión más reciente de CastBoard.</string>
     <string name="castboard_plugin_error_storage">No se pudo guardar el complemento. Compruebe el almacenamiento e inténtelo de nuevo.</string>
     <string name="castboard_plugin_error_not_found">No se encontró el complemento. Puede que ya se haya eliminado.</string>
+    <string name="castboard_plugin_error_invalid_config">La configuración del complemento no es válida y no se pudo guardar.</string>
     <string name="device_control_no_devices_message">No hay dispositivos disponibles. Conecte un equipo por LAN o Cloud para usar esta función.</string>
 
     <!-- Notifications -->

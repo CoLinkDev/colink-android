@@ -108,11 +108,17 @@
     <string name="castboard_plugin_type_transient">Transient</string>
     <string name="castboard_plugin_delete_title">Delete plugin?</string>
     <string name="castboard_plugin_delete_description">This permanently deletes “%1$s” and its local files.</string>
+    <string name="castboard_plugin_configure">Configure plugin</string>
+    <string name="castboard_plugin_config_title">Configure %1$s</string>
+    <string name="castboard_plugin_config_saved">Plugin configuration saved</string>
+    <string name="castboard_plugin_restore_defaults">Restore defaults</string>
+    <string name="castboard_plugin_config_saving">Saving...</string>
     <string name="castboard_plugin_error_invalid_archive">The selected file is not a valid plugin archive.</string>
     <string name="castboard_plugin_error_invalid_manifest">The plugin manifest is invalid or its entry file is missing.</string>
     <string name="castboard_plugin_error_incompatible">This plugin requires a newer CastBoard version.</string>
     <string name="castboard_plugin_error_storage">The plugin could not be saved. Check available storage and try again.</string>
     <string name="castboard_plugin_error_not_found">The plugin was not found. It may already have been deleted.</string>
+    <string name="castboard_plugin_error_invalid_config">The plugin configuration is invalid and could not be saved.</string>
     <string name="device_control_no_devices_message">No available devices. Connect a computer device over LAN or Cloud to use this feature.</string>
 
     <!-- Notifications -->

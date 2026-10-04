@@ -108,11 +108,17 @@
     <string name="castboard_plugin_type_transient">一時表示</string>
     <string name="castboard_plugin_delete_title">プラグインを削除しますか？</string>
     <string name="castboard_plugin_delete_description">「%1$s」とそのローカルファイルを完全に削除します。</string>
+    <string name="castboard_plugin_configure">プラグインを設定</string>
+    <string name="castboard_plugin_config_title">%1$s を設定</string>
+    <string name="castboard_plugin_config_saved">プラグイン設定を保存しました</string>
+    <string name="castboard_plugin_restore_defaults">既定値に戻す</string>
+    <string name="castboard_plugin_config_saving">保存中...</string>
     <string name="castboard_plugin_error_invalid_archive">選択したファイルは有効なプラグインアーカイブではありません。</string>
     <string name="castboard_plugin_error_invalid_manifest">プラグインマニフェストが無効か、エントリーファイルがありません。</string>
     <string name="castboard_plugin_error_incompatible">このプラグインには新しいバージョンの CastBoard が必要です。</string>
     <string name="castboard_plugin_error_storage">プラグインを保存できませんでした。空き容量を確認してもう一度お試しください。</string>
     <string name="castboard_plugin_error_not_found">プラグインが見つかりません。すでに削除されている可能性があります。</string>
+    <string name="castboard_plugin_error_invalid_config">プラグイン設定が無効なため保存できません。</string>
     <string name="device_control_no_devices_message">利用可能なデバイスがありません。この機能を使用するには、LAN または Cloud でコンピューターデバイスを接続してください。</string>
 
     <!-- Notifications -->

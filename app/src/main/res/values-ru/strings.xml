@@ -108,11 +108,17 @@
     <string name="castboard_plugin_type_transient">Временный</string>
     <string name="castboard_plugin_delete_title">Удалить плагин?</string>
     <string name="castboard_plugin_delete_description">Плагин «%1$s» и его локальные файлы будут удалены безвозвратно.</string>
+    <string name="castboard_plugin_configure">Настроить плагин</string>
+    <string name="castboard_plugin_config_title">Настроить %1$s</string>
+    <string name="castboard_plugin_config_saved">Настройки плагина сохранены</string>
+    <string name="castboard_plugin_restore_defaults">Сбросить настройки</string>
+    <string name="castboard_plugin_config_saving">Сохранение...</string>
     <string name="castboard_plugin_error_invalid_archive">Выбранный файл не является допустимым архивом плагина.</string>
     <string name="castboard_plugin_error_invalid_manifest">Манифест плагина недействителен или отсутствует входной файл.</string>
     <string name="castboard_plugin_error_incompatible">Для этого плагина требуется более новая версия CastBoard.</string>
     <string name="castboard_plugin_error_storage">Не удалось сохранить плагин. Проверьте свободное место и повторите попытку.</string>
     <string name="castboard_plugin_error_not_found">Плагин не найден. Возможно, он уже удалён.</string>
+    <string name="castboard_plugin_error_invalid_config">Настройки плагина недействительны и не могут быть сохранены.</string>
     <string name="device_control_no_devices_message">Нет доступных устройств. Подключите компьютер по LAN или Cloud, чтобы использовать эту функцию.</string>
 
     <!-- Notifications -->

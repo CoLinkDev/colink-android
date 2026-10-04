@@ -108,11 +108,17 @@
     <string name="castboard_plugin_type_transient">Temporär</string>
     <string name="castboard_plugin_delete_title">Plugin löschen?</string>
     <string name="castboard_plugin_delete_description">„%1$s“ und die lokalen Dateien werden dauerhaft gelöscht.</string>
+    <string name="castboard_plugin_configure">Plugin konfigurieren</string>
+    <string name="castboard_plugin_config_title">%1$s konfigurieren</string>
+    <string name="castboard_plugin_config_saved">Plugin-Konfiguration gespeichert</string>
+    <string name="castboard_plugin_restore_defaults">Standardwerte</string>
+    <string name="castboard_plugin_config_saving">Wird gespeichert...</string>
     <string name="castboard_plugin_error_invalid_archive">Die ausgewählte Datei ist kein gültiges Plugin-Archiv.</string>
     <string name="castboard_plugin_error_invalid_manifest">Das Plugin-Manifest ist ungültig oder die Einstiegsdatei fehlt.</string>
     <string name="castboard_plugin_error_incompatible">Dieses Plugin benötigt eine neuere CastBoard-Version.</string>
     <string name="castboard_plugin_error_storage">Das Plugin konnte nicht gespeichert werden. Prüfen Sie den Speicherplatz und versuchen Sie es erneut.</string>
     <string name="castboard_plugin_error_not_found">Das Plugin wurde nicht gefunden. Es wurde möglicherweise bereits gelöscht.</string>
+    <string name="castboard_plugin_error_invalid_config">Die Plugin-Konfiguration ist ungültig und konnte nicht gespeichert werden.</string>
     <string name="device_control_no_devices_message">Keine verfügbaren Geräte. Verbinden Sie ein Computergerät über LAN oder Cloud, um diese Funktion zu nutzen.</string>
 
     <!-- Notifications -->

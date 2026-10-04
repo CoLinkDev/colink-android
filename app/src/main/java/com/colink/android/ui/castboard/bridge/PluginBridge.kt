@@ -22,6 +22,7 @@ class PluginBridge {
                         add(buildJsonObject {
                             put("manifest", plugin.rawManifest)
                             put("baseUrl", "$PLUGIN_BASE_URL/${plugin.directoryName}/")
+                            put("config", plugin.configOverrides)
                         })
                     }
                 })

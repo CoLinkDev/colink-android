@@ -9,6 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 class CastBoardPluginPackageTest {
     @Test
@@ -129,6 +131,108 @@ class CastBoardPluginPackageTest {
             }.exceptionOrNull()
             assertTrue(incompatible is CastBoardPluginException)
             assertEquals(CastBoardPluginFailure.Incompatible, (incompatible as CastBoardPluginException).failure)
+        } finally {
+            destination.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun validatesAndNormalizesConfigSchemaValues() {
+        val schema = CastBoardPluginConfigSchema(
+            type = "object",
+            additionalProperties = false,
+            properties = mapOf(
+                "step" to CastBoardPluginConfigField(
+                    type = "integer",
+                    default = JsonPrimitive(1.0),
+                    minimum = 1.0,
+                    maximum = 10.0,
+                ),
+                "theme" to CastBoardPluginConfigField(
+                    type = "string",
+                    default = JsonPrimitive("system"),
+                    enumValues = listOf("system", "dark"),
+                    enumTitles = mapOf(
+                        "system" to mapOf("en" to "System"),
+                        "dark" to mapOf("en" to "Dark"),
+                    ),
+                ),
+            ),
+        )
+
+        assertTrue(validateCastBoardPluginConfigSchema(schema))
+        assertEquals(
+            JsonObject(mapOf("step" to JsonPrimitive(5))),
+            normalizeCastBoardPluginConfigOverrides(
+                schema,
+                JsonObject(
+                    mapOf(
+                        "step" to JsonPrimitive(5),
+                        "theme" to JsonPrimitive("system"),
+                        "removed" to JsonPrimitive(true),
+                    ),
+                ),
+                strict = false,
+            ),
+        )
+        val error = runCatching {
+            normalizeCastBoardPluginConfigOverrides(
+                schema,
+                JsonObject(mapOf("step" to JsonPrimitive(0))),
+                strict = true,
+            )
+        }.exceptionOrNull()
+        assertTrue(error is CastBoardPluginException)
+        assertEquals(CastBoardPluginFailure.InvalidConfig, (error as CastBoardPluginException).failure)
+    }
+
+    @Test
+    fun rejectsConfigSchemasWithoutValidDefaults() {
+        val invalid = CastBoardPluginConfigSchema(
+            type = "object",
+            additionalProperties = false,
+            properties = mapOf(
+                "step" to CastBoardPluginConfigField(
+                    type = "integer",
+                    default = JsonPrimitive(0),
+                    minimum = 1.0,
+                ),
+            ),
+        )
+        assertFalse(validateCastBoardPluginConfigSchema(invalid))
+    }
+
+    @Test
+    fun requiresCastBoardTwoPointThreeForConfigurablePlugins() {
+        val destination = Files.createTempDirectory("castboard-plugin-test").toFile()
+        try {
+            destination.resolve("index.js").writeText("export default { mount() {} }")
+            val error = runCatching {
+                validateCastBoardPluginManifest(
+                    CastBoardPluginManifest(
+                        schemaVersion = "1.0.0",
+                        id = "com.example.config",
+                        name = mapOf("en" to "Config"),
+                        version = "1.0.0",
+                        minCastBoardVersion = "2.2.1",
+                        type = "navigable",
+                        entry = "index.js",
+                        configSchema = CastBoardPluginConfigSchema(
+                            type = "object",
+                            additionalProperties = false,
+                            properties = mapOf(
+                                "enabled" to CastBoardPluginConfigField(
+                                    type = "boolean",
+                                    default = JsonPrimitive(true),
+                                ),
+                            ),
+                        ),
+                    ),
+                    destination,
+                )
+            }.exceptionOrNull()
+            assertTrue(error is CastBoardPluginException)
+            assertEquals(CastBoardPluginFailure.InvalidManifest, (error as CastBoardPluginException).failure)
         } finally {
             destination.deleteRecursively()
         }
