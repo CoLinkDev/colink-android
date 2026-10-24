@@ -34,7 +34,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.DownloadForOffline
@@ -203,14 +202,6 @@ fun SettingsScreen(
             }
 
             ContentGroup(title = stringResource(R.string.settings_section_behavior)) {
-                SettingsSwitchItem(
-                    icon = Icons.Default.ContentPaste,
-                    title = stringResource(R.string.settings_clipboard_sync_title),
-                    subtitle = stringResource(R.string.settings_clipboard_sync_desc),
-                    checked = settings.enableClipboardSync,
-                    onCheckedChange = viewModel::updateClipboardSync,
-                )
-                SettingsGroupSeparator()
                 SettingsSwitchItem(
                     icon = Icons.Default.DownloadForOffline,
                     title = stringResource(R.string.settings_auto_accept_file_offers_title),

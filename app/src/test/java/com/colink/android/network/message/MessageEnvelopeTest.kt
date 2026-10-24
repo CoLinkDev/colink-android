@@ -182,27 +182,6 @@ class MessageEnvelopeTest {
     }
 
     @Test
-    fun serializesClipboardSyncPayload() {
-        val envelope = BusinessEnvelope(
-            type = CLIPBOARD_SYNC_TYPE,
-            payload = json.encodeToJsonElement(
-                ClipboardSyncPayload(
-                    contentType = "text/plain",
-                    content = "copied",
-                    data = null,
-                ),
-            ),
-        )
-
-        val encoded = json.encodeToString(envelope)
-
-        assertEquals(
-            """{"type":"clipboard.v1.sync","payload":{"contentType":"text/plain","content":"copied"}}""",
-            encoded,
-        )
-    }
-
-    @Test
     fun serializesMusicTrackPayload() {
         val envelope = BusinessEnvelope(
             type = MUSIC_TRACK_TYPE,

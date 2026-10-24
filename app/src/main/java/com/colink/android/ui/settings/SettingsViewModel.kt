@@ -67,7 +67,7 @@ class SettingsViewModel @Inject constructor(
             if (current.serverUrl != normalizedUrl) {
                 val updated = current.copy(serverUrl = normalizedUrl)
                 settingsDataStore.saveSettings(updated)
-                connectionManager.applySettings(updated)
+                connectionManager.applySettings()
             }
             val localizedContext = LocaleHelper.localized(context)
             _uiState.update {
@@ -82,18 +82,7 @@ class SettingsViewModel @Inject constructor(
             if (current.language != lang) {
                 val updated = current.copy(language = lang)
                 settingsDataStore.saveSettings(updated)
-                connectionManager.applySettings(updated)
-            }
-        }
-    }
-
-    fun updateClipboardSync(enabled: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val current = settingsDataStore.currentSettings()
-            if (current.enableClipboardSync != enabled) {
-                val updated = current.copy(enableClipboardSync = enabled)
-                settingsDataStore.saveSettings(updated)
-                connectionManager.applySettings(updated)
+                connectionManager.applySettings()
             }
         }
     }

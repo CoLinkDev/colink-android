@@ -167,8 +167,6 @@
     <string name="update_checking_btn">確認中...</string>
     <string name="update_up_to_date">最新バージョンです</string>
     <string name="update_check_failed">更新の確認に失敗しました</string>
-    <string name="settings_clipboard_sync_title">クリップボードを同期</string>
-    <string name="settings_clipboard_sync_desc">接続されたデバイスとクリップボードを共有する</string>
     <string name="settings_auto_accept_file_offers_title">ファイル転送を自動で受け入れる</string>
     <string name="settings_auto_accept_file_offers_desc">受信したファイル転送リクエストを確認なしで受け入れる</string>
     

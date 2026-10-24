@@ -9,7 +9,6 @@ const val BUSINESS_PROTOCOL_VERSION = "1.18.0"
 const val CLOUD_WEBSOCKET_PROTOCOL_VERSION = "1.1.0"
 const val TEXT_MESSAGE_TYPE = "message.v1.text"
 const val TEXT_MESSAGE_RECEIPT_TYPE = "message.v1.receipt"
-const val CLIPBOARD_SYNC_TYPE = "clipboard.v1.sync"
 const val FILE_OFFER_TYPE = "file.v2.offer"
 const val FILE_ACCEPT_TYPE = "file.v2.accept"
 const val FILE_REJECT_TYPE = "file.v2.reject"
@@ -112,13 +111,6 @@ data class TextMessagePayload(
 @Serializable
 data class TextMessageReceiptPayload(
     val messageId: String,
-)
-
-@Serializable
-data class ClipboardSyncPayload(
-    val contentType: String,
-    val content: String? = null,
-    val data: String? = null,
 )
 
 @Serializable

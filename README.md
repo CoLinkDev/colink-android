@@ -1,6 +1,6 @@
 # CoLink Android
 
-Android client for CoLink — clipboard sync, file transfer, text messaging, and CastBoard display.
+Android client for CoLink — file transfer, text messaging, remote access, and CastBoard display.
 
 **Tech stack:** Kotlin 2 · Jetpack Compose (Material 3) · Hilt · OkHttp/Retrofit · Ktor CIO · Room · Bouncy Castle · Android NSD
 

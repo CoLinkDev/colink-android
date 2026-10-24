@@ -10,7 +10,6 @@ import com.colink.android.domain.model.FileTransfer
 import com.colink.android.domain.model.FileTransferDirection
 import com.colink.android.domain.model.MessageDirection
 import com.colink.android.domain.model.MessageDeliveryStatus
-import com.colink.android.domain.model.AppSettings
 import com.colink.android.domain.model.DeviceIdentity
 import com.colink.android.domain.repository.AuthRepository
 import com.colink.android.domain.repository.DeviceRepository
@@ -45,7 +44,6 @@ import com.colink.android.network.camera.CameraConfigException
 import com.colink.android.network.message.BusinessEnvelope
 import com.colink.android.network.message.BUSINESS_PROTOCOL_VERSION
 import com.colink.android.network.message.CLOUD_WEBSOCKET_PROTOCOL_VERSION
-import com.colink.android.network.message.CLIPBOARD_SYNC_TYPE
 import com.colink.android.network.message.CloudClientEnvelope
 import com.colink.android.network.message.CloudServerEnvelope
 import com.colink.android.network.message.DeviceOnlinePayload
@@ -479,7 +477,6 @@ class ConnectionManager @Inject constructor(
     private val musicSyncManager: MusicSyncManager,
     private val sysInfoSyncManager: SysInfoSyncManager,
     private val notifier: CoLinkNotifier,
-    private val clipboardSyncHandler: ClipboardSyncHandler,
     private val lanNetworkMonitor: LanNetworkMonitor,
     private val messageRouter: MessageRouter,
     private val localFilesystem: LocalFilesystem,
@@ -604,11 +601,6 @@ class ConnectionManager @Inject constructor(
                 cloudBusinessVersions.clear()
                 CoLinkLog.d("Cloud", "cloud loop skipped because no session exists")
             }
-            if (settingsDataStore.currentSettings().enableClipboardSync) {
-                withContext(Dispatchers.Main) {
-                    startClipboardSync()
-                }
-            }
         }
     }
 
@@ -625,7 +617,6 @@ class ConnectionManager @Inject constructor(
         swimJob = null
         suspectJob?.cancel()
         suspectJob = null
-        clipboardSyncHandler.stop()
         broadcastLeft()
         lanLifecycle.stopAndInvalidate()
         musicSyncManager.reset()
@@ -702,19 +693,12 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    fun applySettings(settings: AppSettings) {
+    fun applySettings() {
         CoLinkLog.i("Settings", "applying settings")
         lanLifecycle.startIfDesired()
         scope.launch {
             if (settingsDataStore.currentSession() != null && connectionJob?.isActive != true) {
                 connectionJob = scope.launch { runCloudLoop() }
-            }
-            withContext(Dispatchers.Main) {
-                if (settings.enableClipboardSync) {
-                    startClipboardSync()
-                } else {
-                    stopClipboardSync()
-                }
             }
         }
     }
@@ -1207,21 +1191,6 @@ class ConnectionManager @Inject constructor(
             "cloud"
         }
 
-    private fun sendCloudBroadcast(business: BusinessEnvelope, correlationId: String? = null): Result<String> =
-        runCatching {
-            check(_cloudState.value.connected) { "cloud connection is not ready" }
-            ensureKnownCloudBusinessVersionsCompatible()
-            val envelope = CloudClientEnvelope(
-                id = UUID.randomUUID().toString(),
-                type = "broadcast",
-                correlationId = correlationId,
-                payload = json.encodeToJsonElement(business),
-            )
-
-            check(cloudWebSocketClient.send(envelope)) { "cloud connection is not ready" }
-            "cloud"
-        }
-
     private suspend fun trySendViaExistingLan(
         targetDeviceId: String,
         business: BusinessEnvelope,
@@ -1625,7 +1594,6 @@ class ConnectionManager @Inject constructor(
         when (business.type) {
             TEXT_MESSAGE_TYPE -> saveInboundTextMessage(fromDeviceId, business, route)
             TEXT_MESSAGE_RECEIPT_TYPE -> handleTextMessageReceipt(fromDeviceId, business, route)
-            CLIPBOARD_SYNC_TYPE -> clipboardSyncHandler.receive(business)
             FILE_OFFER_TYPE -> handleFileOffer(fromDeviceId, envelopeId, correlationId, business, route, FileTransferProtocol.V2)
             FILE_V3_OFFER_TYPE -> {
                 val payload = runCatching {
@@ -5162,16 +5130,6 @@ class ConnectionManager @Inject constructor(
         }
     }
 
-    private fun ensureKnownCloudBusinessVersionsCompatible() {
-        val incompatible = cloudBusinessVersions.entries.firstOrNull { (_, version) ->
-            !checkBusinessProtocolVersion(version).compatible
-        } ?: return
-        val compatibility = checkBusinessProtocolVersion(incompatible.value)
-        check(false) {
-            compatibility.message ?: compatibility.reason ?: "business protocol version incompatible"
-        }
-    }
-
     private fun buildWsUrl(serverUrl: String, ticket: String): String {
         val uri = URI(serverUrl.trim())
         val scheme = if (uri.scheme == "https") "wss" else "ws"
@@ -6157,19 +6115,6 @@ class ConnectionManager @Inject constructor(
                 }
             }
         }
-    }
-
-    private fun startClipboardSync() {
-        clipboardSyncHandler.start(
-            scope = scope,
-            sendCloudBroadcast = { business -> sendCloudBroadcast(business) },
-            sendViaLan = { deviceId, business -> sendViaLan(deviceId, business) },
-            sendBusinessMessage = { deviceId, business -> sendBusinessMessage(deviceId, business) },
-        )
-    }
-
-    private fun stopClipboardSync() {
-        clipboardSyncHandler.stop()
     }
 
     private suspend fun saveReceivedFileToDownloads(tempFile: File, fileName: String): String? {

@@ -167,8 +167,6 @@
     <string name="update_checking_btn">Проверка...</string>
     <string name="update_up_to_date">Установлена последняя версия</string>
     <string name="update_check_failed">Не удалось проверить обновления</string>
-    <string name="settings_clipboard_sync_title">Синхронизация буфера обмена</string>
-    <string name="settings_clipboard_sync_desc">Общий доступ к содержимому буфера обмена с подключенными устройствами</string>
     <string name="settings_auto_accept_file_offers_title">Автоматически принимать передачи файлов</string>
     <string name="settings_auto_accept_file_offers_desc">Принимать входящие запросы на передачу файлов без подтверждения</string>
     
